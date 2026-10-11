@@ -38,8 +38,9 @@ for (const locale of locales) {
   previous[locale] = flatten(load(git("show", `${base}:${file}`)))
 }
 
+// Context-menu selection titles use Chrome's %s substitution; it must survive translation.
 const signature = (value) =>
-  JSON.stringify((String(value).match(/\$\d+|\{\{[^}]+\}\}/g) ?? []).sort())
+  JSON.stringify((String(value).match(/%s|\$\d+|\{\{[^}]+\}\}/g) ?? []).sort())
 const missing = (resource, reference) => Object.keys(reference).filter((key) => !(key in resource))
 const fallbackKeys = {}
 const newFallbackKeys = {}
