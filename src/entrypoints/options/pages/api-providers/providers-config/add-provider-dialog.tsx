@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import type { APIProviderTypes } from "@/types/config/provider"
 import { IconBrandOpenai } from "@tabler/icons-react"
 import { useSetAtom, useStore } from "jotai"
@@ -16,6 +17,11 @@ import {
 import { i18n } from "@/utils/i18n"
 import { selectedProviderIdAtom } from "./atoms"
 import { addProvider } from "./utils"
+
+const providerButtonClassName =
+  "relative flex h-auto flex-col items-center space-y-1.5 rounded-lg p-2 outline-none hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring"
+const providerLabelClassName =
+  "line-clamp-2 flex w-full flex-1 items-center justify-center text-xs font-light"
 
 export default function AddProviderDialog({
   onClose,
@@ -58,21 +64,6 @@ export default function AddProviderDialog({
       <DialogHeader>
         <DialogTitle>{i18n.t("options.apiProviders.dialog.title")}</DialogTitle>
       </DialogHeader>
-      {onSelectChatGPT && (
-        <button
-          type="button"
-          className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-3 text-left font-medium outline-none hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={() => {
-            selectedChatGPT.current = true
-            onClose()
-            // Closing the modal and starting the shared flow remain one user gesture.
-            onSelectChatGPT()
-          }}
-        >
-          <IconBrandOpenai aria-hidden="true" className="size-6" stroke={1.5} />
-          <span>ChatGPT</span>
-        </button>
-      )}
       {Object.entries(PROVIDER_GROUPS).map(([groupKey, group]) => (
         <ProviderButtonGroup
           key={groupKey}
@@ -84,6 +75,25 @@ export default function AddProviderDialog({
           )}
           providerTypes={group.types}
           handleAddProvider={handleAddProvider}
+          leadingProvider={
+            groupKey === "builtInProviders" && onSelectChatGPT ? (
+              <button
+                type="button"
+                className={providerButtonClassName}
+                onClick={() => {
+                  selectedChatGPT.current = true
+                  onClose()
+                  // Closing the modal and starting the shared flow remain one user gesture.
+                  onSelectChatGPT()
+                }}
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-white dark:bg-muted">
+                  <IconBrandOpenai aria-hidden="true" className="size-5" stroke={1.5} />
+                </span>
+                <span className={providerLabelClassName}>ChatGPT</span>
+              </button>
+            ) : null
+          }
         />
       ))}
     </DialogContent>
@@ -95,11 +105,13 @@ function ProviderButtonGroup({
   groupDescription,
   providerTypes,
   handleAddProvider,
+  leadingProvider,
 }: {
   groupTitle: string
   groupDescription: string
   providerTypes: readonly APIProviderTypes[]
   handleAddProvider: (providerType: APIProviderTypes) => void
+  leadingProvider?: ReactNode
 }) {
   return (
     <div className="my-2.5">
@@ -110,6 +122,7 @@ function ProviderButtonGroup({
         {groupDescription}
       </p>
       <div className="grid grid-cols-4 gap-1.5 py-2 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11">
+        {leadingProvider}
         {providerTypes.map((providerType) => (
           <ProviderButton
             key={providerType}
@@ -135,7 +148,7 @@ function ProviderButton({
     <button
       type="button"
       key={providerType}
-      className="relative flex h-auto flex-col items-center space-y-1.5 rounded-lg p-2 hover:bg-muted/70"
+      className={providerButtonClassName}
       onClick={() => handleAddProvider(providerType)}
     >
       {sponsor?.sponsoring && (
@@ -145,9 +158,7 @@ function ProviderButton({
         />
       )}
       <ProviderIcon logo={API_PROVIDER_ITEMS[providerType].logo(theme)} size="md" />
-      <span className="line-clamp-2 flex w-full flex-1 items-center justify-center text-xs font-light">
-        {getProviderItemName(providerType)}
-      </span>
+      <span className={providerLabelClassName}>{getProviderItemName(providerType)}</span>
     </button>
   )
 }
