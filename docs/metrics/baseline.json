@@ -1,0 +1,313 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "productRevision": "ca8da8241883c9aff5862d15d045845a746c9a6b",
+    "productBranchAtBuild": "main",
+    "evidenceCreatedUtc": "2026-10-11T08:33:28.352800+00:00",
+    "measurementContext": "Historical baseline source/dependency counts were established by the read-only audit at clean ca8da824 and match this saved measurement. Existing output artifact provenance is established separately by the setup evidence. Package/lockfile hashes match that evidence. Later measurement or comparison runs may occur during concurrent source edits; current Git state and source counts do not prove that existing outputs were rebuilt from that worktree.",
+    "builds": [
+      {
+        "output": ".output/chrome-mv3",
+        "command": "WXT_SKIP_ENV_VALIDATION=true pnpm build",
+        "result": "PASS",
+        "reportedFinishSeconds": 6.611
+      },
+      {
+        "output": ".output/firefox-mv3",
+        "command": "WXT_SKIP_ENV_VALIDATION=true pnpm zip:firefox",
+        "result": "PASS",
+        "reportedFinishSeconds": 8.022,
+        "reportedZipSeconds": 1.681
+      }
+    ],
+    "validation": [
+      {
+        "command": "pnpm type-check",
+        "result": "PASS"
+      },
+      {
+        "command": "pnpm fmt:check",
+        "result": "PASS"
+      },
+      {
+        "command": "WXT_SKIP_ENV_VALIDATION=true SKIP_FREE_API=true pnpm test --exclude='**/free-api.test.ts' --maxWorkers=4",
+        "result": "PASS"
+      }
+    ],
+    "tests": {
+      "passed_files": 381,
+      "passed_tests": 4078,
+      "duration_seconds": 97.63
+    },
+    "intentionallyExcluded": "free-api.test.ts; SKIP_FREE_API=true",
+    "validationNotPerformed": [
+      "dev-local test (missing sibling monorepo)",
+      "browser/runtime smoke tests",
+      "production credential validation"
+    ],
+    "timingCaution": "Single recorded tool-reported wall-time samples, not a benchmark. Build, test, ZIP and footprint sizes do not establish runtime speed, memory, or CPU improvements.",
+    "archives": [
+      {
+        "path": ".output/read-frogextension-1.50.3-firefox.zip",
+        "bytes": 7884929,
+        "sha256": "84867668a37c1197e2d9fb3f0aad818cdf5467a11e3afc47383dd24542fb9a65"
+      },
+      {
+        "path": ".output/read-frogextension-1.50.3-sources.zip",
+        "bytes": 3055910,
+        "sha256": "bf8b917bb98f50de34f10333de12fd34077c863eee689688f9f003c04624ead4"
+      }
+    ]
+  },
+  "measurement": {
+    "schemaVersion": 1,
+    "repository": {
+      "head": "ca8da8241883c9aff5862d15d045845a746c9a6b",
+      "dirty": false
+    },
+    "toolchain": {
+      "node": "v25.5.0",
+      "zlib": "1.2.12",
+      "gzipLevel": 9,
+      "gzipMethod": "sum of independent per-file gzip streams"
+    },
+    "hashes": {
+      "packageJsonSha256": "6ab8f3c68285a91193804c2fcef1ccd49427e44136a25b9b8992a94093b0e1c4",
+      "pnpmLockSha256": "f9816dbbd8ecd0aadca2549974f0f650bd6027dd28657392afc38b3db18a0b71"
+    },
+    "dependencies": {
+      "runtime": 93,
+      "development": 41,
+      "optional": 0,
+      "peer": 0,
+      "runtimeAndDevelopment": 134
+    },
+    "source": {
+      "trackedFiles": 1834,
+      "trackedSrcFiles": 1531,
+      "sourceCodeFiles": 1485,
+      "testFiles": 375,
+      "localeFiles": 10,
+      "byExtension": {
+        ".cjs": 1,
+        ".css": 8,
+        ".html": 5,
+        ".jpg": 1,
+        ".json": 1,
+        ".md": 3,
+        ".png": 6,
+        ".svg": 8,
+        ".ts": 1023,
+        ".tsx": 462,
+        ".txt": 3,
+        ".yml": 10
+      }
+    },
+    "outputs": {
+      ".output/chrome-mv3": {
+        "files": 197,
+        "bytes": 23811511,
+        "gzipBytes": 7826405,
+        "byExtension": {
+          ".css": {
+            "files": 5,
+            "bytes": 688658,
+            "gzipBytes": 106080
+          },
+          ".html": {
+            "files": 5,
+            "bytes": 11789,
+            "gzipBytes": 3547
+          },
+          ".jpg": {
+            "files": 1,
+            "bytes": 209136,
+            "gzipBytes": 181229
+          },
+          ".js": {
+            "files": 149,
+            "bytes": 19993216,
+            "gzipBytes": 6148958
+          },
+          ".json": {
+            "files": 11,
+            "bytes": 1802500,
+            "gzipBytes": 336622
+          },
+          ".png": {
+            "files": 14,
+            "bytes": 875907,
+            "gzipBytes": 826668
+          },
+          ".svg": {
+            "files": 5,
+            "bytes": 11793,
+            "gzipBytes": 4647
+          },
+          ".woff2": {
+            "files": 7,
+            "bytes": 218512,
+            "gzipBytes": 218654
+          }
+        },
+        "largestFiles": [
+          {
+            "path": "content-scripts/selection.js",
+            "bytes": 3513162,
+            "gzipBytes": 1121420
+          },
+          {
+            "path": "content-scripts/host.js",
+            "bytes": 3149978,
+            "gzipBytes": 964771
+          },
+          {
+            "path": "content-scripts/subtitles.js",
+            "bytes": 2773691,
+            "gzipBytes": 876197
+          },
+          {
+            "path": "chunks/execute-translate-uu6CU3FL.js",
+            "bytes": 1910592,
+            "gzipBytes": 465420
+          },
+          {
+            "path": "content-scripts/side.js",
+            "bytes": 1760748,
+            "gzipBytes": 545105
+          },
+          {
+            "path": "chunks/jsx-runtime-JYx1tVgO.js",
+            "bytes": 1272783,
+            "gzipBytes": 389874
+          },
+          {
+            "path": "content-scripts/guide.js",
+            "bytes": 1270340,
+            "gzipBytes": 387443
+          },
+          {
+            "path": "background.js",
+            "bytes": 456076,
+            "gzipBytes": 137651
+          },
+          {
+            "path": "chunks/esm-CxdyE3qC.js",
+            "bytes": 434699,
+            "gzipBytes": 138432
+          },
+          {
+            "path": "chunks/custom-actions-CuqpfVig.js",
+            "bytes": 254817,
+            "gzipBytes": 81186
+          }
+        ],
+        "skippedSymlinks": [],
+        "skippedSpecialFiles": [],
+        "skippedSensitivePaths": []
+      },
+      ".output/firefox-mv3": {
+        "files": 197,
+        "bytes": 23811806,
+        "gzipBytes": 7826685,
+        "byExtension": {
+          ".css": {
+            "files": 5,
+            "bytes": 688658,
+            "gzipBytes": 106080
+          },
+          ".html": {
+            "files": 5,
+            "bytes": 11789,
+            "gzipBytes": 3545
+          },
+          ".jpg": {
+            "files": 1,
+            "bytes": 209136,
+            "gzipBytes": 181229
+          },
+          ".js": {
+            "files": 149,
+            "bytes": 19993205,
+            "gzipBytes": 6149065
+          },
+          ".json": {
+            "files": 11,
+            "bytes": 1802806,
+            "gzipBytes": 336797
+          },
+          ".png": {
+            "files": 14,
+            "bytes": 875907,
+            "gzipBytes": 826668
+          },
+          ".svg": {
+            "files": 5,
+            "bytes": 11793,
+            "gzipBytes": 4647
+          },
+          ".woff2": {
+            "files": 7,
+            "bytes": 218512,
+            "gzipBytes": 218654
+          }
+        },
+        "largestFiles": [
+          {
+            "path": "content-scripts/selection.js",
+            "bytes": 3513165,
+            "gzipBytes": 1121419
+          },
+          {
+            "path": "content-scripts/host.js",
+            "bytes": 3149980,
+            "gzipBytes": 964776
+          },
+          {
+            "path": "content-scripts/subtitles.js",
+            "bytes": 2773693,
+            "gzipBytes": 876192
+          },
+          {
+            "path": "chunks/execute-translate-BE1gQsvq.js",
+            "bytes": 1910592,
+            "gzipBytes": 465420
+          },
+          {
+            "path": "content-scripts/side.js",
+            "bytes": 1760750,
+            "gzipBytes": 545103
+          },
+          {
+            "path": "chunks/jsx-runtime-C3F4JNkj.js",
+            "bytes": 1272755,
+            "gzipBytes": 389853
+          },
+          {
+            "path": "content-scripts/guide.js",
+            "bytes": 1270341,
+            "gzipBytes": 387444
+          },
+          {
+            "path": "background.js",
+            "bytes": 456081,
+            "gzipBytes": 137650
+          },
+          {
+            "path": "chunks/esm-Bwt_i58h.js",
+            "bytes": 434699,
+            "gzipBytes": 138432
+          },
+          {
+            "path": "chunks/custom-actions-CeDlozpP.js",
+            "bytes": 254817,
+            "gzipBytes": 81186
+          }
+        ],
+        "skippedSymlinks": [],
+        "skippedSpecialFiles": [],
+        "skippedSensitivePaths": []
+      }
+    }
+  }
+}
