@@ -131,8 +131,18 @@ describe("LingoTori migration", () => {
     "still clears %s assignments without choosing a different provider",
     (providerId) => {
       const providers = [
-        { ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai), id: "disabled-byok", enabled: false },
-        { ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai), id: "available-byok", enabled: true },
+        {
+          ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai),
+          id: "disabled-byok",
+          name: "Disabled BYOK",
+          enabled: false,
+        },
+        {
+          ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai),
+          id: "available-byok",
+          name: "Available BYOK",
+          enabled: true,
+        },
         {
           ...structuredClone(DEFAULT_PROVIDER_CONFIG.byos),
           id: "legacy-experimental",

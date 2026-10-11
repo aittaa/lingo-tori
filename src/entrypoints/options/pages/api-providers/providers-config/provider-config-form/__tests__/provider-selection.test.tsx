@@ -115,7 +115,11 @@ function configWithInertAssignments(enabled: boolean) {
     id: "legacy-experimental",
     enabled,
   }
-  const byok = { ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai), id: "api-to-delete" }
+  const byok = {
+    ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai),
+    id: "api-to-delete",
+    name: "API to delete",
+  }
   config.providersConfig = [inert, byok]
   config.pageTranslation.providerId = inert.id
   config.videoSubtitles.providerId = inert.id
@@ -165,6 +169,7 @@ describe("provider editor selection after deletion", () => {
     const remaining = {
       ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai),
       id: "remaining-api",
+      name: "Remaining API",
       enabled: false,
     }
     config.providersConfig.push(remaining)
