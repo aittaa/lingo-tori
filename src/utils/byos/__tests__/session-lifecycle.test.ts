@@ -181,19 +181,15 @@ describe("refresh lifecycle", () => {
       expect((await vault.read()).credentials?.refreshToken).toBe("synthetic-refresh")
     },
   )
-  it("does not reuse an access token rejected with 401 after an uncertain rotation", async () => {
+  it("does not reuse an explicitly rejected access token after an uncertain rotation", async () => {
     const { vault, make } = await prepared(Date.now() + 20000)
     const fetcher = vi.fn<typeof fetch>(async (url) => {
       if (fetchUrl(url) === TOKEN_URL) throw new Error("synthetic lost token response")
-      return Response.json(
-        { error: { code: "subscription_sharing_invalid_user" } },
-        { status: 401 },
-      )
+      return Response.json({ error: { code: "invalid_token" } }, { status: 401 })
     })
     const service = make(fetcher)
     await expect(service.models()).rejects.toMatchObject({
-      status: 401,
-      code: "subscription_sharing_invalid_user",
+      code: "reconnect-required",
     })
     expect((await vault.read()).accessRejected).toBe(true)
     await expect(service.models()).rejects.toThrow("reconnect-required")

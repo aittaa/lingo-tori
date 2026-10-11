@@ -72,6 +72,12 @@ const tokensSchema = z.object({
 function fail(code: string, status = 0): never {
   throw new ByosBridgeError(code, status)
 }
+function rejectsAccessToken(error: ByosBridgeError) {
+  return (
+    error.status === 401 &&
+    ["token_expired", "invalid_token", "invalid_api_key"].includes(error.code)
+  )
+}
 
 function hasPlanAccess(credentials: Credentials | undefined): credentials is Credentials {
   return (
@@ -405,7 +411,7 @@ export function createByosService(
     await ensureGeneration(active.generation)
     if (!response.ok) {
       const error = await responseError(response, options.signal ?? undefined)
-      if (response.status === 401)
+      if (rejectsAccessToken(error))
         await vault.update((record) => {
           if (
             record.generation === active.generation &&
@@ -422,7 +428,8 @@ export function createByosService(
         response = await send()
         await ensureGeneration(active.generation)
         if (!response.ok) {
-          if (response.status === 401)
+          const retryError = await responseError(response, options.signal ?? undefined)
+          if (rejectsAccessToken(retryError))
             await vault.update((record) => {
               if (
                 record.generation === active.generation &&
@@ -431,7 +438,7 @@ export function createByosService(
               )
                 record.accessRejected = true
             })
-          throw await responseError(response, options.signal ?? undefined)
+          throw retryError
         }
       } else throw error
     }
