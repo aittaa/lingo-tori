@@ -92,6 +92,10 @@ export class NetflixSubtitlesFetcher implements SubtitlesFetcher {
     return this.sourceLanguage
   }
 
+  getCachedSubtitles(): SubtitlesFragment[] | null {
+    return this.loadsInFlight === 0 && this.subtitles.length > 0 ? this.subtitles : null
+  }
+
   isPreSegmented(): boolean {
     return true
   }

@@ -88,6 +88,12 @@ export class TextTrackFetcher implements SubtitlesFetcher {
     return track ? this.buildTrackHash(track) : null
   }
 
+  getCachedSubtitles(): SubtitlesFragment[] | null {
+    return this.subtitles.length > 0 && this.cachedTrackHash === this.getTrackIdentity()
+      ? this.subtitles
+      : null
+  }
+
   async hasAvailableSubtitles(): Promise<boolean> {
     const video = this.options.resolveVideo()
     const track = video ? this.selectTrack(video) : null

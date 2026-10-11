@@ -212,4 +212,29 @@ describe("NetflixSubtitlesFetcher", () => {
       POST_MESSAGE_TIMEOUT_MS,
     )
   })
+
+  it("only exposes successfully loaded cache without IO and withholds it during another load", async () => {
+    const fetcher = new NetflixSubtitlesFetcher()
+    expect(fetcher.getCachedSubtitles()).toBeNull()
+    expect(postMessageRequest).not.toHaveBeenCalled()
+    respondWith({ load: response() })
+    await fetcher.fetch()
+    expect(fetcher.getCachedSubtitles()).toEqual([{ text: "Hello there.", start: 1000, end: 2000 }])
+    expect(postMessageRequest).toHaveBeenCalledTimes(1)
+
+    let finishLoad!: (reply: NetflixSubtitlesResponse) => void
+    postMessageRequest.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishLoad = resolve
+        }),
+    )
+    const loading = fetcher.fetch()
+    expect(fetcher.getCachedSubtitles()).toBeNull()
+    expect(postMessageRequest).toHaveBeenCalledTimes(2)
+    finishLoad(response({ trackId: "T:ja", ttml: null }))
+    await expect(loading).rejects.toThrow("subtitles.errors.trackFileNotLoaded")
+    expect(fetcher.getCachedSubtitles()).toBeNull()
+    expect(postMessageRequest).toHaveBeenCalledTimes(2)
+  })
 })

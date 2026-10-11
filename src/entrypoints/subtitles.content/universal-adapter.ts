@@ -807,14 +807,17 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     if (useSameTrack && !hasPublishedTrackChanged) {
       if (this.hasPendingTranscriptRefresh) {
         // A copy preparation may already have cached the latest track after
-        // cancellation. Publish it without discarding that valid preparation.
-        await this.getOrLoadSourceSubtitles()
-        if (
-          fetcher !== this.fetcher ||
-          cacheVersion !== this.sourceCacheVersion ||
-          identity !== fetcher.getTrackIdentity?.()
-        )
-          throw new DOMException("Transcript refresh superseded", "AbortError")
+        // cancellation. Only read loaded data: a same-track result also keeps
+        // Netflix's failed or pending load from being retried by every poll.
+        const currentVideoId = this.config.getVideoId?.() ?? null
+        const subtitles =
+          this.sourceVideoId === currentVideoId && this.sourceSubtitles.length > 0
+            ? this.sourceSubtitles
+            : fetcher.getCachedSubtitles?.()
+        if (!subtitles?.length) return
+        this.sourceVideoId = currentVideoId
+        this.sourceSubtitles = subtitles
+        this.sourceProcessedSubtitles = this.buildSourceProcessedSubtitles(subtitles)
         this.publishSourceTrack(this.sourceProcessedSubtitles)
         this.hasPendingTranscriptRefresh = false
       }

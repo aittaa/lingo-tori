@@ -87,6 +87,25 @@ describe("TextTrackFetcher", () => {
     await expect(pending).resolves.toEqual([{ text: "late", start: 0, end: 1000 }])
   })
 
+  it("exposes cache only for the currently selected native track without starting cue loading", async () => {
+    const first = new FakeTrack("subtitles", "English", "en", "showing")
+    const next = new FakeTrack("subtitles", "日本語", "ja", "disabled")
+    first.loadCues("A")
+    const fetcher = createFetcher(videoWith(first, next))
+    expect(fetcher.getCachedSubtitles()).toBeNull()
+    await fetcher.fetch()
+    expect(fetcher.getCachedSubtitles()).toEqual([{ text: "A", start: 0, end: 1000 }])
+    first.mode = "disabled"
+    next.mode = "showing"
+    expect(fetcher.getCachedSubtitles()).toBeNull()
+    expect(next.mode).toBe("showing")
+    next.loadCues("B")
+    await fetcher.fetch()
+    expect(fetcher.getCachedSubtitles()).toEqual([{ text: "B", start: 0, end: 1000 }])
+    fetcher.cleanup()
+    expect(fetcher.getCachedSubtitles()).toBeNull()
+  })
+
   it("reuses the same track until the video changes", async () => {
     const track = new FakeTrack("subtitles", "English", "en", "showing")
     track.loadCues("hello")
