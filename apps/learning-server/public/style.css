@@ -1,0 +1,139 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #20362c;
+  background: #f4f6ee;
+  line-height: 1.6;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 780px;
+  margin: auto;
+  padding: 32px 24px;
+}
+header,
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.brand {
+  font-size: 24px;
+  font-weight: 800;
+  color: #356643;
+}
+h1 {
+  font-size: clamp(30px, 6vw, 46px);
+  line-height: 1.2;
+  letter-spacing: -1px;
+  margin-top: 48px;
+}
+h2 {
+  font-size: 21px;
+}
+h3 {
+  font-size: 32px;
+  margin: 16px 0;
+}
+section {
+  background: #fff;
+  border: 1px solid #dde4d7;
+  border-radius: 18px;
+  padding: 24px;
+  margin: 24px 0;
+  box-shadow: 0 4px 18px #234b2610;
+}
+label {
+  display: block;
+  font-weight: 600;
+  margin-top: 12px;
+}
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  border: 1px solid #aabca8;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+input,
+textarea {
+  display: block;
+  width: 100%;
+  margin: 6px 0 16px;
+  background: #fff;
+}
+textarea {
+  min-height: 80px;
+}
+button {
+  cursor: pointer;
+  background: #356643;
+  color: white;
+  font-weight: 600;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+button:hover {
+  background: #254b31;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid #a3c868;
+  outline-offset: 3px;
+}
+.toolbar {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.file {
+  margin: 0;
+}
+.file input {
+  max-width: 240px;
+  font-size: 12px;
+}
+#ratings {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+#context {
+  white-space: pre-wrap;
+  color: #53624f;
+}
+#meaning {
+  white-space: pre-wrap;
+}
+footer {
+  font-size: 13px;
+  color: #63755d;
+  margin: 40px 0;
+}
+#status {
+  min-height: 28px;
+  color: #7a431f;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 480px) {
+  main {
+    padding: 20px 16px;
+  }
+  section {
+    padding: 18px;
+  }
+  .toolbar {
+    justify-content: flex-start;
+  }
+}
