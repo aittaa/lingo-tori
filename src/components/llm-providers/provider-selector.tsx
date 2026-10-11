@@ -171,7 +171,7 @@ function GroupedSelect({
 }) {
   return (
     <Select<ProviderSelectorOption>
-      value={currentProvider}
+      value={currentProvider ?? null}
       onValueChange={(provider) => {
         if (!provider) return
         onChange(provider.id)
@@ -180,14 +180,18 @@ function GroupedSelect({
     >
       <SelectTrigger className={className} size={triggerSize}>
         <SelectValue placeholder={placeholder}>
-          {(provider: ProviderSelectorOption) => (
-            <ProviderIcon
-              logo={getProviderLogo(provider, theme)}
-              name={getProviderName(provider)}
-              size="sm"
-              textClassName={triggerNameClassName}
-            />
-          )}
+          {(provider: ProviderSelectorOption | null) =>
+            provider ? (
+              <ProviderIcon
+                logo={getProviderLogo(provider, theme)}
+                name={getProviderName(provider)}
+                size="sm"
+                textClassName={triggerNameClassName}
+              />
+            ) : (
+              placeholder
+            )
+          }
         </SelectValue>
       </SelectTrigger>
       <SelectContent {...selectContentProps}>
@@ -240,7 +244,7 @@ function UngroupedSelect({
 }) {
   return (
     <Select<ProviderSelectorOption>
-      value={currentProvider}
+      value={currentProvider ?? null}
       onValueChange={(provider) => {
         if (!provider) return
         onChange(provider.id)
@@ -250,14 +254,18 @@ function UngroupedSelect({
     >
       <SelectTrigger className={className} size={triggerSize}>
         <SelectValue placeholder={placeholder}>
-          {(provider: ProviderSelectorOption) => (
-            <ProviderIcon
-              logo={getProviderLogo(provider, theme)}
-              name={getProviderName(provider)}
-              size="sm"
-              textClassName={triggerNameClassName}
-            />
-          )}
+          {(provider: ProviderSelectorOption | null) =>
+            provider ? (
+              <ProviderIcon
+                logo={getProviderLogo(provider, theme)}
+                name={getProviderName(provider)}
+                size="sm"
+                textClassName={triggerNameClassName}
+              />
+            ) : (
+              placeholder
+            )
+          }
         </SelectValue>
       </SelectTrigger>
       <SelectContent {...selectContentProps}>
