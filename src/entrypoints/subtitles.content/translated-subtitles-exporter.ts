@@ -38,6 +38,7 @@ export class TranslatedSubtitlesExporter {
     private getFetcher: () => SubtitlesFetcher,
     config: PlatformConfig,
     getContext: () => unknown = () => config.getVideoId?.(),
+    private beforeSourceFetch?: () => Promise<void>,
   ) {
     this.clipboard = new SubtitleClipboardExporter(
       (assertActive) => this.prepare(assertActive),
@@ -61,6 +62,11 @@ export class TranslatedSubtitlesExporter {
       assertActive()
       this.assertActive(operationId)
       if (!configSnapshot) throw new Error(i18n.t("subtitles.errors.translatedExportFailed"))
+      if (this.beforeSourceFetch) {
+        await this.beforeSourceFetch()
+        assertActive()
+        this.assertActive(operationId)
+      }
       const sourceSubtitles = await this.fetcher.fetch()
       assertActive()
       this.assertActive(operationId)

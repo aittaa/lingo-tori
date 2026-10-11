@@ -10,6 +10,7 @@ import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
 import { createFeatureUsageContext, trackFeatureUsed } from "@/utils/analytics"
 import { classifyFailureReason } from "@/utils/analytics-failure-reason"
 import { classifyResolvedProvider, UNKNOWN_FEATURE_PROVIDER } from "@/utils/analytics-provider"
+import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { getLocalConfig } from "@/utils/config/storage"
 import {
   HIDE_NATIVE_CAPTIONS_STYLE_ID,
@@ -107,12 +108,14 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   private hasPendingNavigationReset = false
   private trackChangeRefreshPromise: Promise<void> | null = null
   private pendingTranscriptLoads = 0
+  private pendingSourceLoads = new WeakMap<SubtitlesFetcher, number>()
 
   private sourceSubtitles: SubtitlesFragment[] = []
   private sourceProcessedSubtitles: SubtitlesFragment[] = []
   private summaryAbortController: AbortController | null = null
   private sourceVideoId: string | null = null
   private sourceCacheVersion = 0
+  private sourceLoadVersion = 0
   private navigationVideoId: string | null
 
   private sessionSubtitles: SubtitlesFragment[] = []
@@ -265,6 +268,9 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
 
   private getExportContext = () => `${this.sourceCacheVersion}:${this.config.getVideoId?.() ?? ""}`
 
+  private getTranslatedExportContext = () =>
+    `${this.getExportContext()}:${subtitlesStore.get(configFieldsAtomMap.language).targetCode}`
+
   copySourceSubtitles = (): Promise<void> => {
     this.sourceSubtitlesExporter ??= new SubtitleClipboardExporter(
       async (assertActive) => {
@@ -287,8 +293,27 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     this.translatedSubtitlesExporter ??= new TranslatedSubtitlesExporter(
       () => this.fetcher,
       this.config,
-      this.getExportContext,
+      this.getTranslatedExportContext,
+      this.prepareSourceCacheForTranslatedExport,
     )
+  }
+
+  private prepareSourceCacheForTranslatedExport = async () => {
+    const fetcher = this.fetcher
+    const loadVersion = this.sourceLoadVersion
+    const hasSourceToInvalidate =
+      this.sourceSubtitles.length > 0 ||
+      (this.pendingSourceLoads.get(fetcher) ?? 0) > 0 ||
+      subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase !== SubtitleCopyPhase.Idle
+    if (!hasSourceToInvalidate) return
+
+    const useSameTrack = await fetcher.shouldUseSameTrack()
+    if (fetcher !== this.fetcher || loadVersion !== this.sourceLoadVersion || useSameTrack) return
+
+    this.sourceSubtitlesExporter?.dispose()
+    // Invalidate source reads without cancelling the translated preparation
+    // that is about to fetch the newly selected track.
+    this.clearLoadedSourceSubtitles()
   }
 
   private async restorePosition() {
@@ -363,44 +388,61 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   private async getOrLoadSourceSubtitles(signal?: AbortSignal): Promise<SubtitlesFragment[]> {
     const currentVideoId = this.config.getVideoId?.() ?? null
     const fetcher = this.fetcher
-    const cacheVersion = this.sourceCacheVersion
-    const assertCurrent = () => {
-      signal?.throwIfAborted()
-      if (
-        cacheVersion !== this.sourceCacheVersion ||
-        fetcher !== this.fetcher ||
-        currentVideoId !== (this.config.getVideoId?.() ?? null)
-      ) {
-        throw new DOMException("Subtitle load superseded", "AbortError")
+    const cacheVersion = this.sourceLoadVersion
+    this.pendingSourceLoads.set(fetcher, (this.pendingSourceLoads.get(fetcher) ?? 0) + 1)
+    try {
+      const assertCurrent = () => {
+        signal?.throwIfAborted()
+        if (
+          cacheVersion !== this.sourceLoadVersion ||
+          fetcher !== this.fetcher ||
+          currentVideoId !== (this.config.getVideoId?.() ?? null)
+        ) {
+          throw new DOMException("Subtitle load superseded", "AbortError")
+        }
       }
+      assertCurrent()
+      // Asking the fetcher can cost a round trip to the page, so skip it when nothing is cached.
+      const hasCachedSource =
+        this.sourceVideoId === currentVideoId && this.sourceSubtitles.length > 0
+      const hasTranslatedExport =
+        subtitlesStore.get(translatedSubtitlesCopyStatusAtom).phase !== SubtitleCopyPhase.Idle
+      const useSameTrack =
+        (hasCachedSource || hasTranslatedExport) && (await fetcher.shouldUseSameTrack())
+      assertCurrent()
+
+      // Check before fetch() advances the shared fetcher's track cache. Otherwise
+      // the next poll can miss the change and retain another export's old text.
+      if (hasTranslatedExport && !useSameTrack) this.translatedSubtitlesExporter?.dispose()
+
+      if (
+        useSameTrack &&
+        this.sourceVideoId === currentVideoId &&
+        this.sourceSubtitles.length > 0
+      ) {
+        return this.sourceSubtitles
+      }
+
+      const hasSubtitles = await fetcher.hasAvailableSubtitles()
+      assertCurrent()
+      if (!hasSubtitles) {
+        throw new OverlaySubtitlesError(i18n.t("subtitles.errors.noSubtitlesFound"))
+      }
+
+      const subtitles = await fetcher.fetch()
+      assertCurrent()
+      if (subtitles.length === 0) {
+        throw new OverlaySubtitlesError(i18n.t("subtitles.errors.noSubtitlesFound"))
+      }
+
+      this.sourceVideoId = currentVideoId
+      this.sourceSubtitles = subtitles
+      this.sourceProcessedSubtitles = this.buildSourceProcessedSubtitles(subtitles)
+
+      return subtitles
+    } finally {
+      this.pendingSourceLoads.set(fetcher, (this.pendingSourceLoads.get(fetcher) ?? 1) - 1)
     }
-    assertCurrent()
-    // Asking the fetcher can cost a round trip to the page, so skip it when nothing is cached.
-    const hasCachedSource = this.sourceVideoId === currentVideoId && this.sourceSubtitles.length > 0
-    const useSameTrack = hasCachedSource && (await fetcher.shouldUseSameTrack())
-    assertCurrent()
-
-    if (useSameTrack && this.sourceVideoId === currentVideoId && this.sourceSubtitles.length > 0) {
-      return this.sourceSubtitles
-    }
-
-    const hasSubtitles = await fetcher.hasAvailableSubtitles()
-    assertCurrent()
-    if (!hasSubtitles) {
-      throw new OverlaySubtitlesError(i18n.t("subtitles.errors.noSubtitlesFound"))
-    }
-
-    const subtitles = await fetcher.fetch()
-    assertCurrent()
-    if (subtitles.length === 0) {
-      throw new OverlaySubtitlesError(i18n.t("subtitles.errors.noSubtitlesFound"))
-    }
-
-    this.sourceVideoId = currentVideoId
-    this.sourceSubtitles = subtitles
-    this.sourceProcessedSubtitles = this.buildSourceProcessedSubtitles(subtitles)
-
-    return subtitles
   }
 
   private buildSourceProcessedSubtitles(rawSubtitles: SubtitlesFragment[]): SubtitlesFragment[] {
@@ -417,6 +459,11 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     this.sourceSubtitlesExporter?.dispose()
     this.translatedSubtitlesExporter?.dispose()
     this.sourceCacheVersion++
+    this.clearLoadedSourceSubtitles()
+  }
+
+  private clearLoadedSourceSubtitles() {
+    this.sourceLoadVersion++
     this.sourceSubtitles = []
     this.clearSourceProcessedSubtitles()
     this.sourceVideoId = null
@@ -711,6 +758,14 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   private async refreshSourceTrackIfNeeded(): Promise<void> {
     const scheduler = this.subtitlesScheduler
     const isSchedulerActive = !!scheduler?.isActive()
+    // An initial enabled fetch has no cached track yet. Its false same-track
+    // result is not a track change; let it finish before polling the session.
+    if (
+      isSchedulerActive &&
+      this.sourceSubtitles.length === 0 &&
+      (this.pendingSourceLoads.get(this.fetcher) ?? 0) > 0
+    )
+      return
 
     const isTranscriptInUse =
       subtitlesStore.get(sourceTrackAtom).length > 0 || this.pendingTranscriptLoads > 0
@@ -754,6 +809,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     this.clearRuntimeSession()
     this.clearSourceCache()
     this.fetcher.cleanup()
+    this.fetcher.hideNativeSubtitles?.()
     scheduler.reset()
     scheduler.setState("loading")
 
