@@ -6,7 +6,7 @@ Status: design and mock-test plan. Official documentation checked on 2026-10-11.
 
 **Documented facts:** Sign in with ChatGPT provides identity and optional ChatGPT plan usage as separate capabilities. Eligible Plus and Pro users can authorize plan usage. The public direct flow covers open-source, locally hosted applications; the documentation also describes a user-controlled VM. Commercial access is a limited partner trial. Paid or remotely hosted applications are directed to the partner interest process. Identity-only consent does not authorize inference or expose ChatGPT conversations. See [quickstart](https://developers.openai.com/siwc/quickstart), [plan-usage overview](https://developers.openai.com/siwc/token-sharing-open-source), and [request a client ID](https://developers.openai.com/siwc/request-client-id).
 
-**LingoTori architecture decision:** Implement BYOS first as an optional local companion, with the extension acting as its UI. Keep the independent learning website/backend responsible for LingoTori accounts, learning records, and ordinary application sessions. Do not send OpenAI OAuth tokens to that hosted backend. Hosted BYOS remains disabled until OpenAI approves the deployment and supplies the applicable contract. Calling a hosted service “open source” does not establish eligibility for the local flow.
+**LingoTori architecture decision:** Implement BYOS first as an optional local companion, with the extension acting as its UI. The translation extension does not require a learning website/backend. Existing learning components are separate prototypes; further backend development is deferred. Never send OpenAI OAuth tokens to a learning backend. Hosted BYOS remains disabled until OpenAI approves the deployment and supplies the applicable contract. Calling a hosted service “open source” does not establish eligibility for the local flow.
 
 Translation and dictionary explanation are text-inference workloads compatible with the documented request shape in principle. The reviewed documentation does not impose a coding-only restriction, but this is not a determination that LingoTori or every user is approved. The repository has a GPLv3 license text; retain existing notices and review distribution obligations before shipping derived components. The SIWC documentation does not specify an accepted-license list or resolve hybrid proprietary/OSS eligibility.
 
@@ -56,6 +56,10 @@ The documented [self-hosted VM flow](https://developers.openai.com/siwc/token-sh
 
 ## UI, usage, and failure handling
 
+The sign-in entry belongs inside the existing **API Providers** settings, alongside BYOK configuration. Show **Sign in with ChatGPT** visibly and keep the official **Continue with ChatGPT** action recognizable. Connection/account state, reconnect, disconnect and discovered-model assignment belong in that same flow; a separate route or pairing form alone is insufficient. Existing BYOK choices must remain unchanged until the user explicitly assigns BYOS.
+
+This integration is experimental and live account sign-in/inference has not been verified. Independently authored EN/KO/JA guidance must expose the required user-controlled local companion, extension-origin allowlist and pairing setup before sign-in. Disable unavailable sign-in/model actions, explain the missing prerequisite, and distinguish an unpaired extension from an unverified account or a temporary service failure. Pairing configuration is not successful OAuth. No credentials or live login are needed for the current mock validation.
+
 Use the recognizable Continue with ChatGPT action and approved branding, with a visible active account. Distinguish application sign-in from permission to use a plan. Show BYOK and BYOS as explicit user choices; never silently change billing after BYOS failure. Follow [UI/UX guidelines](https://developers.openai.com/siwc/ui-ux-guidelines).
 
 Expose disconnected, connecting, identity-only, plan-enabled, restricted, limit-reached, reconnect-required, and temporarily-unavailable states. Link usage management to ChatGPT Settings rather than inventing remaining quota. Plus shares a five-hour allowance across participating apps; the documented five-hour limit does not apply to Pro. Do not infer unlimited usage from that distinction. See [usage tracking](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions).
@@ -66,7 +70,9 @@ Preserve sanitized HTTP status, actual error shape/code, and request ID. Admissi
 
 The first implementation phase is fully offline and mock-only. It must not open authorization, register a client, read existing credentials, exchange tokens, call model discovery, or perform paid/subscription inference. A transport injected by tests must fail closed on any unmocked request.
 
-Mock acceptance checks:
+Mock acceptance checks include the API Providers entry, preserved BYOK configuration, missing prerequisites, disconnected/connected/reconnect states, explicit model assignment, and safe disconnection. Installed-browser settings checks remain distinct from live sign-in.
+
+Protocol mock acceptance checks:
 
 1. Generate deterministic-testable state/nonce/PKCE and host metadata; reject callback mismatch, denial, missing issued ID, or unexpected returning ID.
 2. Verify synthetic signed ID tokens against test-owned keys; reject wrong issuer/audience/nonce, expired tokens, altered signatures, and unsupported algorithms. Missing direct scope leaves inference disabled.

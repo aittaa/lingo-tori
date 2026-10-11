@@ -45,12 +45,6 @@ export function FeaturesNav() {
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton render={<Link to="/byos" />} isActive={pathname === "/byos"}>
-              <Icon icon="tabler:cloud" />
-              <span>{i18n.t("lingotori.byos")}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
             <SidebarMenuButton
               render={
                 <a

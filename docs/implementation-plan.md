@@ -6,7 +6,11 @@ Baseline: `ca8da8241883c9aff5862d15d045845a746c9a6b`. The acceptance criteria be
 
 Use small conventional-commit draft PRs and English issues. Follow `AGENTS.md` changeset requirements for user-facing changes. Preserve GPLv3 and attribution. No merge, deployment, live paid API exercise, or token-dependent testing is authorized by this plan.
 
-## Initial implementation scope
+## Current priority
+
+Owner direction on 2026-10-11: build a lean, dependable translation foundation. Prioritize no-provider first run, explicit BYOK configuration, page/selection translation, dictionary explanations and clear errors/cancellation. BYOS is optional and experimental; live authentication and inference remain unverified. Retain useful existing learning pieces without feature expansion or polish; further development including backend is deferred. The current draft stack is #9 → #10 (deferred) → #11 → #12, all unmerged. No speculative branch restructuring is required by this priority change.
+
+## Existing implementation scope
 
 - Phases 0–3 and 5 have initial code and offline regression coverage, pending installed-extension verification.
 - Phase 4 provides versioned full-state manual synchronization, deterministic `simple-v1` review-event replay, a loopback-only single-namespace personal server, and an independent learning web. Local persisted state is retained on failed synchronization. A separate outbox, deletion/tombstone protocol, hosted accounts, multi-account UI and offline web PWA are deferred; the corresponding acceptance criteria are not claimed complete.
@@ -49,9 +53,9 @@ Acceptance:
 - Language selectors, detection, labels, RTL and target-language behavior remain multilingual.
 - No imports or aliases remain to `@read-frog/definitions` or `@read-frog/api-contract` once dependent service paths are removed.
 
-## Phase 3: Local vocabulary and offline SRS
+## Phase 3: Local vocabulary and offline SRS — deferred
 
-Introduce background-owned notes/cards/review events, a deterministic versioned scheduler, local study UI and export/import. Replace Notebase save controls with local saving. Replace server-derived due counts with local counts. Preserve glossary data independently.
+Retain the existing prototype without active expansion. Future scope, requiring reprioritization: background-owned notes/cards/review events, a deterministic versioned scheduler, local study UI and export/import. Replace Notebase save controls with local saving. Replace server-derived due counts with local counts. Preserve glossary data independently.
 
 Acceptance:
 
@@ -63,9 +67,9 @@ Acceptance:
 - Export/import round-trips user-authored data and identifies its schema/scheduler versions.
 - Rebranding does not strand the previous local database.
 
-## Phase 4: Independent backend, learning web and BYOS
+## Phase 4: Optional BYOS; future learning backend deferred
 
-Implement the first-party synchronization contract and independent learning web with the same scheduler semantics. Add the open-source local companion route described in [BYOS](byos.md). Use local/mocked environments until hosted operation receives separate approval.
+Keep the optional local companion described in [BYOS](byos.md) separate from default provider setup, with an explicit experimental status. Existing learning web/backend code is retained as a prototype; further synchronization/backend development and the learning-specific criteria below are future scope, not current acceptance requirements. Use local/mocked validation; no live account or hosted exercise is authorized.
 
 Acceptance:
 
@@ -98,7 +102,7 @@ Acceptance:
 - No `@read-frog/*` dependency/runtime path or restricted implementation is distributed.
 - GPLv3 license and upstream attribution remain intact; independent additions and third-party data have recorded provenance.
 - Type checking, relevant unit tests, migration tests and browser builds pass, with intentional live-service skips reported honestly.
-- Manual local smoke checks cover page translation, selection dictionary, offline save/review and settings migration.
+- Current installed-extension smoke checks cover fresh-install setup, provider configuration, page translation, selection dictionary and settings migration. No further learning-specific validation is scheduled.
 - Draft PR evidence identifies remaining limitations. Passing checks does not merge, deploy, publish or create a release.
 
 ## Targeted validation

@@ -1,11 +1,11 @@
-# Initial independent implementation validation
+# Independent implementation validation
 
-This is local draft evidence, not a release-readiness claim. Product source commit: `d1d083bd56ad137407102beceb113a2a4bf6aa15`; baseline: `ca8da8241883c9aff5862d15d045845a746c9a6b`. Subsequent changes in this PR record documentation and measurements only.
+This is local draft evidence, not a release-readiness claim. The initial checkpoint below is historical; the native follow-up section records later work. Initial product source commit: `d1d083bd56ad137407102beceb113a2a4bf6aa15`; baseline: `ca8da8241883c9aff5862d15d045845a746c9a6b`. Subsequent changes in this PR record documentation and measurements only.
 
 ## Review stack
 
 1. [Planning #9](https://github.com/aittaa/lingo-tori/pull/9), based on `main`.
-2. [Local learning and independent language catalog #10](https://github.com/aittaa/lingo-tori/pull/10), based on the planning branch; source commit `22cddd68`.
+2. [Existing learning and independent language catalog #10](https://github.com/aittaa/lingo-tori/pull/10), deferred draft based on the planning branch; source commit `22cddd68`. Useful existing pieces remain; no active learning/backend development.
 3. [Local BYOS companion #11](https://github.com/aittaa/lingo-tori/pull/11), based on the learning branch; source commit `94a28907`.
 4. Extension integration on `feat/independent-lingotori`, based on the companion branch. This intentionally keeps tightly coupled removal, migration, providers and UI changes together. It adds the release changeset for the initial fork; no version or tag is released.
 
@@ -27,7 +27,7 @@ pnpm exec changeset status
 
 No upstream environment variables or build-time credentials are required. Final candidate builds do not use the baseline's `WXT_SKIP_ENV_VALIDATION` bypass. The old live free-translation tests were deleted with their retired adapters; current tests use mocks and self-closing local HTTP fixtures.
 
-## Observed results
+## Observed results at the initial checkpoint
 
 | Check                                                                     | Status  | Evidence                                                                                                                                                                                                                   |
 | ------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -48,6 +48,36 @@ No upstream environment variables or build-time credentials are required. Final 
 The smaller test count relative to the 4,078-test baseline reflects removed feature suites and added independent regressions; it does not claim a coverage improvement. The comparison script records exact file bytes and dependency counts in [metrics/after.json](metrics/after.json). Build/test timings are single samples, not browser CPU or memory measurements.
 
 Detailed local logs are preserved in the sibling `lingo-tori-local/logs/`: `final-type-lint.log`, `final-format-check.log`, `final-vitest.log`, `final-node.log`, `pr-learning-node.log`, `pr-byos-node.log`, `final-build-chrome.log` and `final-build-firefox.log`. Final archive hashes and checks are in the local sidecar `final-artifacts.json`.
+
+## Native local follow-up (2026-10-11)
+
+Native chat `01a12a59-1dd5-74f0-9a74-9fe51c95c160` resumed at `8c9925f9981c430c9e676770505d0ab18ca41929` on `feat/independent-lingotori`. Supported desktop metadata confirms project `bc3cac22-5ccf-42d7-810e-4af64462d2af`, host `local`, and cwd `/Users/hyeonkim-server/workspace/lingo-tori`; shell results agree. Draft PRs #9–#12 are attached. Old cloud workers remain stopped. New implementation/review workers were explicitly configured as GPT-6.1 Sol/GPT-6 Astra respectively; configuration does not attest runtime identity.
+
+Chrome version: `154.0.8037.98`. The Mac was initially locked. After the owner unlocked it, native Chrome UI automation created the signed-out **LingoTori Smoke 2026-10-11** profile and loaded `.output/chrome-mv3`, extension ID `fljpfebfkocaidhmalnjkaeilpeckdnd`. No separate preview server, automation dependency installation, account sign-in or real credential creation was used. Chrome DevTools MCP/Puppeteer were unavailable; all browser actions used the supported native UI tool.
+
+The first options screen failed with `Cannot read properties of null (reading 'provider')`. The native DevTools stack identified the provider selector's selected-value renderer. Both grouped and ungrouped selectors dereferenced a missing selection, and passing `undefined` also allowed the select to become uncontrolled. The fix renders the setup placeholder and keeps the empty selection explicitly controlled. Initial selector regressions passed; the final focused run below also covers the unified provider UI. A separate reviewer closed the null-selection and model-discovery recovery findings. The raw pre-fix page screenshot is `.output/native-smoke-2026-10-11/options-before.png`.
+
+Scope settled during this session: retain useful existing learning pieces without additional development or polish; further learning/backend work is deferred. Removal-only changes were restored before commit/push. PR #10 was briefly closed under an earlier direction and then reopened as a deferred draft. The stack remains #9 → #10 (deferred) → #11 → #12; no branches were rewritten or separated. No user data was deleted. Before deferral, the study UI saved one synthetic word, recorded a Good review, and retained both after page reload; this is limited historical evidence, not full native IndexedDB lifecycle or offline verification. Learning-specific testing then stopped.
+
+The change adds the experimental ChatGPT sign-in entry to API Providers, preserves BYOK setup and explicit model assignment, and states the local companion/pairing prerequisites in EN/KO/JA. Pairing, mock tests and visible buttons do not establish successful live authentication. Selected discovered models are applied when assigning a translation feature; model-discovery failures recheck authorization and clear false readiness.
+
+| Follow-up check                                                     | Status                            | Observation                                                                                                                                                                                                        |
+| ------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Native local project, repository and checkpoint                     | PASS                              | Project ID, host, cwd and initial clean branch matched.                                                                                                                                                            |
+| Installed MV3 extension                                             | PASS                              | Fresh signed-out profile; actual production extension loaded through Chrome's unpacked-extension UI.                                                                                                               |
+| Initial no-provider settings                                        | PASS after fix                    | Original native crash reproduced. After rebuilding/reloading, the no-provider API Providers page rendered without recovery mode and showed setup-required selectors.                                               |
+| Focused provider-selector regression                                | PASS                              | Final run: five files / 22 tests, including selector transitions, existing BYOK provider configuration, BYOS prerequisites, reconnect/disconnect, model assignment and model-discovery error recovery.             |
+| Updated API Providers BYOS UI                                       | PASS (mock and bounded native UI) | After the owner unlocked again, native Chrome showed Sign in with ChatGPT inside API Providers, explicit companion prerequisites, and disabled sign-in/model actions without pairing. No OAuth action was invoked. |
+| Current full type-aware lint/type check and changed-file formatting | PASS                              | Temporary unit-test config removed before the global check; final logs have no errors.                                                                                                                             |
+| Updated Chrome/Firefox MV3 production builds                        | PASS                              | Chrome 14,614,537 bytes; Firefox 14,614,795 bytes; 170 files each. Both retain root GPL and contain no selected `@read-frog` package references in runtime JS.                                                     |
+| BYOK setup coexistence                                              | PASS (UI only)                    | OpenAI provider could be added without a key, its page-translation assignment saved, and Test connection remained disabled. No network test or inference was invoked.                                              |
+| Mock page/selection success in the installed browser and migration  | NOT RUN                           | No supported mock network interception or installed-browser migration fixture was configured. No live provider request was substituted.                                                                            |
+| Live BYOS authentication, model eligibility and inference           | NOT RUN                           | Not authorized; no real login, tokens or inference.                                                                                                                                                                |
+| Further learning/backend work                                       | DEFERRED                          | Existing code retained; no new development or continued learning validation.                                                                                                                                       |
+
+Final follow-up logs and build inventory are in `.output/native-smoke-2026-10-11/`: `byos-focused-tests.log`, `current-type-lint.log`, `final-build-chrome.log`, `final-build-firefox.log`, and `artifacts.json`. The focused tests used a temporary copy of `vitest.config.ts` with `WxtVitest({ dev: { server: { port: 3000, strictPort: true } } })` solely to avoid startup port probing in the sandbox; no listener or preview server was launched, and the temporary file was removed before the final global lint/type check.
+
+The initial source/Firefox ZIP archives and sibling `final-artifacts.json` still describe `2336097`; they were not regenerated or presented as current follow-up deliverables. The unpacked Chrome/Firefox directories were rebuilt for this UI change. Native checks above used the final behavioral code. Two later EN/KO/JA copy-only corrections removed an obsolete speaking-voice reference and made the generic setup prompt provider-neutral; both builds and formatting passed again. The Mac relocked before a final capture of those two copy changes, so that last visual recheck was not run. Existing full suites were not rerun merely for status. The earlier preview-server and broader asset-deletion denials remain respected; no Codex application/session database was accessed. GitHub Actions was rechecked disabled before the follow-up push.
 
 ## Review findings resolved
 

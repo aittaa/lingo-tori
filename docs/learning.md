@@ -1,4 +1,6 @@
-# Independent local learning v1
+# Retained local learning prototype
+
+Status as of 2026-10-11: useful existing components are retained, but further vocabulary/SRS, standalone web and backend development is deferred. This is reference documentation for existing code, not an active implementation plan or a prerequisite for translation. Do not start or deploy the optional server as part of the current core usability work. Existing user data must remain intact.
 
 The learning core and server are newly authored and do not import Read Frog contract, definitions or implementation packages. The repository retains its existing GPL license. The extension can use the browser-safe `packages/learning-core/index.mjs` directly; adjacent TypeScript declarations describe its DTOs. This is an intentionally simple, versioned interval scheduler, not FSRS or a claim of scientific optimization.
 

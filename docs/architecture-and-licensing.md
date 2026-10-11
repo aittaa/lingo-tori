@@ -26,7 +26,7 @@ Resolve this through removal or an independently authored migration/import strat
 
 The v102-to-v103 step now uses an independently authored compatibility transform that removes legacy layout and speech fields while preserving unrelated settings. Its previous preset-producing implementation and generated render fixtures were removed without using them as implementation references.
 
-Historical example fixtures v103-v110 were scrubbed by parsing TypeScript and replacing only `layout` and `sampleData` value ranges; removed payloads were not displayed or retained. Eight fixture files contained 22 affected properties. The chain suite compares all other historical settings exactly and separately asserts that retired payloads remain inert. This is an explicit provenance exception to frozen historical snapshots, not permission to rewrite unrelated migrations. The new v111 migration and fixture remain independently owned by the learning implementation.
+Historical example fixtures v103-v110 were scrubbed by parsing TypeScript and replacing only `layout` and `sampleData` value ranges; removed payloads were not displayed or retained. Eight fixture files contained 22 affected properties. The chain suite compares all other historical settings exactly and separately asserts that retired payloads remain inert. This is an explicit provenance exception to frozen historical snapshots, not permission to rewrite unrelated migrations. The new v111 migration and fixture are independently authored extension compatibility work.
 
 ### Precise integration paths
 
@@ -44,11 +44,13 @@ The new result display accepts a local schema and a result/status object. Render
 
 Language types, labels, ISO mappings, and directionality are foundational to retained translation. Introduce a local language module from independently documented requirements and appropriately licensed data. Keep UI locale independent of engine languages. Do not reconstruct missing-license tables from their implementation.
 
-## Learning architecture
+## Retained learning prototype and deferred architecture
 
 The baseline is not a local SRS implementation. `use-save-to-notebase.ts` calls upstream authentication and `notebaseRow.create/createMany`; `background/notebase-pending-save.ts` coordinates service-dependent saves. `selection-toolbar/review-due-tab.tsx` fetches upstream SRS counts and opens its website. `src/utils/db/dexie/app-db.ts` contains caches and glossary tables, not cards or review history.
 
-Proposed components:
+The current priority is translation, dictionary explanations, BYOK and optional supported BYOS. Useful existing local learning code may remain, but no active expansion is scheduled. Further backend work and the architecture targets below require future reprioritization; they are not claims about the current prototype.
+
+Future targets:
 
 - A background-owned local repository stores vocabulary notes, cards, scheduler state, append-only review events, and a synchronization outbox.
 - Content scripts submit narrowly validated save/review requests through extension messaging. They do not receive backend credentials or own database writes.

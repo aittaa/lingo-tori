@@ -123,7 +123,7 @@ options:
     sponsorCta: 高速で高コスパのAIを入手
     sponsorCtaJalapenoCloud: GLM 5.2 を 50% オフで入手
     setApiKeyWarning:
-      message: API キーは $1 ページで設定してください
+      message: $1 ページでプロバイダーを設定してください
     badges:
       featureCount: $1 件の機能
       sponsor: スポンサー
@@ -261,7 +261,7 @@ options:
         noteSuggestion: 選択テキストを翻訳した後、vocabulary に保存する価値のある単語を提案します。
     languageDetection:
       title: 言語検出
-      description: 自動翻訳の言語検出と読み上げの音声選択精度に影響します。
+      description: 自動翻訳のためのページ言語検出の精度に影響します。
       mode:
         basic: 基本
         llm: LLM

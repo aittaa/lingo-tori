@@ -1,5 +1,11 @@
 # Native local session handoff
 
+## Current priority update — 2026-10-11
+
+Native local chat `01a12a59-1dd5-74f0-9a74-9fe51c95c160` owns this checkout. Supported desktop metadata confirms project `bc3cac22-5ccf-42d7-810e-4af64462d2af`, host `local`, and the repository path below. Focus on usable translation, dictionary explanations, BYOK and optional experimental BYOS. Retain useful existing learning pieces without expansion or polish; future development including backend is deferred. PR #10 is an open, deferred, unmerged draft. The short-lived removal edits were undone before commit/push, with no user data deletion. Older cloud workers remain stopped.
+
+The remaining text records the prior checkpoint; current evidence and any subsequent provider fix are in [validation](validation.md).
+
 The previous cloud-managed task is stopping at this checkpoint. Its command execution was verified on the server Mac, but this does **not** make it a native local project task. Do not restart its subordinate writers while a native local session owns this checkout.
 
 ## Exact workspace

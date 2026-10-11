@@ -123,7 +123,7 @@ options:
     sponsorCta: Get fast, cost-effective AI
     sponsorCtaJalapenoCloud: Get 50% Off GLM 5.2
     setApiKeyWarning:
-      message: Please set your API key on the $1 page
+      message: Please configure a provider on the $1 page
     badges:
       featureCount: $1 features
       sponsor: Sponsor
@@ -262,7 +262,7 @@ options:
         noteSuggestion: Suggests words worth saving to your vocabulary after a selection translation.
     languageDetection:
       title: Language detection
-      description: Affects auto-translate language detection and Speaking voice selection accuracy.
+      description: Affects the accuracy of page language detection for automatic translation.
       mode:
         basic: Basic
         llm: LLM
