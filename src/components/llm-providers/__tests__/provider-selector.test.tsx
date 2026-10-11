@@ -59,8 +59,7 @@ describe("ProviderSelector with no selected provider", () => {
       const trigger = screen.getByRole("combobox")
       expect(trigger).toHaveTextContent(localizedPrompt)
       expect(translateMock).toHaveBeenCalledWith(defaultPromptKey)
-      if (providers.length === 0) expect(trigger).toBeDisabled()
-      else expect(trigger).not.toBeDisabled()
+      expect(trigger).toHaveProperty("disabled", providers.length === 0)
       expect(onChange).not.toHaveBeenCalled()
     },
   )
@@ -79,7 +78,10 @@ describe("ProviderSelector with no selected provider", () => {
       />,
     )
 
-    expect(screen.getByRole("combobox").textContent).toBe("")
+    expect(
+      screen.getByRole("combobox").querySelector("[data-slot=select-value]"),
+    ).toBeEmptyDOMElement()
+    expect(translateMock).not.toHaveBeenCalledWith(defaultPromptKey)
   })
 
   it.each([
