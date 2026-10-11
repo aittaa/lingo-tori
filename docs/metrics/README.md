@@ -8,7 +8,7 @@ Historical source and dependency counts were established by the initial read-onl
 
 ## Repeat a measurement
 
-Use explicit absolute paths to trusted, quiescent directories. The tool requires the Git repository root and output directories inside it. It rejects symlink path components, including symlinked output roots. On macOS, use `/private/tmp` rather than the `/tmp` symlink for test fixtures.
+Use explicit absolute paths to trusted, quiescent directories. The tool requires the Git repository root and output directories inside it. Directory paths accept trailing separators and normalize consistently before root and duplicate-output checks. It rejects symlink path components, including symlinked output roots. On macOS, use `/private/tmp` rather than the `/tmp` symlink for test fixtures.
 
 ```sh
 node scripts/measure-footprint.mjs \
@@ -19,7 +19,7 @@ node scripts/measure-footprint.mjs \
   > /private/tmp/lingo-tori-footprint.json
 ```
 
-Omit `--baseline` to produce a standalone measurement. The tool writes JSON only to stdout, uses Node built-ins and local Git, and never builds, installs, starts services, or accesses the network. It hashes only `package.json` and `pnpm-lock.yaml`; it does not inspect dependency package implementations. Output traversal uses `lstat`, skips symlinks and special files, and excludes common credential paths, environment files, and nested `node_modules`/`.git` trees before reading their contents. These exclusions are defense in depth, not a substitute for selecting trusted build-output directories. Do not run concurrently with a build modifying those directories.
+Omit `--baseline` to produce a standalone measurement. The tool writes JSON only to stdout, uses Node built-ins and local Git, and never builds, installs, starts services, or accesses the network. Git calls use `--no-optional-locks` so status inspection does not refresh the index on disk. It hashes only `package.json` and `pnpm-lock.yaml`; it does not inspect dependency package implementations. Output traversal uses `lstat`, skips symlinks and special files, and excludes common credential paths, environment files, and nested `node_modules`/`.git` trees before reading their contents. These exclusions are defense in depth, not a substitute for selecting trusted build-output directories. Do not run concurrently with a build modifying those directories.
 
 Results contain no timestamp or absolute repository path. The same files, Git state and Node/zlib version produce identical JSON. Two baseline measurements were byte-identical. Temporary isolated fixtures verified nested byte and gzip totals, symlink loops and symlink-root rejection, sensitive-file exclusions, outside-repository rejection, and baseline deltas. No fixture files were added to the product tree.
 
