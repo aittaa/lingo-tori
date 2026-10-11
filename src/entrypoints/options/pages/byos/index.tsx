@@ -180,6 +180,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
   const cardRef = useRef<HTMLElement>(null),
     modelRef = useRef<HTMLSelectElement>(null)
   const generation = useRef(0),
+    authAttemptRef = useRef<string | undefined>(undefined),
     busyRef = useRef(true),
     pendingRef = useRef<"permission" | "starting" | "tab" | null>(null)
   const chromium =
@@ -207,6 +208,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       }
       if (epoch(generation) !== owner) return
       setSession(next)
+      authAttemptRef.current = next.authPending ? next.authAttemptId : undefined
       if (next.authPending) {
         setAttempt("tab")
         setModels([])
@@ -286,6 +288,8 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
   }, [refresh, setWorking])
   function signIn() {
     const owner = invalidate(generation)
+    const attemptId = crypto.randomUUID()
+    authAttemptRef.current = attemptId
     setAttempt("permission")
     setWorking(true)
     setNotice("")
@@ -313,7 +317,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
           return
         }
         setAttempt("starting")
-        await boundedMessage(sendByosMessage("lingotoriByosAuth", undefined))
+        await boundedMessage(sendByosMessage("lingotoriByosAuth", attemptId))
         if (epoch(generation) === owner) setAttempt("tab")
       } catch (error) {
         if (epoch(generation) === owner) {
@@ -321,7 +325,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
           setAttempt(null)
           setWorking(false)
           setNotice(t[failureKind(error)])
-          void boundedMessage(sendByosMessage("lingotoriByosCancelAuth", undefined)).catch(() => {})
+          void boundedMessage(sendByosMessage("lingotoriByosCancelAuth", attemptId)).catch(() => {})
         }
       } finally {
         if (epoch(generation) === owner) setWorking(false)
@@ -329,11 +333,16 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     })()
   }
   function cancel() {
+    const attemptId = authAttemptRef.current
+    if (!attemptId) {
+      setNotice(t.background)
+      return
+    }
     const owner = invalidate(generation)
     setAttempt(null)
     setWorking(true)
     setNotice("")
-    void boundedMessage(sendByosMessage("lingotoriByosCancelAuth", undefined))
+    void boundedMessage(sendByosMessage("lingotoriByosCancelAuth", attemptId))
       .then(async () => {
         if (epoch(generation) === owner) await refresh(owner)
       })

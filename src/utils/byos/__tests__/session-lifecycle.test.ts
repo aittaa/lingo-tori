@@ -366,7 +366,11 @@ it("reports only a safe pending flag through claims and cancellation", async () 
     fetcher = vi.fn<typeof fetch>()
   const service = createByosService(vault, transport, "extension", callbackUrl, fetcher)
   await service.authStart()
-  expect(await service.session()).toEqual({ state: "disconnected", authPending: true })
+  expect(await service.session()).toEqual({
+    state: "disconnected",
+    authPending: true,
+    authAttemptId: expect.any(String),
+  })
   await vault.update((record) => {
     record.pending!.claimed = true
   })

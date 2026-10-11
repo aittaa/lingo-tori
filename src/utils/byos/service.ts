@@ -26,6 +26,7 @@ export const invokeSchema = z.strictObject({
   instructions: z.string().max(30000).optional(),
 })
 export type ByosInvocation = z.infer<typeof invokeSchema>
+export const authAttemptIdSchema = z.uuid()
 export const sessionSchema = z.object({
   state: z.enum([
     "disconnected",
@@ -38,6 +39,7 @@ export const sessionSchema = z.object({
   ]),
   account: z.object({ subject: z.string(), email: z.string() }).optional(),
   authPending: z.boolean().optional(),
+  authAttemptId: authAttemptIdSchema.optional(),
 })
 export type ByosSession = z.infer<typeof sessionSchema>
 export const modelsSchema = z.object({
@@ -105,6 +107,7 @@ export function createByosService(
 ) {
   let intent = 0
   let starting = false
+  let startingAttemptId: string | undefined
   let refreshing: Promise<void> | undefined
   let initialization: Promise<void> | undefined
   let signingOut: Promise<ByosSession & { remoteRevocationConfirmed: boolean }> | undefined
@@ -189,8 +192,17 @@ export function createByosService(
         (record.pending && record.pending.expires <= now())
       )
         await clearPending(true)
-      else if (!(await transport.reconcile(record.pending)) && record.pending)
-        await clearPending(true)
+      else {
+        // Assign a separate control identifier to pre-upgrade pending attempts;
+        // never expose their OAuth state, nonce or PKCE verifier to settings.
+        if (record.pending && !record.pending.attemptId)
+          record = await vault.update((current) => {
+            if (current.pending && !current.pending.attemptId)
+              current.pending.attemptId = crypto.randomUUID()
+            return current
+          })
+        if (!(await transport.reconcile(record.pending)) && record.pending) await clearPending(true)
+      }
     })())
     try {
       await attempt
@@ -577,15 +589,20 @@ export function createByosService(
       return {
         state,
         authPending: !!record.pending && record.pending.expires > now(),
+        ...(record.pending && record.pending.expires > now()
+          ? { authAttemptId: record.pending.attemptId }
+          : {}),
         ...(record.credentials
           ? { account: { subject: record.credentials.subject, email: record.credentials.email } }
           : {}),
       }
     },
-    async authStart() {
+    async authStart(attemptId: string = crypto.randomUUID()) {
+      authAttemptIdSchema.parse(attemptId)
       if (signingOut) fail("signout_in_progress")
       if (starting) fail("auth_in_progress")
       starting = true
+      startingAttemptId = attemptId
       const ownIntent = ++intent
       try {
         await initialize()
@@ -597,6 +614,7 @@ export function createByosService(
         const record = await vault.read()
         const tabId = await transport.createTab()
         const pending: PendingAuth = {
+          attemptId,
           state: randomSecret(),
           nonce: randomSecret(),
           verifier: randomSecret(),
@@ -644,6 +662,7 @@ export function createByosService(
         }
       } finally {
         starting = false
+        startingAttemptId = undefined
       }
     },
     async recoverCallbackNavigation(details: {
@@ -865,6 +884,32 @@ export function createByosService(
           if (record.pending?.state === pending.state) delete record.pending
         })
       }
+    },
+    async cancelAuth(attemptId: string) {
+      authAttemptIdSchema.parse(attemptId)
+      await initialize()
+      const pending = await vault.update((record) => {
+        // A replacement can be starting before its pending record is written.
+        // An older settings page must not invalidate that newer local intent.
+        if (startingAttemptId && startingAttemptId !== attemptId) return undefined
+        const ownsStarting = startingAttemptId === attemptId
+        const ownsPending = record.pending?.attemptId === attemptId
+        if (!ownsStarting && !ownsPending) return undefined
+        intent++
+        if (!ownsPending) return undefined
+        const previous = record.pending
+        record.generation++
+        if (record.refreshing) {
+          delete record.refreshing
+          record.refreshUncertain = true
+          record.tokenVersion++
+        }
+        delete record.pending
+        return previous
+      })
+      if (!pending) return
+      abortAll()
+      await transport.cleanup(pending.tabId)
     },
     async cancel(tabId?: number) {
       if (tabId === undefined) intent++

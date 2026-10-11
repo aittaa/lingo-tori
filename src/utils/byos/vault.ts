@@ -3,6 +3,7 @@ import type { ByosSession } from "./service"
 import { Dexie } from "dexie"
 
 export interface PendingAuth {
+  attemptId?: string
   state: string
   nonce: string
   verifier: string

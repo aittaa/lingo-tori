@@ -137,6 +137,7 @@ function renderSettings() {
 
 const account = { subject: "synthetic-subject", email: "person@example.test" }
 const connected = { state: "plan-enabled", account }
+const pendingAttemptId = "11111111-1111-4111-8111-111111111111"
 const availableModels = { models: [{ slug: "synthetic-model", display_name: "Synthetic Model" }] }
 async function waitForSignedOut() {
   await waitFor(() =>
@@ -159,6 +160,9 @@ function mockConnected() {
           ? { state: "disconnected", remoteRevocationConfirmed: false }
           : undefined,
   )
+}
+function expectAuthCount(count: number) {
+  expect(mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosAuth")).toHaveLength(count)
 }
 
 describe("compact ChatGPT provider card", () => {
@@ -183,7 +187,7 @@ describe("compact ChatGPT provider card", () => {
     expect(screen.queryByLabelText("Model")).not.toBeInTheDocument()
     expect(screen.getByLabelText("BYOK API key")).toHaveValue("keep-my-key")
     expect(mocks.permission).not.toHaveBeenCalled()
-    expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+    expectAuthCount(0)
     expect(store.get(configAtom)).toBe(initial)
   })
   it("requests permission in the sign-in click and stays pending after auth starts", async () => {
@@ -196,7 +200,7 @@ describe("compact ChatGPT provider card", () => {
     await waitFor(() =>
       expect(screen.getByText("Complete sign-in in the opened tab.")).toBeInTheDocument(),
     )
-    expect(mocks.send).toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+    expect(mocks.send).toHaveBeenCalledWith("lingotoriByosAuth", expect.any(String))
     expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled()
     expect(screen.queryByRole("button", { name: "Sign in with ChatGPT" })).not.toBeInTheDocument()
     expect(
@@ -229,8 +233,8 @@ describe("compact ChatGPT provider card", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
     await waitForSignedOut()
     await act(async () => release(true))
-    expect(mocks.send).toHaveBeenCalledWith("lingotoriByosCancelAuth", undefined)
-    expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+    expect(mocks.send).toHaveBeenCalledWith("lingotoriByosCancelAuth", expect.any(String))
+    expectAuthCount(0)
   })
   it("shows permission denial and synchronous or asynchronous permission failure", async () => {
     mocks.permission.mockResolvedValueOnce(false)
@@ -240,7 +244,7 @@ describe("compact ChatGPT provider card", () => {
     await waitFor(() =>
       expect(screen.getByText("Sign-in permission was not granted.")).toBeInTheDocument(),
     )
-    expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+    expectAuthCount(0)
     mocks.permission.mockImplementationOnce(() => {
       throw new Error("synthetic permission failure")
     })
@@ -388,7 +392,7 @@ it("shows bounded feedback if the background never responds to sign-in and ignor
     screen.getByText("Extension connection unavailable. Reload this settings page and try again."),
   ).toBeInTheDocument()
   expect(screen.getByRole("button", { name: "Sign in with ChatGPT" })).toBeEnabled()
-  expect(mocks.send).toHaveBeenCalledWith("lingotoriByosCancelAuth", undefined)
+  expect(mocks.send).toHaveBeenCalledWith("lingotoriByosCancelAuth", expect.any(String))
   await act(async () => release())
   expect(screen.queryByText("Complete sign-in in the opened tab.")).not.toBeInTheDocument()
 })
@@ -450,7 +454,7 @@ it("selecting ChatGPT while already connected focuses its model without duplicat
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   await waitFor(() => expect(screen.getByLabelText("Model")).toHaveFocus())
   expect(mocks.permission).not.toHaveBeenCalled()
-  expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+  expectAuthCount(0)
 })
 it("Firefox Add provider selection never requests undeclared callback permission", async () => {
   mocks.chromium = false
@@ -459,7 +463,7 @@ it("Firefox Add provider selection never requests undeclared callback permission
   fireEvent.click(screen.getByRole("button", { name: "Add provider" }))
   fireEvent.click(await screen.findByRole("button", { name: "ChatGPT" }))
   expect(mocks.permission).not.toHaveBeenCalled()
-  expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+  expectAuthCount(0)
 })
 it("reselecting ChatGPT during a pending grant cannot duplicate authentication", async () => {
   let release!: (value: boolean) => void
@@ -478,11 +482,15 @@ it("reselecting ChatGPT during a pending grant cannot duplicate authentication",
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
   await waitForSignedOut()
   await act(async () => release(true))
-  expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+  expectAuthCount(0)
 })
 
 it("restores an existing pending sign-in when settings opens and refreshes its completed account", async () => {
-  mocks.send.mockResolvedValue({ state: "disconnected", authPending: true })
+  mocks.send.mockResolvedValue({
+    state: "disconnected",
+    authPending: true,
+    authAttemptId: pendingAttemptId,
+  })
   renderSettings()
   await waitFor(() =>
     expect(screen.getByText("Complete sign-in in the opened tab.")).toBeInTheDocument(),
@@ -490,7 +498,7 @@ it("restores an existing pending sign-in when settings opens and refreshes its c
   expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled()
   expect(screen.queryByRole("button", { name: "Sign in with ChatGPT" })).not.toBeInTheDocument()
   expect(mocks.permission).not.toHaveBeenCalled()
-  expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+  expectAuthCount(0)
 
   mockConnected()
   fireEvent(window, new Event("focus"))
@@ -500,7 +508,9 @@ it("restores an existing pending sign-in when settings opens and refreshes its c
 
 it("keeps an existing account's reconnect pending without discovering its old model catalog", async () => {
   mocks.send.mockImplementation(async (type) =>
-    type === "lingotoriByosSession" ? { ...connected, authPending: true } : availableModels,
+    type === "lingotoriByosSession"
+      ? { ...connected, authPending: true, authAttemptId: pendingAttemptId }
+      : availableModels,
   )
   renderSettings()
   await waitFor(() =>
@@ -514,7 +524,8 @@ it("keeps an existing account's reconnect pending without discovering its old mo
 it("restores the connected account's saved model after cancelling a reconnect recovered on mount", async () => {
   let authPending = true
   mocks.send.mockImplementation(async (type) => {
-    if (type === "lingotoriByosSession") return { ...connected, authPending }
+    if (type === "lingotoriByosSession")
+      return { ...connected, authPending, authAttemptId: pendingAttemptId }
     if (type === "lingotoriByosCancelAuth") {
       authPending = false
       return undefined
@@ -542,7 +553,7 @@ it("restores the connected account's saved model after cancelling a reconnect re
   expect(mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosSession")).toHaveLength(2)
   expect(mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosModels")).toHaveLength(1)
   expect(mocks.permission).not.toHaveBeenCalled()
-  expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+  expectAuthCount(0)
   expect(store.get(configAtom)).toBe(initial)
 })
 
@@ -573,4 +584,27 @@ it("preserves an unsaved model choice when returning to settings refreshes disco
   expect(screen.getByLabelText("Model")).toHaveValue("second-model")
   expect(store.get(configAtom)).toBe(initial)
   expect(mocks.permission).not.toHaveBeenCalled()
+})
+
+it("cancels its restored attempt identifier even if another settings page has started a newer attempt", async () => {
+  const replacementId = "22222222-2222-4222-8222-222222222222"
+  let currentId = pendingAttemptId
+  mocks.send.mockImplementation(async (type) =>
+    type === "lingotoriByosSession"
+      ? { ...connected, authPending: true, authAttemptId: currentId }
+      : undefined,
+  )
+  const store = renderSettings(),
+    initial = store.get(configAtom)
+  await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled())
+  currentId = replacementId
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+  await waitFor(() =>
+    expect(mocks.send).toHaveBeenCalledWith("lingotoriByosCancelAuth", pendingAttemptId),
+  )
+  await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled())
+  expect(screen.getByText("Complete sign-in in the opened tab.")).toBeInTheDocument()
+  expectAuthCount(0)
+  expect(mocks.permission).not.toHaveBeenCalled()
+  expect(store.get(configAtom)).toBe(initial)
 })

@@ -4,7 +4,12 @@ import { storage } from "#imports"
 import { createByosJobRegistry } from "@/utils/byos/cancellation"
 import { installByosBackgroundInvoker } from "@/utils/byos/invoke"
 import { onByosMessage } from "@/utils/byos/messages"
-import { assertByosSender, createByosService, invokeSchema } from "@/utils/byos/service"
+import {
+  assertByosSender,
+  authAttemptIdSchema,
+  createByosService,
+  invokeSchema,
+} from "@/utils/byos/service"
 import { createAuthTransport, AUTH_ALARM, CALLBACK_PATH } from "@/utils/byos/transport"
 import { createAuthVault } from "@/utils/byos/vault"
 import { CONFIG_STORAGE_KEY } from "@/utils/constants/config"
@@ -63,14 +68,14 @@ export function setupByos() {
     privatePage(sender)
     return service.models()
   })
-  onByosMessage("lingotoriByosAuth", async ({ sender }) => {
+  onByosMessage("lingotoriByosAuth", async ({ sender, data }) => {
     privatePage(sender)
-    return service.authStart()
+    return service.authStart(authAttemptIdSchema.parse(data))
   })
   onByosMessage("lingotoriByosCallback", ({ sender, data }) => service.callback(data, sender))
-  onByosMessage("lingotoriByosCancelAuth", ({ sender }) => {
+  onByosMessage("lingotoriByosCancelAuth", ({ sender, data }) => {
     privatePage(sender)
-    return service.cancel()
+    return service.cancelAuth(data)
   })
   onByosMessage("lingotoriByosSignout", ({ sender }) => {
     privatePage(sender)

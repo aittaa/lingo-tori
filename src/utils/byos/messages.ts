@@ -4,9 +4,9 @@ interface ByosProtocol {
   lingotoriByosStatus: () => { available: boolean; reason: string }
   lingotoriByosSession: () => ByosSession
   lingotoriByosModels: () => ByosModels
-  lingotoriByosAuth: () => void
+  lingotoriByosAuth: (attemptId: string) => void
   lingotoriByosCallback: (query: string) => ByosSession
-  lingotoriByosCancelAuth: () => void
+  lingotoriByosCancelAuth: (attemptId: string) => void
   lingotoriByosSignout: () => ByosSession & { remoteRevocationConfirmed: boolean }
   lingotoriByosCancel: (requestId: string) => void
   lingotoriByosInvoke: (request: { requestId: string; payload: ByosInvocation }) => { text: string }
