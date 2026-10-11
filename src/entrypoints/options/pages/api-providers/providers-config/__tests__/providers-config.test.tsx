@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
 
 import type { ReactNode } from "react"
+import type { ProvidersConfig as ProviderConfigList } from "@/types/config/provider"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ProvidersConfig } from "@/entrypoints/options/pages/api-providers/providers-config"
+import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 
 const {
   anchoredToastAddMock,
   configAtom,
   highlightedProviderFieldAtom,
+  highlightFieldMock,
   providerWriteAtom,
   providersAtom,
   selectedProviderIdAtom,
@@ -21,6 +24,7 @@ const {
   anchoredToastAddMock: vi.fn<(options: unknown) => void>(),
   configAtom: {},
   highlightedProviderFieldAtom: {},
+  highlightFieldMock: vi.fn<(value: unknown) => void>(),
   providerWriteAtom: {},
   providersAtom: {},
   selectedProviderIdAtom: {},
@@ -31,21 +35,21 @@ const {
 }))
 
 const providerConfig = {
+  ...DEFAULT_PROVIDER_CONFIG.openai,
   enabled: true,
   id: "provider-1",
   name: "Long Provider Name",
-  provider: "openai",
 }
 
 const config = {
   languageDetection: { mode: "basic", providerId: undefined as string | undefined },
-  providersConfig: [providerConfig],
+  providersConfig: [providerConfig] as ProviderConfigList,
   selectionToolbar: { customActions: [] },
 }
 
 vi.mock("jotai", () => ({
   useAtom: (atom: object) => {
-    if (atom === providersAtom) return [[providerConfig], vi.fn<(value: unknown) => void>()]
+    if (atom === providersAtom) return [config.providersConfig, vi.fn<(value: unknown) => void>()]
     if (atom === selectedProviderIdAtom)
       return [
         testState.selectedProviderId,
@@ -58,10 +62,11 @@ vi.mock("jotai", () => ({
   useAtomValue: (atom: object) => {
     if (atom === selectedProviderIdAtom) return testState.selectedProviderId
     if (atom === configAtom) return config
-    if (atom === providersAtom) return [providerConfig]
+    if (atom === providersAtom) return config.providersConfig
     return undefined
   },
   useSetAtom: (atom: object) => {
+    if (atom === highlightedProviderFieldAtom) return highlightFieldMock
     if (atom === providerWriteAtom) return setProviderConfigMock
     if (atom === writeConfigAtom) return writeConfigMock
     if (atom === selectedProviderIdAtom)
@@ -115,12 +120,6 @@ vi.mock("@/utils/atoms/config", () => ({
 
 vi.mock("@/utils/atoms/entity-config", () => ({
   patchProviderConfigAtom: providerWriteAtom,
-}))
-
-vi.mock("@/utils/config/helpers", () => ({
-  getAPIProvidersConfig: (providers: unknown[]) => providers,
-  getProviderConfigById: (providers: (typeof providerConfig)[], id: string) =>
-    providers.find((provider) => provider.id === id),
 }))
 
 vi.mock("@/utils/constants/feature-providers", () => ({
@@ -197,7 +196,9 @@ describe("ProvidersConfig", () => {
     anchoredToastAddMock.mockReset()
     setProviderConfigMock.mockReset()
     writeConfigMock.mockReset()
+    highlightFieldMock.mockReset()
     testState.selectedProviderId = providerConfig.id
+    config.providersConfig = [providerConfig]
     config.languageDetection = { mode: "basic", providerId: undefined }
   })
 
@@ -233,6 +234,37 @@ describe("ProvidersConfig", () => {
     renderProvidersConfig(`/api-providers?provider=${providerConfig.id}`)
 
     expect(testState.selectedProviderId).toBe(providerConfig.id)
+  })
+
+  it.each([true, false])("ignores a BYOS deep link when enabled is %s", (enabled) => {
+    const inert = {
+      ...DEFAULT_PROVIDER_CONFIG.byos,
+      id: "legacy-experimental",
+      name: "Historical BYOS",
+      enabled,
+    }
+    config.providersConfig = [inert, providerConfig]
+    const snapshot = structuredClone(config)
+
+    renderProvidersConfig(`/api-providers?provider=${inert.id}&highlight=apiKey`)
+
+    expect(testState.selectedProviderId).toBe(providerConfig.id)
+    expect(highlightFieldMock).not.toHaveBeenCalled()
+    expect(screen.queryByRole("switch", { name: inert.name })).not.toBeInTheDocument()
+    expect(screen.getByRole("switch", { name: providerConfig.name })).toBeInTheDocument()
+    expect(config).toEqual(snapshot)
+    expect(writeConfigMock).not.toHaveBeenCalled()
+    expect(setProviderConfigMock).not.toHaveBeenCalled()
+  })
+
+  it("continues to open a disabled API provider for editing", () => {
+    config.providersConfig = [{ ...providerConfig, enabled: false }]
+    testState.selectedProviderId = "other-local-provider"
+
+    renderProvidersConfig(`/api-providers?provider=${providerConfig.id}&highlight=apiKey`)
+
+    expect(testState.selectedProviderId).toBe(providerConfig.id)
+    expect(highlightFieldMock).toHaveBeenCalledWith("apiKey")
   })
 
   it("keeps the current selection when the deep link names an unknown provider", () => {

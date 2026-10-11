@@ -66,11 +66,13 @@ function useRequestedProvider() {
 
     const providerId = getRequestedProviderId(search)
     if (providerId) {
-      if (!getProviderConfigById(providersConfig, providerId)) {
+      const requestedProvider = getProviderConfigById(providersConfig, providerId)
+      if (!requestedProvider) {
         return
       }
 
       handledLocationRef.current = marker
+      if (!isAPIProviderConfig(requestedProvider)) return
       void setSelectedProviderId(providerId)
       highlightRequestedField()
       return
