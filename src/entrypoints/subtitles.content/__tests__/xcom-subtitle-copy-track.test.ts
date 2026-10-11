@@ -113,7 +113,12 @@ function setup() {
   const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined)
   vi.stubGlobal("navigator", { clipboard: { writeText } })
   initXcomSubtitles({
-    onInvalidated: (cleanup: () => void) => fixture.cleanup.push(cleanup),
+    onInvalidated: (cleanup: () => void) => {
+      fixture.cleanup.push(cleanup)
+      return () => {
+        fixture.cleanup = fixture.cleanup.filter((registered) => registered !== cleanup)
+      }
+    },
   } as ContentScriptContext)
   return {
     adapter,
