@@ -10,10 +10,9 @@ import { isAPIProviderConfig } from "@/types/config/provider"
 import { configAtom } from "@/utils/atoms/config"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { BUILT_IN_DICTIONARY_ACTION_ID } from "@/utils/constants/custom-action"
-import { BUILT_IN_AI_PROVIDER_ID } from "@/utils/constants/provider-ids"
+import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { getBuiltInDictionaryAction } from "@/utils/custom-actions"
 import {
-  BuiltInProviderEditor,
   CustomProviderEditor,
   ProviderEditor,
   useProviderForm,
@@ -105,23 +104,10 @@ describe("editor compound component contexts", () => {
     ).toThrow("ActionEditor.delete is unavailable in this composition")
   })
 
-  it("fails fast when Duplicate is composed for the built-in provider", () => {
-    const store = createConfigStore()
-
-    expect(() =>
-      render(
-        <Provider store={store}>
-          <BuiltInProviderEditor.Provider providerId={BUILT_IN_AI_PROVIDER_ID}>
-            <ProviderEditor.DuplicateButton />
-          </BuiltInProviderEditor.Provider>
-        </Provider>,
-      ),
-    ).toThrow("ProviderEditor.duplicate is unavailable in this composition")
-  })
-
   it("resets Note suggestions to Dictionary when deleting its selected custom action", async () => {
     const store = createConfigStore()
     const config = structuredClone(store.get(configAtom))
+    config.providersConfig.push(structuredClone(DEFAULT_PROVIDER_CONFIG.openai))
     const action = {
       id: "note-suggestion-action",
       name: "Note suggestion Action",
@@ -163,6 +149,7 @@ describe("editor compound component contexts", () => {
   it("assigns an action and enables a disabled custom provider through context actions", async () => {
     const store = createConfigStore()
     const config = structuredClone(store.get(configAtom))
+    config.providersConfig.push(structuredClone(DEFAULT_PROVIDER_CONFIG.openai))
     const providerConfig = config.providersConfig.find(
       (provider) => provider.id === "openai-default",
     )

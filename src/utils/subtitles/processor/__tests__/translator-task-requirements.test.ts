@@ -26,7 +26,7 @@ vi.mock("@/utils/providers/provider-ref", async () => {
   return { ...actual, serializeProviderRef: serializeProviderRefMock }
 })
 
-const GOOGLE = DEFAULT_PROVIDER_CONFIG["google-translate"]
+const DEEPL = DEFAULT_PROVIDER_CONFIG.deepl
 
 function configWithProvider(provider: { id: string }) {
   return {
@@ -49,12 +49,12 @@ describe("subtitles task requirements", () => {
 
   it("resolves a translate-only provider for line translation but not for generation tasks", async () => {
     const { resolveSubtitlesProvider } = await import("../translator")
-    const config = configWithProvider(GOOGLE) as never
+    const config = configWithProvider(DEEPL) as never
 
-    // The picker legally admits Google for videoSubtitles…
+    // The picker legally admits DeepL for videoSubtitles…
     await expect(resolveSubtitlesProvider(config, "lineTranslation")).resolves.toEqual({
       status: "ok",
-      ref: { kind: "local", config: GOOGLE },
+      ref: { kind: "local", config: DEEPL },
     })
     // …but a summary or a recut is a generation, and the resolution reports
     // that as its own state — with no ref a caller could misuse.
@@ -69,7 +69,7 @@ describe("subtitles task requirements", () => {
   it("keeps notPromptable distinct from having no provider at all", async () => {
     const { resolveSubtitlesProvider } = await import("../translator")
     const config = {
-      ...configWithProvider(GOOGLE),
+      ...configWithProvider(DEEPL),
       videoSubtitles: { ...DEFAULT_CONFIG.videoSubtitles, providerId: "does-not-exist" },
     } as never
 
@@ -80,7 +80,7 @@ describe("subtitles task requirements", () => {
 
   it("degrades a generation task silently — no toast, no message", async () => {
     const { resolveSubtitlesProviderRef } = await import("../translator")
-    const config = configWithProvider(GOOGLE) as never
+    const config = configWithProvider(DEEPL) as never
 
     await expect(resolveSubtitlesProviderRef(config, "segmentation")).resolves.toBeNull()
     // Unlike a hosted denial (something the user was refused), an unpromptable
@@ -93,7 +93,7 @@ describe("subtitles task requirements", () => {
   it("uses a passed-through session ref for the summary instead of re-resolving", async () => {
     const { fetchSubtitlesSummary } = await import("../translator")
     const config = {
-      ...configWithProvider(GOOGLE),
+      ...configWithProvider(DEEPL),
       pageTranslation: { ...DEFAULT_CONFIG.pageTranslation, enableAIContentAware: true },
     } as never
     const sessionRef = { kind: "local" as const, config: DEFAULT_PROVIDER_CONFIG.openai }
@@ -118,7 +118,7 @@ describe("subtitles task requirements", () => {
   it("skips the summary outright when the session narrowed its ref to null", async () => {
     const { fetchSubtitlesSummary } = await import("../translator")
     const config = {
-      ...configWithProvider(GOOGLE),
+      ...configWithProvider(DEEPL),
       pageTranslation: { ...DEFAULT_CONFIG.pageTranslation, enableAIContentAware: true },
     } as never
 

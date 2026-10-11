@@ -6,7 +6,6 @@ import { DEFAULT_UI_LOCALE, SUPPORTED_UI_LOCALES } from "./resources"
 const SUPPORTED = new Set<string>(SUPPORTED_UI_LOCALES)
 
 // Regions written in Traditional Chinese; everything else zh-* falls back to Simplified.
-const TRADITIONAL_CHINESE_REGIONS = new Set(["tw", "hk", "mo", "hant"])
 
 /**
  * Resolve the stored `uiLanguage` config value to a concrete supported locale.
@@ -22,7 +21,7 @@ const TRADITIONAL_CHINESE_REGIONS = new Set(["tw", "hk", "mo", "hant"])
  */
 export function resolveUiLocale(uiLanguage: UiLanguage): SupportedUiLocale {
   if (uiLanguage !== "auto") {
-    return uiLanguage
+    return SUPPORTED.has(uiLanguage) ? uiLanguage : DEFAULT_UI_LOCALE
   }
   return resolveBrowserLocale()
 }
@@ -37,11 +36,7 @@ function resolveBrowserLocale(): SupportedUiLocale {
   }
 
   const lower = uiLanguage.toLowerCase()
-  const [prefix, region] = lower.split("-")
-
-  if (prefix === "zh") {
-    return region && TRADITIONAL_CHINESE_REGIONS.has(region) ? "zh-TW" : "zh-CN"
-  }
+  const [prefix] = lower.split("-")
 
   // Exact match against a supported locale (case-insensitive).
   const exact = SUPPORTED_UI_LOCALES.find((locale) => locale.toLowerCase() === lower)

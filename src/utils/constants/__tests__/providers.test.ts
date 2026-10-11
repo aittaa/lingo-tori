@@ -19,6 +19,19 @@ import {
 } from "../providers"
 
 describe("provider constants", () => {
+  it("preserves inert experimental rows without accepting credentials in shared config", () => {
+    expect(providersConfigSchema.safeParse([DEFAULT_PROVIDER_CONFIG.byos]).success).toBe(true)
+    for (const extra of [
+      { apiKey: "secret" },
+      { headers: { Authorization: "secret" } },
+      { baseURL: "https://example.test" },
+    ]) {
+      expect(
+        providersConfigSchema.safeParse([{ ...DEFAULT_PROVIDER_CONFIG.byos, ...extra }]).success,
+      ).toBe(false)
+    }
+  })
+
   it("keeps every default provider compatible with its model schema", () => {
     for (const provider of API_PROVIDER_TYPES) {
       expect(apiProviderConfigItemSchema.parse(DEFAULT_PROVIDER_CONFIG[provider])).toEqual(

@@ -1,7 +1,6 @@
 import type { EntityTable } from "dexie"
-import { upperCamelCase } from "case-anything"
 import { Dexie } from "dexie"
-import { APP_NAME } from "@/utils/constants/app"
+import { LEGACY_DATABASE_NAME } from "@/utils/constants/app"
 import AiSegmentationCache from "./tables/ai-segmentation-cache"
 import ArticleSummaryCache from "./tables/article-summary-cache"
 import BatchRequestRecord from "./tables/batch-request-record"
@@ -26,7 +25,7 @@ export default class AppDB extends Dexie {
   glossarySyncSnapshot!: EntityTable<GlossarySyncSnapshot, "id">
 
   constructor() {
-    super(`${upperCamelCase(APP_NAME)}DB`)
+    super(LEGACY_DATABASE_NAME)
     this.version(1).stores({
       translationCache: `
         key,

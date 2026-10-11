@@ -1,6 +1,7 @@
 import type { SerializableProviderRef } from "@/utils/providers/provider-ref"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
+import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 
 const getLocalConfigMock = vi.fn<(...args: any[]) => any>()
 const sendMessageMock = vi.fn<(...args: any[]) => any>()
@@ -36,6 +37,7 @@ describe("subtitles translator", () => {
 
     getLocalConfigMock.mockResolvedValue({
       ...DEFAULT_CONFIG,
+      providersConfig: [{ ...DEFAULT_PROVIDER_CONFIG.openai, apiKey: "test-key" }],
       pageTranslation: {
         ...DEFAULT_CONFIG.pageTranslation,
         enableAIContentAware: true,
@@ -139,6 +141,7 @@ describe("subtitles translator", () => {
 
     getLocalConfigMock.mockResolvedValueOnce({
       ...DEFAULT_CONFIG,
+      providersConfig: [{ ...DEFAULT_PROVIDER_CONFIG.openai, apiKey: "test-key" }],
       pageTranslation: {
         ...DEFAULT_CONFIG.pageTranslation,
         enableAIContentAware: false,
@@ -174,6 +177,7 @@ describe("subtitles translator", () => {
   it("passes title and description when AI content awareness is disabled", async () => {
     getLocalConfigMock.mockResolvedValueOnce({
       ...DEFAULT_CONFIG,
+      providersConfig: [{ ...DEFAULT_PROVIDER_CONFIG.openai, apiKey: "test-key" }],
       pageTranslation: {
         ...DEFAULT_CONFIG.pageTranslation,
         enableAIContentAware: false,
@@ -213,6 +217,7 @@ describe("subtitles translator", () => {
     const { fetchSubtitlesSummary, translateSubtitles } = await import("../translator")
     const configSnapshot = {
       ...DEFAULT_CONFIG,
+      providersConfig: [{ ...DEFAULT_PROVIDER_CONFIG.openai, apiKey: "test-key" }],
       pageTranslation: { ...DEFAULT_CONFIG.pageTranslation, enableAIContentAware: true },
       videoSubtitles: { ...DEFAULT_CONFIG.videoSubtitles, providerId: "openai-default" },
     }

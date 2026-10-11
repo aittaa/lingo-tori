@@ -1,4 +1,4 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import { atom } from "jotai"
 import { normalizeDetectedCode } from "@/utils/config/languages"
 import { DEFAULT_DETECTED_CODE } from "../constants/config"

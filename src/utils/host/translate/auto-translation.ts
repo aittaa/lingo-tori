@@ -1,4 +1,4 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import type { Config } from "@/types/config/config"
 import { getFinalSourceCode } from "@/utils/config/languages"
 import { urlMatchesPattern } from "@/utils/url-pattern"

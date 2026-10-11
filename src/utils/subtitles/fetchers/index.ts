@@ -1,5 +1,4 @@
 export * from "./types"
-export { AiSubtitlesFetcher } from "./ai"
 export { NetflixSubtitlesFetcher } from "./netflix"
 export { TextTrackFetcher } from "./text-track"
 export { YoutubeSubtitlesFetcher } from "./youtube"

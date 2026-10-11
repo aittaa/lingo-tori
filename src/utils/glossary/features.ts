@@ -20,7 +20,6 @@ export const GLOSSARY_FEATURE_KEYS = [
   "pageTranslation",
   "videoSubtitles",
   "selectionTranslation",
-  "inputTranslation",
 ] as const satisfies readonly FeatureKey[]
 
 export type GlossaryFeatureKey = (typeof GLOSSARY_FEATURE_KEYS)[number]

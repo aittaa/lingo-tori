@@ -2,11 +2,10 @@ import type { SubtitlesFragment } from "./types"
 import type { BackgroundStreamTextSerializablePayload } from "@/types/background-stream"
 import type { Config } from "@/types/config/config"
 import type { ProviderRefForCapability } from "@/utils/providers/provider-registry"
-import { LANG_CODE_TO_EN_NAME } from "@read-frog/definitions"
+import { LANG_CODE_TO_EN_NAME } from "@/lib/languages"
 import { getLocalConfig } from "@/utils/config/storage"
 import { VIDEO_SUMMARY_TRANSCRIPT_CHAR_BUDGET } from "@/utils/constants/subtitles"
 import { streamBackgroundText } from "@/utils/content-script/background-stream-client"
-import { getRandomUUID } from "@/utils/crypto-polyfill"
 import { sendMessage } from "@/utils/message"
 import { getVideoSummaryPrompt } from "@/utils/prompts/summary"
 import { resolveSubtitlesProvider, resolveSubtitlesProviderRef } from "./processor/translator"
@@ -50,11 +49,7 @@ export function videoSummaryQueryKey(
   targetCode: string,
   resolved: VideoSummaryProviderRef,
 ) {
-  const providerIdentity = !resolved
-    ? null
-    : resolved.kind === "local"
-      ? resolved.config
-      : { providerId: resolved.id, modelTier: resolved.modelTier }
+  const providerIdentity = resolved?.config ?? null
 
   return [...VIDEO_SUMMARY_QUERY_SCOPE, videoId, targetCode, providerIdentity] as const
 }
@@ -91,17 +86,12 @@ export function stripLeadingHeading(summary: string): string {
     .trim()
 }
 
-export type VideoSummaryAvailability =
-  | { status: "ok" }
-  | { status: "needsModel" }
-  | { status: "hostedUnavailable"; message: string }
+export type VideoSummaryAvailability = { status: "ok" } | { status: "needsModel" }
 
 /**
  * The subtitles provider list is gated on the wider translate capability, so
- * the default Microsoft provider is a legal choice there and then cannot be
- * prompted. Checked before the panel opens rather than after a request fails.
- *
- * A plan/quota refusal stays itself: the user did pick a model.
+ * translation-only providers cannot generate summaries. Check before the
+ * panel opens rather than after a request fails.
  */
 export async function checkVideoSummaryAvailability(): Promise<VideoSummaryAvailability> {
   const config = await getLocalConfig()
@@ -109,9 +99,6 @@ export async function checkVideoSummaryAvailability(): Promise<VideoSummaryAvail
     return { status: "needsModel" }
   }
   const resolution = await resolveSubtitlesProvider(config, "summary")
-  if (resolution.status === "hostedUnavailable") {
-    return { status: "hostedUnavailable", message: resolution.message }
-  }
   if (resolution.status !== "ok") {
     // "none" and "notPromptable" both land here: nothing the panel can run.
     return { status: "needsModel" }
@@ -157,24 +144,13 @@ export async function requestVideoSummary(
     targetLanguage,
     sampleTranscript(transcript, VIDEO_SUMMARY_TRANSCRIPT_CHAR_BUDGET),
   )
-  const payload: BackgroundStreamTextSerializablePayload =
-    providerRef.kind === "system"
-      ? {
-          providerKind: "system",
-          providerId: providerRef.providerId,
-          modelTier: providerRef.modelTier,
-          requestId: getRandomUUID(),
-          hostedFeature: "videoSubtitles" as const,
-          instructions: systemPrompt,
-          prompt,
-        }
-      : {
-          providerKind: "local",
-          providerId: providerRef.config.id,
-          providerConfig: providerRef.config,
-          instructions: systemPrompt,
-          prompt,
-        }
+  const payload: BackgroundStreamTextSerializablePayload = {
+    providerKind: "local",
+    providerId: providerRef.config.id,
+    providerConfig: providerRef.config,
+    instructions: systemPrompt,
+    prompt,
+  }
 
   const snapshot = await streamBackgroundText(payload, {
     signal,

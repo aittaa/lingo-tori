@@ -1,4 +1,5 @@
-import type { LangCodeISO6393, NoteSaveSurface } from "@read-frog/definitions"
+import type { LangCodeISO6393 } from "@/lib/languages"
+type NoteSaveSurface = "custom_action" | "note_suggestion" | "dictionary"
 import type { AllProviderTypes } from "@/types/config/provider"
 import type { TranslationMode } from "@/types/config/translate"
 

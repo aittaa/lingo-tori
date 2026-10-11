@@ -28,7 +28,7 @@ The v102-to-v103 step now uses an independently authored compatibility transform
 
 Historical example fixtures v103-v110 were scrubbed by parsing TypeScript and replacing only `layout` and `sampleData` value ranges; removed payloads were not displayed or retained. Eight fixture files contained 22 affected properties. The chain suite compares all other historical settings exactly and separately asserts that retired payloads remain inert. This is an explicit provenance exception to frozen historical snapshots, not permission to rewrite unrelated migrations. The new v111 migration and fixture are independently authored extension compatibility work.
 
-### Precise integration paths
+### Baseline integration paths (historical)
 
 - `src/components/layout-host/custom-action-layout-view.tsx` mounts the engine. `fallback-field-list.tsx` also imports its formatter, so the fallback is not independent yet.
 - `src/utils/layout-host/*`, `src/utils/constants/config.ts`, and `custom-action-templates.ts` import presets or engine contracts.
@@ -58,7 +58,7 @@ Remove original authentication clients, oRPC service clients, payment/quota UI, 
 
 The original upstream ebook bridge remains removed. Do not expose arbitrary fetch, keys, or privileged extension actions to page messages.
 
-The companion is removed. The replacement browser-only source is experimental; see [BYOS](byos.md) for its dedicated extension-origin vault, optional narrow callback permission and explicit official-support mismatch. No permission is granted or authentication performed in this development task.
+The companion and browser-only account runtime are excluded. Old experimental provider rows remain storage-only compatibility data; capability resolution cannot select or execute them, and their selected IDs do not invalidate unrelated BYOK settings. No user records or browser databases are deleted.
 
 ## Migration and build risks
 

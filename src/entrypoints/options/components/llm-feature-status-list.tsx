@@ -2,12 +2,10 @@ import type { FeatureKey } from "@/utils/constants/feature-providers"
 import { useAtomValue } from "jotai"
 import { useMemo } from "react"
 import { useNavigate } from "react-router"
-import { useHostedAiStatus } from "@/components/llm-providers/use-hosted-ai-status"
 import { Button } from "@/components/ui/base-ui/button"
 import { configAtom, configFieldsAtomMap } from "@/utils/atoms/config"
 import { FEATURE_PROVIDER_DEFS, getFeatureLabelI18nKey } from "@/utils/constants/feature-providers"
 import { i18n } from "@/utils/i18n"
-import { isProviderIdDurablyUnusable } from "@/utils/providers/provider-availability"
 import { canResolvedProviderRefGenerateText } from "@/utils/providers/provider-ref"
 import { resolveProviderRefForCapability } from "@/utils/providers/provider-registry"
 import { cn } from "@/utils/styles/utils"
@@ -66,7 +64,6 @@ export function LlmFeatureStatusList({
 }) {
   const config = useAtomValue(configAtom)
   const providersConfig = useAtomValue(configFieldsAtomMap.providersConfig)
-  const { status } = useHostedAiStatus()
   const navigate = useNavigate()
 
   const statuses = useMemo(
@@ -75,10 +72,7 @@ export function LlmFeatureStatusList({
         const providerId = FEATURE_PROVIDER_DEFS[featureKey].getProviderId(config)
         const providerRef = resolveProviderRefForCapability(featureKey, providersConfig, providerId)
         const featureName = i18n.t(getFeatureLabelI18nKey(featureKey))
-        const hasLLMProvider = providerRef
-          ? canResolvedProviderRefGenerateText(providerRef) &&
-            !isProviderIdDurablyUnusable(providerId, featureKey, status)
-          : false
+        const hasLLMProvider = providerRef ? canResolvedProviderRefGenerateText(providerRef) : false
 
         return {
           featureKey,
@@ -88,7 +82,7 @@ export function LlmFeatureStatusList({
             : i18n.t("options.apiProviders.aiContentAware.llmProviderNotConfigured", [featureName]),
         }
       }),
-    [config, providersConfig, status, featureKeys],
+    [config, providersConfig, featureKeys],
   )
 
   return (

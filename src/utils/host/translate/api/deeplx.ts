@@ -1,4 +1,4 @@
-import type { LangCodeISO6391 } from "@read-frog/definitions"
+import type { LangCodeISO6391 } from "@/lib/languages"
 import type { ProviderConfig } from "@/types/config/provider"
 import type { TranslationTextFormat } from "@/types/config/translate"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
@@ -23,6 +23,7 @@ export async function deeplxTranslate(
   const formatLang = (lang: LangCodeISO6391 | "auto") => {
     if (lang === "auto") return "auto"
     let formattedLang = lang.toUpperCase()
+    if (formattedLang === "ZH-CN") formattedLang = "ZH"
     if (formattedLang === "ZH-TW") formattedLang = "ZH-HANT"
     return formattedLang
   }

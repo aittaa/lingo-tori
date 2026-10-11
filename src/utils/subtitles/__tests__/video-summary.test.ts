@@ -60,28 +60,17 @@ function localRef(model: string) {
       apiKey: "test-key",
       model: { model, isCustomModel: false, customModel: null },
     },
-  } as unknown as VideoSummaryProviderRef
-}
-
-function systemRef(providerId: string) {
-  return {
-    kind: "system",
-    id: providerId,
-    name: providerId,
-    modelTier: "standard",
-  } as unknown as VideoSummaryProviderRef
+  } as unknown as NonNullable<VideoSummaryProviderRef>
 }
 
 describe("videoSummaryQueryKey", () => {
   it("separates the cache per video, language and provider", () => {
-    const ref = systemRef("built-in-ai")
+    const ref = localRef("v1")
     const base = videoSummaryQueryKey("video-1", "cmn", ref)
 
     expect(hashKey(base)).not.toBe(hashKey(videoSummaryQueryKey("video-2", "cmn", ref)))
     expect(hashKey(base)).not.toBe(hashKey(videoSummaryQueryKey("video-1", "eng", ref)))
-    expect(hashKey(base)).not.toBe(
-      hashKey(videoSummaryQueryKey("video-1", "cmn", systemRef("other"))),
-    )
+    expect(hashKey(base)).not.toBe(hashKey(videoSummaryQueryKey("video-1", "cmn", localRef("v2"))))
     expect(hashKey(base)).toBe(hashKey(videoSummaryQueryKey("video-1", "cmn", ref)))
   })
 
@@ -93,18 +82,12 @@ describe("videoSummaryQueryKey", () => {
   })
 
   it("hashes the same regardless of the order fields were written in", () => {
-    const a = videoSummaryQueryKey("video-1", "cmn", {
-      kind: "system",
-      id: "built-in-ai",
-      name: "built-in-ai",
-      modelTier: "standard",
-    } as unknown as VideoSummaryProviderRef)
+    const ref = localRef("v1")
+    const a = videoSummaryQueryKey("video-1", "cmn", ref)
     const b = videoSummaryQueryKey("video-1", "cmn", {
-      modelTier: "standard",
-      name: "built-in-ai",
-      id: "built-in-ai",
-      kind: "system",
-    } as unknown as VideoSummaryProviderRef)
+      ...ref,
+      config: { ...ref.config, model: { customModel: null, isCustomModel: false, model: "v1" } },
+    } as unknown as NonNullable<VideoSummaryProviderRef>)
 
     expect(hashKey(a)).toBe(hashKey(b))
   })

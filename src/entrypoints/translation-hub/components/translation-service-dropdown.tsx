@@ -1,8 +1,6 @@
 import { IconSettings } from "@tabler/icons-react"
 import { useAtom, useAtomValue } from "jotai"
 import { browser } from "#imports"
-import { PlanBadge } from "@/components/badges/plan-badge"
-import { useHostedAiProviderOptions } from "@/components/llm-providers/use-hosted-ai-provider-options"
 import ProviderIcon from "@/components/provider-icon"
 import { useTheme } from "@/components/providers/theme-provider"
 import { Button } from "@/components/ui/base-ui/button"
@@ -19,14 +17,11 @@ import { configFieldsAtomMap } from "@/utils/atoms/config"
 import {
   filterEnabledProvidersConfig,
   getLLMProvidersConfig,
-  getNonAPIProvidersConfig,
   getPureAPIProvidersConfig,
   getTranslateProvidersConfig,
 } from "@/utils/config/helpers"
 import { PROVIDER_ITEMS } from "@/utils/constants/providers"
 import { i18n } from "@/utils/i18n"
-import { getProviderLogo, isSystemProviderSelectorItem } from "@/utils/providers/provider-display"
-import { getSelectableProvidersForCapability } from "@/utils/providers/provider-registry"
 import { selectedProviderIdsAtom } from "../atoms"
 
 export function TranslationServiceDropdown() {
@@ -47,14 +42,7 @@ export function TranslationServiceDropdown() {
   }
 
   const llmProviders = getLLMProvidersConfig(filteredProvidersConfig)
-  const nonAPIProviders = getNonAPIProvidersConfig(filteredProvidersConfig)
   const pureAPIProviders = getPureAPIProvidersConfig(filteredProvidersConfig)
-  const selectableProviders = getSelectableProvidersForCapability(
-    "pageTranslation",
-    providersConfig,
-  )
-  const providerOptions = useHostedAiProviderOptions("pageTranslation", selectableProviders)
-  const builtInProviders = providerOptions.filter(isSystemProviderSelectorItem)
 
   return (
     <div className="flex min-w-0 items-center gap-2">
@@ -86,39 +74,12 @@ export function TranslationServiceDropdown() {
               ))}
             </SelectGroup>
           )}
-          {(nonAPIProviders.length > 0 || pureAPIProviders.length > 0) && (
+          {pureAPIProviders.length > 0 && (
             <SelectGroup>
               <SelectLabel>{i18n.t("translateService.normalTranslator")}</SelectLabel>
-              {nonAPIProviders.map(({ id, name, provider }) => (
-                <SelectItem key={id} value={id}>
-                  <ProviderIcon logo={PROVIDER_ITEMS[provider].logo(theme)} name={name} size="sm" />
-                </SelectItem>
-              ))}
               {pureAPIProviders.map(({ id, name, provider }) => (
                 <SelectItem key={id} value={id}>
                   <ProviderIcon logo={PROVIDER_ITEMS[provider].logo(theme)} name={name} size="sm" />
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          )}
-          {builtInProviders.length > 0 && (
-            <SelectGroup>
-              <SelectLabel>{i18n.t("translateService.builtInModels")}</SelectLabel>
-              {builtInProviders.map((provider) => (
-                <SelectItem key={provider.id} value={provider.id} disabled={provider.disabled}>
-                  <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                    <ProviderIcon
-                      logo={getProviderLogo(provider, theme)}
-                      name={provider.name}
-                      size="sm"
-                    />
-                    {provider.requiresUltra && (
-                      <PlanBadge
-                        plan="ultra"
-                        upgradeTooltip={i18n.t("hostedAi.ultraBadge.tooltip")}
-                      />
-                    )}
-                  </div>
                 </SelectItem>
               ))}
             </SelectGroup>

@@ -26,29 +26,28 @@ describe("provider headers", () => {
   })
 
   describe("forced headers", () => {
-    const jalapeno = {
-      "HTTP-Referer": "https://www.readfrog.app",
-      "X-Jalapeno-Title": "Read Frog",
-    }
+    const jalapeno = { "anthropic-dangerous-direct-browser-access": "true" }
 
     it("sends them when the user has configured no headers", () => {
-      expect(getProviderHeadersWithOverride("jalapenocloud", undefined)).toEqual(jalapeno)
+      expect(getProviderHeadersWithOverride("anthropic", undefined)).toEqual(jalapeno)
     })
 
     it("keeps them alongside the user's own headers", () => {
-      expect(getProviderHeadersWithOverride("jalapenocloud", { "X-Test": "1" })).toEqual({
+      expect(getProviderHeadersWithOverride("anthropic", { "X-Test": "1" })).toEqual({
         "X-Test": "1",
         ...jalapeno,
       })
     })
 
     it("survives a user override that clears every header", () => {
-      expect(getProviderHeadersWithOverride("jalapenocloud", {})).toEqual(jalapeno)
+      expect(getProviderHeadersWithOverride("anthropic", {})).toEqual(jalapeno)
     })
 
     it("wins over a user header of the same name", () => {
       expect(
-        getProviderHeadersWithOverride("jalapenocloud", { "HTTP-Referer": "https://evil.test" }),
+        getProviderHeadersWithOverride("anthropic", {
+          "anthropic-dangerous-direct-browser-access": "false",
+        }),
       ).toEqual(jalapeno)
     })
 
@@ -61,11 +60,9 @@ describe("provider headers", () => {
       })
     })
 
-    it("keeps OpenRouter attribution when the user adds their own", () => {
+    it("does not add upstream attribution to OpenRouter", () => {
       expect(getProviderHeadersWithOverride("openrouter", { "X-Test": "1" })).toEqual({
         "X-Test": "1",
-        "HTTP-Referer": "https://www.readfrog.app",
-        "X-OpenRouter-Title": "Read Frog",
       })
     })
   })

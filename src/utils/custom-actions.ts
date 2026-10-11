@@ -6,7 +6,6 @@ import type {
 import type { BuiltInActionId } from "@/utils/constants/custom-action"
 import {
   createDefaultDictionaryAction,
-  createDefaultImproveWritingAction,
   createDefaultSentenceAnalysisAction,
 } from "@/utils/constants/config"
 import {
@@ -14,7 +13,6 @@ import {
   BUILT_IN_ACTION_IDS,
   BUILT_IN_ACTION_KEYS,
   BUILT_IN_DICTIONARY_ACTION_ID,
-  BUILT_IN_IMPROVE_WRITING_ACTION_ID,
   BUILT_IN_SENTENCE_ANALYSIS_ACTION_ID,
   isBuiltInActionId,
 } from "@/utils/constants/custom-action"
@@ -26,7 +24,6 @@ type SelectionToolbarConfig = Config["selectionToolbar"]
 const BUILT_IN_ACTION_DEFINITIONS: Record<BuiltInActionId, () => SelectionToolbarCustomAction> = {
   [BUILT_IN_DICTIONARY_ACTION_ID]: createDefaultDictionaryAction,
   [BUILT_IN_SENTENCE_ANALYSIS_ACTION_ID]: createDefaultSentenceAnalysisAction,
-  [BUILT_IN_IMPROVE_WRITING_ACTION_ID]: createDefaultImproveWritingAction,
 }
 
 // A built-in action as it reads: its code-owned definition in the current UI
@@ -46,7 +43,6 @@ export function getBuiltInAction(
     enabled: state.enabled,
     providerId: state.providerId,
     shortcut: state.shortcut ?? BUILT_IN_ACTION_DEFAULT_SHORTCUTS[id],
-    ...(state.notebaseConnection ? { notebaseConnection: state.notebaseConnection } : {}),
   }
 }
 
@@ -105,7 +101,6 @@ function toBuiltInState(
   return {
     enabled: action.enabled !== false,
     providerId: action.providerId,
-    notebaseConnection: action.notebaseConnection,
     ...(keepsDefaultKey ? {} : { shortcut: action.shortcut }),
   }
 }
@@ -136,9 +131,7 @@ export function replaceSelectionToolbarAction(
 export function patchSelectionToolbarAction(
   selectionToolbar: SelectionToolbarConfig,
   actionId: string,
-  patch: Partial<
-    Pick<SelectionToolbarCustomAction, "enabled" | "providerId" | "notebaseConnection" | "shortcut">
-  >,
+  patch: Partial<Pick<SelectionToolbarCustomAction, "enabled" | "providerId" | "shortcut">>,
 ): SelectionToolbarConfig {
   const action = findSelectionToolbarAction(selectionToolbar, actionId)
   if (!action) {

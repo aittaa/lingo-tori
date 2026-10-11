@@ -112,6 +112,19 @@ async function getLanguageModelById(providerId: string) {
  * new row while the params derived from the ref came from the old one.
  */
 export function getLanguageModelForConfig(providerConfig: LLMProviderConfig) {
+  if (!providerConfig.enabled) {
+    throw new ProviderSetupError("Enable this provider in Settings before using it.")
+  }
+  // Custom/local endpoints may intentionally authenticate outside an API key.
+  if (
+    isDedicatedLLMProviderConfig(providerConfig) &&
+    providerConfig.provider !== "ollama" &&
+    providerConfig.provider !== "bedrock" &&
+    !providerConfig.baseURL &&
+    !providerConfig.apiKey?.trim()
+  ) {
+    throw new ProviderSetupError("Add your API key in Settings before using this provider.")
+  }
   const headers = getProviderHeadersWithOverride(providerConfig.provider, providerConfig.headers)
   const providerSpecificSettings = getProviderSpecificSettings(providerConfig)
 

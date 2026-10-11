@@ -21,11 +21,6 @@ vi.mock("../translate-button", () => ({
   TranslateButton: () => null,
 }))
 
-vi.mock("../speak-button", () => ({
-  SpeakButton: () => null,
-  SelectionSpeechProvider: ({ children }: { children: React.ReactNode }) => children,
-}))
-
 vi.mock("../pinned-items", () => ({
   SelectionToolbarPinnedItems: () => null,
 }))
@@ -51,7 +46,6 @@ vi.mock("@/utils/atoms/config", async (importOriginal) => {
             providerId: "google-translate-default",
             shortcut: "Alt+T",
           },
-          speak: { enabled: true },
         },
         customActions: [],
       }),
@@ -276,7 +270,6 @@ describe("selectionToolbar - isInputOrTextarea logic", () => {
           ...DEFAULT_SELECTION_TOOLBAR_CONFIG.features.translate,
           enabled: false,
         },
-        speak: { ...DEFAULT_SELECTION_TOOLBAR_CONFIG.features.speak, enabled: false },
       },
       builtInActions: {
         dictionary: {
@@ -310,7 +303,7 @@ describe("selectionToolbar - isInputOrTextarea logic", () => {
   it("shows the toolbar with just its more menu when no enabled item is pinned", async () => {
     await store.set(configFieldsAtomMap.selectionToolbar, {
       ...DEFAULT_SELECTION_TOOLBAR_CONFIG,
-      unpinned: ["translate", "speak", "default-dictionary", "default-sentence-analysis"],
+      unpinned: ["translate", "default-dictionary", "default-sentence-analysis"],
     })
     render(
       <div>

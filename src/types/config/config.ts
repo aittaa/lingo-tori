@@ -1,5 +1,5 @@
-import { langCodeISO6393Schema, langLevel } from "@read-frog/definitions"
 import { z } from "zod"
+import { langCodeISO6393Schema, langLevel } from "@/lib/languages"
 import {
   BUILT_IN_ACTION_IDS,
   BUILT_IN_ACTION_KEYS,
@@ -29,7 +29,6 @@ import { shortcutSchema } from "./shortcut"
 import { siteRulesConfigSchema } from "./site-rules"
 import { videoSubtitlesSchema } from "./subtitles"
 import { translateConfigSchema } from "./translate"
-import { ttsConfigSchema } from "./tts"
 // Language schema
 const languageSchema = z.object({
   sourceCode: langCodeISO6393Schema.or(z.literal("auto")),
@@ -43,16 +42,6 @@ const selectionToolbarFeatureSchema = z.object({
   shortcut: shortcutSchema,
 })
 
-const selectionToolbarSpeakFeatureSchema = z.object({
-  enabled: z.boolean(),
-  // Missing means the default key (see getSpeakShortcut); empty means the user
-  // cleared it. Optional rather than defaulted: a UI context that parses a
-  // pre-v110 config and writes it back must not store the default, or the v110
-  // migration could no longer tell it from a key the user chose, and would not
-  // check it against the user's other shortcuts.
-  shortcut: shortcutSchema.optional(),
-})
-
 // Text selection toolbar schema
 const selectionToolbarSchema = z
   .object({
@@ -61,7 +50,6 @@ const selectionToolbarSchema = z
     opacity: z.number().min(MIN_SELECTION_OVERLAY_OPACITY).max(MAX_SELECTION_OVERLAY_OPACITY),
     features: z.object({
       translate: selectionToolbarFeatureSchema,
-      speak: selectionToolbarSpeakFeatureSchema,
     }),
     builtInActions: selectionToolbarBuiltInActionsSchema,
     customActions: selectionToolbarCustomActionsSchema,
@@ -135,26 +123,6 @@ const contextMenuSchema = z.object({
   enabled: z.boolean(),
 })
 
-// input translation language selector: 'sourceCode', 'targetCode', or fixed language code
-const inputTranslationLangSchema = z.union([
-  z.literal("sourceCode"),
-  z.literal("targetCode"),
-  langCodeISO6393Schema,
-])
-
-// input translation schema (triple-space trigger)
-const inputTranslationSchema = z.object({
-  enabled: z.boolean(),
-  providerId: z.string().nonempty(),
-  fromLang: inputTranslationLangSchema,
-  toLang: inputTranslationLangSchema,
-  enableCycle: z.boolean(),
-  timeThreshold: z.number().min(100).max(1000),
-})
-
-// Export types for use in components
-export type InputTranslationLang = z.infer<typeof inputTranslationLangSchema>
-
 // site control schema
 const siteControlSchema = z.object({
   mode: z.enum(["blacklist", "whitelist"]),
@@ -168,9 +136,7 @@ const siteControlSchema = z.object({
 // `.default("auto")` is load-bearing: it lets configs stored before this field existed still
 // parse successfully, avoiding the destructive fallback-to-DEFAULT_CONFIG path in
 // `writeConfigAtom` / `initializeConfig` during the upgrade window.
-const uiLanguageSchema = z
-  .enum(["auto", "az", "en", "es", "ja", "ko", "ru", "tr", "vi", "zh-CN", "zh-TW"])
-  .default("auto")
+const uiLanguageSchema = z.enum(["auto", "en", "ko", "ja"]).default("auto")
 export type UiLanguage = z.infer<typeof uiLanguageSchema>
 
 // Complete config schema
@@ -180,13 +146,11 @@ export const configSchema = z
     providersConfig: providersConfigSchema,
     pageTranslation: translateConfigSchema,
     languageDetection: languageDetectionConfigSchema,
-    tts: ttsConfigSchema,
     floatingButton: floatingButtonSchema,
     selectionToolbar: selectionToolbarSchema,
     sideContent: sideContentSchema,
     betaExperience: betaExperienceSchema,
     contextMenu: contextMenuSchema,
-    inputTranslation: inputTranslationSchema,
     videoSubtitles: videoSubtitlesSchema,
     siteControl: siteControlSchema,
     siteRules: siteRulesConfigSchema,
@@ -195,11 +159,19 @@ export const configSchema = z
     glossary: glossaryConfigSchema,
   })
   .superRefine((data, ctx) => {
+    // Preserve old experimental assignments without enabling their provider or
+    // resetting unrelated BYOK settings. Capability resolution still returns null.
+    const isInertExperimentalAssignment = (providerId: string) =>
+      data.providersConfig.some(
+        (provider) => provider.id === providerId && provider.provider === "byos",
+      )
     for (const featureKey of FEATURE_KEYS) {
       const def = FEATURE_PROVIDER_DEFS[featureKey]
       const providerId = def.getProviderId(data)
 
       if (
+        providerId !== "unconfigured" &&
+        !isInertExperimentalAssignment(providerId) &&
         !doesProviderSupportsCapability(featureKey, data.providersConfig, providerId, {
           requireEnable: true,
         })
@@ -230,6 +202,7 @@ export const configSchema = z
         // providersConfig lookup: Built-in AI is never a row in
         // providersConfig, so requiring one there is what used to make a
         // hosted provider fail validation and reset the whole config.
+        !isInertExperimentalAssignment(ldProviderId) &&
         !doesProviderSupportsCapability("languageDetection", data.providersConfig, ldProviderId, {
           requireEnable: true,
         })
@@ -261,6 +234,8 @@ export const configSchema = z
 
     actionProviderEntries.forEach(({ providerId, path }) => {
       if (
+        providerId !== "unconfigured" &&
+        !isInertExperimentalAssignment(providerId) &&
         !doesProviderSupportsCapability("customAction", data.providersConfig, providerId, {
           requireEnable: true,
         })

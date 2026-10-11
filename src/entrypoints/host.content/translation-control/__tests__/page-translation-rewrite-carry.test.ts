@@ -13,9 +13,23 @@
  * retranslates. Only the provider call, decoration and messaging are mocked.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { DEFAULT_CONFIG } from "@/utils/constants/config"
+import { DEFAULT_CONFIG as EMPTY_CONFIG } from "@/utils/constants/config"
 import { CONTENT_WRAPPER_CLASS } from "@/utils/constants/dom-labels"
 import { PageTranslationManager } from "../page-translation"
+
+const DEFAULT_CONFIG = {
+  ...EMPTY_CONFIG,
+  providersConfig: [
+    {
+      id: "test-deepl",
+      provider: "deepl" as const,
+      enabled: true,
+      name: "Test DeepL",
+      apiKey: "test-key",
+    },
+  ],
+  pageTranslation: { ...EMPTY_CONFIG.pageTranslation, providerId: "test-deepl" },
+}
 
 const {
   mockGetLocalConfig,

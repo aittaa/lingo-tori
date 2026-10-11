@@ -318,7 +318,7 @@ describe("floatingButton controls", () => {
     expect(sendMessage).toHaveBeenCalledWith("toggleSidePanel", undefined)
   })
 
-  it("places feedback after settings and opens a localized Featurebase URL with safe metadata", () => {
+  it("places feedback after settings and opens the project issue tracker without page metadata", () => {
     window.history.replaceState({}, "", "/private/path?token=secret#section")
     renderFloatingButton()
 
@@ -342,14 +342,9 @@ describe("floatingButton controls", () => {
     expect(openPagePayload).toBeDefined()
     const openedUrl = new URL(openPagePayload!.url)
 
-    expect(openedUrl.origin).toBe("https://feedback.readfrog.app")
-    expect(openedUrl.pathname).toBe("/en")
-    expect(JSON.parse(openedUrl.searchParams.get("metaData")!)).toEqual({
-      browser: "chrome",
-      extension_version: "1.0.0",
-      // The intent is query/hash stripping, not the origin itself.
-      page_url: `${window.location.origin}/private/path`,
-    })
+    expect(openedUrl.origin).toBe("https://github.com")
+    expect(openedUrl.pathname).toContain("/issues")
+    expect(openedUrl.search).toBe("")
     expect(openPagePayload).toEqual({
       url: openedUrl.toString(),
       active: true,

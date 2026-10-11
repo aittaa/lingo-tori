@@ -40,10 +40,10 @@ vi.mock("@/components/llm-providers/provider-selector", () => ({
 describe("selectionToolbarFooterContent", () => {
   const providers: ProviderConfig[] = [
     {
-      id: "google-translate-default",
-      name: "Google Translate",
+      id: "deepl-alternate",
+      name: "DeepL alternate",
       enabled: true,
-      provider: "google-translate",
+      provider: "deepl",
     },
     {
       id: "deepl-default",
@@ -64,11 +64,11 @@ describe("selectionToolbarFooterContent", () => {
           paragraphsText="Context text"
           providers={providers}
           titleText="Page Title"
-          value="google-translate-default"
+          value="deepl-alternate"
           onProviderChange={onProviderChange}
           onRegenerate={onRegenerate}
         >
-          <button type="button">Save to Notebase</button>
+          <button type="button">Save vocabulary</button>
         </SelectionToolbarFooterContent>
       </TooltipProvider>,
     )
@@ -84,7 +84,7 @@ describe("selectionToolbarFooterContent", () => {
     expect(screen.getByText(i18n.t("action.contextDetailsParagraphsLabel"))).toBeInTheDocument()
     expect(screen.getByText("Page Title")).toBeInTheDocument()
     expect(screen.getByText("Context text")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Save to Notebase" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Save vocabulary" })).toBeInTheDocument()
     const contextPreview = screen
       .getByText("Context text")
       .closest("[data-slot='selection-toolbar-footer-preview-value']")
@@ -107,7 +107,7 @@ describe("selectionToolbarFooterContent", () => {
           paragraphsText={null}
           providers={providers}
           titleText=""
-          value="google-translate-default"
+          value="deepl-alternate"
           onProviderChange={vi.fn<(...args: any[]) => any>()}
           onRegenerate={vi.fn<(...args: any[]) => any>()}
         />

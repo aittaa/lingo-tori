@@ -5,7 +5,6 @@ import { ScrollArea } from "@/components/ui/base-ui/scroll-area"
 import { Separator } from "@/components/ui/base-ui/separator"
 import { cn } from "@/utils/styles/utils"
 import { CopyButton } from "./copy-button"
-import { SpeakButton } from "./speak-button"
 
 interface SelectionSourceContentProps {
   text: string | null | undefined
@@ -57,7 +56,6 @@ export function SelectionSourceContent({
         <Activity mode={actionsExpanded ? "visible" : "hidden"}>
           <div className="flex items-center gap-1">
             <CopyButton text={text ?? undefined} />
-            <SpeakButton text={text ?? undefined} />
           </div>
         </Activity>
       </div>

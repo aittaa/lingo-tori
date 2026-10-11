@@ -29,7 +29,7 @@ const OVERLAY_TOOLS_PATHS = ["/floating-button", "/selection-toolbar", "/context
  * `startsWith`, because two of them own detail pages (`/page-translation/prompts`
  * and the rest), and the group has to stay lit while one is open.
  */
-const TRANSLATION_PATHS = ["/page-translation", "/video-subtitles", "/input-translation"] as const
+const TRANSLATION_PATHS = ["/page-translation", "/video-subtitles"] as const
 
 export function FeaturesNav() {
   const { pathname } = useLocation()
@@ -92,14 +92,6 @@ export function FeaturesNav() {
                       <span>{i18n.t("options.videoSubtitles.title")}</span>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton
-                      render={<Link to="/input-translation" />}
-                      isActive={pathname === "/input-translation"}
-                    >
-                      <span>{i18n.t("options.inputTranslation.title")}</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
                 </SidebarMenuSub>
               </CollapsibleContent>
             </SidebarMenuItem>
@@ -152,17 +144,6 @@ export function FeaturesNav() {
               </CollapsibleContent>
             </SidebarMenuItem>
           </Collapsible>
-
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link to="/tts" />}
-              isActive={pathname === "/tts"}
-              tooltip={i18n.t("options.tts.title")}
-            >
-              <Icon icon="tabler:speakerphone" />
-              <span>{i18n.t("options.tts.title")}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
 
           <SidebarMenuItem>
             <SidebarMenuButton

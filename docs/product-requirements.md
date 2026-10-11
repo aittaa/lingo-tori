@@ -17,7 +17,7 @@ Compare learning provenance against original upstream `ca8da8241883c9aff5862d15d
 
 Study navigation is removed. Future learning/backend development is backlog issue #7, not active product implementation. Source removal does not authorize deleting user databases, exported vocabulary or browser profile data.
 
-Remove the local BYOS companion and its pairing/setup UI. The requested browser-only source is experimental and explicitly differs from current official listener/storage guidance; [BYOS status](byos.md) distinguishes source behavior from support and live verification. Keep ChatGPT sign-in inside API Providers, isolated from working BYOK. Missing permission/capability or invalid protocol state must fail closed. No live OAuth or installed-browser access grant is part of this milestone.
+The companion, server setup, pairing UI and browser-only account integration are excluded from this BYOK core snapshot. Persisted experimental provider rows and selected IDs remain inert so unrelated settings are preserved. They are not selectable or executable, and they never fall back automatically to a paid provider.
 
 ## Excluded commercial integrations
 
@@ -27,7 +27,7 @@ Remove original hosted login, payments, quotas, AI services, commercial links, t
 
 1. A fresh install without a provider opens usable settings and clearly requests configuration.
 2. BYOK can be configured and explicitly assigned; page translation and selected-text explanations have clear errors/cancellation.
-3. API Providers exposes the experimental browser-only flow with accurate guidance, no automatic authentication/permission request and no live-readiness claim. No automatic paid fallback.
+3. API Providers exposes BYOK configuration and explicit feature assignment, without account authentication, companion setup or automatic paid fallback.
 4. Study/new learning/companion entrypoints and active setup paths are absent. Original reading suggestions, dictionary explanations and translation contracts remain.
 5. Relevant regression, type/lint, Chrome/Firefox build and available installed-browser checks report PASS/FAIL/NOT RUN precisely. Source inspection and mocks do not replace live verification.
 

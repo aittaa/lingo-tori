@@ -1,5 +1,5 @@
 ---
-"@read-frog/extension": patch
+"@lingotori/extension": patch
 ---
 
 fix(selection-toolbar): use input and textarea values as AI action context

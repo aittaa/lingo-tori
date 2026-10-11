@@ -36,26 +36,6 @@ export function PersonalizedPromptsPage() {
           promptAtoms={promptAtoms}
           insertCells={insertCells}
           builtInPrompts={getBuiltInPageTranslatePrompts()}
-          toolbarStart={
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <a
-                href={i18n.t("options.translation.personalizedPrompts.communityPromptsUrl")}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-sm text-link hover:opacity-90"
-              >
-                {i18n.t("options.translation.personalizedPrompts.communityPrompts")}
-              </a>
-              <a
-                href={i18n.t("options.translation.personalizedPrompts.variableReferenceUrl")}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-sm text-link hover:opacity-90"
-              >
-                {i18n.t("options.translation.personalizedPrompts.variableReference")}
-              </a>
-            </div>
-          }
         />
       </ConfigDetailSection>
     </PageLayout>

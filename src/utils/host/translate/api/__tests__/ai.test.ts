@@ -48,6 +48,21 @@ describe("aiTranslate", () => {
     mocks.getProviderOptionsWithOverride.mockReturnValue({})
   })
 
+  it.each([
+    ["plain translation", "번역된 자막", "번역된 자막"],
+    ["multiline plain translation", "첫 줄\n\n%%\n\n둘째 줄", "첫 줄\n\n%%\n\n둘째 줄"],
+    ["thinking wrapper", "<think>private reasoning</think>번역된 자막", "번역된 자막"],
+    [
+      "multiline thinking wrapper",
+      "<think>reasoning\ncontinues</think>첫 줄\n둘째 줄",
+      "첫 줄\n둘째 줄",
+    ],
+    ["empty thinking suffix", "<think>reasoning</think>", ""],
+    ["empty output", "", ""],
+  ])("preserves %s without requiring a thinking tag", async (_label, text, expected) => {
+    mocks.generateText.mockResolvedValue({ text })
+    expect(await aiTranslate("source", "Korean", providerConfig, promptResolver)).toBe(expected)
+  })
   it("preserves AI SDK error metadata for retry policy decisions", async () => {
     const rateLimitedError = Object.assign(new Error("Too Many Requests"), {
       statusCode: 429,

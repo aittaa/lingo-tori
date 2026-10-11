@@ -1,6 +1,6 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
 import type { SyncedGlossary, SyncedTerm } from "./document"
 import type { GlossaryChangeCounts, GlossarySnapshot } from "./merge-document"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import type GlossaryTerm from "@/utils/db/dexie/tables/glossary-term"
 import { MAX_GLOSSARIES, MAX_GLOSSARY_TERMS } from "@/utils/constants/glossary"
 import { db } from "@/utils/db/dexie/db"

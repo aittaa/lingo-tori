@@ -15,7 +15,7 @@ export interface LocalGenerateTextParams {
  * Extracted because the exact `getTopLevelReasoning` + `resolveModelId` +
  * `getProviderOptionsWithOverride` triple was copy-pasted verbatim in the
  * article summary, subtitle segmentation, and language detection paths, and
- * routing all three through one hosted/local helper needs a single source for
+ * routing all three through one local helper needs a single source for
  * it.
  */
 export function buildLocalGenerateTextParams(config: LLMProviderConfig): LocalGenerateTextParams {

@@ -4,7 +4,6 @@ import { Activity } from "react"
 import { Thinking } from "@/components/thinking"
 import { CopyButton } from "@/components/ui/selection-popover/copy-button"
 import { SelectionSourceContent } from "@/components/ui/selection-popover/selection-source-content"
-import { SpeakButton } from "@/components/ui/selection-popover/speak-button"
 
 interface TranslationContentProps {
   selectionContent: string | null | undefined
@@ -36,7 +35,6 @@ export function TranslationContent({
         <Activity mode={translatedText ? "visible" : "hidden"}>
           <div className="flex items-center gap-1">
             <CopyButton text={translatedText} />
-            <SpeakButton text={translatedText} />
           </div>
         </Activity>
       </div>

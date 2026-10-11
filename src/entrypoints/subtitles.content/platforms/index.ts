@@ -1,5 +1,3 @@
-import type { AiSubtitlesContext } from "@/utils/subtitles/ai/request-ai-subtitles"
-
 export interface ControlsConfig {
   findVideoContainer?: () => HTMLElement | null
   measureHeight: (container: HTMLElement) => number
@@ -29,8 +27,6 @@ export interface PlatformConfig {
   supportsSidebar?: boolean
 
   getVideoId?: () => string | null
-
-  createAiSubtitlesContext?: () => AiSubtitlesContext | null
 
   isLiveContent?: () => Promise<boolean>
 

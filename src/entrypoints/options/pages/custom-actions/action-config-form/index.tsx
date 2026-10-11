@@ -61,7 +61,6 @@ function BuiltInEditor({ action }: { action: SelectionToolbarCustomAction }) {
                 <ActionEditor.Layout.ReadOnly />
               </EntityEditor.Body>
             }
-            notebase={<ActionEditor.NotebaseConnectionField variant="tab" />}
           />
         </EntityEditor.Root>
       </ActionEditor.Form>
@@ -88,7 +87,6 @@ function EditableActionEditor({ action }: { action: SelectionToolbarCustomAction
                 <ActionEditor.Layout.Editable />
               </EntityEditor.Body>
             }
-            notebase={<ActionEditor.NotebaseConnectionField variant="tab" />}
           />
           <EntityEditor.Footer>
             <ActionEditor.DuplicateButton />

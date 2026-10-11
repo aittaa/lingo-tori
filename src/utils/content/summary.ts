@@ -11,11 +11,6 @@ const MAX_TITLE_LENGTH = 200
 
 /**
  * Generate a brief summary of article content for translation context.
- *
- * Runs on either provider kind: `generateTextForProviderRef` picks the local
- * `generateText` call or the hosted stream. The same function serves the page
- * summary and the video summary, which is why the hosted feature is a
- * parameter rather than a constant.
  */
 export async function generateArticleSummary(
   title: string,
@@ -41,15 +36,11 @@ export async function generateArticleSummary(
       preparedText,
     )
 
-    const payload: BackgroundGenerateTextPayload =
-      routing.hostedFeature === undefined
-        ? { providerRef: routing.providerRef, instructions: systemPrompt, prompt }
-        : {
-            providerRef: routing.providerRef,
-            hostedFeature: routing.hostedFeature,
-            instructions: systemPrompt,
-            prompt,
-          }
+    const payload: BackgroundGenerateTextPayload = {
+      providerRef: routing.providerRef,
+      instructions: systemPrompt,
+      prompt,
+    }
     const summary = await options.generate(payload, { signal: options.signal })
 
     const cleanedSummary = summary.trim()

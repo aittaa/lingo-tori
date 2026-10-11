@@ -122,7 +122,7 @@ describe("TranslationCard speech", () => {
     }
   })
 
-  it("plays the card's translated text using the configured voice settings", () => {
+  it("retains copy and retry without speech controls", () => {
     render(
       <TranslationCard
         providerId="provider-1"
@@ -130,35 +130,13 @@ describe("TranslationCard speech", () => {
         onExpandedChange={vi.fn<(expanded: boolean) => void>()}
       />,
     )
-
-    fireEvent.click(screen.getByRole("button", { name: "translationHub.speakTranslation" }))
-
-    expect(ttsPlayMock).toHaveBeenCalledWith("Translated text", ttsConfig)
-  })
-
-  it("stops speech while audio is loading or playing", () => {
-    ttsState.isFetching = true
-    const { rerender } = render(
-      <TranslationCard
-        providerId="provider-1"
-        isExpanded
-        onExpandedChange={vi.fn<(expanded: boolean) => void>()}
-      />,
-    )
-
-    fireEvent.click(screen.getByRole("button", { name: "speak.fetchingAudio" }))
-    ttsState.isFetching = false
-    ttsState.isPlaying = true
-    rerender(
-      <TranslationCard
-        providerId="provider-1"
-        isExpanded
-        onExpandedChange={vi.fn<(expanded: boolean) => void>()}
-      />,
-    )
-    fireEvent.click(screen.getByRole("button", { name: "action.playing" }))
-
-    expect(ttsStopMock).toHaveBeenCalledTimes(2)
+    expect(
+      screen.getByRole("button", { name: "translationHub.copyTranslation" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "translationHub.retryTranslation" }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "translationHub.speakTranslation" })).toBeNull()
     expect(ttsPlayMock).not.toHaveBeenCalled()
   })
 
@@ -197,7 +175,7 @@ vi.mock("@/utils/providers/provider-registry", async (importOriginal) => ({
   BUILT_IN_AI_PROVIDER_LOGO: "built-in-logo",
   resolveProviderRefForCapability: () =>
     providerRefState.kind === "system"
-      ? { kind: "system", id: "read-frog-free-ai", name: "Built-in AI", modelTier: "normal" }
+      ? null
       : {
           kind: "local",
           id: "provider-1",
@@ -273,9 +251,8 @@ describe("TranslationCard built-in translation", () => {
     streamBackgroundTextMock.mockReset()
   })
 
-  it("calls hosted page translation directly without the translation queue", async () => {
+  it("keeps removed hosted provider ids unresolved", () => {
     providerRefState.kind = "system"
-    streamBackgroundTextMock.mockResolvedValueOnce({ output: "Translated by built-in AI" })
     render(
       <TranslationCard
         providerId="read-frog-free-ai"
@@ -283,73 +260,7 @@ describe("TranslationCard built-in translation", () => {
         onExpandedChange={vi.fn<(expanded: boolean) => void>()}
       />,
     )
-
-    const result = await mutationFnState.current!({
-      inputText: "Hello",
-      sourceLanguage: "eng",
-      targetLanguage: "cmn",
-      timestamp: 1,
-      promptConfig: { promptId: "default", patterns: [] },
-    })
-
-    expect(result).toBe("Translated by built-in AI")
-    expect(streamBackgroundTextMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        providerKind: "system",
-        providerId: "read-frog-free-ai",
-        modelTier: "normal",
-        hostedFeature: "pageTranslation",
-        requestId: expect.any(String),
-        instructions: expect.any(String),
-        prompt: expect.any(String),
-      }),
-      { signal: expect.any(AbortSignal) },
-    )
-  })
-
-  it("uses the Hub prompt snapshot and a fresh hosted request ID each time", async () => {
-    providerRefState.kind = "system"
-    streamBackgroundTextMock.mockResolvedValue({ output: " result " })
-    render(
-      <TranslationCard
-        providerId="read-frog-free-ai"
-        isExpanded
-        onExpandedChange={vi.fn<(expanded: boolean) => void>()}
-      />,
-    )
-    const request = {
-      inputText: "Hello",
-      sourceLanguage: "eng",
-      targetLanguage: "cmn",
-      timestamp: 1,
-      promptConfig: {
-        promptId: "hub-custom",
-        patterns: [
-          {
-            id: "hub-custom",
-            name: "Hub custom",
-            systemPrompt: "Hub system",
-            prompt: "Hub prompt",
-          },
-        ],
-      },
-    }
-
-    expect(await mutationFnState.current!(request)).toBe("result")
-    expect(await mutationFnState.current!({ ...request, timestamp: 2 })).toBe("result")
-
-    const first = streamBackgroundTextMock.mock.calls[0] as unknown as [
-      { requestId: string; instructions: string; prompt: string },
-      { signal: AbortSignal },
-    ]
-    const second = streamBackgroundTextMock.mock.calls[1] as unknown as [
-      { requestId: string },
-      { signal: AbortSignal },
-    ]
-    expect(first[0]).toMatchObject({ instructions: "Hub system", prompt: "Hub prompt" })
-    expect(first[0].requestId).not.toBe(second[0].requestId)
-    expect(first[1].signal.aborted).toBe(true)
-    expect(second[1].signal.aborted).toBe(false)
+    expect(streamBackgroundTextMock).not.toHaveBeenCalled()
   })
 
   it("passes the independent Hub prompt to local LLMs", async () => {

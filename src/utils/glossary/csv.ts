@@ -1,6 +1,6 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
 import type { GlossaryTargetLang } from "./target-language"
-import { LANG_CODE_TO_EN_NAME } from "@read-frog/definitions"
+import type { LangCodeISO6393 } from "@/lib/languages"
+import { LANG_CODE_TO_EN_NAME } from "@/lib/languages"
 import { MAX_GLOSSARY_SOURCE_LENGTH, MAX_GLOSSARY_TARGET_LENGTH } from "../constants/glossary"
 import { ALL_LANGUAGES } from "./target-language"
 

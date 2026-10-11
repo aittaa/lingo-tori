@@ -1,165 +1,34 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
+import { trackFeatureAttempt, trackFeatureUsed } from "@/utils/analytics"
 
-const { sendMessageMock, loggerWarnMock } = vi.hoisted(() => ({
-  sendMessageMock: vi.fn<(...args: any[]) => any>(),
-  loggerWarnMock: vi.fn<(...args: any[]) => any>(),
-}))
+const { sendMessage } = vi.hoisted(() => ({ sendMessage: vi.fn<(...args: unknown[]) => void>() }))
+vi.mock("@/utils/message", () => ({ sendMessage }))
+const context = {
+  feature: ANALYTICS_FEATURE.PAGE_TRANSLATION,
+  surface: ANALYTICS_SURFACE.POPUP,
+  startedAt: 1,
+  translation_mode: "bilingual",
+  target_language: "eng",
+  provider: "unknown",
+  backend_kind: "unknown",
+} as const
 
-vi.mock("@/utils/message", () => ({
-  sendMessage: sendMessageMock,
-}))
-
-vi.mock("@/utils/logger", () => ({
-  logger: {
-    warn: loggerWarnMock,
-  },
-}))
-
-const {
-  buildFeatureUsedEventProperties,
-  createFeatureUsageContext,
-  getLatencyMs,
-  trackFeatureAttempt,
-  trackFeatureUsed,
-} = await import("@/utils/analytics")
-
-describe("analytics helpers", () => {
-  beforeEach(() => {
-    sendMessageMock.mockReset()
-    loggerWarnMock.mockReset()
+describe("telemetry removal", () => {
+  it("does not message the background when legacy instrumentation fires", async () => {
+    await trackFeatureUsed({ ...context, outcome: "success" })
+    expect(sendMessage).not.toHaveBeenCalled()
   })
-
-  it("derives latency in milliseconds and clamps negative durations", () => {
-    expect(getLatencyMs(0, 999)).toBe(999)
-    expect(getLatencyMs(0, 1_500)).toBe(1_500)
-    expect(getLatencyMs(10, 0)).toBe(0)
-  })
-
-  it("builds a feature_used payload with only the expected fields", () => {
-    expect(
-      buildFeatureUsedEventProperties({
-        feature: ANALYTICS_FEATURE.PAGE_TRANSLATION,
-        surface: ANALYTICS_SURFACE.POPUP,
-        outcome: "success",
-        startedAt: 0,
-        finishedAt: 1_500,
-        provider: "openai",
-        backend_kind: "llm",
-        translation_mode: "bilingual",
-        target_language: "cmn",
-        source_language: "jpn",
-      }),
-    ).toEqual({
-      feature: ANALYTICS_FEATURE.PAGE_TRANSLATION,
-      surface: ANALYTICS_SURFACE.POPUP,
-      outcome: "success",
-      latency_ms: 1_500,
-      provider: "openai",
-      backend_kind: "llm",
-      translation_mode: "bilingual",
-      target_language: "cmn",
-      source_language: "jpn",
-    })
-  })
-
-  it("includes optional custom action metadata when provided", () => {
-    expect(
-      buildFeatureUsedEventProperties({
-        feature: ANALYTICS_FEATURE.CUSTOM_AI_ACTION,
-        surface: ANALYTICS_SURFACE.CONTEXT_MENU,
-        outcome: "success",
-        startedAt: 100,
-        finishedAt: 600,
-        action_id: "dictionary",
-        action_name: "Dictionary",
-        provider: "read-frog-built-in-ai",
-        backend_kind: "llm",
-      }),
-    ).toEqual({
-      feature: ANALYTICS_FEATURE.CUSTOM_AI_ACTION,
-      surface: ANALYTICS_SURFACE.CONTEXT_MENU,
-      outcome: "success",
-      latency_ms: 500,
-      action_id: "dictionary",
-      action_name: "Dictionary",
-      provider: "read-frog-built-in-ai",
-      backend_kind: "llm",
-    })
-  })
-
-  it("reports char_count from the tracked use, not from the usage context", async () => {
-    sendMessageMock.mockResolvedValue(undefined)
-    const context = createFeatureUsageContext(
-      ANALYTICS_FEATURE.TRANSLATION_HUB,
-      ANALYTICS_SURFACE.TRANSLATION_HUB,
-      0,
+  it("preserves return values and failures of instrumented operations", async () => {
+    await expect(trackFeatureAttempt(context, async () => "translation")).resolves.toBe(
+      "translation",
     )
-
-    expect(context).not.toHaveProperty("char_count")
-
-    await trackFeatureAttempt(
-      {
-        ...context,
-        provider: "openai",
-        backend_kind: "llm",
-        char_count: 42,
-        target_language: "cmn",
-      },
-      async () => "translated",
-    )
-
-    expect(sendMessageMock).toHaveBeenCalledWith(
-      "trackFeatureUsedEvent",
-      expect.objectContaining({
-        feature: ANALYTICS_FEATURE.TRANSLATION_HUB,
-        outcome: "success",
-        char_count: 42,
-      }),
-    )
-  })
-
-  it("tracks feature usage with the expected event payload", async () => {
-    sendMessageMock.mockResolvedValue(undefined)
-
-    const input = {
-      feature: ANALYTICS_FEATURE.PAGE_TRANSLATION,
-      surface: ANALYTICS_SURFACE.POPUP,
-      outcome: "success" as const,
-      startedAt: 0,
-      finishedAt: 1_500,
-      provider: "openai" as const,
-      backend_kind: "llm" as const,
-      translation_mode: "bilingual" as const,
-      target_language: "cmn" as const,
-    }
-
-    await expect(trackFeatureUsed(input)).resolves.toBeUndefined()
-
-    expect(sendMessageMock).toHaveBeenCalledOnce()
-    expect(sendMessageMock).toHaveBeenCalledWith(
-      "trackFeatureUsedEvent",
-      buildFeatureUsedEventProperties(input),
-    )
-  })
-
-  it("swallows analytics upload failures", async () => {
-    sendMessageMock.mockRejectedValueOnce(new Error("upload failed"))
-
+    const error = new Error("provider failed")
     await expect(
-      trackFeatureUsed({
-        feature: ANALYTICS_FEATURE.PAGE_TRANSLATION,
-        surface: ANALYTICS_SURFACE.POPUP,
-        outcome: "failure",
-        startedAt: 0,
-        finishedAt: 1_500,
-        provider: "openai",
-        backend_kind: "llm",
-        translation_mode: "bilingual",
-        target_language: "cmn",
+      trackFeatureAttempt(context, async () => {
+        throw error
       }),
-    ).resolves.toBeUndefined()
-
-    expect(loggerWarnMock).toHaveBeenCalledOnce()
+    ).rejects.toBe(error)
+    expect(sendMessage).not.toHaveBeenCalled()
   })
 })

@@ -1,7 +1,7 @@
-import selectionToolbarDemoImage from "@/assets/demo/selection-toolbar.png"
 import { GradientBackground } from "@/components/gradient-background"
 import { i18n } from "@/utils/i18n"
 import { PageLayout } from "../../components/page-layout"
+import { ReadingToolsPreview } from "../../components/reading-tools-preview"
 import { ActionsSection } from "./actions"
 import { DisplaySection } from "./display"
 import { EnableItem } from "./enable-item"
@@ -14,11 +14,7 @@ export function SelectionToolbarPage() {
       innerClassName="flex flex-col gap-10"
     >
       <GradientBackground>
-        <img
-          src={selectionToolbarDemoImage}
-          alt={i18n.t("options.selectionToolbar.demoImageAlt")}
-          className="h-auto w-100"
-        />
+        <ReadingToolsPreview />
       </GradientBackground>
       <EnableItem />
       <ActionsSection />

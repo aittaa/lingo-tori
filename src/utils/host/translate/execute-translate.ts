@@ -3,13 +3,11 @@ import type { Config } from "@/types/config/config"
 import type { ProviderConfig } from "@/types/config/provider"
 import type { TranslationTextFormat } from "@/types/config/translate"
 import type { MatchedTerm } from "@/utils/glossary/types"
-import { ISO6393_TO_6391, LANG_CODE_TO_EN_NAME } from "@read-frog/definitions"
-import { isLLMProviderConfig, isNonAPIProvider, isPureAPIProvider } from "@/types/config/provider"
+import { ISO6393_TO_6391, LANG_CODE_TO_EN_NAME } from "@/lib/languages"
+import { isLLMProviderConfig, isPureAPIProvider } from "@/types/config/provider"
 import { aiTranslate } from "./api/ai"
 import { deeplTranslate } from "./api/deepl"
 import { deeplxTranslate } from "./api/deeplx"
-import { googleTranslate } from "./api/google"
-import { microsoftTranslate } from "./api/microsoft"
 import { prepareTranslationText } from "./text-preparation"
 import { normalizeTranslationOutput } from "./translation-output-normalization"
 
@@ -38,26 +36,7 @@ export async function executeTranslate<TContext>(
   const { provider } = providerConfig
   let translatedText = ""
 
-  if (isNonAPIProvider(provider)) {
-    const sourceLang =
-      langConfig.sourceCode === "auto" ? "auto" : (ISO6393_TO_6391[langConfig.sourceCode] ?? "auto")
-    const targetLang = ISO6393_TO_6391[langConfig.targetCode]
-    if (!targetLang) {
-      throw new Error(`Invalid target language code: ${langConfig.targetCode}`)
-    }
-    if (provider === "google-translate") {
-      translatedText = await googleTranslate(preparedText, sourceLang, targetLang, {
-        textFormat: options?.textFormat,
-        preserveLineBreaks: options?.preserveLineBreaks,
-        signal: options?.signal,
-      })
-    } else if (provider === "microsoft-translate") {
-      translatedText = await microsoftTranslate(preparedText, sourceLang, targetLang, {
-        textFormat: options?.textFormat,
-        signal: options?.signal,
-      })
-    }
-  } else if (isPureAPIProvider(provider)) {
+  if (isPureAPIProvider(provider)) {
     const sourceLang =
       langConfig.sourceCode === "auto" ? "auto" : (ISO6393_TO_6391[langConfig.sourceCode] ?? "auto")
     const targetLang = ISO6393_TO_6391[langConfig.targetCode]

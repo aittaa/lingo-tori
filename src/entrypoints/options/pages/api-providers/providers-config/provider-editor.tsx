@@ -1,12 +1,10 @@
 import type { AutosaveController } from "@/components/form/autosave-controller"
 import type { APIProviderConfig } from "@/types/config/provider"
 import type { FeatureKey } from "@/utils/constants/feature-providers"
-import type { BuiltInAiProviderId } from "@/utils/constants/provider-ids"
 import { Icon } from "@iconify/react"
 import { useSelector } from "@tanstack/react-store"
 import { useAtomValue, useSetAtom } from "jotai"
 import { createContext, use, useState } from "react"
-import { PlanBadge } from "@/components/badges/plan-badge"
 import { useAutosave } from "@/components/form/use-autosave"
 import ProviderIcon from "@/components/provider-icon"
 import { useTheme } from "@/components/providers/theme-provider"
@@ -39,10 +37,6 @@ import {
 import { API_PROVIDER_ITEMS } from "@/utils/constants/providers"
 import { getSelectionToolbarActions, patchSelectionToolbarAction } from "@/utils/custom-actions"
 import { i18n } from "@/utils/i18n"
-import {
-  BUILT_IN_AI_PROVIDER_LOGO,
-  getBuiltInAiProviderName,
-} from "@/utils/providers/provider-registry"
 import { providerSupportsTranslationOnlyMode } from "@/utils/providers/translation-only-gate"
 import { cn } from "@/utils/styles/utils"
 import { APIKeyField } from "./provider-config-form/api-key-field"
@@ -165,24 +159,6 @@ function useProviderEditorValue({
       ...(deleteProvider ? { delete: deleteProvider } : {}),
     },
   }
-}
-
-function BuiltInProvider({
-  providerId,
-  children,
-}: {
-  providerId: BuiltInAiProviderId
-  children: React.ReactNode
-}) {
-  const value = useProviderEditorValue({
-    identity: {
-      id: providerId,
-      logo: BUILT_IN_AI_PROVIDER_LOGO,
-      name: getBuiltInAiProviderName(providerId),
-    },
-  })
-
-  return <ProviderEditorContext value={value}>{children}</ProviderEditorContext>
 }
 
 export function useProviderForm(
@@ -383,13 +359,13 @@ function AssignmentRow({
   checked,
   children,
   disabled = false,
-  requiresUltra = false,
+
   onCheckedChange,
 }: {
   checked: boolean
   children: React.ReactNode
   disabled?: boolean
-  requiresUltra?: boolean
+
   onCheckedChange: (checked: boolean) => void
 }) {
   return (
@@ -399,9 +375,6 @@ function AssignmentRow({
     <label className="flex w-fit items-center gap-2">
       <Switch checked={checked} disabled={checked || disabled} onCheckedChange={onCheckedChange} />
       <span className="text-sm">{children}</span>
-      {requiresUltra && (
-        <PlanBadge plan="ultra" upgradeTooltip={i18n.t("hostedAi.ultraBadge.tooltip")} />
-      )}
     </label>
   )
 }
@@ -447,10 +420,8 @@ function CompatibleFeatureAssignments() {
 
 function LanguageDetectionAssignment({
   disabled = false,
-  requiresUltra = false,
 }: {
   disabled?: boolean
-  requiresUltra?: boolean
 } = {}) {
   const {
     state: {
@@ -473,7 +444,7 @@ function LanguageDetectionAssignment({
     <AssignmentRow
       checked={isAssigned}
       disabled={disabled}
-      requiresUltra={requiresUltra}
+
       onCheckedChange={(checked) => {
         if (checked) void actions.assignLanguageDetection()
       }}
@@ -493,11 +464,9 @@ function LanguageDetectionAssignment({
 function FeatureAssignment({
   featureKey,
   disabled = false,
-  requiresUltra = false,
 }: {
   featureKey: FeatureKey
   disabled?: boolean
-  requiresUltra?: boolean
 }) {
   const {
     state: {
@@ -512,7 +481,7 @@ function FeatureAssignment({
     <AssignmentRow
       checked={isAssigned}
       disabled={disabled}
-      requiresUltra={requiresUltra}
+
       onCheckedChange={(checked) => {
         if (checked) void actions.assignFeature(featureKey)
       }}
@@ -522,13 +491,7 @@ function FeatureAssignment({
   )
 }
 
-function CustomActionAssignments({
-  disabled = false,
-  requiresUltra = false,
-}: {
-  disabled?: boolean
-  requiresUltra?: boolean
-}) {
+function CustomActionAssignments({ disabled = false }: { disabled?: boolean }) {
   const {
     state: {
       assignmentTarget: { providerId, providerType },
@@ -548,7 +511,7 @@ function CustomActionAssignments({
         key={action.id}
         checked={isAssigned}
         disabled={disabled}
-        requiresUltra={requiresUltra}
+
         onCheckedChange={(checked) => {
           if (checked) void actions.assignCustomAction(action.id)
         }}
@@ -618,10 +581,6 @@ export const ProviderEditor = {
   CustomActionAssignments,
   DuplicateButton,
   DeleteButton,
-}
-
-export const BuiltInProviderEditor = {
-  Provider: BuiltInProvider,
 }
 
 export const CustomProviderEditor = {
