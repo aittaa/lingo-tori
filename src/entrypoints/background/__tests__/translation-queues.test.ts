@@ -1,4 +1,8 @@
-import type { ProviderConfig } from "@/types/config/provider"
+import type {
+  LLMProviderConfig,
+  ProviderConfig,
+  TranslateProviderConfig,
+} from "@/types/config/provider"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
@@ -80,11 +84,11 @@ function getRegisteredMessageHandler(name: string) {
   }): Promise<unknown> => await handler(message)
 }
 
-function localProviderRef(config: ProviderConfig) {
+function localProviderRef(config: TranslateProviderConfig) {
   return { kind: "local" as const, config }
 }
 
-const llmProvider: ProviderConfig = {
+const llmProvider: LLMProviderConfig = {
   id: "openai-default",
   name: "OpenAI",
   provider: "openai",
