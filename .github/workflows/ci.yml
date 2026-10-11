@@ -1,8 +1,15 @@
 name: Validate before merge
+run-name: Validate candidate ${{ inputs.candidate_sha }}
 
-# Run manually as the final PR merge gate. Repository Actions remain disabled until enabled.
+# Optional final merge gate. Dispatch the trusted default-branch policy only after owner approval.
+# Actions remain disabled until separately approved. Candidate scripts are not sandboxed.
 on:
   workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Reviewed PR head commit in this repository (full 40-character lowercase SHA)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -15,10 +22,49 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Check out source
+      - name: Verify policy ref and candidate input
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]] ||
+             [[ "$WORKFLOW_REF" != "$GITHUB_REPOSITORY/.github/workflows/ci.yml@refs/heads/$DEFAULT_BRANCH" ]]; then
+            echo "::error::Dispatch this workflow from the trusted default branch."
+            exit 1
+          fi
+          if [[ ! "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::candidate_sha must be a full 40-character lowercase commit SHA."
+            exit 1
+          fi
+
+      - name: Check out candidate commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ github.repository }}
+          ref: ${{ inputs.candidate_sha }}
           persist-credentials: false
+
+      - name: Verify checkout and record revisions
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+          POLICY_SHA: ${{ github.workflow_sha }}
+        run: |
+          checked_out_sha="$(git rev-parse HEAD)"
+          if [[ "$checked_out_sha" != "$CANDIDATE_SHA" ]]; then
+            echo "::error::Checked-out HEAD does not match the approved candidate SHA."
+            exit 1
+          fi
+          printf 'Policy ref: %s\nPolicy commit: %s\nCandidate commit: %s\n' "$WORKFLOW_REF" "$POLICY_SHA" "$checked_out_sha"
+          {
+            printf '### Manual merge validation revisions\n\n'
+            printf 'Policy ref: `%s`\n\n' "$WORKFLOW_REF"
+            printf 'Policy commit: `%s`\n\n' "$POLICY_SHA"
+            printf 'Candidate commit: `%s`\n' "$checked_out_sha"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
