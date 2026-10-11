@@ -54,7 +54,7 @@ Future learning/backend work is backlog only. No active learning service or setu
 
 ## Service and permission boundary
 
-Remove original authentication clients, oRPC service clients, payment/quota UI, telemetry, backup/auth integrations, and upstream guide/ebook bridges unless replaced by a specifically required independent feature. `background/proxy-fetch.ts` mixes generic fetch and auth-cookie cache invalidation; separate retained functionality before removal. Remove unused cookie and other permissions only after reviewing every remaining consumer.
+Remove original authentication clients, oRPC service clients, payment/quota UI, telemetry, backup/auth integrations, and upstream guide/ebook bridges unless replaced by a specifically required independent feature. The baseline `src/entrypoints/background/proxy-fetch.ts` mixed generic fetch and auth-cookie cache invalidation; retain generic fetch while removing authentication coupling. Remove unused cookie and other permissions only after reviewing every remaining consumer.
 
 The original upstream ebook bridge remains removed. Do not expose arbitrary fetch, keys, or privileged extension actions to page messages.
 

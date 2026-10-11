@@ -24,11 +24,11 @@ function parseArguments(args) {
       throw new Error(`Unknown option: ${flag}`)
     const value = args[++i]
     if (!value || !path.isAbsolute(value)) throw new Error(`${flag} requires an absolute path`)
-    if (flag === "--output") options.outputs.push(path.normalize(value))
+    if (flag === "--output") options.outputs.push(path.resolve(value))
     else {
       const key = flag.slice(2)
       if (options[key]) throw new Error(`Duplicate option: ${flag}`)
-      options[key] = path.normalize(value)
+      options[key] = path.resolve(value)
     }
   }
   if (!options.repo || options.outputs.length === 0)
@@ -53,7 +53,7 @@ async function assertPlainPath(value, expected) {
 }
 
 function git(repo, args) {
-  return execFileSync("git", ["-C", repo, ...args], {
+  return execFileSync("git", ["--no-optional-locks", "-C", repo, ...args], {
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
   }).trimEnd()
@@ -171,7 +171,7 @@ async function main() {
   }
   await assertPlainPath(options.repo, "directory")
   const gitRoot = git(options.repo, ["rev-parse", "--show-toplevel"])
-  if (path.normalize(gitRoot) !== options.repo)
+  if (path.resolve(gitRoot) !== options.repo)
     throw new Error("--repo must be the Git repository root")
   const packagePath = path.join(options.repo, "package.json")
   await assertPlainPath(packagePath, "file")
