@@ -38,6 +38,95 @@ async function invoke(response: Response) {
 }
 
 describe("Responses wire stream", () => {
+  it.each([
+    [
+      "refusal-only",
+      [
+        { type: "response.refusal.delta", delta: "Synthetic private refusal" },
+        { type: "response.refusal.done", refusal: "Synthetic private refusal" },
+      ],
+    ],
+    [
+      "finalized refusal",
+      [{ type: "response.refusal.done", refusal: "Synthetic private refusal" }],
+    ],
+    [
+      "mixed text and refusal",
+      [delta, { type: "response.refusal.delta", delta: "Synthetic private refusal" }],
+    ],
+  ])(
+    "rejects completed %s instead of returning empty or partial translation success",
+    async (_name, events) => {
+      await expect(
+        invoke(streamResponse([...events, completed].map((event) => frame(event)).join(""))),
+      ).rejects.toMatchObject({
+        code: "inference_refused",
+        message: "BYOS: inference_refused",
+        status: 200,
+        requestId: "req_synthetic_stream",
+        isRetryable: false,
+      })
+    },
+  )
+
+  it("preserves an upstream failure after refusal instead of hiding it as a completed refusal", async () => {
+    const events = [
+      { type: "response.refusal.delta", delta: "Synthetic private refusal" },
+      {
+        type: "response.failed",
+        response: { error: { code: "subscription_sharing_usage_limit_exceeded" } },
+      },
+    ]
+    await expect(
+      invoke(streamResponse(events.map((event) => frame(event)).join(""))),
+    ).rejects.toMatchObject({
+      code: "subscription_sharing_usage_limit_exceeded",
+      isRetryable: false,
+    })
+  })
+
+  it("does not retry an interrupted refusal as an incomplete inference", async () => {
+    await expect(
+      invoke(
+        streamResponse(
+          frame({ type: "response.refusal.delta", delta: "Synthetic private refusal" }),
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "inference_refused", isRetryable: false })
+  })
+
+  it("preserves a later transport error as nonretryable after a valid refusal", async () => {
+    const bytes = new Uint8Array(
+      Buffer.from(
+        frame({ type: "response.refusal.delta", delta: "Synthetic private refusal" }),
+        "utf8",
+      ),
+    )
+    let reads = 0
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (reads++ === 0) controller.enqueue(bytes)
+          else controller.error(new TypeError("Synthetic connection interruption"))
+        },
+      }),
+      { headers: { "Content-Type": "text/event-stream" } },
+    )
+    await expect(invoke(response)).rejects.toMatchObject({
+      message: "Synthetic connection interruption",
+      isRetryable: false,
+    })
+  })
+
+  it.each([
+    [{ type: "response.refusal.delta", delta: 42 }, "invalid_stream_delta"],
+    [{ type: "response.refusal.done", refusal: 42 }, "invalid_stream_event"],
+  ])("rejects malformed refusal event %j with a safe stage", async (event, code) => {
+    await expect(invoke(streamResponse(frame(event) + frame(completed)))).rejects.toMatchObject({
+      code,
+    })
+  })
+
   it("keeps reasoning and lifecycle events out of translated text for a Sol model stream", async () => {
     const events = [
       { type: "response.created", response: { status: "in_progress" } },

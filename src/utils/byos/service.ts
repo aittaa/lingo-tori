@@ -937,6 +937,7 @@ export function createByosService(
           text = "",
           bytes = 0,
           completed = false,
+          refused = false,
           pendingCR = false
         const consume = (block: string) => {
           const data = block
@@ -948,6 +949,7 @@ export function createByosService(
           let event: {
             type?: string
             delta?: string
+            refusal?: string
             error?: unknown
             code?: string
             param?: string
@@ -974,6 +976,14 @@ export function createByosService(
           if (event.type === "response.output_text.delta") {
             if (typeof event.delta !== "string") streamFailure("invalid_stream_delta")
             text += event.delta
+          }
+          if (event.type === "response.refusal.delta") {
+            if (typeof event.delta !== "string") streamFailure("invalid_stream_delta")
+            refused = true
+          }
+          if (event.type === "response.refusal.done") {
+            if (typeof event.refusal !== "string") streamFailure("invalid_stream_event")
+            refused = true
           }
           if (event.type === "response.completed") {
             if (event.response?.status !== "completed") fail("inference_incomplete")
@@ -1006,10 +1016,16 @@ export function createByosService(
           append(decoder.decode(), true)
           // An unterminated SSE frame is discarded at EOF. Its apparent
           // response.completed must not turn an interrupted stream into success.
-          if (!completed) fail("inference_incomplete")
+          if (!completed && !refused) fail("inference_incomplete")
           await ensureGeneration(generation)
           signal?.throwIfAborted()
+          if (refused) streamFailure("inference_refused")
           return { text }
+        } catch (error) {
+          // Once a valid refusal arrives, even a later stream failure must not
+          // replay the same refused request. Preserve its original safe error.
+          if (refused && error instanceof Error) Object.assign(error, { isRetryable: false })
+          throw error
         } finally {
           await reader.cancel().catch(() => {})
           reader.releaseLock()
