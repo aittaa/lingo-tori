@@ -22,8 +22,6 @@ import { buildNoteSuggestionPrompts } from "./prompt"
 export interface NoteSuggestionSessionResult {
   /** Composite key: popoverSessionKey:translateRequestKey:rerunNonce. */
   sessionKey: string
-  sourceLanguage?: string
-  sourceContext?: string
   validated: ValidatedNoteSuggestion
   /** The configured Note suggestion action as of fire time. */
   actionSnapshot: SelectionToolbarCustomAction
@@ -35,7 +33,6 @@ export interface NoteSuggestionSessionResult {
 
 export interface NoteSuggestionFireInput {
   sessionKey: string
-  sourceLanguage?: string
   selectionText: string
   paragraphsText: string
   /** English name of the target language. */
@@ -185,8 +182,6 @@ export function useNoteSuggestion() {
 
       setSuggestion({
         sessionKey: input.sessionKey,
-        sourceLanguage: input.sourceLanguage ?? "auto",
-        sourceContext: input.paragraphsText,
         validated,
         actionSnapshot,
         firedAt,

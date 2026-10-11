@@ -4,13 +4,25 @@ import { storage } from "#imports"
 import { createByosJobRegistry } from "@/utils/byos/cancellation"
 import { installByosBackgroundInvoker } from "@/utils/byos/invoke"
 import { onByosMessage } from "@/utils/byos/messages"
-import { createBridgeStore } from "@/utils/byos/persistence"
 import { assertByosSender, createByosService, invokeSchema } from "@/utils/byos/service"
+import { createAuthTransport, AUTH_ALARM, CALLBACK_PATH } from "@/utils/byos/transport"
+import { createAuthVault } from "@/utils/byos/vault"
 import { CONFIG_STORAGE_KEY } from "@/utils/constants/config"
 import { resolveModelId } from "@/utils/providers/model-id"
 export function setupByos() {
-  const origin = browser.runtime.getURL("/").replace(/\/$/, "")
-  const service = createByosService(createBridgeStore(), origin)
+  const service = createByosService(
+    createAuthVault(),
+    createAuthTransport(),
+    browser.runtime.id,
+    browser.runtime.getURL(CALLBACK_PATH),
+  )
+  void service.initialize().catch(() => {})
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === AUTH_ALARM) void service.expire().catch(() => {})
+  })
+  browser.tabs.onRemoved.addListener((tabId) => {
+    void service.cancel(tabId).catch(() => {})
+  })
   const privatePage = (sender: { id?: string; url?: string }) =>
     assertByosSender(sender, browser.runtime.id, browser.runtime.getURL("/options.html"))
   const invoke: Parameters<typeof installByosBackgroundInvoker>[0] = async (payload, signal) => {
@@ -32,10 +44,6 @@ export function setupByos() {
     privatePage(sender)
     return service.status()
   })
-  onByosMessage("lingotoriByosConfigure", ({ sender, data }) => {
-    privatePage(sender)
-    return service.configure(data)
-  })
   onByosMessage("lingotoriByosSession", ({ sender }) => {
     privatePage(sender)
     return service.session()
@@ -46,8 +54,12 @@ export function setupByos() {
   })
   onByosMessage("lingotoriByosAuth", async ({ sender }) => {
     privatePage(sender)
-    const { authorizationUrl } = await service.authStart()
-    await browser.tabs.create({ url: authorizationUrl })
+    return service.authStart()
+  })
+  onByosMessage("lingotoriByosCallback", ({ sender, data }) => service.callback(data, sender))
+  onByosMessage("lingotoriByosCancelAuth", ({ sender }) => {
+    privatePage(sender)
+    return service.cancel()
   })
   onByosMessage("lingotoriByosSignout", ({ sender }) => {
     privatePage(sender)

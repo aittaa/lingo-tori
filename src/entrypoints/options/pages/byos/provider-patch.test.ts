@@ -13,7 +13,7 @@ describe("BYOS feature assignment", () => {
       const existing = {
         ...structuredClone(DEFAULT_PROVIDER_CONFIG.byos),
         id: "paired-byos",
-        name: "My companion",
+        name: "Saved BYOS provider",
         enabled: false,
         description: "Keep my settings",
         temperature: 0.4,

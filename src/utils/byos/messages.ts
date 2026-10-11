@@ -1,11 +1,12 @@
-import type { BridgeConfig, ByosInvocation, ByosModels, ByosSession } from "./service"
+import type { ByosInvocation, ByosModels, ByosSession } from "./service"
 import { defineExtensionMessaging } from "@webext-core/messaging"
 interface ByosProtocol {
-  lingotoriByosStatus: () => { configured: boolean; endpoint: string }
-  lingotoriByosConfigure: (config: BridgeConfig | null) => void
+  lingotoriByosStatus: () => { available: boolean; reason: string }
   lingotoriByosSession: () => ByosSession
   lingotoriByosModels: () => ByosModels
   lingotoriByosAuth: () => void
+  lingotoriByosCallback: (query: string) => ByosSession
+  lingotoriByosCancelAuth: () => void
   lingotoriByosSignout: () => ByosSession & { remoteRevocationConfirmed: boolean }
   lingotoriByosCancel: (requestId: string) => void
   lingotoriByosInvoke: (request: { requestId: string; payload: ByosInvocation }) => { text: string }

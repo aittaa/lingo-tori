@@ -2,7 +2,7 @@
   "name": "@lingotori/extension",
   "version": "1.50.3",
   "private": true,
-  "description": "Local-first bilingual reading and vocabulary practice with user-configured AI providers",
+  "description": "Bilingual reading and dictionary explanations with user-configured AI providers",
   "type": "module",
   "scripts": {
     "build": "wxt build",
@@ -27,9 +27,7 @@
     "zip:firefox": "wxt zip -b firefox --mv3",
     "zip:all": "pnpm zip && pnpm zip:edge && pnpm zip:firefox",
     "release": "changeset git-tag",
-    "prepare": "husky",
-    "test:learning": "node --test packages/learning-core/core.node-test.mjs apps/learning-server/server.node-test.mjs apps/learning-server/web.node-test.mjs",
-    "test:companion": "node --test apps/companion/test/*.test.mjs"
+    "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/alibaba": "^2.0.65",

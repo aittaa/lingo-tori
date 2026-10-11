@@ -23,7 +23,6 @@ import {
 } from "./db-cleanup"
 import { setupGlossaryMessageHandlers } from "./glossary"
 import { setupIframeInjection } from "./iframe-injection"
-import { setupLearning } from "./learning"
 import { setupLLMGenerateTextMessageHandlers } from "./llm-generate-text"
 import { initMockData } from "./mock-data"
 import { setupPageTranslationHandlers } from "./page-translation"
@@ -114,7 +113,6 @@ export default defineBackground({
     proxyFetch()
 
     setupGlossaryMessageHandlers()
-    setupLearning()
     setupByos()
 
     setupLLMGenerateTextMessageHandlers()

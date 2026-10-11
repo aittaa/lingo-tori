@@ -1,53 +1,34 @@
 # Product requirements
 
-## Product goal and status
+## Current product goal
 
-Build a lean, dependable independent translation extension. Prioritize usable page translation, dictionary meanings/explanations, BYOK onboarding/settings, clear failures and cancellation, optional supported BYOS, and installed-extension validation. Avoid new product scope.
+Keep a lean, dependable independent translator: usable page/selection/subtitle translation, dictionary meanings and sentence explanations, BYOK onboarding/settings, clear failures and cancellation, and honest installed-extension evidence. Preserve multilingual translation and EN/KO/JA UI. Avoid feature expansion.
 
-Owner priority on 2026-10-11: retain useful existing vocabulary/learning pieces where they do not destabilize or complicate the core. Do not actively expand or polish them. Further learning development, including backend, is deferred future work under issue #7; PR #10 remains an unmerged deferred draft.
+## Retained scope
 
-## Required capabilities
+- User-configured BYOK providers and compatible custom endpoints, including Gemini and Azure.
+- Dictionary/custom-action rendering, copy controls and original reading-suggestion generation, validation, term/meaning display and enable toggle.
+- Independently authored rendering and language contracts required to replace `@read-frog` dependencies.
+- Original translation glossary/cache behavior and stable storage identifiers.
 
-1. Translate websites using user-configured providers. Preserve reading context, page translation controls, language handling, and useful translation configuration.
-2. Support bring-your-own-key (BYOK) model providers and custom compatible endpoints. Retain Gemini and Azure BYOK: removing Google Translate and Microsoft Translate does not remove those model adapters.
-3. Explain selected words and passages through dictionary and sentence-analysis actions. Preserve selected text, nearby context, source URL, and user-selected explanation language.
-4. Offer English, Korean, and Japanese product UI. Translation remains multilingual; UI locale must not restrict source or target languages.
-5. Keep experimental BYOS separate from default BYOK onboarding. Require explicit local pairing and model selection; do not claim live readiness from mock tests.
+## Removed scope and future work
 
-Existing local vocabulary and review tools may remain, but further work on learning, synchronization and the backend is not part of the current acceptance milestone.
+Compare learning provenance against original upstream `ca8da8241883c9aff5862d15d045845a746c9a6b`. Remove newly introduced vocabulary storage, SRS, Study UI, standalone learning web/server and their learning-only tests/handlers. Remove unavailable local-save/review controls without restoring the previously removed commercial Notebase service. Do not infer that every use of the word “learning” is new code; original language-proficiency settings and dictionary explanations remain.
 
-## Excluded capabilities and integrations
+Study navigation is removed. Future learning/backend development is backlog issue #7, not active product implementation. Source removal does not authorize deleting user databases, exported vocabulary or browser profile data.
 
-Remove Read Frog login, payments, quotas, hosted AI services, commercial service links, telemetry, and hosted backup/auth integrations. Remove Google Translate and Microsoft Translate providers, their default selections, probes, and execution branches. Remove voice, TTS, speech controls, input translation, and writing assistance. Remove every `@read-frog/*` package dependency and runtime integration, including alternate monorepo aliases.
+Remove the local BYOS companion and its pairing/setup UI. The requested browser-only source is experimental and explicitly differs from current official listener/storage guidance; [BYOS status](byos.md) distinguishes source behavior from support and live verification. Keep ChatGPT sign-in inside API Providers, isolated from working BYOK. Missing permission/capability or invalid protocol state must fail closed. No live OAuth or installed-browser access grant is part of this milestone.
 
-Custom result-layout editing is not required for the first independent version. Use a simple independently authored result display. Legacy templates must never be evaluated merely to maintain compatibility.
+## Excluded commercial integrations
 
-## User journeys
+Remove original hosted login, payments, quotas, AI services, commercial links, telemetry and cloud backup. Remove Google Translate and Microsoft Translate adapters while keeping independent Gemini/Azure BYOK. Voice/TTS, input translation, writing assistance, executable result layouts and all `@read-frog` package imports/aliases remain excluded. Preserve GPL and upstream attribution.
 
-### First run and translation
+## Minimum acceptance
 
-A new installation opens local setup and makes no automatic request to upstream services or removed providers. The user configures BYOK explicitly. With no usable provider, show a clear setup state. A configured provider can translate a page or selected text without a Read Frog account.
+1. A fresh install without a provider opens usable settings and clearly requests configuration.
+2. BYOK can be configured and explicitly assigned; page translation and selected-text explanations have clear errors/cancellation.
+3. API Providers exposes the experimental browser-only flow with accurate guidance, no automatic authentication/permission request and no live-readiness claim. No automatic paid fallback.
+4. Study/new learning/companion entrypoints and active setup paths are absent. Original reading suggestions, dictionary explanations and translation contracts remain.
+5. Relevant regression, type/lint, Chrome/Firefox build and available installed-browser checks report PASS/FAIL/NOT RUN precisely. Source inspection and mocks do not replace live verification.
 
-### Dictionary explanations and existing saving
-
-Selecting a word or passage opens an explanation using the chosen BYOK provider. Partial results remain readable during streaming. Saving creates a local vocabulary note with the selected term, explanation, context, source, and language. Saving does not depend on authentication or synchronization success.
-
-### Retained learning components — future development deferred
-
-The existing prototype supports local card review and due state. The following describes retained behavior, not a current development milestone. Review events persist across extension worker restarts. Connecting the independent backend synchronizes notes and review history without exposing BYOK API keys. The learning web application uses the same documented scheduling rules and conflict policy.
-
-### BYOS companion
-
-Put a visible Sign in with ChatGPT entry, account/connection status, reconnect and disconnect inside the existing API Providers settings. Keep BYOK configuration usable. Explain and gate the required local companion/pairing setup before the official sign-in action; pairing and mock tests must not imply successful live authentication. See [BYOS](byos.md) for its separately maintained specification. Preparing the companion locally does not authorize launching a hosted service, exposing local services publicly, or deploying infrastructure. Hosted operation requires a separately reviewed deployment decision.
-
-## Data and compatibility requirements
-
-Preserve valid BYOK settings, custom endpoints, language choices, and user-authored glossary data during migration. Removed-provider assignments must resolve to a usable explicitly configured provider or a setup-required state, never a silently substituted paid service.
-
-Do not treat existing glossary substitutions as a vocabulary/SRS database. Maintain distinct models for translation substitutions and learning records. Legacy Read Frog server-held notes are not available locally by assumption; import requires a supported user-provided export or a separately authorized migration route.
-
-Provide an explicit migration path for local database naming. Rebranding must not make existing local records appear lost. Failed config parsing must not overwrite existing settings with defaults.
-
-## Completion criteria
-
-The current foundation milestone must demonstrate fresh-install settings without a provider, explicit provider configuration, BYOK page translation and selected-text explanation, clear errors/cancellation, multilingual engine behavior, and EN/KO/JA UI. Learning/backend expansion and release acceptance are deferred. No removed service should be contacted on install, startup, selection, saving, reviewing, or opening settings. License/provenance, bundle, migration, and permission checks are release gates, not optional cleanup.
+Preserve valid provider settings, custom endpoints, language choices, glossary data and user records. Config failures must not overwrite data with defaults. No merge, release, deployment, live inference or credential creation follows from passing tests.

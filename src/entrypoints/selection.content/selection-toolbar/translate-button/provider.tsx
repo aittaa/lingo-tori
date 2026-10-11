@@ -21,7 +21,6 @@ import {
   useRef,
   useState,
 } from "react"
-import { isSaveToNotebaseDialogOpenAtom } from "@/components/custom-action/save-to-notebase-dialog-atom"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { SelectionPopover } from "@/components/ui/selection-popover"
 import {
@@ -63,7 +62,6 @@ import {
 } from "../atoms"
 import { NoteSuggestionCard } from "../note-suggestion/note-suggestion-card"
 import { useNoteSuggestion } from "../note-suggestion/use-note-suggestion"
-import { ReviewDueTab } from "../review-due-tab"
 import { useSelectionOpenRequestResolver } from "../use-selection-open-request"
 import { useSelectionShortcuts } from "../use-selection-shortcuts"
 import { TargetLanguageSelector } from "./target-language-selector"
@@ -301,7 +299,6 @@ export function SelectionTranslationProvider({ children }: { children: ReactNode
     [providersConfig],
   )
   const translateRequestKey = useMemo(() => JSON.stringify(translateRequest), [translateRequest])
-  const isSaveToNotebaseDialogOpen = useAtomValue(isSaveToNotebaseDialogOpenAtom)
   const {
     suggestion: noteSuggestion,
     maybeFire: maybeFireNoteSuggestion,
@@ -321,7 +318,6 @@ export function SelectionTranslationProvider({ children }: { children: ReactNode
       maybeFireNoteSuggestion({
         sessionKey: noteSuggestionSessionKey,
         selectionText: preparedText,
-        sourceLanguage: translateRequest.language.sourceCode,
         paragraphsText: paragraphsText ?? preparedText,
         targetLangName: LANG_CODE_TO_EN_NAME[translateRequest.language.targetCode],
         webTitle: titleText ?? "",
@@ -746,7 +742,6 @@ export function SelectionTranslationProvider({ children }: { children: ReactNode
         onAnchorChange={setAnchor}
         actionsRef={popoverActionsRef}
         onReuseRequest={handleReuseRequest}
-        disablePointerDismissal={isSaveToNotebaseDialogOpen}
       >
         {children}
         <SelectionPopover.Content
@@ -782,7 +777,6 @@ export function SelectionTranslationProvider({ children }: { children: ReactNode
               )}
             <SelectionToolbarErrorAlert error={error} className="-mt-3" />
           </SelectionPopover.Body>
-          <ReviewDueTab source="extension_selection_translation" />
           <TranslateFooterContent
             paragraphsText={paragraphsText}
             providers={translateProviders}

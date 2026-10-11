@@ -46,20 +46,6 @@ export function FeaturesNav() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              render={
-                <a
-                  href={browser.runtime.getURL("/study.html")}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                />
-              }
-            >
-              <Icon icon="tabler:cards" />
-              <span>{i18n.t("lingotori.study")}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
               render={<Link to="/custom-actions" />}
               isActive={pathname === "/custom-actions"}
               tooltip={i18n.t("options.selectionToolbar.customActions.title")}

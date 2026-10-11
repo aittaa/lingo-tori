@@ -4,9 +4,10 @@ import { WxtVitest } from "wxt/testing/vitest-plugin"
 
 export default defineConfig({
   // TODO: remove any
-  plugins: [WxtVitest() as any, react()],
+  // Unit tests do not start a dev server; skip WXT's unnecessary port probe.
+  plugins: [WxtVitest({ dev: { server: { port: 3333, strictPort: true } } }) as any, react()],
   test: {
-    exclude: [...configDefaults.exclude, "**/.claude/**", "**/repos/**", "apps/**/test/**"],
+    exclude: [...configDefaults.exclude, "**/.claude/**", "**/repos/**"],
     environment: "node",
     environmentOptions: {
       // jsdom defaults to http://localhost:3000/, which built-in site rules

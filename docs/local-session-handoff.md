@@ -1,10 +1,12 @@
 # Native local session handoff
 
-## Current priority update — 2026-10-11
+## Current scope — 2026-10-11
 
-Native local chat `01a12a59-1dd5-74f0-9a74-9fe51c95c160` owns this checkout. Supported desktop metadata confirms project `bc3cac22-5ccf-42d7-810e-4af64462d2af`, host `local`, and the repository path below. Focus on usable translation, dictionary explanations, BYOK and optional experimental BYOS. Retain useful existing learning pieces without expansion or polish; future development including backend is deferred. PR #10 is an open, deferred, unmerged draft. The short-lived removal edits were undone before commit/push, with no user data deletion. Older cloud workers remain stopped.
+Native local chat `01a12a59-1dd5-74f0-9a74-9fe51c95c160` owns this checkout. Project `bc3cac22-5ccf-42d7-810e-4af64462d2af`, host `local`, and repository path were verified with supported tools. Old cloud writers remain stopped.
 
-The remaining text records the prior checkpoint; current evidence and any subsequent provider fix are in [validation](validation.md).
+Current instructions supersede the historical checkpoint below: retain original translation/dictionary/reading-suggestion features and required independent contracts; remove new non-upstream learning/SRS/web/backend code and Study navigation. Remove companion source/setup/pairing. Browser-only ChatGPT sign-in is experimental source with strict credential/callback boundaries and an explicitly documented official-guidance mismatch; no live auth, credential creation or permission grant. Future learning/backend is backlog only. The active target stack is #9 → #12 with #10/#11 superseded. User databases and ordinary Git history remain untouched. See [current validation](validation.md) and [BYOS status](byos.md).
+
+## Historical checkpoint
 
 The previous cloud-managed task is stopping at this checkpoint. Its command execution was verified on the server Mac, but this does **not** make it a native local project task. Do not restart its subordinate writers while a native local session owns this checkout.
 
@@ -53,10 +55,8 @@ The available `create_thread` API supports creating a **distinct** native projec
 
 ## Resume instructions
 
-1. Start or select a native local task under the existing `lingo-tori` desktop project, then verify its own project/host metadata and actual repository path before editing. Read this file, `AGENTS.md`, `docs/validation.md` and the relevant repository skills. Do not clone again, reset the checkout, or recreate issues/PRs.
-2. Use `source ../lingo-tori-local/env.sh` from the repository. Node 26.11.1 and pnpm 12.10.1 are already prepared. Do not repeat installs or full tests unless changes or a concrete concern justify them.
-3. Review the draft stack #9 → #10 → #11 → the integration draft. Issues #2–#8 already map all 12 requested cleanup/BYOS/README/footprint items; they remain open pending acceptance.
-4. The next useful gate is a faithful installed-extension smoke test in a fresh, credential-free browser profile: settings migration, page/selection mock translation, offline save/review, native IndexedDB persistence and BYOS pairing UI. Do not bypass the earlier preview-server approval denial. Real BYOS sign-in/inference needs separate user authorization and availability checks.
-5. Keep remote GitHub Actions disabled. Do not merge, deploy, release, call paid APIs, create live tokens, touch other projects/services, or broaden account access. Preserve GPL and upstream attribution. Do not delete retained marketing assets whose removal was denied without resolving that specific scope/provenance boundary.
-
-No further implementation is requested by this handoff itself; continue only under the user's native local session instructions.
+1. Confirm the native local project and actual repository path, then read current `AGENTS.md`, [requirements](product-requirements.md), [plan](implementation-plan.md) and [validation](validation.md). Do not restart the old cloud writers.
+2. Source `../lingo-tori-local/env.sh`. Reuse dependencies and existing evidence; rerun checks only when justified by changed code or a concrete concern.
+3. Continue core translation/BYOK usability, preserving original useful features. Do not rebuild removed learning/backend or companion scope.
+4. Keep browser-only authentication source-only and fail closed on unmet security/capability checks; no live OAuth, real credentials, paid inference or installed-browser permission grant is authorized.
+5. Keep Actions disabled. No PR merge, release, deployment, denied preview-server restart, broader denied asset deletion, unrelated services or user-data deletion.

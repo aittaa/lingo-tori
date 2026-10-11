@@ -1,6 +1,6 @@
 name: LingoTori
-extName: "LingoTori - AI 이중 번역·동영상 자막·단어장"
-extDescription: "웹페이지와 YouTube·Netflix·X 동영상 자막을 AI로 이중 번역합니다. 모르는 단어는 저장해 플래시카드로 복습하세요."
+extName: "LingoTori - AI 번역·사전"
+extDescription: "직접 설정한 AI 제공자로 웹페이지와 동영상 자막을 번역합니다. 단어의 뜻과 문장 설명을 확인하세요."
 uninstallSurveyUrl: https://tally.so/r/nPK6Ob
 dataTypes:
   string: 텍스트
@@ -258,7 +258,7 @@ options:
         pageTranslation: 페이지 전체를 대역 또는 원문 대체 방식으로 번역합니다.
         selectionTranslation: 선택 도구 모음에서 선택한 텍스트를 번역합니다.
         videoSubtitles: 동영상 플레이어에 표시되는 자막을 번역합니다.
-        noteSuggestion: 선택 번역 후 vocabulary에 저장할 만한 단어를 제안합니다.
+        noteSuggestion: 선택 번역 후 알아두면 좋은 단어와 뜻을 제안합니다.
     languageDetection:
       title: 언어 감지
       description: 자동 번역을 위한 페이지 언어 감지 정확도에 영향을 줍니다.
@@ -465,11 +465,11 @@ options:
         description: 툴바에 번역 버튼을 표시합니다
       noteSuggestion:
         title: 노트 제안
-        description: AI 제공자로 선택 번역 후 vocabulary에 저장할 단어를 추천합니다
+        description: AI 제공자로 선택 번역 후 알아두면 좋은 단어와 뜻을 추천합니다
         action: 작업
-        actionDescription: 저장 제안을 만드는 작업
+        actionDescription: 단어와 뜻을 제안하는 작업
         provider: 제공업체
-        providerDescription: 저장 제안을 만드는 AI 제공업체
+        providerDescription: 단어와 뜻을 제안하는 AI 제공업체
     display:
       title: 표시
       opacity:
@@ -1299,8 +1299,8 @@ action:
   dragToReorder: 드래그하여 순서 변경
   addCustomAction: 커스텀 AI 액션 추가
 noteSuggestion:
-  title: 저장 추천
-  description: vocabulary에 저장할 단어를 선택하고 언제든지 복습하세요.
+  title: 읽기 도움말
+  description: 이 글에 쓰인 단어와 뜻을 살펴보세요.
   save: 저장
   saved: 저장됨
   staleSuggestion: 이 제안은 더 이상 유효하지 않습니다

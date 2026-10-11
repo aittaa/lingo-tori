@@ -1,5 +1,4 @@
 import { Icon } from "@iconify/react"
-import { browser } from "#imports"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,12 +22,6 @@ export function MoreMenu() {
         <span>{i18n.t("popup.more.title")}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top">
-        <DropdownMenuItem
-          onClick={() => void browser.tabs.create({ url: browser.runtime.getURL("/study.html") })}
-        >
-          <Icon icon="tabler:cards" className="size-4" />
-          {i18n.t("lingotori.study")}
-        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() =>
             window.open(

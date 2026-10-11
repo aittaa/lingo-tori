@@ -1,6 +1,6 @@
 name: LingoTori
-extName: "LingoTori - AI対訳翻訳・二重字幕・単語帳"
-extDescription: "ウェブページと YouTube・Netflix・X の動画字幕を AI で対訳翻訳。知らない単語は保存して、フラッシュカードで復習できます。"
+extName: "LingoTori - AI 翻訳・辞書"
+extDescription: "自分で設定した AI プロバイダーでウェブページと動画字幕を翻訳します。単語の意味と文の解説を確認できます。"
 uninstallSurveyUrl: https://tally.so/r/nPK6Ob
 dataTypes:
   string: テキスト
@@ -258,7 +258,7 @@ options:
         pageTranslation: ページ全体を対訳または置き換えで翻訳します。
         selectionTranslation: 選択ツールバーから、選択したテキストを翻訳します。
         videoSubtitles: 動画プレーヤーに表示される字幕を翻訳します。
-        noteSuggestion: 選択テキストを翻訳した後、vocabulary に保存する価値のある単語を提案します。
+        noteSuggestion: 選択テキストを翻訳した後、役立つ単語と意味を提案します。
     languageDetection:
       title: 言語検出
       description: 自動翻訳のためのページ言語検出の精度に影響します。
@@ -465,11 +465,11 @@ options:
         description: ツールバーに翻訳ボタンを表示します
       noteSuggestion:
         title: ノートの提案
-        description: AI プロバイダーで選択テキストを翻訳した後、vocabulary に保存する単語を提案します
+        description: AI プロバイダーで選択テキストを翻訳した後、役立つ単語と意味を提案します
         action: アクション
-        actionDescription: 保存候補を生成するアクション
+        actionDescription: 単語と意味を提案するアクション
         provider: プロバイダー
-        providerDescription: 保存候補を生成する AI プロバイダー
+        providerDescription: 単語と意味を提案する AI プロバイダー
     display:
       title: 表示
       opacity:
@@ -1299,8 +1299,8 @@ action:
   dragToReorder: ドラッグして並べ替え
   addCustomAction: カスタム AI アクションを追加
 noteSuggestion:
-  title: 保存におすすめ
-  description: vocabulary に保存したい単語を選んで、いつでも復習できます。
+  title: 読解のヒント
+  description: この文章に出てくる単語と意味を確認できます。
   save: 保存
   saved: 保存済み
   staleSuggestion: この提案は古くなっています

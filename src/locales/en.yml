@@ -1,6 +1,6 @@
 name: LingoTori
-extName: "LingoTori - AI Translation & Flashcards"
-extDescription: "Bilingual AI translation for web pages and YouTube, Netflix and X subtitles. Save new words and review them as flashcards."
+extName: "LingoTori - AI Translation & Dictionary"
+extDescription: "Translate web pages and video subtitles with your own AI provider. Get dictionary meanings and sentence explanations."
 uninstallSurveyUrl: https://tally.so/r/nPK6Ob
 dataTypes:
   string: Text
@@ -259,7 +259,7 @@ options:
         pageTranslation: Translates the whole page in bilingual or replace mode.
         selectionTranslation: Translates the text you select from the selection toolbar.
         videoSubtitles: Translates subtitles as they appear in a video player.
-        noteSuggestion: Suggests words worth saving to your vocabulary after a selection translation.
+        noteSuggestion: Suggests useful words and their meanings after a selection translation.
     languageDetection:
       title: Language detection
       description: Affects the accuracy of page language detection for automatic translation.
@@ -466,7 +466,7 @@ options:
         description: Show the translate button in the toolbar
       noteSuggestion:
         title: Note suggestions
-        description: After selection translation with an AI provider, suggest words to save to your vocabulary
+        description: After selection translation with an AI provider, suggest useful words and their meanings
         action: Action
         actionDescription: The action that produces the suggestion
         provider: Provider
@@ -1364,8 +1364,8 @@ action:
   dragToReorder: Drag to reorder
   addCustomAction: Add custom AI action
 noteSuggestion:
-  title: You might want to save
-  description: Choose which words to save to your vocabulary and review anytime.
+  title: Reading suggestions
+  description: Explore useful words and their meanings in this text.
   save: Save
   saved: Saved
   staleSuggestion: This suggestion is out of date

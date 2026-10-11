@@ -12,17 +12,7 @@ import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { i18n } from "@/utils/i18n"
 
 const mocks = vi.hoisted(() => ({
-  save: vi.fn<(...args: any[]) => any>(),
-  toastAdd: vi.fn<(...args: any[]) => any>(),
   track: vi.fn<(...args: any[]) => any>(),
-}))
-
-vi.mock("@/components/custom-action/use-save-to-notebase", () => ({
-  useSaveToNotebase: () => ({ save: mocks.save, isSaving: false }),
-}))
-
-vi.mock("@/components/ui/base-ui/toast", () => ({
-  toastManager: { add: mocks.toastAdd },
 }))
 
 vi.mock("@/utils/note-suggestion/analytics", () => ({
@@ -107,173 +97,41 @@ function renderCard(
   )
 }
 
-function clickSave() {
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("noteSuggestion.save") }))
-}
-
 describe("NoteSuggestionCard", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.save.mockResolvedValue("saved")
   })
 
-  it("saves through the same action after it is disabled", async () => {
-    const snapshot = createAction({ enabled: true })
-    const liveAction = createAction({ enabled: false })
-    const store = createStoreWithAction(liveAction)
-    renderCard(store, snapshot)
-
-    clickSave()
-
-    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1))
-    expect(mocks.save).toHaveBeenCalledWith({
-      action: liveAction,
-      results: [{ Term: "ephemeral", Definition: "lasting a very short time" }],
-      analyticsSource: "note_suggestion",
-      language: "auto",
-      context: undefined,
-    })
-    expect(mocks.toastAdd).not.toHaveBeenCalled()
-  })
-
-  // Accepting is the click; note_save reports whether the notes arrived, so a
-  // login round trip no longer counts as an acceptance only some of the time.
-  it.each(["saved", "dialog_opened", "failed"] as const)(
-    "records the acceptance on click even when the save ends %s",
-    async (outcome) => {
-      mocks.save.mockResolvedValueOnce(outcome)
-      const action = createAction()
-      renderCard(createStoreWithAction(action), action)
-
-      clickSave()
-
-      await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1))
-      expect(mocks.track).toHaveBeenCalledWith(
-        expect.objectContaining({ action_id: "suggestion_accepted", action_name: action.name }),
-      )
-    },
-  )
-
-  it("records one acceptance per suggestion when a failed save is retried", async () => {
-    mocks.save.mockResolvedValueOnce("failed").mockResolvedValueOnce("saved")
+  it("preserves suggested terms and meanings without unavailable save controls", () => {
     const action = createAction()
-    const store = createStoreWithAction(action)
-    // The config reloads from storage before the retry; keep the action there.
-    await storage.setItem("local:config", store.get(configAtom))
-    renderCard(store, action)
-
-    clickSave()
-    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1))
-    clickSave()
-    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2))
-
-    const acceptances = mocks.track.mock.calls.filter(
-      ([event]) => event.action_id === "suggestion_accepted",
-    )
-    expect(acceptances).toHaveLength(1)
-  })
-
-  it("records no acceptance for a stale suggestion", async () => {
-    renderCard(createStoreWithAction(), createAction())
-
-    clickSave()
-
-    await waitFor(() => expect(mocks.toastAdd).toHaveBeenCalledTimes(1))
-    expect(mocks.track).not.toHaveBeenCalledWith(
-      expect.objectContaining({ action_id: "suggestion_accepted" }),
-    )
-  })
-
-  it("selects every suggested note by default and saves only the checked notes", async () => {
-    const action = createAction()
-    const store = createStoreWithAction(action)
-    renderCard(store, action, [
+    renderCard(createStoreWithAction(action), action, [
       { Term: "ephemeral", Definition: "lasting a very short time" },
-      { Term: "transient", Definition: "not permanent" },
+      { Term: "serendipity", Definition: "a fortunate discovery" },
     ])
-
-    const checkboxes = screen.getAllByRole("checkbox")
-    expect(checkboxes).toHaveLength(2)
-    expect(checkboxes[0]).toBeChecked()
-    expect(checkboxes[1]).toBeChecked()
-    expect(checkboxes[0]?.closest('[data-slot="field-label"]')?.firstElementChild).toHaveAttribute(
-      "data-slot",
-      "field",
-    )
-
-    fireEvent.click(screen.getByRole("checkbox", { name: /transient/ }))
-    clickSave()
-
-    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1))
-    expect(mocks.save.mock.calls[0]?.[0]?.results).toEqual([
-      { Term: "ephemeral", Definition: "lasting a very short time" },
-    ])
+    expect(screen.getByText("ephemeral")).toBeInTheDocument()
+    expect(screen.getByText("lasting a very short time")).toBeInTheDocument()
+    expect(screen.getByText("serendipity")).toBeInTheDocument()
+    expect(screen.getByText("a fortunate discovery")).toBeInTheDocument()
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: i18n.t("noteSuggestion.save") }),
+    ).not.toBeInTheDocument()
   })
 
-  it("disables saving when every suggested note is unchecked", () => {
+  it("prefers the designated meaning field over other explanation fields", () => {
     const action = createAction()
-    const store = createStoreWithAction(action)
-    renderCard(store, action)
-
-    fireEvent.click(screen.getByRole("checkbox", { name: /ephemeral/ }))
-
-    const saveButton = screen.getByRole("button", { name: i18n.t("noteSuggestion.save") })
-    expect(saveButton).toBeDisabled()
-    fireEvent.click(saveButton)
-    expect(mocks.save).not.toHaveBeenCalled()
-  })
-
-  it("marks the suggestion stale when its action was deleted", async () => {
-    const snapshot = createAction()
-    const store = createStoreWithAction()
-    renderCard(store, snapshot)
-
-    clickSave()
-
-    await waitFor(() =>
-      expect(mocks.toastAdd).toHaveBeenCalledWith({
-        type: "error",
-        title: i18n.t("noteSuggestion.staleSuggestion"),
-      }),
-    )
-    expect(mocks.save).not.toHaveBeenCalled()
-  })
-
-  it("marks the suggestion stale when the action schema changed", async () => {
-    const snapshot = createAction()
-    const liveAction = createAction({
-      outputSchema: [
-        {
-          id: "field-word",
-          name: "Word",
-          type: "string",
-          description: "",
-        },
-      ],
+    action.outputSchema.splice(1, 0, {
+      id: "field-reading",
+      name: "Reading",
+      type: "string",
+      description: "",
     })
-    const store = createStoreWithAction(liveAction)
-    renderCard(store, snapshot)
-
-    clickSave()
-
-    await waitFor(() => expect(mocks.toastAdd).toHaveBeenCalledTimes(1))
-    expect(mocks.save).not.toHaveBeenCalled()
-  })
-
-  it("uses the live action when identity, provider, and connection changed but schema did not", async () => {
-    const snapshot = createAction()
-    const liveAction = createAction({
-      name: "Live Dictionary",
-      providerId: "new-provider",
-    })
-    const store = createStoreWithAction(liveAction)
-    renderCard(store, snapshot)
-
-    clickSave()
-
-    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1))
-    expect(mocks.save.mock.calls[0]?.[0]?.action).toEqual(liveAction)
-    expect(mocks.toastAdd).not.toHaveBeenCalled()
+    renderCard(createStoreWithAction(action), action, [
+      { Term: "猫", Reading: "neko", Definition: "cat" },
+    ])
+    expect(screen.getByText("猫")).toBeInTheDocument()
+    expect(screen.getByText("cat")).toBeInTheDocument()
+    expect(screen.queryByText("neko")).not.toBeInTheDocument()
   })
 
   it("preserves the selected action when toggling Note suggestion", async () => {

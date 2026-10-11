@@ -84,8 +84,7 @@ export function createByosModel(modelId: string, invoke: Invoker = invokeByos): 
       }
     },
     async doStream(options) {
-      // Companion verifies upstream SSE before returning. Emit one completed
-      // chunk into the existing extension stream pipeline, not fake partials.
+      // Emit a completed result only after the invocation succeeds.
       const text = await generate(options)
       return {
         stream: new ReadableStream({

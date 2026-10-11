@@ -1,28 +1,28 @@
 # LingoTori
 
-LingoTori is a browser extension for bilingual reading, user-configured AI translation and dictionary explanations. Its interface supports English, Korean and Japanese; translation language support remains broader.
+LingoTori is an independent browser extension for bilingual page and subtitle translation, dictionary meanings and sentence explanations. Its interface supports English, Korean and Japanese; translation language support remains broader.
 
-Bring your own provider and API key in Settings. Fresh installs have no configured provider and make no hosted AI requests. Page translation, selection tools and subtitle translation use the provider you select. Existing local vocabulary and review tools are retained. Further learning development, including the optional backend and standalone web prototype, is deferred; these are not prerequisites for translation. See [retained learning components](docs/learning.md) for their current limits.
+Configure your provider and API key in **API Providers**, then explicitly assign the provider to each feature. New installs start without a provider. Gemini and Azure BYOK remain supported alongside other configured model APIs. Dictionary and original reading suggestions remain; Study navigation and the newly added vocabulary/SRS, learning web and backend have been removed. Future learning work is backlog scope.
 
-## Experimental ChatGPT plan integration (BYOS)
+## ChatGPT subscription integration
 
-The **API Providers** settings include **Sign in with ChatGPT** for experimental BYOS. This requires your own [local companion](apps/companion/README.md); see [BYOS setup and limitations](docs/byos.md). Credentials stay in the companion's protected local storage. Pair the extension manually using its allowed origin and local pairing secret; do not paste an OpenAI token into the extension. Select an account-authorized model and explicitly assign it to the features you want.
+**Sign in with ChatGPT** is an experimental Chromium browser-only flow inside API Providers. There is no companion, server address or pairing key. A direct sign-in action requests the optional callback permission before opening authorization; no permission or account access is requested automatically. BYOK remains independent.
 
-Live account authentication and generation have not been verified in this local validation. Availability depends on account permissions, supported official endpoints and plan limits. Hosted support requires separate approval; this fork does not claim production readiness or silently fall back to an API key.
+This source implementation is not live-verified or established as officially supported/store-approved. Current official guidance specifies protected runtime storage outside browsers and a loopback listener; this experimental design instead uses an extension-origin local database and a narrowly scoped navigation redirect. Read [BYOS status and boundaries](docs/byos.md) before enabling it. Firefox authentication is unavailable; its BYOK translation remains supported.
 
 ## Development
 
-Use the Node and pnpm versions declared in `package.json`. Install dependencies with `pnpm install --ignore-scripts`, then run `pnpm exec wxt prepare`. Run `pnpm dev` for extension development, or `pnpm build` / `pnpm build:firefox` for loadable builds. Configure browser extension loading manually. No deployment or paid provider call is required for local validation.
+Use the Node and pnpm versions in `package.json`. For initial setup, install with `pnpm install --ignore-scripts`, then run `pnpm exec wxt prepare`. Use `pnpm build` or `pnpm build:firefox` for loadable builds. Basic validation needs no service, account credentials or inference call.
 
 ```sh
 SKIP_FREE_API=true pnpm test
 pnpm type-check
 pnpm build
-pnpm test:companion
+pnpm build:firefox
 ```
 
-Current development focuses on reliable first-run settings, provider configuration, translation, dictionary explanations and clear errors. No active learning expansion is planned. Hosted accounts, billing, telemetry, cloud transcription, speech playback, writing assistance, input translation and executable custom layouts are outside this fork's feature set. Optional user-configured services send only the data needed for an explicitly requested operation; review the endpoint before using a provider.
+Hosted accounts, billing, telemetry, cloud transcription, speech playback, writing assistance, input translation and executable custom layouts are excluded. Provider requests use the endpoint you configure; review it before use.
 
 ## Attribution and license
 
-This project is a fork of [Read Frog](https://github.com/mengxi-ream/read-frog), originally authored by its upstream contributors. The original [GNU GPL license](LICENSE) is retained unchanged, and upstream history preserves authorship. LingoTori is an independent fork and is not the upstream hosted service. Newly authored language data, learning core and local server do not depend on the removed `@read-frog` packages.
+This project is a fork of [Read Frog](https://github.com/mengxi-ream/read-frog), originally authored by its upstream contributors. The original [GNU GPL license](LICENSE) and upstream authorship remain intact. Independent rendering and language contracts replace the removed `@read-frog` packages without copying their implementations.

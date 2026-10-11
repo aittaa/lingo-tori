@@ -8,7 +8,6 @@ export function ReadingToolsPreview({ floating = false }: { floating?: boolean }
       icon: "tabler:book",
       label: i18n.t("options.selectionToolbar.customActions.templates.dictionary.name"),
     },
-    { icon: "tabler:cards", label: i18n.t("lingotori.study") },
   ]
   return (
     <div aria-hidden="true" className="flex max-w-full items-center gap-3 px-4">
