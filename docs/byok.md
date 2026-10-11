@@ -12,6 +12,6 @@ For example, select English text and translate it to Korean, look up a Japanese 
 
 If a provider is missing or disabled, configure and explicitly select one. Old experimental account-provider records are retained for configuration compatibility but cannot run requests here. There is no automatic paid fallback. Existing glossary and user records are not cleanup targets.
 
-Config exports can include API keys; choose the export without API keys when sharing settings. Builds must not embed credentials in `WXT_` environment variables.
+Config exports can contain credentials. Exporting without API keys removes only fields named exactly `apiKey`; credentials in custom headers such as `Authorization` or `x-api-key`, provider options or other fields may remain. Before sharing any export, inspect it and manually remove all credentials, including custom headers and options. Do not assume that this export option makes a file safe to share. Builds must not embed credentials in `WXT_` environment variables.
 
 [Experimental BYOS status](experimental-byos.md) is tracked separately. Consult the [validation gate](validation.md) for remaining checks on the draft core.
