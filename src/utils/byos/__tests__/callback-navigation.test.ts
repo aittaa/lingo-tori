@@ -1,6 +1,13 @@
 import { expect, it, vi } from "vitest"
 import { createByosService } from "../service"
-import { callbackUrl, memoryVault, mockTransport, sender, signedFixture } from "./auth-fixtures"
+import {
+  callbackUrl,
+  credentials,
+  memoryVault,
+  mockTransport,
+  sender,
+  signedFixture,
+} from "./auth-fixtures"
 async function fixture(clock: () => number = Date.now) {
   const vault = memoryVault(),
     transport = mockTransport(),
@@ -168,4 +175,77 @@ it("does not relay after expiry while the post-claim guard is awaiting storage",
   release()
   expect(await relay).toBe(false)
   expect(transport.navigate).toHaveBeenCalledOnce()
+})
+
+it("retires a failed relay without replaying its callback or losing the prior connection", async () => {
+  const { service, vault, details, transport, fetcher } = await fixture()
+  const prior = credentials()
+  await vault.update((record) => {
+    record.credentials = prior
+  })
+  vi.mocked(transport.navigate).mockRejectedValueOnce(new Error("Synthetic ambiguous navigation"))
+  expect(await service.recoverCallbackNavigation(details)).toBe(false)
+  expect(await service.session()).toMatchObject({ state: "plan-enabled", authPending: false })
+  expect((await vault.read()).pending).toBeUndefined()
+  expect((await vault.read()).credentials).toEqual(prior)
+  expect(transport.cleanup).toHaveBeenLastCalledWith(42)
+  expect(await service.recoverCallbackNavigation(details)).toBe(false)
+  await expect(service.callback(new URL(details.url).search, sender)).rejects.toThrow(
+    "invalid_oauth_state",
+  )
+  expect(fetcher).not.toHaveBeenCalled()
+  await service.authStart()
+  expect((await vault.read()).pending?.state).not.toBe(
+    new URL(details.url).searchParams.get("state"),
+  )
+  expect((await service.session()).authPending).toBe(true)
+})
+
+it("retires an unconsumed durable relay claim after worker restart instead of staying pending", async () => {
+  const { vault, transport, fetcher } = await fixture()
+  await vault.update((record) => {
+    record.pending!.relayStarted = true
+    record.credentials = credentials()
+  })
+  const resumed = createByosService(vault, transport, "extension", callbackUrl, fetcher)
+  expect(await resumed.session()).toMatchObject({ state: "plan-enabled", authPending: false })
+  expect((await vault.read()).pending).toBeUndefined()
+  expect(transport.cleanup).toHaveBeenLastCalledWith(42)
+  expect(fetcher).not.toHaveBeenCalled()
+})
+
+it("does not retire a callback already claimed for code exchange after an ambiguous relay result", async () => {
+  const { service, vault, details, transport } = await fixture()
+  const generation = (await vault.read()).generation
+  vi.mocked(transport.navigate).mockImplementationOnce(async () => {
+    await vault.update((record) => {
+      record.pending!.claimed = true
+    })
+    throw new Error("Synthetic lost navigation acknowledgement")
+  })
+  expect(await service.recoverCallbackNavigation(details)).toBe(false)
+  expect((await vault.read()).generation).toBe(generation)
+  expect((await vault.read()).pending?.claimed).toBe(true)
+  expect(transport.cleanup).toHaveBeenCalledOnce()
+})
+
+it("does not retire a replacement sign-in after an old relay fails late", async () => {
+  const { service, vault, details, transport } = await fixture()
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  vi.mocked(transport.navigate).mockImplementationOnce(async () => {
+    await gate
+    throw new Error("Synthetic old navigation failure")
+  })
+  const relay = service.recoverCallbackNavigation(details)
+  await vi.waitFor(() => expect(transport.navigate).toHaveBeenCalledTimes(2))
+  await service.authStart()
+  const replacement = (await vault.read()).pending!
+  release()
+  expect(await relay).toBe(false)
+  expect((await vault.read()).pending).toEqual(replacement)
+  expect((await service.session()).authPending).toBe(true)
+  expect(transport.cleanup).toHaveBeenCalledTimes(2)
 })

@@ -113,9 +113,22 @@ export function createByosService(
     for (const controller of controllers) controller.abort()
     controllers.clear()
   }
-  async function clearPending(advanceGeneration: boolean, expectedIntent?: number) {
+  async function clearPending(
+    advanceGeneration: boolean,
+    expectedIntent?: number,
+    expectedAttempt?: PendingAuth,
+  ) {
+    let cleared = false
     const pending = await vault.update((record) => {
       if (expectedIntent !== undefined && expectedIntent !== intent) fail("session_changed")
+      if (
+        expectedAttempt &&
+        (record.generation !== expectedAttempt.generation ||
+          record.pending?.state !== expectedAttempt.state ||
+          record.pending.claimed)
+      )
+        return undefined
+      cleared = true
       const previous = record.pending
       if (advanceGeneration) {
         record.generation++
@@ -128,6 +141,7 @@ export function createByosService(
       delete record.pending
       return previous
     })
+    if (!cleared) return
     abortAll()
     await transport.cleanup(pending?.tabId)
   }
@@ -156,7 +170,11 @@ export function createByosService(
             delete current.blocked
         })
       }
-      if (record.pending?.claimed || (record.pending && record.pending.expires <= now()))
+      if (
+        record.pending?.claimed ||
+        record.pending?.relayStarted ||
+        (record.pending && record.pending.expires <= now())
+      )
         await clearPending(true)
       else if (!(await transport.reconcile(record.pending)) && record.pending)
         await clearPending(true)
@@ -709,6 +727,10 @@ export function createByosService(
         await transport.navigate(pending.tabId, destination.href)
         return true
       } catch {
+        // A failed or ambiguous relay cannot safely replay its authorization
+        // result. End only this unclaimed attempt; preserve newer attempts and
+        // any callback already exchanging its code.
+        await clearPending(true, ownIntent, pending).catch(() => {})
         return false
       }
     },
