@@ -1,30 +1,20 @@
-# Experimental browser-only BYOS
+# Experimental ChatGPT provider follow-up
 
-Status on 2026-10-11: independently authored **source implementation under mock validation**, not live-verified. The companion runtime, server setup and address/pairing-key UI are removed. No real OAuth registration, sign-in, token exchange, model discovery, inference or installed-browser permission grant was performed in this task.
+Browser-only ChatGPT authentication is developed and reviewed separately from the independent BYOK core. This planning PR contains no authentication implementation. The experimental branch has user-confirmed sign-in and model discovery in Chrome; video translation and unified provider editing remain unfinished. Its latest evidence belongs in that feature PR.
 
-## Support and architecture distinction
+## Architecture boundary
 
-The current documented direct flow requires an actual HTTP listener at `http://127.0.0.1:<port>/auth/callback` before authorization. It also requires protected local/self-hosted runtime storage and explicitly excludes browser token storage. See [registration and sign-in](https://developers.openai.com/siwc/token-sharing-open-source/sign-in) and [accounts and sessions](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions).
+The documented OpenAI direct flow starts a real HTTP listener at `http://127.0.0.1:<port>/auth/callback` and uses protected local or self-hosted token storage. See [sign-in](https://developers.openai.com/siwc/token-sharing-open-source/sign-in) and [accounts and sessions](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions).
 
-The requested experimental architecture differs: it stores tokens in an extension-origin IndexedDB vault and redirects a narrowly scoped loopback navigation to an extension callback page without a listener. It is not established as officially supported, compliant or store-approved. Dynamic public-client registration is supported; there is no borrowed client ID or secret. Passing source/mocked tests does not establish account eligibility or end-to-end browser interoperability.
+The experimental browser-only approach differs: extension-origin IndexedDB holds credentials and guarded browser navigation handles the callback without a listener. It is not established as officially supported or store-approved. Keep that limitation explicit without making the unfinished experiment a dependency of the core release.
 
-## User flow
+## Acceptance requirements
 
-API Providers contains **Sign in with ChatGPT** and independently authored EN/KO/JA guidance. BYOK configuration remains usable and unchanged unless the user explicitly changes a feature assignment. On Chromium, a future direct **Continue with ChatGPT** action requests the optional callback permission. Denial, missing capability or failed rule installation stops before authorization. No permission is requested on startup or settings mount. Firefox authentication is unavailable.
+- Use the same provider list and editor for account-backed and API-key-backed providers; expose only supported model settings.
+- Bind callbacks to an unexpired transaction, exact tab/address, state, nonce and PKCE. Validate identity and granted scopes before enabling model use.
+- Keep credentials outside ordinary settings, exports, synchronization, content scripts and logs.
+- Preserve credentials through temporary failures, serialize rotating refresh tokens and prevent late completion after logout or cancellation.
+- Attempt remote session revocation, report unconfirmed results honestly, and keep feature assignments explicit without billing fallback.
+- Verify callback recovery, worker restart, refresh, revocation, account switching and actual translation separately. Sign-in and model listing alone are not inference validation.
 
-Connection/account state, cancellation, reconnect, sign-out, discovered models and explicit feature assignment share that settings section. There is no companion address or pairing key. Authentication errors never silently switch to another provider or billing path. Usage and first-use guidance must not promise a plan entitlement or invent remaining quota.
-
-## Credential and callback boundaries
-
-- The background owns a dedicated extension-origin IndexedDB vault, separate from ordinary provider settings and config exports/synchronization. Tokens are not stored in `chrome.storage.local` or exposed through generic messages. Existing legacy user records are not read or deleted by this cleanup.
-- IndexedDB is not a claim of OS-encrypted storage. Extension-origin pages share the origin; keep the callback minimal, with no remote code, credential-reading interface or unsafe HTML. Ordinary content-script IndexedDB uses the page origin. See [Chrome storage boundaries](https://developer.chrome.com/docs/extensions/develop/concepts/storage-and-cookies).
-- The manifest declares only an optional Chromium callback permission. A session redirect is restricted to the pending authorization tab, GET/main-frame navigation and the exact loopback host/port/path. Callback accessibility is limited to the known authorization and loopback origins, never a broad fallback. See [declarative request rules](https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest) and [web-accessible resources](https://developer.chrome.com/docs/extensions/reference/manifest/web-accessible-resources).
-- Persist the pending state, nonce, PKCE verifier, tab identity, callback URI, generation and expiry before authorization. Validate exact extension sender/path/frame/tab, reject duplicated or unexpected callback values, consume the transaction once and remove owned rules/tabs on completion, cancellation or expiry.
-- Validate ID-token signature, issuer, audience, expiry, nonce, returning identity and granted inference scopes. Keep issued registration identity separate from clearable tokens; retain the app-owned host identity across sign-out.
-- Serialize refresh and use persisted generation/version checks so late login or refresh completion cannot restore a signed-out session. An uncertain interrupted refresh rotation requires reconnection. Source error handling must not log or return token bodies.
-
-## Validation and remaining gates
-
-Use synthetic signatures, fake vault/browser transports and fail-closed mocked fetches. Cover permission denial, rule-install timeout and late completion, callback tampering/replay/expiry/wrong sender, worker restart reconciliation, missing scopes, token rotation, concurrent refresh/logout, model discovery and streaming failures. Credential records must remain excluded from content scripts, exported settings, sync, analytics and logs.
-
-Narrow callback accessibility depends on navigation initiator behavior; optional permission/rule installation and real browser restarts need a separately authorized browser acceptance pass. Source mocks do not prove those browser behaviors. No broad callback origin, required-permission fallback or unsupported upstream endpoint may be introduced to conceal a failure. Live authentication and inference remain untested and unauthorized in this task.
+Run synthetic tests only at the feature PR's final merge gate. Its incomplete UI, reasoning controls and video-translation investigation remain follow-up work.

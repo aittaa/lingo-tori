@@ -4,7 +4,7 @@ LingoTori is being developed as an independent GPLv3 fork of Read Frog focused o
 
 ## Status
 
-The baseline is `ca8da8241883c9aff5862d15d045845a746c9a6b`. Current work focuses on translation, dictionary explanations and BYOK. New non-upstream learning/SRS/web/backend and the companion implementation are removed. Original reading suggestions and necessary independent contracts remain. Browser-only ChatGPT sign-in is experimental source with explicit official-support and live-verification limits. Completed settings, independent-core and CI work are reviewed separately; #12 retains the experimental follow-up. #10 and #11 are superseded without merge. See [validation](validation.md) for the per-PR merge gate.
+The baseline is `ca8da8241883c9aff5862d15d045845a746c9a6b`. Current work focuses on translation, dictionary explanations and BYOK. The intended core excludes new non-upstream learning/SRS/web/backend and companion implementations while retaining original reading suggestions and necessary independent contracts. Browser-only ChatGPT sign-in is experimental source with explicit official-support and live-verification limits. Completed settings, independent-core and CI work are reviewed separately; #12 retains the experimental follow-up. #10 and #11 are superseded without merge. See [validation](validation.md) for the per-PR merge gate.
 
 - [Product requirements](product-requirements.md): retained features, exclusions, and user experience.
 - [Architecture and licensing](architecture-and-licensing.md): dependency findings, independent implementation boundaries, and data ownership.
@@ -17,7 +17,7 @@ Preserve the repository's GPLv3 license and upstream copyright attribution. Do n
 
 Keep original upstream workflow automation disabled while preparing the fork. A local test pass does not authorize remote CI, deployment, publishing, or a release. The repository owner coordinates remote workflow settings separately.
 
-Development may produce English issues, pushed branches, and draft pull requests. Merging, deployment, paid live API calls, and token-dependent integration exercises are outside the current authorization. Use mocks and local validation with `SKIP_FREE_API=true`.
+Prepare each change in its own PR and merge completed work after its final validation gate. Deployment, publishing and remote workflow controls are separate from code review. Use offline validation with `SKIP_FREE_API=true`.
 
 ## Tracking
 
