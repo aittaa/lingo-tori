@@ -144,6 +144,7 @@ function setup() {
     adapter,
     fetcher,
     first,
+    second,
     video,
     emitTrackChange: () => trackEvents.dispatchEvent(new Event("change")),
     writeText,
@@ -152,6 +153,26 @@ function setup() {
       second.mode = "showing"
     },
   }
+}
+
+function attachScheduler(adapter: UniversalVideoAdapter, video: HTMLVideoElement) {
+  let visible = false
+  Object.assign(adapter, {
+    subtitlesScheduler: {
+      start: () => {},
+      show: () => {
+        visible = true
+      },
+      hide: () => {
+        visible = false
+      },
+      isActive: () => visible,
+      reset: () => {},
+      setState: () => {},
+      getVideoElement: () => video,
+      supplementSubtitles: () => {},
+    },
+  })
 }
 
 beforeEach(() => {
@@ -315,28 +336,90 @@ describe("x.com same-video subtitle track selection", () => {
     await copied
   })
 
+  it.each(["source", "translated"] as const)(
+    "does not copy prepared %s track A when B is selected before the next poll",
+    async (kind) => {
+      const { adapter, fetcher, selectNextTrack, emitTrackChange, writeText } = setup()
+      await vi.advanceTimersByTimeAsync(0)
+      fetcher.hideNativeSubtitles()
+      const copy = kind === "source" ? adapter.copySourceSubtitles : adapter.copyTranslatedSubtitles
+      await copy()
+      selectNextTrack()
+      emitTrackChange()
+      const prepared = copy()
+      expect(writeText).not.toHaveBeenCalled()
+      await prepared
+      await copy()
+      expect(writeText).toHaveBeenCalledWith(
+        `1\n00:00:03,000 --> 00:00:05,000\n${kind === "translated" ? "kor:" : ""}Next track.`,
+      )
+    },
+  )
+
+  it("does not make an old initial Checking load ready after a track change before polling", async () => {
+    const { adapter, fetcher, first, selectNextTrack, emitTrackChange, writeText } = setup()
+    await vi.advanceTimersByTimeAsync(0)
+    fetcher.hideNativeSubtitles()
+    first.cues = []
+    const prepared = adapter.copySourceSubtitles()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase).toBe(SubtitleCopyPhase.Checking)
+    selectNextTrack()
+    emitTrackChange()
+    first.cues = [{ text: "First track.", startTime: 0, endTime: 2 }]
+    await vi.advanceTimersByTimeAsync(100)
+    await prepared
+    expect(subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase).toBe(SubtitleCopyPhase.Idle)
+    expect(writeText).not.toHaveBeenCalled()
+    await adapter.copySourceSubtitles()
+    await adapter.copySourceSubtitles()
+    expect(writeText).toHaveBeenCalledWith("1\n00:00:03,000 --> 00:00:05,000\nNext track.")
+  })
+
+  it.each([false, true])(
+    "refreshes active overlay track selection through the hiding listener (source prepared before poll: %s)",
+    async (prepareSourceBeforePoll) => {
+      const { adapter, first, second, video, selectNextTrack, emitTrackChange, writeText } = setup()
+      await vi.advanceTimersByTimeAsync(0)
+      fixture.targetCode = "eng"
+      second.language = "en"
+      attachScheduler(adapter, video)
+      adapter.toggleSubtitlesManually(true)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(first.mode).toBe("hidden")
+      expect(subtitlesStore.get(sourceTrackAtom).map((cue) => cue.text)).toEqual(["First track."])
+      await adapter.copySourceSubtitles()
+      selectNextTrack()
+      emitTrackChange()
+      expect(second.mode).toBe("hidden")
+      if (prepareSourceBeforePoll) await adapter.copySourceSubtitles()
+      await vi.advanceTimersByTimeAsync(XCOM_STATUS_POLL_INTERVAL_MS)
+      expect(subtitlesStore.get(sourceTrackAtom).map((cue) => cue.text)).toEqual(["Next track."])
+      expect(writeText).not.toHaveBeenCalled()
+      adapter.toggleSubtitlesManually(false)
+      expect(first.mode).toBe("disabled")
+      expect(second.mode).toBe("showing")
+    },
+  )
+
+  it("refreshes the published transcript when translated preparation advances the shared track cache before polling", async () => {
+    const { adapter, selectNextTrack, emitTrackChange } = setup()
+    await vi.advanceTimersByTimeAsync(0)
+    await adapter.ensureSourceTrackPublished()
+    expect(subtitlesStore.get(sourceTrackAtom).map((cue) => cue.text)).toEqual(["First track."])
+    selectNextTrack()
+    emitTrackChange()
+    await adapter.copyTranslatedSubtitles()
+    await vi.advanceTimersByTimeAsync(XCOM_STATUS_POLL_INTERVAL_MS)
+    expect(subtitlesStore.get(sourceTrackAtom).map((cue) => cue.text)).toEqual(["Next track."])
+  })
+
   it("keeps native captions hidden when x.com polls while the initial enabled fetch is unfinished", async () => {
     const { adapter, fetcher, first, video, emitTrackChange } = setup()
     await vi.advanceTimersByTimeAsync(0)
     fixture.targetCode = "eng"
     first.cues = []
-    let visible = false
-    Object.assign(adapter, {
-      subtitlesScheduler: {
-        start: () => {},
-        show: () => {
-          visible = true
-        },
-        hide: () => {
-          visible = false
-        },
-        isActive: () => visible,
-        reset: () => {},
-        setState: () => {},
-        getVideoElement: () => video,
-        supplementSubtitles: () => {},
-      },
-    })
+    attachScheduler(adapter, video)
     const cleanup = vi.spyOn(fetcher, "cleanup")
     adapter.toggleSubtitlesManually(true)
     await vi.advanceTimersByTimeAsync(0)

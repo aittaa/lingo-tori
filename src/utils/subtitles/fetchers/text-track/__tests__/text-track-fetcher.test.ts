@@ -172,4 +172,65 @@ describe("TextTrackFetcher", () => {
     await expect(fetcher.hasAvailableSubtitles()).resolves.toBe(false)
     await expect(fetcher.fetch()).rejects.toThrow("subtitles.errors.noSubtitlesFound")
   })
+
+  it.each([true, false])(
+    "selects the player's replacement track after hiding (old track disabled: %s)",
+    async (disableOld) => {
+      const first = new FakeTrack("subtitles", "English", "en", "showing")
+      const second = new FakeTrack("subtitles", "Japanese", "ja", "disabled")
+      first.loadCues("first")
+      second.loadCues("second")
+      const video = videoWith(first, second)
+      const tracks = video.textTracks as unknown as FakeTrackList
+      const fetcher = createFetcher(video)
+      fetcher.hideNativeSubtitles()
+      await fetcher.fetch()
+
+      first.mode = disableOld ? "disabled" : "hidden"
+      second.mode = "showing"
+      tracks.emit("change")
+      expect(second.mode).toBe("hidden")
+      await expect(fetcher.shouldUseSameTrack()).resolves.toBe(false)
+      await expect(fetcher.fetch()).resolves.toEqual([{ text: "second", start: 0, end: 1000 }])
+      fetcher.showNativeSubtitles()
+      expect(first.mode).toBe(disableOld ? "disabled" : "showing")
+      expect(second.mode).toBe("showing")
+    },
+  )
+
+  it("does not let an old fetch mutate the replacement track cache after cleanup", async () => {
+    const first = new FakeTrack("subtitles", "English", "en", "showing")
+    const second = new FakeTrack("subtitles", "Japanese", "ja", "disabled")
+    second.loadCues("second")
+    const video = videoWith(first, second)
+    const fetcher = createFetcher(video)
+    const oldFetch = fetcher.fetch().catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(0)
+    fetcher.cleanup()
+    first.mode = "disabled"
+    second.mode = "showing"
+    await expect(fetcher.fetch()).resolves.toEqual([{ text: "second", start: 0, end: 1000 }])
+
+    first.loadCues("first")
+    await vi.advanceTimersByTimeAsync(TEXT_TRACK_CUE_POLL_INTERVAL_MS)
+    const oldResult = await oldFetch
+    expect(oldResult).toBeInstanceOf(DOMException)
+    expect((oldResult as DOMException).name).toBe("AbortError")
+    expect(fetcher.getSourceLanguage()).toBe("ja")
+    await expect(fetcher.shouldUseSameTrack()).resolves.toBe(true)
+    await expect(fetcher.fetch()).resolves.toEqual([{ text: "second", start: 0, end: 1000 }])
+  })
+
+  it("distinguishes two native tracks with equal metadata and different cues", async () => {
+    const first = new FakeTrack("subtitles", "English", "en", "showing")
+    const second = new FakeTrack("subtitles", "English", "en", "disabled")
+    first.loadCues("first")
+    second.loadCues("second")
+    const fetcher = createFetcher(videoWith(first, second))
+    await fetcher.fetch()
+    first.mode = "disabled"
+    second.mode = "showing"
+    await expect(fetcher.shouldUseSameTrack()).resolves.toBe(false)
+    await expect(fetcher.fetch()).resolves.toEqual([{ text: "second", start: 0, end: 1000 }])
+  })
 })

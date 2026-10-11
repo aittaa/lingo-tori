@@ -22,7 +22,11 @@ export class TextTrackFetcher implements SubtitlesFetcher {
   private subtitles: SubtitlesFragment[] = []
   private sourceLanguage = ""
   private cachedTrackHash: string | null = null
+  private loadGeneration = 0
+  private trackIds = new WeakMap<TextTrack, number>()
+  private nextTrackId = 0
   private playerModes = new Map<TextTrack, TextTrackMode>()
+  private playerSelectedTrack: TextTrack | null = null
   private rehideTimer: ReturnType<typeof setTimeout> | null = null
   private watchedTracks: TextTrackList | null = null
   // Only we set "hidden", so any other mode is what the player now wants restored.
@@ -53,8 +57,16 @@ export class TextTrackFetcher implements SubtitlesFetcher {
       return this.subtitles
     }
 
+    const generation = this.loadGeneration
+    const assertCurrent = () => {
+      if (generation !== this.loadGeneration || trackHash !== this.getTrackIdentity()) {
+        throw new DOMException("Subtitle track load superseded", "AbortError")
+      }
+    }
     this.ensureLoading(track)
-    const fragments = cuesToFragments(await this.waitForCues(track))
+    const cues = await this.waitForCues(track, assertCurrent)
+    assertCurrent()
+    const fragments = cuesToFragments(cues)
     if (fragments.length === 0) {
       throw new OverlaySubtitlesError(i18n.t("subtitles.errors.noSubtitlesFound"))
     }
@@ -68,6 +80,12 @@ export class TextTrackFetcher implements SubtitlesFetcher {
 
   getSourceLanguage(): string {
     return this.sourceLanguage
+  }
+
+  getTrackIdentity(): string | null {
+    const video = this.options.resolveVideo()
+    const track = video ? this.selectTrack(video) : null
+    return track ? this.buildTrackHash(track) : null
   }
 
   async hasAvailableSubtitles(): Promise<boolean> {
@@ -109,9 +127,11 @@ export class TextTrackFetcher implements SubtitlesFetcher {
       track.mode = mode
     }
     this.playerModes.clear()
+    this.playerSelectedTrack = null
   }
 
   cleanup(): void {
+    this.loadGeneration++
     this.showNativeSubtitles()
     this.subtitles = []
     this.sourceLanguage = ""
@@ -119,7 +139,18 @@ export class TextTrackFetcher implements SubtitlesFetcher {
   }
 
   private buildTrackHash(track: TextTrack): string {
-    return [this.options.getVideoId() ?? "", track.language, track.label, track.kind].join(":")
+    let trackId = this.trackIds.get(track)
+    if (trackId === undefined) {
+      trackId = ++this.nextTrackId
+      this.trackIds.set(track, trackId)
+    }
+    return JSON.stringify([
+      this.options.getVideoId() ?? "",
+      trackId,
+      track.language,
+      track.label,
+      track.kind,
+    ])
   }
 
   private selectTrack(video: HTMLVideoElement): TextTrack | null {
@@ -129,6 +160,12 @@ export class TextTrackFetcher implements SubtitlesFetcher {
     )
     return (
       candidates.find((track) => track.mode === "showing") ??
+      candidates.find(
+        (track) =>
+          track === this.playerSelectedTrack &&
+          track.mode === "hidden" &&
+          this.playerModes.get(track) === "showing",
+      ) ??
       candidates.find((track) => track.kind === "subtitles") ??
       candidates[0] ??
       null
@@ -154,6 +191,8 @@ export class TextTrackFetcher implements SubtitlesFetcher {
       return
     }
 
+    const selected = this.selectTrack(video)
+    if (selected?.mode === "showing") this.playerSelectedTrack = selected
     for (const track of Array.from(video.textTracks)) {
       if (track.mode === "showing") {
         this.setMode(track, "hidden")
@@ -187,11 +226,20 @@ export class TextTrackFetcher implements SubtitlesFetcher {
     }
   }
 
-  private async waitForCues(track: TextTrack): Promise<TextTrackCueList> {
-    const cues = await pollUntil(() => (track.cues?.length ? track.cues : null), {
-      timeoutMs: TEXT_TRACK_CUE_WAIT_TIMEOUT_MS,
-      intervalMs: TEXT_TRACK_CUE_POLL_INTERVAL_MS,
-    })
+  private async waitForCues(
+    track: TextTrack,
+    assertCurrent: () => void,
+  ): Promise<TextTrackCueList> {
+    const cues = await pollUntil(
+      () => {
+        assertCurrent()
+        return track.cues?.length ? track.cues : null
+      },
+      {
+        timeoutMs: TEXT_TRACK_CUE_WAIT_TIMEOUT_MS,
+        intervalMs: TEXT_TRACK_CUE_POLL_INTERVAL_MS,
+      },
+    )
     if (!cues) {
       throw new OverlaySubtitlesError(i18n.t("subtitles.errors.noSubtitlesFound"))
     }

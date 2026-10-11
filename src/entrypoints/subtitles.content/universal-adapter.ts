@@ -121,6 +121,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   private sessionSubtitles: SubtitlesFragment[] = []
   private sessionProcessedFragments: SubtitlesFragment[] = []
   private sessionVideoId: string | null = null
+  private sessionTrackIdentity: string | null | undefined
+  private publishedTrackIdentity: string | null | undefined
 
   private isNativeSubtitlesHidden = false
   private segmentationPipeline: SegmentationPipeline | null = null
@@ -266,7 +268,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     }
   }
 
-  private getExportContext = () => `${this.sourceCacheVersion}:${this.config.getVideoId?.() ?? ""}`
+  private getExportContext = () =>
+    `${this.sourceCacheVersion}:${this.config.getVideoId?.() ?? ""}:${this.fetcher.getTrackIdentity?.() ?? ""}`
 
   private getTranslatedExportContext = () =>
     `${this.getExportContext()}:${subtitlesStore.get(configFieldsAtomMap.language).targetCode}`
@@ -477,6 +480,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     this.sessionSubtitles = []
     this.sessionProcessedFragments = []
     this.sessionVideoId = null
+    this.sessionTrackIdentity = undefined
+    this.publishedTrackIdentity = undefined
     this.subtitlesSummaryContextHash = null
     subtitlesStore.set(sourceTrackAtom, [])
   }
@@ -780,7 +785,16 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     const fetcher = this.fetcher
     const cacheVersion = this.sourceCacheVersion
     const useSameTrack = await fetcher.shouldUseSameTrack()
-    if (useSameTrack || fetcher !== this.fetcher || cacheVersion !== this.sourceCacheVersion) return
+    if (fetcher !== this.fetcher || cacheVersion !== this.sourceCacheVersion) return
+    const identity = fetcher.getTrackIdentity?.()
+    const hasPublishedTrackChanged =
+      (isSchedulerActive &&
+        this.sessionTrackIdentity !== undefined &&
+        identity !== this.sessionTrackIdentity) ||
+      (isTranscriptInUse &&
+        this.publishedTrackIdentity !== undefined &&
+        identity !== this.publishedTrackIdentity)
+    if (useSameTrack && !hasPublishedTrackChanged) return
 
     // Netflix polls every second, so invalidate only after an actual track change.
     this.sourceSubtitlesExporter?.dispose()
@@ -878,7 +892,11 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       this.sessionVideoId = currentVideoId
 
       // Only a running session can be resumed, so a fresh start skips the track check.
-      const useSameTrack = hasCurrentSession && (await this.fetcher.shouldUseSameTrack())
+      const useSameTrack =
+        hasCurrentSession &&
+        (this.sessionTrackIdentity === undefined ||
+          this.sessionTrackIdentity === this.fetcher.getTrackIdentity?.()) &&
+        (await this.fetcher.shouldUseSameTrack())
 
       if (useSameTrack && hasCurrentSession) {
         // Translated sessions create a coordinator; passthrough sessions only cache rendered fragments.
@@ -910,6 +928,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
 
       await this.getOrLoadSourceSubtitles()
       this.sessionSubtitles = this.sourceSubtitles
+      this.sessionTrackIdentity = this.fetcher.getTrackIdentity?.()
 
       if (this.shouldSkipTranslationForCurrentTrack(analyticsConfig)) {
         this.processPassthroughSubtitles()
@@ -988,6 +1007,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   }
 
   private publishSourceTrack(fragments: SubtitlesFragment[]) {
+    this.publishedTrackIdentity = this.sessionTrackIdentity ?? this.fetcher.getTrackIdentity?.()
     // timeupdate may not have fired yet (paused / enable mid-video); keep display time fresh.
     const video = this.subtitlesScheduler?.getVideoElement()
     if (video) {
