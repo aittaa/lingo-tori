@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "repository": {
+    "head": "ff1fdb47635c49391ffce6d3fa5e7d6f5c43b49b",
+    "dirty": false
+  },
+  "toolchain": {
+    "node": "v25.5.0",
+    "zlib": "1.2.12",
+    "gzipLevel": 9,
+    "gzipMethod": "sum of independent per-file gzip streams"
+  },
+  "hashes": {
+    "packageJsonSha256": "572b30c9dea02f5469d5b4d753f12c10aefe8c102ba067993c872bb9c0a578bc",
+    "pnpmLockSha256": "14cf1920e95dc663a71c7d10943abd9113b8b0418da898fb9555429f56840387"
+  },
+  "dependencies": {
+    "runtime": 82,
+    "development": 39,
+    "optional": 0,
+    "peer": 0,
+    "runtimeAndDevelopment": 121
+  },
+  "source": {
+    "trackedFiles": 1614,
+    "trackedSrcFiles": 1329,
+    "sourceCodeFiles": 1293,
+    "testFiles": 318,
+    "localeFiles": 3,
+    "byExtension": {
+      ".cjs": 1,
+      ".css": 8,
+      ".html": 4,
+      ".jpg": 1,
+      ".json": 1,
+      ".md": 4,
+      ".png": 6,
+      ".svg": 8,
+      ".ts": 885,
+      ".tsx": 408,
+      ".yml": 3
+    }
+  },
+  "outputs": {
+    ".output/chrome-mv3": {
+      "files": 161,
+      "bytes": 14257761,
+      "gzipBytes": 4488762,
+      "byExtension": {
+        "(none)": {
+          "files": 1,
+          "bytes": 35149,
+          "gzipBytes": 12124
+        },
+        ".css": {
+          "files": 5,
+          "bytes": 652415,
+          "gzipBytes": 100005
+        },
+        ".html": {
+          "files": 4,
+          "bytes": 9486,
+          "gzipBytes": 2908
+        },
+        ".js": {
+          "files": 123,
+          "bytes": 12606693,
+          "gzipBytes": 3813665
+        },
+        ".json": {
+          "files": 4,
+          "bytes": 436628,
+          "gzipBytes": 83165
+        },
+        ".png": {
+          "files": 11,
+          "bytes": 286611,
+          "gzipBytes": 253277
+        },
+        ".svg": {
+          "files": 5,
+          "bytes": 11793,
+          "gzipBytes": 4647
+        },
+        ".txt": {
+          "files": 1,
+          "bytes": 474,
+          "gzipBytes": 317
+        },
+        ".woff2": {
+          "files": 7,
+          "bytes": 218512,
+          "gzipBytes": 218654
+        }
+      },
+      "largestFiles": [
+        {
+          "path": "content-scripts/host.js",
+          "bytes": 2290085,
+          "gzipBytes": 706699
+        },
+        {
+          "path": "content-scripts/selection.js",
+          "bytes": 2115300,
+          "gzipBytes": 652952
+        },
+        {
+          "path": "chunks/execute-translate-Cd7Wg0tR.js",
+          "bytes": 1883131,
+          "gzipBytes": 448568
+        },
+        {
+          "path": "content-scripts/subtitles.js",
+          "bytes": 1786782,
+          "gzipBytes": 548571
+        },
+        {
+          "path": "content-scripts/side.js",
+          "bytes": 922607,
+          "gzipBytes": 294922
+        },
+        {
+          "path": "chunks/_virtual_wxt-plugins-B0RTRYjX.js",
+          "bytes": 436810,
+          "gzipBytes": 136539
+        },
+        {
+          "path": "chunks/esm-BSyDOZRV.js",
+          "bytes": 425990,
+          "gzipBytes": 135477
+        },
+        {
+          "path": "chunks/subtitles-preview-DvQSyG8e.js",
+          "bytes": 333857,
+          "gzipBytes": 71307
+        },
+        {
+          "path": "chunks/language-CP9ad0z3.js",
+          "bytes": 248453,
+          "gzipBytes": 117407
+        },
+        {
+          "path": "chunks/css-code-editor-CXXfPWoC.js",
+          "bytes": 235203,
+          "gzipBytes": 71066
+        }
+      ],
+      "skippedSymlinks": [],
+      "skippedSpecialFiles": [],
+      "skippedSensitivePaths": []
+    },
+    ".output/firefox-mv3": {
+      "files": 161,
+      "bytes": 14258019,
+      "gzipBytes": 4488898,
+      "byExtension": {
+        "(none)": {
+          "files": 1,
+          "bytes": 35149,
+          "gzipBytes": 12124
+        },
+        ".css": {
+          "files": 5,
+          "bytes": 652415,
+          "gzipBytes": 100005
+        },
+        ".html": {
+          "files": 4,
+          "bytes": 9486,
+          "gzipBytes": 2908
+        },
+        ".js": {
+          "files": 123,
+          "bytes": 12606694,
+          "gzipBytes": 3813667
+        },
+        ".json": {
+          "files": 4,
+          "bytes": 436885,
+          "gzipBytes": 83299
+        },
+        ".png": {
+          "files": 11,
+          "bytes": 286611,
+          "gzipBytes": 253277
+        },
+        ".svg": {
+          "files": 5,
+          "bytes": 11793,
+          "gzipBytes": 4647
+        },
+        ".txt": {
+          "files": 1,
+          "bytes": 474,
+          "gzipBytes": 317
+        },
+        ".woff2": {
+          "files": 7,
+          "bytes": 218512,
+          "gzipBytes": 218654
+        }
+      },
+      "largestFiles": [
+        {
+          "path": "content-scripts/host.js",
+          "bytes": 2290086,
+          "gzipBytes": 706701
+        },
+        {
+          "path": "content-scripts/selection.js",
+          "bytes": 2115300,
+          "gzipBytes": 652952
+        },
+        {
+          "path": "chunks/execute-translate-Cd7Wg0tR.js",
+          "bytes": 1883131,
+          "gzipBytes": 448568
+        },
+        {
+          "path": "content-scripts/subtitles.js",
+          "bytes": 1786782,
+          "gzipBytes": 548571
+        },
+        {
+          "path": "content-scripts/side.js",
+          "bytes": 922607,
+          "gzipBytes": 294922
+        },
+        {
+          "path": "chunks/_virtual_wxt-plugins-B0RTRYjX.js",
+          "bytes": 436810,
+          "gzipBytes": 136539
+        },
+        {
+          "path": "chunks/esm-BSyDOZRV.js",
+          "bytes": 425990,
+          "gzipBytes": 135477
+        },
+        {
+          "path": "chunks/subtitles-preview-DvQSyG8e.js",
+          "bytes": 333857,
+          "gzipBytes": 71307
+        },
+        {
+          "path": "chunks/language-CP9ad0z3.js",
+          "bytes": 248453,
+          "gzipBytes": 117407
+        },
+        {
+          "path": "chunks/css-code-editor-CXXfPWoC.js",
+          "bytes": 235203,
+          "gzipBytes": 71066
+        }
+      ],
+      "skippedSymlinks": [],
+      "skippedSpecialFiles": [],
+      "skippedSensitivePaths": []
+    }
+  }
+}

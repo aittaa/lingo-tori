@@ -1,0 +1,113 @@
+{
+  "base": "ff1fdb47635c49391ffce6d3fa5e7d6f5c43b49b",
+  "locales": ["en", "ko", "ja"],
+  "keys": {
+    "en": 1158,
+    "ko": 1145,
+    "ja": 1145
+  },
+  "removedKeys": 120,
+  "addedKeys": [
+    "subtitles.actions.copySource",
+    "subtitles.actions.copyTranslated",
+    "subtitles.actions.copyPreparing",
+    "subtitles.actions.copyTranslating",
+    "subtitles.actions.copyReady",
+    "subtitles.actions.copyComplete",
+    "subtitles.actions.copyRetry",
+    "subtitles.actions.copyFailed",
+    "subtitles.actions.copyUnavailable"
+  ],
+  "fallbackKeys": {
+    "ko": [
+      "options.apiProviders.form.providerInUseCannotDisable",
+      "options.selectionToolbar.customActions.badges.new",
+      "options.selectionToolbar.customActions.badges.updated",
+      "options.selectionToolbar.customActions.badges.createdFrom",
+      "options.selectionToolbar.customActions.badges.updatedFrom",
+      "options.selectionToolbar.customActions.templates.dialogTitle",
+      "options.selectionToolbar.customActions.templates.dialogDescription",
+      "options.selectionToolbar.customActions.templates.sentenceAnalysis.systemPrompt",
+      "options.selectionToolbar.customActions.templates.sentenceAnalysis.prompt",
+      "options.selectionToolbar.customActions.templates.sentenceAnalysis.fieldAnnotationsDescription",
+      "options.selectionToolbar.customActions.templates.sentenceAnalysis.fieldTranslationDescription",
+      "options.selectionToolbar.customActions.templates.blank.name",
+      "options.selectionToolbar.customActions.templates.blank.description"
+    ],
+    "ja": [
+      "options.apiProviders.form.providerInUseCannotDisable",
+      "options.selectionToolbar.customActions.badges.new",
+      "options.selectionToolbar.customActions.badges.updated",
+      "options.selectionToolbar.customActions.badges.createdFrom",
+      "options.selectionToolbar.customActions.badges.updatedFrom",
+      "options.selectionToolbar.customActions.templates.dialogTitle",
+      "options.selectionToolbar.customActions.templates.dialogDescription",
+      "options.selectionToolbar.customActions.templates.sentenceAnalysis.systemPrompt",
+      "options.selectionToolbar.customActions.templates.sentenceAnalysis.prompt",
+      "options.selectionToolbar.customActions.templates.sentenceAnalysis.fieldAnnotationsDescription",
+      "options.selectionToolbar.customActions.templates.sentenceAnalysis.fieldTranslationDescription",
+      "options.selectionToolbar.customActions.templates.blank.name",
+      "options.selectionToolbar.customActions.templates.blank.description"
+    ]
+  },
+  "newFallbackKeys": {
+    "ko": [],
+    "ja": []
+  },
+  "extraKeys": {
+    "ko": [],
+    "ja": []
+  },
+  "placeholderDifferences": [],
+  "newPlaceholderDifferences": [],
+  "removedKeyReferences": [],
+  "localLinks": 31,
+  "brokenLocalLinks": [],
+  "deletedAssetFiles": 60,
+  "deletedAssetBytes": 27867419,
+  "directDependencies": {
+    "runtime": 82,
+    "development": 39
+  },
+  "lockfile": {
+    "documents": [
+      {
+        "packageEntries": 15,
+        "resolvedSnapshots": 15
+      },
+      {
+        "packageEntries": 1366,
+        "resolvedSnapshots": 1366
+      }
+    ],
+    "uniquePackageEntries": 1381,
+    "uniqueResolvedSnapshots": 1381
+  },
+  "preservedFiles": {
+    "package.json": {
+      "unchanged": true,
+      "sha256": "572b30c9dea02f5469d5b4d753f12c10aefe8c102ba067993c872bb9c0a578bc"
+    },
+    "pnpm-lock.yaml": {
+      "unchanged": true,
+      "sha256": "14cf1920e95dc663a71c7d10943abd9113b8b0418da898fb9555429f56840387"
+    },
+    "wxt.config.ts": {
+      "unchanged": true,
+      "sha256": "460f84fb96b8e31ecc713f962e6221943c353879a8724cce966733913990ed69"
+    },
+    "LICENSE": {
+      "unchanged": true,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "public/LICENSE": {
+      "unchanged": true,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "public/NOTICE.txt": {
+      "unchanged": true,
+      "sha256": "dcdf187fd92dfd3d2b21d96bc96d46c3c52c023c725ce8fe366ad71fce79f0e7"
+    }
+  },
+  "note": "Literal source references and local file destinations only; dynamic key construction and remote URL status require separate review."
+}

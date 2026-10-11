@@ -64,7 +64,48 @@ Direct dependencies remain 82 runtime and 39 development entries. The unchanged 
 
 Source package SHA-256: `572b30c9dea02f5469d5b4d753f12c10aefe8c102ba067993c872bb9c0a578bc`. Lockfile SHA-256: `14cf1920e95dc663a71c7d10943abd9113b8b0418da898fb9555429f56840387`.
 
-Artifact measurements and final static-check results are recorded alongside this document after the focused source commit. Historical [baseline.json](baseline.json) and [after.json](after.json) describe other revisions and do not validate this branch.
+The candidate was measured from clean source commit `b75c8ac8eb454f0c1bb30ecd217fda978f043860`. Later commits only attach documentation/evidence and leave extension build inputs unchanged. [Core snapshot inventory](core-ff1fdb47.json), [candidate inventory](en-ko-ja-candidate.json), [archive bytes/hashes](en-ko-ja-archives.json), [locale/source/link audit](en-ko-ja-ui-audit.json) and [check results](en-ko-ja-checks.json) preserve the recorded evidence. Historical [baseline.json](baseline.json) and [after.json](after.json) describe other revisions and do not validate this branch.
+
+| Metric                                  | Core snapshot | Cleanup candidate |   Change |
+| --------------------------------------- | ------------: | ----------------: | -------: |
+| Direct runtime/development dependencies |       82 / 39 |           82 / 39 |        0 |
+| Tracked source files                    |         1,329 |             1,325 |       -4 |
+| Source test files                       |           318 |               318 |        0 |
+| UI locale files                         |             3 |                 3 |        0 |
+| Chrome output files                     |           161 |               160 |       -1 |
+| Chrome unpacked bytes                   |    14,257,761 |        13,883,858 | -373,903 |
+| Firefox unpacked bytes                  |    14,258,019 |        13,884,116 | -373,903 |
+| Chrome per-file gzip proxy bytes        |     4,488,762 |         4,222,865 | -265,897 |
+| Firefox per-file gzip proxy bytes       |     4,488,898 |         4,223,001 | -265,897 |
+| Chrome ZIP bytes                        |     4,507,798 |         4,241,779 | -266,019 |
+| Firefox ZIP bytes                       |     4,507,934 |         4,241,915 | -266,019 |
+
+JavaScript output decreases by 111,110 bytes and locale/manifest JSON by 44,393 bytes per browser. The replaced 218,400-byte context-menu PNG accounts for most of the remaining artifact reduction. Unused repository marketing assets are outside extension outputs; their removal reduces tracked source bytes, not the extension download by 27 MB.
+
+The largest candidate Chrome entrypoints remain `content-scripts/host.js` (2,267,557 bytes), `content-scripts/selection.js` (2,092,772 bytes) and `content-scripts/subtitles.js` (1,764,254 bytes). See the inventory's `largestFiles` for complete chunk contributions. No CPU, memory, browser-speed or repeatable build-speed improvement is claimed.
+
+Recorded WXT finish times: Chrome 6.777 → 5.475 seconds; Firefox 4.957 → 4.898 seconds. These are single runs under one available toolchain, with build caches, and cannot establish performance changes.
+
+Archive measurements use Python's zlib 1.2.12, sorted relative file paths, fixed 1980 ZIP timestamps and level-9 deflate. Reproduce an archive for either output directory:
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
+source = Path('.output/chrome-mv3')
+with ZipFile('/tmp/lingotori-chrome.zip', 'w', compression=ZIP_DEFLATED, compresslevel=9) as archive:
+    for item in sorted(source.rglob('*')):
+        if item.is_symlink():
+            raise RuntimeError('unexpected output symlink')
+        if item.is_file():
+            info = ZipInfo(item.relative_to(source).as_posix(), date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            archive.writestr(info, item.read_bytes(), compresslevel=9)
+print(Path('/tmp/lingotori-chrome.zip').stat().st_size)
+PY
+```
+
+The available changeset CLI was not installed; release-plan validation is NOT RUN. The new changeset's package name and conventional summary were checked against the existing manifest without editing dependencies.
 
 ## Remaining merge gate
 

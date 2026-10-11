@@ -1,0 +1,26 @@
+{
+  "method": "sorted paths, fixed 1980 timestamps, ZIP_DEFLATED level 9",
+  "pythonZlib": "1.2.12",
+  "outputs": {
+    "baseline-chrome": {
+      "sourceRevision": "ff1fdb47635c49391ffce6d3fa5e7d6f5c43b49b",
+      "bytes": 4507798,
+      "sha256": "de5661d5f8b5c9403a2d605b51daf27aa646c59fb44bd644f6b89e3e19df738d"
+    },
+    "baseline-firefox": {
+      "sourceRevision": "ff1fdb47635c49391ffce6d3fa5e7d6f5c43b49b",
+      "bytes": 4507934,
+      "sha256": "e7e3d4355e59b1db2e5ef53a473a93dec8d39fe8e4501fb857757633e01a7494"
+    },
+    "candidate-chrome": {
+      "sourceRevision": "b75c8ac8eb454f0c1bb30ecd217fda978f043860",
+      "bytes": 4241779,
+      "sha256": "fafe7fa80237daf128de1442897ac0dd2a4472a7793014d62a5a438152c25ad0"
+    },
+    "candidate-firefox": {
+      "sourceRevision": "b75c8ac8eb454f0c1bb30ecd217fda978f043860",
+      "bytes": 4241915,
+      "sha256": "5da7fac4f1c7eedabba8453884edf40ec06fe32ff85c91726cda67c17db9ba31"
+    }
+  }
+}
