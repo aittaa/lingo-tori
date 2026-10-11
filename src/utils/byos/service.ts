@@ -920,14 +920,24 @@ export function createByosService(
           }),
           signal: AbortSignal.any([streamController.signal, ...(signal ? [signal] : [])]),
         })
-        if (!response.headers.get("content-type")?.includes("text/event-stream") || !response.body)
-          fail("invalid_stream")
+        const streamFailure: (code: string) => never = (code) => {
+          throw new ByosBridgeError(code, response.status, {
+            requestId: response.headers.get("x-request-id"),
+          })
+        }
+        const mediaType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase()
+        if (mediaType !== "text/event-stream") {
+          void response.body?.cancel().catch(() => {})
+          streamFailure("invalid_stream_content_type")
+        }
+        if (!response.body) streamFailure("invalid_stream_body")
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let buffer = "",
           text = "",
           bytes = 0,
-          completed = false
+          completed = false,
+          pendingCR = false
         const consume = (block: string) => {
           const data = block
             .split("\n")
@@ -947,9 +957,10 @@ export function createByosService(
           try {
             event = JSON.parse(data)
           } catch {
-            fail("invalid_stream")
+            streamFailure("invalid_stream_json")
           }
-          if (!event || typeof event.type !== "string" || completed) fail("invalid_stream")
+          if (!event || typeof event.type !== "string") streamFailure("invalid_stream_event")
+          if (completed) streamFailure("invalid_stream_after_completed")
           if (["response.failed", "error"].includes(event.type))
             throw machineError(
               {
@@ -961,12 +972,25 @@ export function createByosService(
             )
           if (event.type === "response.incomplete") fail("inference_incomplete")
           if (event.type === "response.output_text.delta") {
-            if (typeof event.delta !== "string") fail("invalid_stream")
+            if (typeof event.delta !== "string") streamFailure("invalid_stream_delta")
             text += event.delta
           }
           if (event.type === "response.completed") {
             if (event.response?.status !== "completed") fail("inference_incomplete")
             completed = true
+          }
+        }
+        const append = (chunk: string, final = false) => {
+          // SSE permits CR, LF and CRLF. Keep a trailing CR until the next
+          // chunk so a split CRLF cannot accidentally become two newlines.
+          if (pendingCR) chunk = `\r${chunk}`
+          pendingCR = !final && chunk.endsWith("\r")
+          if (pendingCR) chunk = chunk.slice(0, -1)
+          buffer += chunk.replace(/\r\n|\r/g, "\n")
+          let boundary: number
+          while ((boundary = buffer.indexOf("\n\n")) >= 0) {
+            consume(buffer.slice(0, boundary))
+            buffer = buffer.slice(boundary + 2)
           }
         }
         try {
@@ -977,16 +1001,11 @@ export function createByosService(
             if (chunk.done) break
             bytes += chunk.value.byteLength
             if (bytes > 4000000) fail("response_too_large")
-            buffer += decoder.decode(chunk.value, { stream: true })
-            buffer = buffer.replace(/\r\n/g, "\n")
-            let boundary: number
-            while ((boundary = buffer.indexOf("\n\n")) >= 0) {
-              consume(buffer.slice(0, boundary))
-              buffer = buffer.slice(boundary + 2)
-            }
+            append(decoder.decode(chunk.value, { stream: true }))
           }
-          buffer += decoder.decode()
-          if (buffer.trim()) consume(buffer)
+          append(decoder.decode(), true)
+          // An unterminated SSE frame is discarded at EOF. Its apparent
+          // response.completed must not turn an interrupted stream into success.
           if (!completed) fail("inference_incomplete")
           await ensureGeneration(generation)
           signal?.throwIfAborted()
