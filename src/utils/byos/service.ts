@@ -147,7 +147,7 @@ export function createByosService(
   }
   async function initialize() {
     const attempt = (initialization ??= (async () => {
-      const record = await vault.read()
+      let record = await vault.read()
       if (
         record.refreshing ||
         record.blocked === "restricted" ||
@@ -155,12 +155,23 @@ export function createByosService(
         record.blocked === "temporarily-unavailable" ||
         (record.blocked === "reconnect-required" && record.credentials)
       ) {
-        await vault.update((current) => {
+        record = await vault.update((current) => {
           if (current.refreshing) {
+            const previousGeneration = current.generation
             current.generation++
             current.tokenVersion++
             current.refreshUncertain = true
             delete current.refreshing
+            // Keep only the same live, unclaimed reconnect transaction in the
+            // new generation. Its state, nonce and PKCE verifier stay intact.
+            if (
+              current.pending &&
+              !current.pending.claimed &&
+              !current.pending.relayStarted &&
+              current.pending.expires > now() &&
+              current.pending.generation === previousGeneration
+            )
+              current.pending.generation = current.generation
           }
           if (current.blocked === "reconnect-required" && current.credentials) {
             current.refreshUncertain = true
@@ -168,11 +179,13 @@ export function createByosService(
           }
           if (current.blocked !== "reconnect-required" || current.credentials)
             delete current.blocked
+          return current
         })
       }
       if (
         record.pending?.claimed ||
         record.pending?.relayStarted ||
+        (record.pending && record.pending.generation !== record.generation) ||
         (record.pending && record.pending.expires <= now())
       )
         await clearPending(true)
