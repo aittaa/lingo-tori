@@ -13,3 +13,4 @@
 - Do not expand an existing PR to absorb unrelated follow-up work or let a blocked feature hold up completed work.
 - PR titles must use conventional commit format, such as `fix(subtitles): ...`; avoid extra prefixes like `[codex]`.
 - User-facing fixes and features should include a `.changeset/*.md` file for `@lingotori/extension` unless the change intentionally does not need a release. use conventional commit format for the changeset content.
+- Obtain explicit user confirmation immediately before merging.

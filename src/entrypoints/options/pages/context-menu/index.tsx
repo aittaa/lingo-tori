@@ -1,4 +1,4 @@
-import contextMenuDemoImage from "@/assets/demo/context-menu.png"
+import contextMenuDemoImage from "@/assets/demo/context-menu.svg"
 import { GradientBackground } from "@/components/gradient-background"
 import { i18n } from "@/utils/i18n"
 import { PageLayout } from "../../components/page-layout"

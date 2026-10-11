@@ -1,5 +1,7 @@
 # Footprint measurements
 
+[EN/KO/JA cleanup audit](en-ko-ja-cleanup.md) records the focused branch based on exact core snapshot `ff1fdb47635c49391ffce6d3fa5e7d6f5c43b49b`. The historical measurements below belong to different revisions and do not validate that core snapshot or its cleanup branch.
+
 `baseline.json` records the baseline product revision `ca8da8241883c9aff5862d15d045845a746c9a6b`. Its Chrome and Firefox artifacts come from successful builds of that clean baseline. Commands and recorded results appear below; build logs are not source dependencies.
 
 Historical source and dependency counts were established by the initial read-only audit at clean `ca8da824` and match the saved baseline measurement. Existing artifact provenance is established separately by the setup evidence. Package and lockfile SHA-256 hashes were checked against that evidence. Later measurement and comparison runs may occur during concurrent source edits: their current Git state and source counts do not prove that existing outputs were rebuilt from that worktree. Later planning or product changes do not change the recorded baseline build revision.

@@ -1,14 +1,12 @@
 name: LingoTori
 extName: "LingoTori - AI Translation & Dictionary"
 extDescription: "Translate web pages and video subtitles with your own AI provider. Get dictionary meanings and sentence explanations."
-uninstallSurveyUrl: https://tally.so/r/nPK6Ob
 dataTypes:
   string: Text
   number: Number
 contextMenu:
   translate: Translate
   translateSelection: Translate "%s"
-  readAloudSelection: Read aloud "%s"
   showOriginal: Show Original
 sidePanel:
   firefoxUserActionHint: In Firefox, open LingoTori from the browser sidebar.
@@ -47,16 +45,7 @@ popup:
   aiSmartContextDescription: Uses webpage context to improve translation quality. Requires LLM translation provider.
   more:
     title: More
-    help: Help
-    tutorial: Tutorial
-    emailUs: Email us
-    featureRequest: Feature request
     bugReport: Report a bug
-    community: Community
-    joinDiscord: Join Discord
-    joinWechat: Join WeChat Group
-    starGithub: Star on Github
-    rateUs: Rate Us
 errorRecovery:
   title: Something went wrong
   description: Recovery mode is active. You can export your current settings as a backup, then reset settings and try again.
@@ -105,29 +94,11 @@ options:
     configTitle: API providers
     addProvider: Add provider
     builtInProvider: Built-in provider
-    builtInAiUsage:
-      title: Built-in AI quota
-      remaining: "$1% left"
-      supportedFeatures: "Supports $1 features"
-      resetsAt: "Resets at $1"
-      daily: Daily quota
-      weekly: Weekly quota
-      features:
-        pageTranslation: Page translation
-        customAction: Custom AI Actions
-        noteSuggestion: Note suggestions
-        selectionTranslation: Selection translation
-        videoSubtitles: Video subtitles
-        inputTranslation: Input translation
-        languageDetection: Language detection
-    sponsorCta: Get fast, cost-effective AI
-    sponsorCtaJalapenoCloud: Get 50% Off GLM 5.2
     setApiKeyWarning:
       message: Please configure a provider on the $1 page
     badges:
       featureCount: $1 features
       sponsor: Sponsor
-      sponsorJalapenoCloud: $$2 Free
     dialog:
       title: Add new provider
       groups:
@@ -152,7 +123,7 @@ options:
       delete: Delete
       deleteDialog:
         title: Delete provider?
-        description: This action cannot be undone. Features using this provider will be automatically reassigned to another available provider.
+        description: "This action cannot be undone."
         confirm: Delete
         cancel: Cancel
       atLeastOneLLMProvider: At least one LLM translation provider is required.
@@ -205,37 +176,37 @@ options:
         customChatComplete: Custom Chat Complete
         customResponses: Custom Responses
       description:
-        openai: Provides models like GPT-4o
+        openai: "Model API through OpenAI"
         azure: Azure-hosted OpenAI models through your deployments
-        deepseek: Recommend to use in China
-        openrouter: Unified interface for multiple LLM providers with pay-per-use pricing
-        ollama: Run large language models locally on your machine for complete privacy
-        google: Google's flagship AI models with advanced reasoning capabilities
-        anthropic: Claude models known for safety and reasoning excellence
-        xai: Elon Musk's AI company offering Grok models with real-time data access
-        atlascloud: Unified OpenAI-compatible access to newer DeepSeek, Kimi, Qwen, Doubao, GLM, and other models
-        jalapenocloud: Enterprise-grade AI used by top teams — now made for you!
-        siliconflow: High-performance inference platform for Chinese and international models
-        tensdaq: Revolutionary bidding AI MaaS platform with market-driven pricing, eliminating high-cost fixed pricing
+        deepseek: "Model API through DeepSeek"
+        openrouter: "Model API through OpenRouter"
+        ollama: "Run model inference on an Ollama endpoint you configure"
+        google: "Model API through Google Gemini"
+        anthropic: "Model API through Anthropic"
+        xai: "Model API through xAI"
+        atlascloud: "Model API through Atlas Cloud"
+        jalapenocloud: "Model API through Jalapeno Cloud"
+        siliconflow: "Model API through SiliconFlow"
+        tensdaq: "Model API through Tensdaq"
         openaiCompatible: Connect to a custom endpoint compatible with the OpenAI Chat Completions API
         openResponses: Connect to a custom endpoint compatible with the Open Responses API
         deeplx: Unofficial DeepL API
         deepl: Official DeepL API
-        bedrock: AWS managed service for enterprise-grade foundation models
-        groq: Specialized hardware for ultra-fast LLM inference speeds
-        deepinfra: Cost-effective cloud inference for popular open-source models
-        mistral: European AI company specializing in efficient multilingual models
-        togetherai: Collaborative platform for running and fine-tuning open-source models
-        cohere: Enterprise-focused AI with strong multilingual and RAG capabilities
-        fireworks: Production-ready inference platform for open-source models
-        cerebras: Ultra-fast AI inference for rapid translation and text analysis
-        replicate: Access to diverse open-source models for specialized translation tasks
-        perplexity: Real-time knowledge-enhanced AI for contextual translations and reading assistance
-        volcengine: ByteDance's cloud AI platform offering Doubao models for translation and reading
-        minimax: MiniMax AI platform offering advanced MiniMax-M2 models for text generation
-        alibaba: Alibaba Cloud's Qwen model series with advanced reasoning and multilingual capabilities
-        moonshotai: Moonshot AI's Kimi model series with strong reasoning and long-context capabilities
-        huggingface: Hugging Face Inference API providing access to thousands of open-source models
+        bedrock: "Model API through Amazon Bedrock"
+        groq: "Model API through Groq"
+        deepinfra: "Model API through DeepInfra"
+        mistral: "Model API through Mistral"
+        togetherai: "Model API through Together AI"
+        cohere: "Model API through Cohere"
+        fireworks: "Model API through Fireworks"
+        cerebras: "Model API through Cerebras"
+        replicate: "Model API through Replicate"
+        perplexity: "Model API through Perplexity"
+        volcengine: "Model API through Volcengine"
+        minimax: "Model API through MiniMax"
+        alibaba: "Model API through Alibaba Cloud"
+        moonshotai: "Model API through Moonshot AI"
+        huggingface: "Model API through Hugging Face"
     apiKey:
       showAPIKey: Show API key
       getAPIKey: Get API key
@@ -390,7 +361,7 @@ options:
         description: Turn on experimental features that may still be unstable
   shortcuts:
     title: Shortcuts
-    pageDescription: Set the keys that translate, read aloud and run AI actions while you read.
+    pageDescription: "Set the keys that translate and run AI actions while you read."
     setShortcut: Set shortcut
     pageTranslation:
       title: Page translation
@@ -458,7 +429,7 @@ options:
     demoImageAlt: Selection toolbar demo
     enable:
       title: Enable selection toolbar
-      description: Display the toolbar when selecting text on web pages for quick translation, speech, and AI actions
+      description: "Display the toolbar when selecting text on web pages for quick translation and AI actions"
     actions:
       title: Actions
       translate:
@@ -493,12 +464,9 @@ options:
       providerUnavailable: Selected provider is unavailable
     customActions:
       title: Custom AI Actions
-      pageDescription: Write your own prompts and run them on selected text from the selection toolbar. The data, style and interactions of each result are all yours to customize.
+      pageDescription: "Write prompts and define output fields for AI actions on selected text. Results appear as text fields."
       description: Add your own structured AI actions for selected text
       configTitle: Action config
-      introVideo:
-        trigger: "Watch video"
-        title: "Custom AI Actions in 30 seconds"
       builtIn: Built-in
       badges:
         new: New
@@ -511,7 +479,6 @@ options:
       noEnabledLlmProvider: Enable at least one LLM provider before creating custom AI actions
       tabs:
         config: Config
-        vocabulary: vocabulary
         hasErrors: Has errors
         connected: Connected
         needsAttention: Needs attention
@@ -563,66 +530,8 @@ options:
           confirm: Delete
           cancel: Cancel
         layout:
-          title: Layout
-          description: How the result shows in the popup. HTML with Liquid; fields fill in as the answer streams.
-          reset: Restore default
-          resetFieldList: Field list
-          resetDictionary: Dictionary card
-          resetSentenceAnalysis: Sentence analysis card
-          resetImproveWriting: "Improve Writing card"
-          resetConfirmTitle: Replace this layout?
-          resetConfirmDescription: The editor's contents will be replaced. You can still undo it in the editor afterwards.
-          resetConfirm: Replace
-          edit: Edit
-          preview: Preview
-          width: Width
-          themeLight: Light
-          themeDark: Dark
-          replay: Replay
-          sampleData: Sample data
-          sampleDataHint: Only used in this preview and never saved.
-          sampleDataSavedHint: Only used in this preview, and saved with this action.
-          sampleDataReset: Reset samples
-          sampleSelection: Selected text
-          sampleTargetLanguage: Target language
-          insertField: Field
-          insertSpeak: Speak button
-          insertCondition: If filled
-          insertContext: Context
-          insertLoop: Every field
-          syntaxHelp: Syntax
-          builtInHint: A built-in action's layout can't be edited. Customize it to edit a copy.
-          viewSource: View source
-          emptyNotice: This layout is empty, so the popup shows the default field list.
-          fallbackBanner: This layout can't be shown, so the default layout is used instead. $1
-          sanitized: "Removed for safety: $1"
-          unusedFields: "Not in this layout:"
-          tooLong: A layout can be at most $1 characters.
-          renameSkipped: The layout still refers to “$1”. Update it by hand.
-          reservedName: “ctx” and “forloop” are reserved in layouts. Choose another name.
-          help:
-            output: Shows a field's value. HTML in the value is escaped.
-            condition: Shows the content only when the field has a value.
-            loop: Repeats for every field, in order. f.name, f.value and f.type are available.
-            speak: Any element with data-speak reads the value aloud (or its own text if the value is empty) once the answer is done.
-            status: Styles by state. The host's data-status is streaming, done or error.
-            filters: newline_to_br keeps line breaks (use it last); lines splits text into a list of lines.
-            styles: CSS in a <style> block only applies inside this result. The --rf-* colors follow the light and dark themes.
-          lint:
-            parseError: "Liquid syntax error: $1"
-            unknownField: There's no field named “$1”.
-            unknownContextKey: "ctx has no “$1”. Available: $2."
-            fieldShadowedByLocal: “$1” is assigned in this layout, which hides the field with that name.
-            liquidInStyle: Liquid doesn't run inside <style>. This is kept as plain text.
-            styleInConditional: A <style> block always applies, even inside a “$1” tag.
-            cssImport: "@import is removed. Layouts can't load outside styles."
-            cssFontFace: "@font-face is removed. Use fonts already on the device."
-            unquotedAttributeOutput: Quote this attribute value, or the value can break out of it.
-            filterIgnored: Filters are ignored in a “$1” tag. Assign the filtered value first.
-            newlineToBrNotLast: newline_to_br only works as the last filter of an output.
-            tooLong: This layout is longer than $1 characters and can't be saved.
-            fieldNotShown: “$1” isn't shown in this layout.
-            reservedFieldName: The field name “$1” is reserved in layouts. Rename the field.
+          title: "Result fields"
+          description: "Results appear as plain text fields in schema order."
         tokens:
           selection: Selected text content
           paragraphs: Intersecting paragraph text joined with blank lines, truncated to the first 2000 characters when sent to custom AI actions
@@ -1051,8 +960,6 @@ options:
       title: Customize page prompts
       description: Customizing different types of Prompts allows you to adjust the Prompt type yourself during translation. A Prompt represents the text that the user sends to the LLM.
       managePrompts: Manage prompts
-      communityPrompts: Get or share prompts from community
-      communityPromptsUrl: https://github.com/mengxi-ream/read-frog/discussions/821
       variableReference: Variable reference
       addPrompt: Add prompt
       default: Default
@@ -1197,20 +1104,6 @@ options:
       aiSegmentation:
         title: AI smart segmentation
         description: Lets AI re-cut the subtitles into lines that read as sentences. It sets their timing too, so lines can drift out of sync. Needs an LLM translation provider.
-    aiQuota:
-      title: AI subtitles quota
-      description: AI speech recognition gets you accurate subtitles for any video
-      launchBonusPromo: Subscribe before $1 for an extra 300 transcription minutes
-      loginRequired: Log in to view your AI subtitles quota
-      upgradeRequired: AI subtitles require a Pro or Ultra subscription
-      pools:
-        subscription: Monthly quota
-        launchBonus: Launch gift
-      resetsOn: Resets on $1
-      expiresOn: Expires on $1
-      loadError: Unable to load your quota. Please try again later.
-      remainingOf: $1 / $2 min left
-      used: Used $1 min
     style:
       title: Subtitle style
       description: Display mode, position, fonts, colors and background, set against a live preview
@@ -1348,16 +1241,11 @@ action:
   regenerate: Regenerate
   viewContextDetails: Context
   customizeCustomAction: Customize $1 action
-  customActionLayoutFallback: This result can't be shown in its layout, so a simplified view is shown.
-  upgrade: Upgrade
+  customActionLayoutFallback: "Results are displayed as plain text fields."
   openCustomActions: Open Custom AI Actions
-  reviewDueOne: "$1 card to review"
-  reviewDueOther: "$1 cards to review"
   contextDetailsTitleLabel: Title
   contextDetailsParagraphsLabel: Paragraphs
   translation: Translation
-  speak: Speak
-  playing: Playing
   moreActions: More actions
   pinToToolbar: Pin to toolbar
   unpinFromToolbar: Unpin from toolbar
@@ -1366,8 +1254,7 @@ action:
 noteSuggestion:
   title: Reading suggestions
   description: Explore useful words and their meanings in this text.
-  save: Save
-  saved: Saved
+  save: "Save"
   staleSuggestion: This suggestion is out of date
   toggleLabel: Show note suggestions
 thinking:
@@ -1379,10 +1266,10 @@ shortcutKeySelector:
   placeholder: Please enter the shortcut
 subtitles:
   sidebar:
-    close: Close the learning panel
-    needsSubtitles: This video has no subtitles — try generating AI subtitles first.
+    close: "Close the subtitle panel"
+    needsSubtitles: "This video has no available captions. LingoTori translates existing captions; it does not generate them."
     menu:
-      label: Learning
+      label: "Subtitle tools"
     summary:
       tab: AI summary
       generating: Generating the summary…
@@ -1396,14 +1283,20 @@ subtitles:
       retry: Try again
       emptyTitle: No subtitles to show
       backToCurrent: Back to current
-  loadingAiSubtitles: Loading AI subtitles… (estimated 3 min)
-  aiSubtitlesHint: Accurate subtitles generated by advanced AI speech recognition — available even when no official subtitles exist.
-  requestAiSubtitles: Request AI subtitles
-  usingAiSubtitles: Using AI subtitles
+  loadingAiSubtitles: "AI-generated captions are unavailable in this build."
   toggle:
     enabled: Subtitle translation on
     disabled: Subtitle translation off
   actions:
+    copySource: "Copy source subtitles"
+    copyTranslated: "Copy translated subtitles"
+    copyPreparing: "Preparing subtitles, longer videos may take a while"
+    copyTranslating: "Translating subtitles"
+    copyReady: "Subtitles ready. Click Copy to copy them."
+    copyComplete: "Subtitles copied to clipboard"
+    copyRetry: "Retry copy"
+    copyFailed: "Could not copy subtitles. Focus the video tab, allow clipboard access if prompted, and retry."
+    copyUnavailable: "Clipboard access is unavailable on this page."
     downloadTranslated: Download translated subtitles
     downloadTranslatedPreparing: Preparing subtitles, longer videos may take a while
     downloadTranslatedTranslating: Translating subtitles
@@ -1430,15 +1323,7 @@ subtitles:
     aiRateLimited: Too many requests, please try again later
     aiAuthFailed: API authentication failed, please check your API key
     aiServiceUnavailable: Translation service temporarily unavailable
-    aiQuotaExceeded: Monthly AI subtitle quota used up
-    aiQuotaExceededWithReset: Monthly AI subtitle quota used up · resets on $1
-    aiLoginRequired: Log in to view your AI subtitles quota
-    aiSubscriptionRequired: AI subtitles require a Pro or Ultra subscription
-    aiPaymentRequired: Update your payment method to keep generating AI subtitles
-    aiVideoTooLong: This video is too long for AI subtitles
-    aiLiveReplayUnsupported: AI subtitles aren't available for live stream replays yet
-    aiStillProcessing: Transcription is still running — click again in a few minutes to pick it up
-    aiRequestFailed: AI subtitle request failed, please try again later
+    aiLiveReplayUnsupported: "AI-generated captions are unavailable in this build."
     aiNoResponse: AI service did not respond, using original text
     translatedExportFailed: Failed to generate translated subtitles
     translatedExportIncomplete: Failed to translate all subtitle lines
@@ -1460,8 +1345,6 @@ translationHub:
   translate: Translate
   copiedToClipboard: Translation copied to clipboard!
   copyTranslation: Copy translation
-  speakSourceText: Speak source text
-  speakTranslation: Speak translation
   expandCard: Expand card
   collapseCard: Collapse card
   expandAllCards: Expand all
@@ -1650,6 +1533,3 @@ languages:
   wls: Wallisian
   rar: Rarotongan
   hif: Fiji Hindi
-
-lingotori:
-  study: Study

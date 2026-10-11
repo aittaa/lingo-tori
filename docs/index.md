@@ -6,6 +6,8 @@ LingoTori is being developed as an independent GPLv3 fork of Read Frog focused o
 
 The baseline is `ca8da8241883c9aff5862d15d045845a746c9a6b`. This core snapshot includes translation, dictionary explanations and BYOK. New non-upstream learning/SRS/web/backend and companion/account runtimes are excluded. Original reading suggestions and necessary independent contracts remain. Existing experimental provider records are retained as inert compatibility data. See [validation](validation.md) for the planned merge gate.
 
+- [BYOK setup](byok.md): configure and explicitly assign your own provider.
+- [Experimental BYOS status](experimental-byos.md): separate draft work unavailable in this core.
 - [Product requirements](product-requirements.md): retained features, exclusions, and user experience.
 - [Architecture and licensing](architecture-and-licensing.md): dependency findings, independent implementation boundaries, and data ownership.
 - [Implementation plan](implementation-plan.md): reviewable phases, acceptance criteria, and release gates.
@@ -30,4 +32,4 @@ Parent: [Independent LingoTori product (#2)](https://github.com/aittaa/lingo-tor
 | Voice, writing, branding and locales      | [#6](https://github.com/aittaa/lingo-tori/issues/6) |
 | Deferred learning/backend future work     | [#7](https://github.com/aittaa/lingo-tori/issues/7) |
 
-[Footprint baseline and reproducible measurement](metrics/README.md) records the clean upstream build evidence. CI enablement belongs to a separate review.
+[Footprint baseline and reproducible measurement](metrics/README.md) records historical artifact provenance. [EN/KO/JA cleanup audit](metrics/en-ko-ja-cleanup.md) records this focused branch's source and build evidence. CI enablement belongs to a separate review.

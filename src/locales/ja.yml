@@ -1,14 +1,12 @@
 name: LingoTori
 extName: "LingoTori - AI 翻訳・辞書"
 extDescription: "自分で設定した AI プロバイダーでウェブページと動画字幕を翻訳します。単語の意味と文の解説を確認できます。"
-uninstallSurveyUrl: https://tally.so/r/nPK6Ob
 dataTypes:
   string: テキスト
   number: 数値
 contextMenu:
   translate: 翻訳
   translateSelection: 「%s」を翻訳
-  readAloudSelection: 「%s」を読み上げ
   showOriginal: 原文を表示
 sidePanel:
   firefoxUserActionHint: Firefox では、ブラウザーのサイドバーから LingoTori を開いてください。
@@ -47,16 +45,7 @@ popup:
   aiSmartContextDescription: ウェブページのコンテキストを使用して翻訳品質を向上させます。LLM翻訳プロバイダーが必要です。
   more:
     title: その他
-    help: ヘルプ
-    tutorial: 使い方ガイド
-    emailUs: メールで問い合わせ
-    featureRequest: 機能リクエスト
     bugReport: 不具合を報告
-    community: コミュニティ
-    joinDiscord: Discordに参加
-    joinWechat: WeChatグループに参加
-    starGithub: Githubでスター
-    rateUs: レビューを書く
 errorRecovery:
   title: 問題が発生しました
   description: 復旧モードが有効です。現在の設定をバックアップとしてエクスポートし、設定をリセットして再試行してください。
@@ -105,29 +94,11 @@ options:
     configTitle: APIプロバイダー
     addProvider: プロバイダーを追加
     builtInProvider: 組み込みプロバイダー
-    builtInAiUsage:
-      title: 組み込み AI クォータ
-      remaining: "残り $1%"
-      supportedFeatures: "$1 つの機能に対応"
-      resetsAt: "$1 にリセット"
-      daily: 日次クォータ
-      weekly: 週間クォータ
-      features:
-        pageTranslation: ページ翻訳
-        customAction: カスタム AI アクション
-        noteSuggestion: ノートの提案
-        selectionTranslation: 選択範囲の翻訳
-        videoSubtitles: 動画字幕
-        inputTranslation: 入力翻訳
-        languageDetection: 言語検出
-    sponsorCta: 高速で高コスパのAIを入手
-    sponsorCtaJalapenoCloud: GLM 5.2 を 50% オフで入手
     setApiKeyWarning:
       message: $1 ページでプロバイダーを設定してください
     badges:
       featureCount: $1 件の機能
       sponsor: スポンサー
-      sponsorJalapenoCloud: $$2 無料
     dialog:
       title: 新しいプロバイダーを追加
       groups:
@@ -152,7 +123,7 @@ options:
       delete: 削除
       deleteDialog:
         title: プロバイダーを削除しますか？
-        description: この操作は元に戻せません。このプロバイダーを使用している機能は、他の利用可能なプロバイダーに自動的に再割り当てされます。
+        description: "この操作は元に戻せません。"
         confirm: 削除
         cancel: キャンセル
       atLeastOneLLMProvider: 最低1つのLLM翻訳プロバイダーが必要です。
@@ -204,37 +175,37 @@ options:
         customChatComplete: カスタム Chat Complete
         customResponses: カスタム Responses
       description:
-        openai: GPT-4oなどのモデルを提供
+        openai: "OpenAI のモデル API"
         azure: Azure のデプロイ経由で OpenAI モデルを利用
-        deepseek: 中国国内での使用を推奨
-        openrouter: 複数のLLMプロバイダの統合インターフェース、従量課金制
-        ollama: ローカル大規模言語モデルサービス
-        google: 高度な推論能力を持つGoogleの主力AIモデル
-        anthropic: 安全性と推論能力に優れたClaudeモデル
-        xai: リアルタイムデータアクセス可能なGrokモデルを提供するイーロン・マスクのAI企業
-        atlascloud: DeepSeek、Kimi、Qwen、Doubao、GLMなどの新しめのモデルにOpenAI互換でアクセスできる統合プラットフォーム
-        jalapenocloud: トップチームが使うエンタープライズ級 AI を、あなたにも！
-        siliconflow: 中国および国際モデル向けの高性能推論プラットフォーム
-        tensdaq: 革命的入札型AI MaaSプラットフォーム、市場の需給で価格が決まり高コスト固定料金を排除
+        deepseek: "DeepSeek のモデル API"
+        openrouter: "OpenRouter のモデル API"
+        ollama: "設定した Ollama エンドポイントでモデルを実行"
+        google: "Google Gemini のモデル API"
+        anthropic: "Anthropic のモデル API"
+        xai: "xAI のモデル API"
+        atlascloud: "Atlas Cloud のモデル API"
+        jalapenocloud: "Jalapeno Cloud のモデル API"
+        siliconflow: "SiliconFlow のモデル API"
+        tensdaq: "Tensdaq のモデル API"
         openaiCompatible: OpenAI Chat Completions API 互換のカスタムエンドポイントに接続
         openResponses: Open Responses API 互換のカスタムエンドポイントに接続
         deeplx: 非公式 DeepL API
         deepl: 公式 DeepL API
-        bedrock: エンタープライズグレードの基盤モデル向けAWSマネージドサービス
-        groq: 超高速LLM推論速度に特化したハードウェア
-        deepinfra: 人気のオープンソースモデル向けコスト効率的なクラウド推論
-        mistral: 効率的な多言語モデルに特化したヨーロッパのAI企業
-        togetherai: オープンソースモデルの実行とファインチューニングのための協働プラットフォーム
-        cohere: 強力な多言語およびRAG機能を持つエンタープライズ向けAI
-        fireworks: オープンソースモデル向けプロダクション対応推論プラットフォーム
-        cerebras: 高速翻訳とテキスト分析に最適な超高速AI推論
-        replicate: 専門的な翻訳タスクのための多様なオープンソースモデルへのアクセス
-        perplexity: 文脈的翻訳と読解支援のためのリアルタイム知識強化AI
-        volcengine: ByteDanceのクラウドAIプラットフォーム、Doubaoモデルを提供
-        minimax: MiniMax AIプラットフォーム、先進的なMiniMax-M2モデルを提供
-        alibaba: アリババクラウドのQwenモデルシリーズ、高度な推論と多言語機能を備える
-        moonshotai: Moonshot AIのKimiモデルシリーズ、優れた推論と長コンテキスト能力
-        huggingface: Hugging Face推論API、数千のオープンソースモデルへのアクセスを提供
+        bedrock: "Amazon Bedrock のモデル API"
+        groq: "Groq のモデル API"
+        deepinfra: "DeepInfra のモデル API"
+        mistral: "Mistral のモデル API"
+        togetherai: "Together AI のモデル API"
+        cohere: "Cohere のモデル API"
+        fireworks: "Fireworks のモデル API"
+        cerebras: "Cerebras のモデル API"
+        replicate: "Replicate のモデル API"
+        perplexity: "Perplexity のモデル API"
+        volcengine: "Volcengine のモデル API"
+        minimax: "MiniMax のモデル API"
+        alibaba: "Alibaba Cloud のモデル API"
+        moonshotai: "Moonshot AI のモデル API"
+        huggingface: "Hugging Face のモデル API"
     apiKey:
       showAPIKey: APIキーを表示
       getAPIKey: APIキーを取得
@@ -389,7 +360,7 @@ options:
         description: まだ不安定な可能性がある実験的機能を有効にします
   shortcuts:
     title: ショートカット
-    pageDescription: 読みながら翻訳・読み上げ・AI アクションを実行するキーを設定します。
+    pageDescription: "読書中に翻訳や AI アクションを実行するキーを設定します。"
     setShortcut: ショートカットを設定
     pageTranslation:
       title: ページ翻訳
@@ -457,7 +428,7 @@ options:
     demoImageAlt: 選択ツールバーデモ
     enable:
       title: 選択ツールバーを有効化
-      description: ウェブページでテキストを選択したときにツールバーを表示し、すばやく翻訳・読み上げ・AIアクションを実行します
+      description: "ウェブページでテキストを選択すると、翻訳と AI アクションのツールバーを表示します"
     actions:
       title: アクション
       translate:
@@ -492,12 +463,9 @@ options:
       providerUnavailable: 選択したプロバイダーは利用できません
     customActions:
       title: カスタム AI アクション
-      pageDescription: 独自のプロンプトを作成し、選択ツールバーから選択したテキストに対して実行します。生成結果のデータ、スタイル、インタラクションはすべてカスタマイズできます。
+      pageDescription: "選択したテキストに使う AI アクションのプロンプトと出力フィールドを設定します。結果はテキストのフィールドで表示されます。"
       description: 選択テキスト向けに独自の構造化 AI アクションを追加
       configTitle: アクション設定
-      introVideo:
-        trigger: "動画を見る"
-        title: "30 秒でわかるカスタム AI アクション"
       builtIn: 組み込み
       add: AI アクションを追加
       edit: AI アクションを編集
@@ -505,7 +473,6 @@ options:
       noEnabledLlmProvider: カスタム AI アクションを作成する前に、少なくとも1つのLLMプロバイダーを有効化してください
       tabs:
         config: 設定
-        vocabulary: vocabulary
         hasErrors: エラーがあります
         connected: 接続済み
         needsAttention: 要確認
@@ -557,66 +524,8 @@ options:
           confirm: 削除
           cancel: キャンセル
         layout:
-          title: レイアウト
-          description: ポップアップでの結果の表示方法です。HTML と Liquid で記述し、回答のストリーミングに合わせてフィールドが埋まります。
-          reset: デフォルトに戻す
-          resetFieldList: フィールド一覧
-          resetDictionary: 辞書カード
-          resetSentenceAnalysis: 文分析カード
-          resetImproveWriting: "文章添削カード"
-          resetConfirmTitle: このレイアウトを置き換えますか？
-          resetConfirmDescription: エディターの内容が置き換えられます。あとからエディターで元に戻すこともできます。
-          resetConfirm: 置き換える
-          edit: 編集
-          preview: プレビュー
-          width: 幅
-          themeLight: ライト
-          themeDark: ダーク
-          replay: 再生
-          sampleData: サンプルデータ
-          sampleDataHint: このプレビューでのみ使われ、保存されません。
-          sampleDataSavedHint: このプレビューでのみ使われ、このアクションと一緒に保存されます。
-          sampleDataReset: サンプルをリセット
-          sampleSelection: 選択したテキスト
-          sampleTargetLanguage: 翻訳先の言語
-          insertField: フィールド
-          insertSpeak: 読み上げボタン
-          insertCondition: 値があるとき
-          insertContext: コンテキスト
-          insertLoop: すべてのフィールド
-          syntaxHelp: 構文
-          builtInHint: 組み込みアクションのレイアウトは編集できません。「カスタマイズ」でコピーを作成して編集してください。
-          viewSource: ソースを表示
-          emptyNotice: レイアウトが空のため、ポップアップにはデフォルトのフィールド一覧が表示されます。
-          fallbackBanner: このレイアウトは表示できないため、デフォルトのレイアウトを使用しています。$1
-          sanitized: 安全のため削除されました：$1
-          unusedFields: このレイアウトにないフィールド：
-          tooLong: レイアウトは最大 $1 文字です。
-          renameSkipped: レイアウトはまだ「$1」を参照しています。手動で更新してください。
-          reservedName: 「ctx」と「forloop」はレイアウトの予約名です。別の名前を選んでください。
-          help:
-            output: フィールドの値を表示します。値に含まれる HTML はエスケープされます。
-            condition: フィールドに値があるときだけ中身を表示します。
-            loop: すべてのフィールドについて順に繰り返します。f.name、f.value、f.type が使えます。
-            speak: data-speak を付けた要素は、回答の完了後にその値（空なら要素自身のテキスト）を読み上げます。
-            status: 状態ごとにスタイルを設定します。ホストの data-status は streaming、done、error のいずれかです。
-            filters: newline_to_br は改行を保持します（最後に置いてください）。lines はテキストを行のリストに分けます。
-            styles: <style> ブロックの CSS はこの結果の中だけに適用されます。--rf-* の色はライト／ダークテーマに追従します。
-          lint:
-            parseError: Liquid の構文エラー：$1
-            unknownField: 「$1」という名前のフィールドはありません。
-            unknownContextKey: ctx に「$1」はありません。使用可能：$2。
-            fieldShadowedByLocal: このレイアウトで「$1」に値を代入しているため、同じ名前のフィールドが隠れます。
-            liquidInStyle: <style> 内では Liquid は実行されず、そのままのテキストとして残ります。
-            styleInConditional: <style> ブロックは「$1」タグの中にあっても常に適用されます。
-            cssImport: "@import は削除されます。レイアウトから外部のスタイルは読み込めません。"
-            cssFontFace: "@font-face は削除されます。端末にあるフォントを使ってください。"
-            unquotedAttributeOutput: この属性値を引用符で囲んでください。囲まないと値が属性の外にはみ出すおそれがあります。
-            filterIgnored: 「$1」タグではフィルターは無視されます。先にフィルター後の値を代入してください。
-            newlineToBrNotLast: newline_to_br は出力の最後のフィルターとしてのみ機能します。
-            tooLong: このレイアウトは $1 文字を超えているため保存できません。
-            fieldNotShown: 「$1」はこのレイアウトに表示されません。
-            reservedFieldName: フィールド名「$1」はレイアウトの予約名です。フィールドの名前を変更してください。
+          title: "結果フィールド"
+          description: "結果はスキーマの順序でプレーンテキストのフィールドとして表示されます。"
         tokens:
           selection: 選択したテキスト内容
           paragraphs: 選択範囲と交差する段落内容。空行で連結され、カスタム AI アクションに送信する際は先頭 2000 文字に切り詰められます
@@ -986,8 +895,6 @@ options:
       title: カスタムページプロンプト
       description: 異なるタイプのプロンプトをカスタマイズすることで、翻訳時にプロンプトタイプを自ら調整できます。プロンプトとは、ユーザーがLLMに送信するテキストを指します。
       managePrompts: プロンプトを管理
-      communityPrompts: コミュニティからプロンプトを取得・共有
-      communityPromptsUrl: https://github.com/mengxi-ream/read-frog/discussions/821
       variableReference: 変数リファレンス
       addPrompt: プロンプトを追加
       default: デフォルト
@@ -1132,20 +1039,6 @@ options:
       aiSegmentation:
         title: AI スマート区切り
         description: AI が字幕を文として読める形に切り直します。タイミングも AI が決めるため、字幕がずれることがあります。LLM 翻訳プロバイダーが必要です。
-    aiQuota:
-      title: AI字幕の利用枠
-      description: AIの音声認識で、どんな動画にも正確な字幕を生成します
-      launchBonusPromo: $1 までに加入すると、文字起こし 300 分を追加でプレゼント
-      loginRequired: ログインしてAI字幕の利用枠を確認
-      upgradeRequired: AI字幕には Pro または Ultra プランが必要です
-      pools:
-        subscription: 月間クォータ
-        launchBonus: リリース記念ギフト
-      resetsOn: $1 にリセット
-      expiresOn: $1 に失効
-      loadError: 利用枠を読み込めませんでした。しばらくしてから再試行してください。
-      remainingOf: 残り $1 / $2 分
-      used: 使用済み $1 分
     style:
       title: 字幕スタイル
       description: 表示モード・位置・フォント・色・背景を、プレビューを見ながら設定します
@@ -1283,16 +1176,11 @@ action:
   regenerate: 再生成
   viewContextDetails: コンテキスト
   customizeCustomAction: $1 アクションをカスタマイズ
-  customActionLayoutFallback: この結果はレイアウトで表示できないため、簡易表示にしています。
-  upgrade: アップグレード
+  customActionLayoutFallback: "結果はプレーンテキストのフィールドで表示されます。"
   openCustomActions: Custom AI Actions を開く
-  reviewDueOne: "$1 枚のカードが復習待ち"
-  reviewDueOther: "$1 枚のカードが復習待ち"
   contextDetailsTitleLabel: タイトル
   contextDetailsParagraphsLabel: 段落内容
   translation: 翻訳
-  speak: 読み上げ
-  playing: 再生中
   moreActions: その他の操作
   pinToToolbar: ツールバーに固定
   unpinFromToolbar: ツールバーから固定解除
@@ -1301,8 +1189,7 @@ action:
 noteSuggestion:
   title: 読解のヒント
   description: この文章に出てくる単語と意味を確認できます。
-  save: 保存
-  saved: 保存済み
+  save: "保存"
   staleSuggestion: この提案は古くなっています
   toggleLabel: ノートの提案を表示
 thinking:
@@ -1314,10 +1201,10 @@ shortcutKeySelector:
   placeholder: ショートカットを入力してください
 subtitles:
   sidebar:
-    close: 学習パネルを閉じる
-    needsSubtitles: この動画には字幕がありません。まず AI 字幕の生成をお試しください。
+    close: "字幕パネルを閉じる"
+    needsSubtitles: "この動画には利用できる字幕がありません。LingoTori は既存の字幕を翻訳し、字幕の生成は行いません。"
     menu:
-      label: 学習
+      label: "字幕ツール"
     summary:
       tab: AI 要約
       generating: 要約を生成しています…
@@ -1331,14 +1218,20 @@ subtitles:
       retry: 再試行
       emptyTitle: 表示できる字幕がありません
       backToCurrent: 現在位置へ戻る
-  loadingAiSubtitles: AI字幕を読み込み中…（推定3分）
-  aiSubtitlesHint: 先進的なAI音声認識により正確な字幕を生成。公式字幕がない動画でも利用できます。
-  requestAiSubtitles: AI字幕をリクエスト
-  usingAiSubtitles: AI字幕を使用中
+  loadingAiSubtitles: "このビルドでは AI 字幕の生成を利用できません。"
   toggle:
     enabled: 字幕翻訳をオンにしました
     disabled: 字幕翻訳をオフにしました
   actions:
+    copySource: "原文字幕をコピー"
+    copyTranslated: "翻訳字幕をコピー"
+    copyPreparing: "字幕を準備しています。長い動画は時間がかかる場合があります"
+    copyTranslating: "字幕を翻訳しています"
+    copyReady: "字幕の準備ができました。コピーボタンを押してコピーしてください。"
+    copyComplete: "字幕をクリップボードにコピーしました"
+    copyRetry: "コピーを再試行"
+    copyFailed: "字幕をコピーできませんでした。動画のタブをアクティブにし、確認が表示されたらクリップボードへのアクセスを許可して、もう一度お試しください。"
+    copyUnavailable: "このページではクリップボードへのアクセスを利用できません。"
     downloadTranslated: 翻訳字幕をダウンロード
     downloadTranslatedPreparing: 字幕を準備中。長い動画は時間がかかる場合があります
     downloadTranslatedTranslating: 字幕を翻訳中
@@ -1365,15 +1258,7 @@ subtitles:
     aiRateLimited: リクエストが多すぎます。後でもう一度お試しください
     aiAuthFailed: API認証に失敗しました。APIキーを確認してください
     aiServiceUnavailable: 翻訳サービスは一時的に利用できません
-    aiQuotaExceeded: 今月のAI字幕の利用枠を使い切りました
-    aiQuotaExceededWithReset: 今月のAI字幕の利用枠を使い切りました・$1 にリセット
-    aiLoginRequired: ログインしてAI字幕の利用枠を確認
-    aiSubscriptionRequired: AI字幕には Pro または Ultra プランが必要です
-    aiPaymentRequired: AI字幕の生成を続けるにはお支払い方法を更新してください
-    aiVideoTooLong: この動画は長すぎるためAI字幕を生成できません
-    aiLiveReplayUnsupported: ライブ配信のアーカイブはまだAI字幕に対応していません
-    aiStillProcessing: 文字起こしは進行中です。数分後にもう一度クリックしてください
-    aiRequestFailed: AI字幕のリクエストに失敗しました。しばらくしてから再試行してください
+    aiLiveReplayUnsupported: "このビルドでは AI 字幕の生成を利用できません。"
     aiNoResponse: AIサービスが応答しませんでした。原文を表示します
     translatedExportFailed: 翻訳字幕の生成に失敗しました
     translatedExportIncomplete: すべての字幕行を翻訳できませんでした
@@ -1395,8 +1280,6 @@ translationHub:
   translate: 翻訳
   copiedToClipboard: 翻訳をクリップボードにコピーしました！
   copyTranslation: 翻訳をコピー
-  speakSourceText: 原文を読み上げる
-  speakTranslation: 翻訳文を読み上げる
   expandCard: カードを展開
   collapseCard: カードを折りたたむ
   expandAllCards: すべて展開
@@ -1585,6 +1468,3 @@ languages:
   wls: ウォリス語
   rar: ラロトンガ語
   hif: フィジー・ヒンディー語
-
-lingotori:
-  study: 学習

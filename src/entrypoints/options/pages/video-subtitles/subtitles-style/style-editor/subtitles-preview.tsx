@@ -22,9 +22,8 @@ export function SubtitlesPreview({ previewCSS }: SubtitlesPreviewProps) {
   const { style } = useAtomValue(configFieldsAtomMap.videoSubtitles)
   const { displayMode, translationPosition, container } = style
 
-  const sampleOriginal =
-    "Mr. Kamiya is not fighting against the world, but against things that could make the world take notice."
-  const sampleTranslation = "神谷先生不是在对抗世界，而是在对抗可能让世界为之侧目的事物。"
+  const sampleOriginal = "Reading in a new language opens up a little more of the world."
+  const sampleTranslation = "새로운 언어로 읽으면 세상이 조금 더 넓어집니다."
 
   const translationAbove = translationPosition === "above"
   const showMain = displayMode !== "translationOnly"

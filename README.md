@@ -1,24 +1,29 @@
 # LingoTori
 
-LingoTori is an independent browser extension for bilingual page and subtitle translation, dictionary meanings and sentence explanations. Its interface supports English, Korean and Japanese; translation language support remains broader.
+An independent GPLv3 browser extension for page, selected-text and existing video-caption translation, dictionary meanings and sentence explanations. The interface supports **English, Korean and Japanese**; translation languages remain broader, including Chinese.
 
-Configure your provider and API key in **API Providers**, then explicitly assign the provider to each feature. New installs start without a provider. Gemini and Azure BYOK remain supported alongside other configured model APIs. Dictionary and original reading suggestions remain; Study navigation and the newly added vocabulary/SRS, learning web and backend have been removed. Future learning work is backlog scope.
+## Use your own provider
 
-Existing experimental provider records and their feature IDs remain as inert compatibility data. They are not selectable and cannot run requests in this core build. Choose a BYOK provider explicitly for any affected feature; there is no automatic paid fallback and no stored database deletion.
+The core uses **BYOK** (bring your own API key). Open **API Providers**, add a provider or compatible endpoint, then explicitly assign it to each feature. Gemini and Azure are supported alongside other model APIs. New installs have no provider, and requests can incur your provider's charges. See the [BYOK setup guide](docs/byok.md).
+
+Original reading suggestions remain. Voice playback, writing/input assistance, hosted accounts and backup, cloud transcription, vocabulary/SRS and companion services are outside this core. Subtitles require captions supplied by the video platform; supported platform adapters currently cover YouTube, X and Netflix. Site behavior can change, and this draft core still requires the [merge validation gate](docs/validation.md).
+
+[Experimental browser-only BYOS](docs/experimental-byos.md) is separate draft work. It is not available in this core, and stored experimental provider records remain inert. No automatic paid fallback runs.
 
 ## Development
 
-Use the Node and pnpm versions in `package.json`. For initial setup, install with `pnpm install --ignore-scripts`, then run `pnpm exec wxt prepare`. Use `pnpm build` or `pnpm build:firefox` for loadable builds. The merge gate needs no service, account credentials or inference call. Run tests only immediately before merging a PR, not during implementation or PR preparation. CI automation is reviewed separately.
+Use the Node and pnpm versions declared in [package.json](package.json).
 
 ```sh
-SKIP_FREE_API=true pnpm test
-pnpm type-check
-pnpm build
-pnpm build:firefox
+pnpm install --ignore-scripts
+pnpm exec wxt prepare
+pnpm dev
 ```
 
-Hosted accounts, billing, telemetry, cloud transcription, speech playback, writing assistance, input translation and executable custom layouts are excluded. Provider requests use the endpoint you configure; review it before use.
+Build Chromium with `pnpm build` or Firefox MV3 with `pnpm build:firefox`. Load `.output/chrome-mv3` through Chromium's extension developer tools. In Firefox, load the manifest from `.output/firefox-mv3` as a temporary add-on through `about:debugging`. Follow [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md); run tests only immediately before merging, with `SKIP_FREE_API=true`, and obtain explicit user confirmation immediately before the merge.
+
+[Project documentation](docs/index.md) includes scope, limitations, licensing and [measured footprint evidence](docs/metrics/README.md). Builds and static checks do not establish live-provider or browser-runtime performance.
 
 ## Attribution and license
 
-This project is a fork of [Read Frog](https://github.com/mengxi-ream/read-frog), originally authored by its upstream contributors. The original [GNU GPL license](LICENSE) and upstream authorship remain intact. Independent rendering and language contracts replace the removed `@read-frog` packages without copying their implementations.
+Forked from [Read Frog](https://github.com/mengxi-ream/read-frog). Preserve upstream authorship and the [GNU GPLv3 license](LICENSE); see [NOTICE.txt](public/NOTICE.txt). Independent rendering and language contracts replace removed `@read-frog` integrations.
