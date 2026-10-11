@@ -4,4 +4,4 @@ New contributions to this independent fork are accepted under the existing GNU G
 
 The upstream contribution terms, including their historical commercial-license grant language, remain available in Git history. This policy applies to new LingoTori contributions and does not revoke or change historical grants or relicense existing code. The root LICENSE remains unchanged.
 
-Use the versions declared in package.json and follow AGENTS.md. Run the extension tests with SKIP_FREE_API=true, type checking, and the separate learning and companion Node test suites for relevant changes. Add a changeset for user-visible extension changes.
+Use the versions declared in package.json and follow AGENTS.md. Prepare relevant checks during implementation, but run tests only immediately before merging each focused PR, with SKIP_FREE_API=true. Perform type, formatting and browser-build checks at that merge gate as appropriate. Add a changeset for user-visible extension changes.
