@@ -46,11 +46,6 @@ export function getLocalProviderConfig(provider: QueuedTranslationProvider): Pro
   return provider.config
 }
 
-function getQueuedProviderId(provider: QueuedTranslationProvider): string {
-  const local = getLocalProviderConfig(provider)
-  return local.id
-}
-
 async function executeQueuedTranslation<TContext>(
   text: string,
   langConfig: Config["language"],
@@ -279,7 +274,11 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
     dispatchGate: { nextDispatchEtaMs: () => requestQueue.nextDispatchEtaMs() },
     getBatchKey: (data) => {
       return Sha256Hex(
-        `${data.langConfig.sourceCode}-${data.langConfig.targetCode}-${getQueuedProviderId(data.provider)}`,
+        `${data.langConfig.sourceCode}-${data.langConfig.targetCode}`,
+        // executeBatchTranslation uses the first member's captured config for
+        // every item. Match the full provider cache identity so edits to the
+        // same ID cannot route another snapshot's text through that config.
+        JSON.stringify(getLocalProviderConfig(data.provider)),
         data.context ? JSON.stringify(data.context) : "",
         // Not the terms — the REVISION. The terms differ per paragraph and
         // keying on them would end batching for glossary users; the revision is
