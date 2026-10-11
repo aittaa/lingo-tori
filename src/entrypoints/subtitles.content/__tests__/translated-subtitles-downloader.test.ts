@@ -364,13 +364,13 @@ describe("translatedSubtitlesDownloader", () => {
   })
 
   it("never sends a translate-only provider on a doomed segmentation prompt", async () => {
-    // Google resolves fine for videoSubtitles — the capability gate is the
+    // DeepLX resolves fine for videoSubtitles — the capability gate is the
     // wider translate one — but it has no model to prompt, so the export must
     // take the rule-based path without one aiSegmentBlock round trip per chunk.
     mocks.getLocalConfig.mockResolvedValue(createConfig({ aiSegmentation: true }))
     mocks.resolveSubtitlesProviderRef.mockResolvedValue({
       kind: "local",
-      config: DEFAULT_PROVIDER_CONFIG["google-translate"],
+      config: DEFAULT_PROVIDER_CONFIG.deeplx,
     })
 
     await createDownloader(

@@ -1,9 +1,24 @@
-# Validation guidance
+# Core validation and merge gate
 
-Run tests only immediately before merging a PR. Use `SKIP_FREE_API=true` and avoid live translation services. Record the tested commit and commands, and distinguish PASS, FAIL and NOT RUN.
+This snapshot contains the independent BYOK core. Account authentication, companion services, callback routing and their experimental verification evidence are excluded.
 
-The historical upstream baseline is `ca8da8241883c9aff5862d15d045845a746c9a6b`; its recorded measurements and limitations are in [the footprint baseline](metrics/README.md). Those results do not establish correctness of later feature branches.
+## Preparation status
 
-For code changes, select relevant regression tests, type checks and browser builds at the merge gate. Keep browser UI observations separate from synthetic tests. An OAuth login or model listing does not establish successful translation, refresh, revocation or account switching.
+The extracted snapshot is prepared using source reads and static searches only. Tests, type checks, formatting checks and builds are NOT RUN for this extraction. Earlier mixed-scope checkpoints do not validate the extracted tree.
 
-CI must be invoked as a merge gate rather than on every push or PR update. Do not claim a prepared workflow has run. Preserve user data and the GPL license when validating independent-core migrations.
+## Planned merge gate
+
+Run these checks only immediately before merging the focused core PR, with the repository dependencies and the versions declared in package.json:
+
+| Check | Command or condition | Current result |
+| --- | --- | --- |
+| Regression tests | `SKIP_FREE_API=true pnpm test` | NOT RUN |
+| Type-aware lint | `SKIP_FREE_API=true pnpm type-check` | NOT RUN |
+| Formatting | `pnpm fmt:check` | NOT RUN |
+| Chromium build | `pnpm build` | NOT RUN |
+| Firefox build | `pnpm build:firefox` | NOT RUN |
+| Fresh settings | API Providers opens before configuring a provider | NOT RUN |
+| Configuration compatibility | BYOK keys, language and glossary choices survive migration; experimental rows and selected IDs remain inert | NOT RUN |
+| Runtime boundaries | No account authentication, companion listener, callback entrypoint or automatic paid fallback | NOT RUN |
+
+Use synthetic fixtures and mocks. No live account credentials or inference calls are needed. CI automation, publication and deployment are reviewed separately.

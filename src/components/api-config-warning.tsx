@@ -11,14 +11,13 @@ export function APIConfigWarning({ className }: { className?: string }) {
       )}
     >
       {i18n.t("noAPIKeyConfig.warningWithLink.youMust")}{" "}
-      <a
-        href="https://readfrog.app/docs/providers/overview"
-        target="_blank"
-        rel="noreferrer"
+      <button
+        type="button"
+        onClick={() => void sendMessage("openOptionsPage", { route: "/api-providers" })}
         className="underline"
       >
         {i18n.t("noAPIKeyConfig.warningWithLink.setTheAPIKey")}
-      </a>{" "}
+      </button>{" "}
       {i18n.t("noAPIKeyConfig.warningWithLink.firstOnThe")}{" "}
       <button
         type="button"

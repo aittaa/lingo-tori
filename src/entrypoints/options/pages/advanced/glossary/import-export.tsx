@@ -123,7 +123,7 @@ export function GlossaryImportExport({
       .trim()
       .replace(/[^\p{L}\p{N}_-]+/gu, "-")
       .replace(/^-+|-+$/g, "")
-    anchor.download = slug ? `read-frog-glossary-${slug}.csv` : "read-frog-glossary.csv"
+    anchor.download = slug ? `lingotori-glossary-${slug}.csv` : "lingotori-glossary.csv"
     anchor.click()
     URL.revokeObjectURL(url)
   }

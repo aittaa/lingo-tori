@@ -6,13 +6,6 @@ const NEWLINE_PATTERN = /\n/g
 const WHITESPACE_PATTERN = /\s+/g
 const VTT_TIMESTAMP_PATTERN = /^(\d+)\s*-->\s*(\d+)$/
 
-/**
- * Hosted `prompt` is capped at 32000 characters by the contract. Held below it
- * so the prompt template and instructions have room, and so a split happens
- * before the server would reject the request outright.
- */
-const HOSTED_SEGMENTATION_MAX_PROMPT_CHARS = 28000
-
 export function cleanFragmentsForAi(fragments: SubtitlesFragment[]): SubtitlesFragment[] {
   return fragments
     .map((fragment) => ({
@@ -114,23 +107,6 @@ export async function aiSegmentBlock(
   }
 
   const jsonContent = formatFragmentsToJson(cleanedFragments)
-
-  // A hosted prompt is capped server-side, and the live path stays far under it
-  // (one look-ahead window), but the download path segments a whole file. Split
-  // rather than truncate: dropping the tail of subtitle JSON silently loses
-  // cues, which is a correctness bug, not a degraded result. Local providers
-  // have no such cap, so they never split.
-  if (providerRef.kind === "system" && jsonContent.length > HOSTED_SEGMENTATION_MAX_PROMPT_CHARS) {
-    if (cleanedFragments.length < 2) {
-      throw new Error("A single subtitle fragment exceeds the hosted segmentation limit")
-    }
-    const middle = Math.floor(cleanedFragments.length / 2)
-    const [head, tail] = await Promise.all([
-      aiSegmentBlock(cleanedFragments.slice(0, middle), providerRef),
-      aiSegmentBlock(cleanedFragments.slice(middle), providerRef),
-    ])
-    return [...head, ...tail]
-  }
 
   const segmentedVtt = await sendMessage("aiSegmentSubtitles", {
     jsonContent,

@@ -11,9 +11,9 @@
  * the latency-sensitive TTS path, the task is simple, and reasoning toggles are
  * provider-specific while this prompt must stay provider-agnostic.
  */
-import type { LangCodeISO6393 } from "@read-frog/definitions"
-import { LANG_CODE_TO_EN_NAME, langCodeISO6393Schema } from "@read-frog/definitions"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import { z } from "zod"
+import { LANG_CODE_TO_EN_NAME, langCodeISO6393Schema } from "@/lib/languages"
 import { logger } from "../logger"
 
 const supportedLanguageList = Object.entries(LANG_CODE_TO_EN_NAME)

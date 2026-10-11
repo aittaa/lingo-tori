@@ -33,8 +33,8 @@ describe("youtube isLiveContent", () => {
   beforeEach(() => {
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -50,14 +50,14 @@ describe("youtube isLiveContent", () => {
   })
 
   it("reads the live flag off the player data", async () => {
-    answerPlayerData({ videoId: "test123", isLiveContent: true })
+    answerPlayerData({ videoId: "test1234567", isLiveContent: true })
     const { isLiveContent } = getYoutubeConfig({ mode: "watch" })
 
     await expect(isLiveContent!()).resolves.toBe(true)
   })
 
   it("treats a regular upload as not live", async () => {
-    answerPlayerData({ videoId: "test123", isLiveContent: false })
+    answerPlayerData({ videoId: "test1234567", isLiveContent: false })
     const { isLiveContent } = getYoutubeConfig({ mode: "watch" })
 
     await expect(isLiveContent!()).resolves.toBe(false)

@@ -2,6 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { storage } from "#imports"
 import { FORCED_PROVIDER_HEADERS } from "@/utils/constants/providers"
 
+// Model construction needs only the stored provider rows, not application defaults.
+vi.mock("@/utils/constants/config", () => ({ CONFIG_STORAGE_KEY: "config" }))
+vi.mock("@/utils/config/helpers", async () => {
+  const { isLLMProviderConfig } = await import("@/types/config/provider")
+  return {
+    getLLMProvidersConfig: (providers: import("@/types/config/provider").ProvidersConfig) =>
+      providers.filter(isLLMProviderConfig),
+    getProviderConfigById: (
+      providers: import("@/types/config/provider").ProvidersConfig,
+      id: string,
+    ) => providers.find((provider) => provider.id === id),
+  }
+})
+
 let getStorageItemMock: ReturnType<typeof vi.fn>
 
 const {
@@ -147,6 +161,28 @@ describe("getModelById", () => {
     ;(storage.getItem as unknown as ReturnType<typeof vi.fn>) = getStorageItemMock
   })
 
+  it("rejects an unconfigured key before constructing a remote model", async () => {
+    getStorageItemMock.mockResolvedValue({
+      providersConfig: [{ ...createAnthropicProviderConfig(), apiKey: "" }],
+    })
+    const { getModelById } = await import("../model")
+    await expect(getModelById("anthropic-default")).rejects.toMatchObject({
+      name: "ProviderSetupError",
+    })
+    expect(createAnthropicMock).not.toHaveBeenCalled()
+  })
+
+  it("rejects a disabled provider before constructing a model", async () => {
+    getStorageItemMock.mockResolvedValue({
+      providersConfig: [{ ...createAnthropicProviderConfig(), enabled: false }],
+    })
+    const { getModelById } = await import("../model")
+    await expect(getModelById("anthropic-default")).rejects.toMatchObject({
+      name: "ProviderSetupError",
+    })
+    expect(createAnthropicMock).not.toHaveBeenCalled()
+  })
+
   it("passes default headers for Anthropic when user headers are undefined", async () => {
     getStorageItemMock.mockResolvedValue({
       providersConfig: [createAnthropicProviderConfig()],
@@ -165,7 +201,7 @@ describe("getModelById", () => {
     expect(anthropicLanguageModelMock).toHaveBeenCalledWith("claude-haiku-4-5")
   })
 
-  it("passes attribution headers for OpenRouter when user headers are undefined", async () => {
+  it("does not inject attribution headers into OpenRouter", async () => {
     getStorageItemMock.mockResolvedValue({
       providersConfig: [createOpenRouterProviderConfig()],
     })
@@ -179,7 +215,6 @@ describe("getModelById", () => {
         name: "openrouter",
         baseURL: "https://openrouter.ai/api/v1",
         apiKey: "test-key",
-        headers: FORCED_PROVIDER_HEADERS.openrouter,
         supportsStructuredOutputs: true,
       }),
     )

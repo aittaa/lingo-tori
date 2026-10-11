@@ -3,8 +3,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
 import { createFeatureUsageContext } from "@/utils/analytics"
-import { DEFAULT_CONFIG } from "@/utils/constants/config"
+import { DEFAULT_CONFIG as EMPTY_CONFIG } from "@/utils/constants/config"
 import { PageTranslationManager } from "../page-translation"
+
+const DEFAULT_CONFIG = {
+  ...EMPTY_CONFIG,
+  providersConfig: [
+    {
+      id: "test-deepl",
+      provider: "deepl" as const,
+      enabled: true,
+      name: "Test DeepL",
+      apiKey: "test-key",
+    },
+  ],
+  pageTranslation: { ...EMPTY_CONFIG.pageTranslation, providerId: "test-deepl" },
+}
 
 const {
   mockDeepQueryTopLevelSelector,
@@ -142,38 +156,31 @@ describe("pageTranslationManager mutation observer root", () => {
     manager.stop()
   })
 
-  it("reports the selected page language and mode before the event reaches background", async () => {
+  it("starts with a detected source without emitting remote telemetry", async () => {
     const manager = new PageTranslationManager({}, () => "jpn")
     await manager.start(
       createFeatureUsageContext(ANALYTICS_FEATURE.PAGE_TRANSLATION, ANALYTICS_SURFACE.POPUP),
     )
 
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      "trackFeatureUsedEvent",
-      expect.objectContaining({
-        feature: "page_translation",
-        source_language: "jpn",
-        target_language: DEFAULT_CONFIG.language.targetCode,
-        translation_mode: DEFAULT_CONFIG.pageTranslation.mode,
-      }),
+    expect(mockSendMessage.mock.calls.some(([name]) => name === "trackFeatureUsedEvent")).toBe(
+      false,
     )
     manager.stop()
   })
 
-  it("omits an unknown detected source without substituting English", async () => {
+  it("starts with an unknown source without emitting remote telemetry", async () => {
     const manager = new PageTranslationManager({}, () => "und")
     await manager.start(
       createFeatureUsageContext(ANALYTICS_FEATURE.PAGE_TRANSLATION, ANALYTICS_SURFACE.POPUP),
     )
 
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      "trackFeatureUsedEvent",
-      expect.not.objectContaining({ source_language: expect.anything() }),
+    expect(mockSendMessage.mock.calls.some(([name]) => name === "trackFeatureUsedEvent")).toBe(
+      false,
     )
     manager.stop()
   })
 
-  it("uses the configured source when it is explicit", async () => {
+  it("starts with an explicit source without emitting remote telemetry", async () => {
     mockGetLocalConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
       language: { ...DEFAULT_CONFIG.language, sourceCode: "eng" },
@@ -183,9 +190,8 @@ describe("pageTranslationManager mutation observer root", () => {
       createFeatureUsageContext(ANALYTICS_FEATURE.PAGE_TRANSLATION, ANALYTICS_SURFACE.POPUP),
     )
 
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      "trackFeatureUsedEvent",
-      expect.objectContaining({ source_language: "eng" }),
+    expect(mockSendMessage.mock.calls.some(([name]) => name === "trackFeatureUsedEvent")).toBe(
+      false,
     )
     manager.stop()
   })

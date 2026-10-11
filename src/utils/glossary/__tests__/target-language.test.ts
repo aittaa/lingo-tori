@@ -1,5 +1,5 @@
-import { LANG_CODE_TO_EN_NAME, langCodeISO6393Schema } from "@read-frog/definitions"
 import { describe, expect, it } from "vitest"
+import { LANG_CODE_TO_EN_NAME, langCodeISO6393Schema } from "@/lib/languages"
 import {
   ALL_LANGUAGES,
   appliesToLanguage,

@@ -1,15 +1,7 @@
-name: Read Frog
-extName: "Read Frog - AI対訳翻訳・二重字幕・単語帳"
-extDescription: "ウェブページと YouTube・Netflix・X の動画字幕を AI で対訳翻訳。知らない単語は保存して、フラッシュカードで復習できます。"
+name: LingoTori
+extName: "LingoTori - AI 翻訳・辞書"
+extDescription: "自分で設定した AI プロバイダーでウェブページと動画字幕を翻訳します。単語の意味と文の解説を確認できます。"
 uninstallSurveyUrl: https://tally.so/r/nPK6Ob
-account:
-  login: ログイン
-  webApp: ウェブアプリ
-  logout: ログアウト
-  logoutError: ログアウトに失敗しました。もう一度お試しください。
-  grantAccess: アクセスを許可
-  grantAccessHint: readfrog.app へのアクセスが必要です
-  grantAccessError: アクセスの許可に失敗しました。もう一度お試しください。
 dataTypes:
   string: テキスト
   number: 数値
@@ -19,7 +11,7 @@ contextMenu:
   readAloudSelection: 「%s」を読み上げ
   showOriginal: 原文を表示
 sidePanel:
-  firefoxUserActionHint: Firefox では、ブラウザーのサイドバーから Read Frog を開いてください。
+  firefoxUserActionHint: Firefox では、ブラウザーのサイドバーから LingoTori を開いてください。
   firefoxUserActionHelpText: Firefox サイドバーの開き方を見る
   firefoxUserActionHelpUrl: https://support.mozilla.org/ja/kb/use-sidebar-access-tools-and-vertical-tabs
 popup:
@@ -51,17 +43,8 @@ popup:
         action: クリックしてバイリンガルへ切り替え
   hub:
     tooltip: 複数の翻訳モデルで同時にテキストを翻訳
-  discord:
-    tooltip: Discordに参加して開発者とつながり、新機能を先行体験しましょう
-  blog:
-    notification: Read Frog の最新情報
   aiSmartContext: AI スマートコンテキスト
   aiSmartContextDescription: ウェブページのコンテキストを使用して翻訳品質を向上させます。LLM翻訳プロバイダーが必要です。
-  storeReview:
-    title: Read Frog はいかがですか？
-    description: ストアでのレビューが、他の読者に見つけてもらう助けになります。
-    action: レビューを書く
-    dismiss: 閉じる
   more:
     title: その他
     help: ヘルプ
@@ -115,39 +98,11 @@ options:
     product: 製品
   tools:
     translationHub: 翻訳ハブ
-  product:
-    roadmap: ロードマップ
-  helpAndCommunity:
-    title: ヘルプとコミュニティ
-    pageDescription: Read Frog の使い方を学び、チームに相談したり、コミュニティで他のユーザーと交流したりできます。
-    help:
-      title: ヘルプ
-    tutorial:
-      title: 使い方ガイド
-      description: ドキュメントを読んで Read Frog の使い方を学べます
-    email:
-      title: メールで問い合わせ
-      description: contact@readfrog.app からチームに直接連絡できます
-    featureRequest:
-      title: 機能リクエスト
-      description: アイデアを提案し、次に開発する機能に投票できます
-    bugReport:
-      title: 不具合を報告
-      description: サポートチケットを作成し、解決までの状況を追えます
-    community:
-      title: コミュニティ
-    discord:
-      title: Discord
-      description: チームや他のユーザーとリアルタイムで交流できます
-    wechat:
-      title: WeChat グループ
-      description: QR コードをスキャンして WeChat のディスカッショングループに参加
-      qrCodeAlt: WeChat QR コード
   apiProviders:
     title: APIプロバイダー
-    pageDescription: Read Frog が呼び出す AI サービスを接続し、各機能で使うものを選びます。
-    description: Read Frog が呼び出せるプロバイダーを追加します。20 以上を内蔵し、Chat Completions 互換 API と Open Responses API をカスタム追加できます。
-    configTitle: プロバイダー設定
+    pageDescription: LingoTori が呼び出す AI サービスを接続し、各機能で使うものを選びます。
+    description: 自分の API キーや互換エンドポイントを使用します。
+    configTitle: APIプロバイダー
     addProvider: プロバイダーを追加
     builtInProvider: 組み込みプロバイダー
     builtInAiUsage:
@@ -168,7 +123,7 @@ options:
     sponsorCta: 高速で高コスパのAIを入手
     sponsorCtaJalapenoCloud: GLM 5.2 を 50% オフで入手
     setApiKeyWarning:
-      message: API キーは $1 ページで設定してください
+      message: $1 ページでプロバイダーを設定してください
     badges:
       featureCount: $1 件の機能
       sponsor: スポンサー
@@ -246,13 +201,8 @@ options:
       invalidJson: 無効なJSON形式
     providers:
       name:
-        builtInAi: 組み込み AI
-        builtInAiAdvance: 高度な組み込み AI
         customChatComplete: カスタム Chat Complete
         customResponses: カスタム Responses
-      attribution:
-        builtInAi: Read Frog がホストする標準モデル。Ultra 以外のユーザーはカスタム AI アクションでのみ利用でき、Ultra ユーザーはより多くの機能で利用できます。
-        builtInAiAdvance: Read Frog がホストする高性能モデルで、Ultra メンバー専用です。ページ翻訳やカスタム AI アクションなど、すべての組み込み AI 機能で利用でき、週間クォータを共有します。標準モデルよりクォータの消費が速くなります。
       description:
         openai: GPT-4oなどのモデルを提供
         azure: Azure のデプロイ経由で OpenAI モデルを利用
@@ -302,18 +252,16 @@ options:
       features:
         pageTranslation: ページ翻訳
         selectionTranslation: 選択ツールバー翻訳
-        inputTranslation: 入力翻訳
         videoSubtitles: 動画字幕
         noteSuggestion: ノートの提案
       descriptions:
         pageTranslation: ページ全体を対訳または置き換えで翻訳します。
         selectionTranslation: 選択ツールバーから、選択したテキストを翻訳します。
-        inputTranslation: 入力欄に書いた文章を、送信する前に翻訳します。
         videoSubtitles: 動画プレーヤーに表示される字幕を翻訳します。
-        noteSuggestion: 選択テキストを翻訳した後、Notebase に保存する価値のある単語を提案します。
+        noteSuggestion: 選択テキストを翻訳した後、役立つ単語と意味を提案します。
     languageDetection:
       title: 言語検出
-      description: 自動翻訳の言語検出と読み上げの音声選択精度に影響します。
+      description: 自動翻訳のためのページ言語検出の精度に影響します。
       mode:
         basic: 基本
         llm: LLM
@@ -337,12 +285,12 @@ options:
     unsupported: このアドレスは照合できません。ポート指定と、http・https 以外のスキームには対応していません。
   preference:
     title: 環境設定
-    pageDescription: Read Frog の外観、動作する範囲、設定の同期とバックアップ方法を指定します。
+    pageDescription: LingoTori の外観、動作する範囲、設定の同期とバックアップ方法を指定します。
     appearanceAndLanguage:
       title: 外観と言語
       theme:
         title: テーマ
-        description: Read Frog のテーマを選択します。
+        description: LingoTori のテーマを選択します。
         system: システム
         light: ライト
         dark: ダーク
@@ -373,82 +321,6 @@ options:
         urlPattern: URLパターン
     config:
       title: 設定
-      googleDrive:
-        title: Google Driveクラウド同期
-        description: リモートが新しい場合はダウンロード、ローカルが新しい場合はアップロード。用語集は専用のファイルで同期され、まるごと置き換えではなく用語ごとに統合されます。
-        sync: Google Driveに同期
-        syncing: 同期中...
-        syncSuccess:
-          uploaded: ローカル設定をクラウドにアップロードしました
-          downloaded: リモート設定を適用しました
-          sameChanges: 両側の設定変更が同じため、同期しました
-          noChange: 設定は既に同期済みです
-          unresolved: 設定の競合を解決して同期しました
-        syncError: 設定の同期に失敗しました。もう一度お試しください
-        accountChangedError: ダイアログを開いている間にログイン中の Google アカウントが変わりました。何もアップロードしていません。もう一度同期してください。
-        metadataCorrupted: 同期メタデータが破損しています。リモート設定を適用しました
-        lastSyncTime: 最終同期時間
-        logout: ログアウト
-        logoutSuccess: Googleアカウントからログアウトしました
-        unresolved:
-          title: 設定の同期解決
-          description: ローカルとリモートの設定が異なります。各フィールドについて、保持するバージョンを選択してください。
-          resolved: 解決済み
-          unresolved: 未解決
-          localValue: ローカル値
-          remoteValue: リモート値
-          useLocal: ローカルを使用
-          useRemote: リモートを使用
-          useAllLocal: すべてローカルを使用
-          useAllRemote: すべてリモートを使用
-          reset: 選択をリセット
-          progress: $1/$2 個の変更を解決しました
-          confirm: 同期を確認
-          cancel: キャンセル
-          hasUnresolvedInChildren: ⚠ 未解決の変更を含む
-          item: 項目
-          items: 項目
-          unresolvedPrompt: "[未解決 - 選択してください]"
-          localLatest: ローカル最新
-          remoteLatest: リモート最新
-          bothChanged: 両方が変更されました
-          localChanged: ローカルが変更されました
-          remoteChanged: リモートが変更されました
-          configValid: 設定は有効です
-          configInvalid: 設定は無効です
-          resolveToContinue: 続行するには競合を解決してください
-          validationAlert:
-            title: マージされた設定に検証エラーがあります
-            description: 以下の差異を調整して修正してください：
-          moreErrors: ...他 $1 件のエラー
-        glossary:
-          thisDevice: このデバイス
-          cloud: クラウド
-          deleted: 削除済み
-          disabled: 無効
-          upToDate: 用語集は同期済みです
-          uploaded: 用語集をクラウドにアップロードしました
-          merged: "用語集を同期しました: 追加 $1、更新 $2、削除 $3"
-          undo: 元に戻す
-          undone: 用語集を同期前の状態に戻しました
-          undoUnavailable: この操作は取り消せなくなりました — その後に用語集が変更されています。
-          retry: 同期中に用語集が変更されました。もう一度実行してください。
-          accountChangedRetry: ダイアログを開いている間にログイン中の Google アカウントが変わりました。何もアップロードしていません。もう一度同期してください。
-          busy: 別のタブが用語集を同期しています。
-          malformed: クラウドの用語集ファイルを読み取れなかったため、何も変更していません。
-          versionTooNew: その用語集ファイルは新しいバージョンの Read Frog で書かれています。先に拡張機能を更新してください。
-          duplicateFiles: クラウドに用語集ファイルが複数あります。何も変更していません。余分なファイルを削除してください。
-          capExceeded: "統合すると用語集の上限を $1 件超えるため、何も変更していません。"
-          failed: 用語集の同期に失敗しました
-          review:
-            title: この用語集の同期を確認
-            description: 2 つのコピーが食い違う箇所について、どちらを残すか選んでください。
-            firstSync: "このデバイスでの初回同期：クラウドから $1 件、アップロード $2 件。"
-            accountChanged: "現在 $1 でログインしています。このデバイスが前回同期したアカウントとは別のものです。このデバイスの用語集データ $2 件がこのアカウントにアップロードされます。このアカウントの用語集だけにしたい場合は、キャンセルして、このデバイスの用語集を削除してから、もう一度同期してください。"
-            destructive: "この同期は、このデバイスの用語集データ $2 件のうち $1 件を削除します。"
-            moreConflicts: "ほかに $1 件の相違は一覧にありません。いずれもマージの判断に従います。"
-            confirm: 同期
-            cancel: キャンセル
       manualSync:
         title: 手動設定同期
         description: 設定を手動でインポート・エクスポートします。用語集も一緒に含まれます
@@ -463,7 +335,7 @@ options:
         glossaryUndone: 用語集をインポート前の状態に戻しました
         glossaryUndoUnavailable: この操作は取り消せなくなりました — その後に用語集が変更されています。
         glossaryMalformed: そのファイルの用語集を読み取れませんでした。何も変更していません。
-        glossaryVersionTooNew: そのファイルの用語集は新しいバージョンの Read Frog で書かれています。先に拡張機能を更新してください。
+        glossaryVersionTooNew: そのファイルの用語集は新しいバージョンの LingoTori で書かれています。先に拡張機能を更新してください。
         glossaryCapExceeded: "そのファイルの用語集データは上限 $2 件を $1 件超えています。何も変更していません。"
         exportOptions:
           title: エクスポートオプションを選択
@@ -515,10 +387,6 @@ options:
       beta:
         title: Beta 体験
         description: まだ不安定な可能性がある実験的機能を有効にします
-      analytics:
-        title: ユーザー体験の改善に協力する
-        tooltip: 有効にすると、Read Frog は匿名の利用シグナルを送信し、不具合の発見、機能の安定性確認、性能や UX の改善、今後優先すべき機能の判断に役立てます。
-        description: バグの特定や UI レイアウトの改善などを通じて Read Frog をより良くします
   shortcuts:
     title: ショートカット
     pageDescription: 読みながら翻訳・読み上げ・AI アクションを実行するキーを設定します。
@@ -541,9 +409,6 @@ options:
     translationHub:
       title: 翻訳ハブ
       description: 翻訳ハブを新しいタブで開きます。
-    selectionSpeak:
-      title: "選択範囲の読み上げ"
-      description: "選択したテキストを読み上げます。もう一度押すと停止します。"
     actions:
       title: "AI アクション"
       description: "選択したテキストに AI アクションを実行します。カスタムアクションには最初はショートカットがないので、ここで設定してください。"
@@ -552,35 +417,13 @@ options:
     taken: "$1 はすでに「$2」で使われています。"
   overlayTools:
     title: オーバーレイツール
-  inputTranslation:
-    title: 入力翻訳
-    pageDescription: 入力欄に書いた内容を、送信する前に翻訳します。
-    trigger:
-      title: トリガー
-      enable:
-        title: 有効化
-        description: 任意の入力欄でスペースキーを素早く3回押すと、入力した内容を翻訳します。
-      threshold:
-        title: トリガーしきい値
-        description: 連続する押下の間隔として許される長さ（ミリ秒）です。反応しないときは大きく、入力中に誤って動くときは小さくします。
-        error: $1 から $2 の間の値を入力してください
-    languages:
-      title: 翻訳言語
-      pair:
-        title: 言語の組み合わせ
-        description: 入力した文章をどの言語として読み取り、どの言語に翻訳するかを決めます。どちらもページ翻訳で使うソース言語・ターゲット言語に合わせられます。
-      sourceCode: ページソース言語
-      targetCode: 翻訳ターゲット言語
-      cycle:
-        title: 毎回方向を切り替え
-        description: トリガーのたびに2つの言語が入れ替わるため、もう一度実行すると入力した言語に戻ります。
   floatingButton:
     title: フローティングボタン
     pageDescription: フローティングボタンを表示する側、クリック時の動作、非表示にするサイトを設定します。
     demoImageAlt: フローティングボタンデモ
     enable:
       title: フローティングボタンを有効化
-      description: ウェブページにフローティングボタンを表示し、Read Frog機能に素早くアクセス
+      description: ウェブページにフローティングボタンを表示し、LingoTori機能に素早くアクセス
     display:
       title: 表示
       side:
@@ -620,16 +463,13 @@ options:
       translate:
         title: 翻訳
         description: ツールバーに翻訳ボタンを表示します
-      speak:
-        title: 読み上げ
-        description: 選択したテキストを読み上げる読み上げボタンをツールバーに表示します
       noteSuggestion:
         title: ノートの提案
-        description: AI プロバイダーで選択テキストを翻訳した後、Notebase に保存する単語を提案します
+        description: AI プロバイダーで選択テキストを翻訳した後、役立つ単語と意味を提案します
         action: アクション
-        actionDescription: 保存候補を生成するアクション
+        actionDescription: 単語と意味を提案するアクション
         provider: プロバイダー
-        providerDescription: 保存候補を生成する AI プロバイダー
+        providerDescription: 単語と意味を提案する AI プロバイダー
     display:
       title: 表示
       opacity:
@@ -665,7 +505,7 @@ options:
       noEnabledLlmProvider: カスタム AI アクションを作成する前に、少なくとも1つのLLMプロバイダーを有効化してください
       tabs:
         config: 設定
-        notebase: Notebase
+        vocabulary: vocabulary
         hasErrors: エラーがあります
         connected: 接続済み
         needsAttention: 要確認
@@ -777,51 +617,6 @@ options:
             tooLong: このレイアウトは $1 文字を超えているため保存できません。
             fieldNotShown: 「$1」はこのレイアウトに表示されません。
             reservedFieldName: フィールド名「$1」はレイアウトの予約名です。フィールドの名前を変更してください。
-        notebase:
-          title: Notebase 接続
-          description: このアクションの構造化された結果をリモート Notebase に保存します。
-          loginRequiredTitle: Notebase を設定するにはログインが必要です
-          loginRequiredDescription: notebase を選択したりマッピングを編集したりする前に、readfrog.app にログインしてください。
-          loginRequiredConnectedDescription: この接続は下のアカウントで作成されました。同じアカウントでログインするとフィールドマッピングが復元されます。別のアカウントでログインした場合、Notebase を作成または接続すると以前のマッピングは消去されます。
-          loginAction: ログイン
-          connectedAccountLabel: 接続済みアカウント
-          currentAccountLabel: 現在のアカウント
-          unknownConnectedAccount: 不明なアカウント
-          tableLabel: Notebase
-          tablePlaceholder: notebase を選択
-          tableClearOption: notebase を接続しない
-          clearConnectionAction: 接続をクリア
-          refreshAction: 更新
-          emptyTitle: Notebase がまだありません
-          emptyDescription: readfrog.app で notebase を作成してから、ここに戻ってフィールドをマッピングしてください。
-          openNotebaseAction: Notebase を開く
-          accessDeniedTitle: Notebase にアクセスできません
-          accessDeniedDescription: このアカウントには Notebase データを読み込む権限がありません。
-          listErrorTitle: Notebase 一覧を読み込めませんでした
-          listErrorDescription: 少し待ってから Notebase 一覧をもう一度更新してください。
-          accountMismatchTitle: Notebase 接続は別のアカウントに属しています
-          accountMismatchDescription: この接続は下の接続済みアカウントに紐づいています。接続をクリアするか、現在のアカウントで利用できる Notebase を選択してください。
-          tableUnavailableTitle: 選択した notebase は利用できなくなりました
-          tableUnavailableDescription: この Notebase は存在しないか開けません。接続をクリアするか、別の Notebase を選択してください。
-          tableUnavailableOption: 利用不可
-          schemaErrorTitle: notebase スキーマの読み込みに失敗しました
-          schemaErrorDescription: 少し待ってからもう一度更新してください。
-          schemaLoading: notebase スキーマを読み込み中...
-          mappingsLabel: フィールドマッピング
-          mappingsEmpty: まだマッピングはありません。フィールドを保存する準備ができたら追加してください。
-          addMappingAction: マッピングを追加
-          removeMappingAction: マッピングを削除
-          localFieldLabel: アクションフィールド
-          localFieldPlaceholder: アクションフィールドを選択
-          remoteFieldLabel: Notebase フィールド
-          remoteFieldPlaceholder: notebase フィールドを選択
-          columnUnavailableOption: 削除済み
-          invalidMappingsTitle: 一部のマッピングに対応が必要です
-          invalidMappingsDescription: 無効なマッピングは保持されます。Notebase に保存する前に修正してください。
-          mappingMissingLocal: マッピングされたアクションフィールドは存在しなくなりました。
-          mappingMissingRemote: マッピングされた notebase フィールドは存在しなくなりました。
-          mappingMissingSchema: このマッピングを検証するには、notebase スキーマを更新してください。
-          mappingIncompatible: フィールドの型が一致しなくなりました。
         tokens:
           selection: 選択したテキスト内容
           paragraphs: 選択範囲と交差する段落内容。空行で連結され、カスタム AI アクションに送信する際は先頭 2000 文字に切り詰められます
@@ -869,7 +664,7 @@ options:
             ## 例
 
             ### 例 1
-            入力：選択テキスト="blossoms"、段落="Spring arrives quietly in the park. The ephemeral beauty of cherry blossoms reminds us to cherish each moment. Families and friends gather beneath the trees."、ターゲット言語=中国語
+            入力：選択テキスト="blossoms"、段落="Spring arrives quietly in the park. The ephemeral beauty of cherry blossoms reminds us to cherish each moment. Families and friends gather beneath the trees."、ターゲット言語=韓国語
 
             出力：
             - 見出し語：blossom
@@ -877,11 +672,11 @@ options:
             - 品詞：noun
             - 例文：The ephemeral beauty of cherry blossoms reminds us to cherish each moment.
             - 例文中の語形：[{"text":"blossoms"}]
-            - 意味：花；花朵（尤指果树的花）
-            - 例文の翻訳：樱花短暂的美丽提醒我们珍惜每一刻。
+            - 意味：꽃(특히 과일나무의 꽃)
+            - 例文の翻訳：벚꽃의 덧없는 아름다움은 우리가 매 순간을 소중히 여기도록 일깨워 준다.
             - 覚え方のコツ：
-              词源：和 bloom（开花）同源，bl- 开头的 bloom、blossom 都和开花有关
-              近义词：bloom 多指花开的状态，blossom 常指果树（樱桃、苹果）的花
+              유의어: flower는 일반적인 꽃, blossom은 특히 나무에 피는 꽃을 가리킨다.
+              연어: cherry blossom은 벚꽃, apple blossom은 사과꽃을 뜻한다.
             - 難易度：B2
 
             ### 例 2
@@ -987,34 +782,6 @@ options:
           hardLabel: "難所"
           trunkLabel: "骨組みだけ"
           slashesLabel: "スラッシュ"
-        improveWriting:
-          name: "文章添削"
-          description: "先生のように添削：誤りや不自然な表現に印をつけ、場面に合った文に直します"
-          fieldSetting: "場面"
-          fieldAnnotations: "添削"
-          fieldImproved: "修正後"
-          fieldSummary: "総評"
-          types:
-            spelling: "表記"
-            grammar: "文法"
-            punctuation: "句読点"
-            wordChoice: "語彙"
-            logic: "論理"
-            unnatural: "不自然"
-            register: "文体"
-            clarity: "明確さ"
-            good: "好表現"
-          tiers:
-            error: "誤り"
-            awkward: "要改善"
-            good: "好表現"
-          hideFixesLabel: "答えを隠す"
-          hiddenHintLabel: "まず自分で直してみましょう。"
-          showImprovedLabel: "修正後を表示"
-          improvedLabel: "修正後"
-          copyLabel: "コピー"
-          unchangedLabel: "直すところはありません"
-          removeLabel: "削除"
         blank:
           prompt: |-
             ## 入力
@@ -1118,7 +885,7 @@ options:
       importModeMerge: リストに追加
       importModeReplace: リストを置き換え
       importEmpty: そのファイルに用語が見つかりませんでした。
-      importMissingHeader: "このファイルは Read Frog の用語集エクスポートではありません。次の列が必要です:"
+      importMissingHeader: "このファイルは LingoTori の用語集エクスポートではありません。次の列が必要です:"
       importOverflow: "このインポートは上限を $1 件超えます。変更は行われていません。"
       importSuccess: "$1 件を新規にインポートし、$2 件を更新しました。"
       importSkipped: "無効な行 $1 件と重複 $2 件をスキップしました。"
@@ -1140,7 +907,7 @@ options:
           description: "$1 件の用語がすべて完全に削除されます。この操作は元に戻せません。"
   contextMenu:
     title: コンテキストメニュー
-    pageDescription: ブラウザーの右クリックメニューに表示される Read Frog の項目を設定します。
+    pageDescription: ブラウザーの右クリックメニューに表示される LingoTori の項目を設定します。
     demoImageAlt: コンテキストメニューデモ
     enable:
       title: 右クリック翻訳を有効化
@@ -1222,7 +989,6 @@ options:
       communityPrompts: コミュニティからプロンプトを取得・共有
       communityPromptsUrl: https://github.com/mengxi-ream/read-frog/discussions/821
       variableReference: 変数リファレンス
-      variableReferenceUrl: https://readfrog.app/ja/docs/page-translation/prompts/variables
       addPrompt: プロンプトを追加
       default: デフォルト
       builtIn: 組み込み
@@ -1352,33 +1118,6 @@ options:
       searchPlaceholder: id、説明、URL パターンで検索
       showMore: さらに表示
       count: $2 件中 $1 件のルールを表示
-  tts:
-    title: テキスト読み上げ
-    pageDescription: 選択したテキストを自然な音声で読み上げます。
-    voice:
-      title: ボイス
-      selectPlaceholder: ボイスを選択
-      noVoicesFound: ボイスが見つかりません
-      language:
-        title: 言語別ボイス
-        description: 言語を選び、その言語を読み上げるボイスを指定します。リセットすると Read Frog がその言語に選ぶボイスに戻ります。
-        reset: リセット
-        previewSample: Read Frog からこんにちは！朗読するときはこのように聞こえます。
-      fallback:
-        title: フォールバックボイス
-        description: 個別にボイスを指定していない言語は、このボイスで読み上げます。
-    speech:
-      title: 読み上げ
-      rate:
-        title: 速度
-        description: ボイス本来の速さからどれだけ速く、または遅く読むか。-100 から 100 パーセント。
-      pitch:
-        title: ピッチ
-        description: ボイス本来のピッチからどれだけ高く、または低く話すか。-100 から 100 ヘルツ。
-      volume:
-        title: 音量
-        description: ボイス本来の大きさからどれだけ大きく、または小さく読むか。-100 から 100 パーセント。
-      error: $1 から $2 までの整数を入力してください
   videoSubtitles:
     title: 動画字幕
     pageDescription: 視聴しながら字幕を翻訳します。プロバイダー・スタイル・リクエスト設定は個別に指定できます。
@@ -1500,15 +1239,8 @@ options:
           confirm: 確認
           cancel: キャンセル
           description: すべてのキャッシュされたAI区切り結果が削除されます。次回AI区切りを有効にして動画を再生すると、字幕が再処理されます。
-  whatsNew:
-    title: 新機能
-    postType:
-      promotion: キャンペーン
-      update: アップデート
-  rateUs:
-    title: レビューを書く
   configMigration:
-    versionTooNew: インポートされた設定のバージョンが新しいため、Read Frogを最新バージョンにアップグレードしてください
+    versionTooNew: インポートされた設定のバージョンが新しいため、LingoToriを最新バージョンにアップグレードしてください
     validationError: 設定の検証に失敗しました
 side:
   sourceLang: ソース言語
@@ -1545,15 +1277,6 @@ translation:
   sameLanguage: ソース言語とターゲット言語は異なる必要があります
   autoModeSameLanguage: 検出された言語 '$1' はターゲット言語と同じです
   extensionContextInvalidated: 拡張機能が更新されました。このページを再読み込みしてからもう一度お試しください。
-speak:
-  languageDetectionFallback: ローカルの言語検出に切り替えました
-  languageDetectionSettingsHint: 設定で利用可能なLLMに変更するか、ローカル検出を選んでください。
-  fetchingAudio: 音声を生成しています...
-  playingAudio: 音声を再生しています...
-  failedToGenerateSpeech: 音声生成に失敗しました
-  noTextSelected: テキストが選択されていません
-  openaiNotConfigured: OpenAIプロバイダーが設定されていないか有効になっていません
-  openaiApiKeyNotConfigured: OpenAI APIキーが設定されていません
 action:
   copy: コピー
   copied: コピー済み
@@ -1561,36 +1284,8 @@ action:
   viewContextDetails: コンテキスト
   customizeCustomAction: $1 アクションをカスタマイズ
   customActionLayoutFallback: この結果はレイアウトで表示できないため、簡易表示にしています。
-  saveToNotebase: Notebase に保存
-  saveToNotebaseSaving: 保存中...
-  saveToNotebaseSuccess: Notebase に保存しました
-  saveToNotebaseFailed: Notebase への保存に失敗しました
-  saveToNotebaseLoginRequired: Notebase に保存するには readfrog.app にログインしてください
-  saveToNotebaseAccessDenied: このアカウントでは選択した Notebase にアクセスできません
-  saveToNotebaseLimitExceeded: さらに Notebase ノートを保存するにはアップグレードが必要です
-  saveToNotebaseTableUnavailable: 選択した Notebase は利用できなくなりました
-  saveToNotebaseConnectionInvalid: この Notebase 接続は古くなっています。Custom AI Actions で更新し、マッピングを修正してください。
-  saveToNotebaseNoMappings: 保存する前に、少なくとも1つの有効なマッピングを追加してください
-  saveToNotebaseCreateTitle: Notebase を作成しますか？
-  saveToNotebaseCreateDescription: この Custom Action の出力フィールドに合わせた列を持つ Notebase を作成し、現在の結果を最初のノートとして保存します。
-  saveToNotebaseCreateAndSave: 作成して保存
-  saveToNotebaseCreateAndSaveShort: 作成して保存
-  saveToNotebaseLoginAndCreate: ログインして自動作成
-  saveToNotebaseLoginAndSave: ログインして保存
-  saveToNotebaseConnectExisting: 既存の Notebase に接続
-  saveToNotebaseGoConfigure: 設定へ
-  saveToNotebaseLoginConnectedTitle: ログインして保存しますか？
-  saveToNotebaseLoginConnectedDescription: この Custom Action は下のアカウントに接続されています。ログイン後、可能であれば既存の Notebase に保存し、利用できない場合はログイン中のアカウント用に新しい Notebase を作成します。
-  saveToNotebaseConnectionUnavailableTitle: Notebase 接続を利用できません
-  saveToNotebaseMissingNotebaseDescription: 以前の Notebase は存在しないか、このアカウントでは開けません。新しい Notebase を作成して保存するか、Custom AI Actions で既存の Notebase に接続してください。
-  saveToNotebaseAccountUnavailableDescription: ログイン中のアカウントが下の接続済みアカウントと一致しません。作成して保存すると、以前の接続設定とフィールドマッピングが置き換えられます。Custom AI Actions で既存の Notebase に接続することもできます。
-  saveToNotebasePendingLogin: ログイン後に保存を完了
-  saveToNotebasePendingLoginDescription: ログイン後、Read Frog が Notebase を作成し、この結果を自動で保存します。
-  saveToNotebasePendingConnectedLoginDescription: ログイン後、Read Frog は可能であれば接続済み Notebase に保存します。このアカウントで利用できない場合は、新しい Notebase を作成して保存します。
   upgrade: アップグレード
-  updatePayment: 支払いを更新
   openCustomActions: Custom AI Actions を開く
-  openNotebase: Notebase を開く
   reviewDueOne: "$1 枚のカードが復習待ち"
   reviewDueOther: "$1 枚のカードが復習待ち"
   contextDetailsTitleLabel: タイトル
@@ -1604,8 +1299,8 @@ action:
   dragToReorder: ドラッグして並べ替え
   addCustomAction: カスタム AI アクションを追加
 noteSuggestion:
-  title: 保存におすすめ
-  description: Notebase に保存したい単語を選んで、いつでも復習できます。
+  title: 読解のヒント
+  description: この文章に出てくる単語と意味を確認できます。
   save: 保存
   saved: 保存済み
   staleSuggestion: この提案は古くなっています
@@ -1650,7 +1345,7 @@ subtitles:
     downloadTranslatedComplete: 翻訳字幕をダウンロードしました
     downloadSource: 元字幕をダウンロード
   state:
-    loading: Read Frog 字幕読み込み中
+    loading: LingoTori 字幕読み込み中
     translating: 翻訳中…
     error: エラーが発生しました
   errors:
@@ -1683,20 +1378,6 @@ subtitles:
     translatedExportFailed: 翻訳字幕の生成に失敗しました
     translatedExportIncomplete: すべての字幕行を翻訳できませんでした
     translatedExportSameLanguage: 元の言語と翻訳先の言語が同じです
-hostedAi:
-  ultraBadge:
-    tooltip: Ultra プランへの加入が必要です · バッジをクリックしてプランを取得
-  availability:
-    authenticationRequired: ログインすると利用できます
-    ultraRequired: Ultra プランが必要です
-    quotaExhausted: 利用枠を使い切りました
-    serviceUnavailable: 一時的に利用できません
-    usedPercent: "利用枠: $1% 使用済み"
-    resetsAt: "$1 にリセット"
-  errors:
-    rateLimited: リクエストが多すぎます。後でもう一度お試しください。
-    guestRateLimited: ゲストからのリクエストが多すぎます。後でもう一度お試しください。
-    userRateLimited: リクエストが多すぎます。後でもう一度お試しください。
 hotkey:
   control: Ctrl
   alt: Option
@@ -1904,3 +1585,6 @@ languages:
   wls: ウォリス語
   rar: ラロトンガ語
   hif: フィジー・ヒンディー語
+
+lingotori:
+  study: 学習

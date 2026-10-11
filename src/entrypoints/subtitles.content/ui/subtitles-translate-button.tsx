@@ -1,5 +1,5 @@
 import { useAtomValue, useSetAtom } from "jotai"
-import logo from "@/assets/icons/read-frog.png"
+import logo from "@/assets/icons/lingotori.png"
 import { TRANSLATE_BUTTON_CLASS } from "@/utils/constants/subtitles"
 import { cn } from "@/utils/styles/utils"
 import {

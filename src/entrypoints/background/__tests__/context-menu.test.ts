@@ -5,7 +5,6 @@ import { i18n } from "@/utils/i18n"
 import {
   initializeContextMenu,
   MENU_ID_SELECTION_CUSTOM_ACTION_PREFIX,
-  MENU_ID_SELECTION_READ_ALOUD,
   MENU_ID_SELECTION_TRANSLATE,
   MENU_ID_TRANSLATE,
   registerContextMenuListeners,
@@ -101,11 +100,7 @@ describe("background context menu", () => {
       title: 'Translate "%s"',
       contexts: ["selection"],
     })
-    expect(browser.contextMenus.create).toHaveBeenNthCalledWith(3, {
-      id: MENU_ID_SELECTION_READ_ALOUD,
-      title: 'Read aloud "%s"',
-      contexts: ["selection"],
-    })
+    expect(browser.contextMenus.create).toHaveBeenCalledTimes(2)
     expect(browser.contextMenus.update).toHaveBeenCalledWith(MENU_ID_TRANSLATE, {
       title: "Show Original",
     })
@@ -122,12 +117,12 @@ describe("background context menu", () => {
 
     await initializeContextMenu()
 
-    expect(browser.contextMenus.create).toHaveBeenNthCalledWith(4, {
+    expect(browser.contextMenus.create).toHaveBeenNthCalledWith(3, {
       id: `${MENU_ID_SELECTION_CUSTOM_ACTION_PREFIX}dictionary`,
       title: "Dictionary",
       contexts: ["selection"],
     })
-    expect(browser.contextMenus.create).toHaveBeenNthCalledWith(5, {
+    expect(browser.contextMenus.create).toHaveBeenNthCalledWith(4, {
       id: `${MENU_ID_SELECTION_CUSTOM_ACTION_PREFIX}rewrite`,
       title: "Rewrite",
       contexts: ["selection"],
@@ -141,7 +136,7 @@ describe("background context menu", () => {
 
     await initializeContextMenu()
 
-    expect(browser.contextMenus.create).toHaveBeenNthCalledWith(4, {
+    expect(browser.contextMenus.create).toHaveBeenNthCalledWith(3, {
       id: `${MENU_ID_SELECTION_CUSTOM_ACTION_PREFIX}default-dictionary`,
       title: "Dictionary",
       contexts: ["selection"],
@@ -156,7 +151,7 @@ describe("background context menu", () => {
 
     await initializeContextMenu()
 
-    expect(browser.contextMenus.create).toHaveBeenNthCalledWith(5, {
+    expect(browser.contextMenus.create).toHaveBeenNthCalledWith(4, {
       id: `${MENU_ID_SELECTION_CUSTOM_ACTION_PREFIX}default-sentence-analysis`,
       title: "Sentence Analysis",
       contexts: ["selection"],
@@ -217,32 +212,6 @@ describe("background context menu", () => {
       "openSelectionTranslationFromContextMenu",
       { selectionText: "Selected text" },
       { tabId: 5, frameId: 7 },
-    )
-  })
-
-  it("routes read aloud menu clicks to the matching tab and frame", async () => {
-    registerContextMenuListeners()
-
-    const clickHandler = contextMenuClickListeners[0]
-    if (!clickHandler) {
-      throw new Error("Context menu click listener was not registered")
-    }
-
-    await clickHandler(
-      {
-        menuItemId: MENU_ID_SELECTION_READ_ALOUD,
-        selectionText: "Selected text",
-        frameId: 4,
-      },
-      {
-        id: 2,
-      },
-    )
-
-    expect(sendMessageMock).toHaveBeenCalledWith(
-      "readAloudSelectionFromContextMenu",
-      { selectionText: "Selected text" },
-      { tabId: 2, frameId: 4 },
     )
   })
 

@@ -77,7 +77,20 @@ const topLevelReasoningConfigSchema = {
   reasoning: z.enum(AI_SDK_REASONING_VALUES).optional(),
 }
 
-const llmProviderConfigSchemaList = [
+// Storage compatibility only: this row has no selectable or executable capability.
+const byosProviderConfigSchema = baseAPIProviderConfigSchema.extend({
+  provider: z.literal("byos"),
+  apiKey: z.never().optional(),
+  baseURL: z.never().optional(),
+  headers: z.never().optional(),
+  model: z.object({
+    model: z.literal("use-custom-model"),
+    isCustomModel: z.literal(true),
+    customModel: z.string().nullable(),
+  }),
+})
+
+const apiLLMProviderConfigSchemaList = [
   baseOpenAICompatibleLLMProviderConfigSchema.extend({
     provider: z.literal("atlascloud"),
     model: createProviderModelSchema<"atlascloud">("atlascloud"),
@@ -206,8 +219,10 @@ const llmProviderConfigSchemaList = [
   }),
 ] as const
 
+const llmProviderConfigSchemaList = apiLLMProviderConfigSchemaList
+
 const apiProviderConfigSchemaList = [
-  ...llmProviderConfigSchemaList,
+  ...apiLLMProviderConfigSchemaList,
   baseAPIProviderConfigSchema.extend({
     provider: z.literal("deeplx"),
   }),
@@ -217,13 +232,8 @@ const apiProviderConfigSchemaList = [
 ] as const
 
 export const providerConfigSchemaList = [
+  byosProviderConfigSchema,
   ...apiProviderConfigSchemaList,
-  baseProviderConfigSchema.extend({
-    provider: z.literal("google-translate"),
-  }),
-  baseProviderConfigSchema.extend({
-    provider: z.literal("microsoft-translate"),
-  }),
 ] as const
 
 export const llmProviderConfigItemSchema = z.discriminatedUnion(

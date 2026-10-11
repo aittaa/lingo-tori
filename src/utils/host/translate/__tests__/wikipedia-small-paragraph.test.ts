@@ -17,6 +17,16 @@ vi.mock("@/utils/host/translate/translate-variants", () => ({
 
 function createConfig(mode: Config["pageTranslation"]["mode"] = "bilingual"): Config {
   const config = structuredClone(DEFAULT_CONFIG)
+  config.providersConfig = [
+    {
+      id: "test-deeplx",
+      provider: "deeplx",
+      enabled: true,
+      name: "Test DeepLX",
+      baseURL: "https://example.com/translate",
+    },
+  ]
+  config.pageTranslation.providerId = "test-deeplx"
   config.language.sourceCode = "eng"
   config.pageTranslation.mode = mode
   return config

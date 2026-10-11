@@ -4,7 +4,7 @@ import type { SiteRule } from "@/types/config/site-rules"
 import type { TranslationMode } from "@/types/config/translate"
 import { act, render, screen, waitFor } from "@testing-library/react"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
-import { DEFAULT_CONFIG } from "@/utils/constants/config"
+import { DEFAULT_CONFIG as EMPTY_CONFIG } from "@/utils/constants/config"
 import {
   BLOCK_ATTRIBUTE,
   BLOCK_CONTENT_CLASS,
@@ -40,6 +40,21 @@ import {
 vi.mock("@/utils/host/translate/translate-variants", () => ({
   translateTextForPage: vi.fn<(...args: any[]) => any>(() => Promise.resolve(MOCK_TRANSLATION)),
 }))
+
+const DEFAULT_CONFIG = {
+  ...EMPTY_CONFIG,
+  language: { ...EMPTY_CONFIG.language, targetCode: "cmn" as const },
+  providersConfig: [
+    {
+      id: "test-deepl",
+      provider: "deepl" as const,
+      enabled: true,
+      name: "Test DeepL",
+      apiKey: "test-key",
+    },
+  ],
+  pageTranslation: { ...EMPTY_CONFIG.pageTranslation, providerId: "test-deepl" },
+}
 
 const DEFAULT_PAGE_TRANSLATION_OPTIONS = {
   preserveLineBreaks: false,

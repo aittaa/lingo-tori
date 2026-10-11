@@ -104,11 +104,9 @@ describe("SelectionToolbarMoreMenu", () => {
     // A disabled item is nowhere, pinned or not.
     expect(itemIds()).toEqual([
       "mine",
-      "speak",
       "translate",
       "default-dictionary",
       "default-sentence-analysis",
-      "default-improve-writing",
     ])
     expect(within(row("mine")).getByText("Mine")).toBeInTheDocument()
     expect(within(row("translate")).getByText(i18n.t("action.translation"))).toBeInTheDocument()
@@ -153,12 +151,8 @@ describe("SelectionToolbarMoreMenu", () => {
     fireEvent.click(within(row("translate")).getByText(i18n.t("action.translation")))
     expect(mocks.openToolbarTranslation).toHaveBeenCalledWith(trigger())
 
-    await openMenu()
-    fireEvent.click(within(row("speak")).getByText("Speak"))
-    expect(mocks.toggleSpeech).toHaveBeenCalledOnce()
-
     // Open and closed each time, so the toolbar stays up only while it is open.
-    expect(dropdownStates).toEqual([true, false, true, false, true, false])
+    expect(dropdownStates).toEqual([true, false, true, false])
     window.removeEventListener(DropEvent, onDropdown)
   })
 })

@@ -76,12 +76,10 @@ describe("shortcut bindings", () => {
       "page-translation-shortcut",
       "translation-mode-shortcut",
       "selection-translation-shortcut",
-      "selection-speak-shortcut",
       "subtitles-toggle-shortcut",
       "translation-hub-shortcut",
       getActionShortcutId("default-dictionary"),
       getActionShortcutId("default-sentence-analysis"),
-      getActionShortcutId("default-improve-writing"),
       getActionShortcutId("custom-1"),
     ])
     expect(bindings.at(-1)?.shortcut).toBe("")
@@ -120,7 +118,6 @@ describe("ShortcutConfigItem", () => {
 
   it("flags a clash saved before the check existed", async () => {
     const config = structuredClone(DEFAULT_CONFIG)
-    config.selectionToolbar.features.speak.shortcut = "Alt+Shift+D"
     await renderItem(config, "Alt+Shift+D")
 
     // Named after the built-in Dictionary, whose key it is.

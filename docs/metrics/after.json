@@ -1,0 +1,686 @@
+{
+  "schemaVersion": 1,
+  "repository": {
+    "head": "d1d083bd56ad137407102beceb113a2a4bf6aa15",
+    "dirty": true
+  },
+  "toolchain": {
+    "node": "v26.11.1",
+    "zlib": "1.3.2.1-motley-456ae73",
+    "gzipLevel": 9,
+    "gzipMethod": "sum of independent per-file gzip streams"
+  },
+  "hashes": {
+    "packageJsonSha256": "4cabbf1b98b4c5245357b16e2b0502bdce1cb6c0a467c8f7746cc18cdaf7f139",
+    "pnpmLockSha256": "14cf1920e95dc663a71c7d10943abd9113b8b0418da898fb9555429f56840387"
+  },
+  "dependencies": {
+    "runtime": 82,
+    "development": 39,
+    "optional": 0,
+    "peer": 0,
+    "runtimeAndDevelopment": 121
+  },
+  "source": {
+    "trackedFiles": 1662,
+    "trackedSrcFiles": 1359,
+    "sourceCodeFiles": 1321,
+    "testFiles": 325,
+    "localeFiles": 3,
+    "byExtension": {
+      ".cjs": 1,
+      ".css": 9,
+      ".html": 5,
+      ".jpg": 1,
+      ".json": 1,
+      ".md": 4,
+      ".png": 6,
+      ".svg": 8,
+      ".ts": 907,
+      ".tsx": 414,
+      ".yml": 3
+    }
+  },
+  "outputs": {
+    ".output/chrome-mv3": {
+      "files": 170,
+      "bytes": 14612631,
+      "gzipBytes": 4659730,
+      "byExtension": {
+        "(none)": {
+          "files": 1,
+          "bytes": 35149,
+          "gzipBytes": 12091
+        },
+        ".css": {
+          "files": 6,
+          "bytes": 656614,
+          "gzipBytes": 101718
+        },
+        ".html": {
+          "files": 5,
+          "bytes": 11103,
+          "gzipBytes": 3398
+        },
+        ".js": {
+          "files": 130,
+          "bytes": 12955073,
+          "gzipBytes": 3981745
+        },
+        ".json": {
+          "files": 4,
+          "bytes": 437302,
+          "gzipBytes": 83514
+        },
+        ".png": {
+          "files": 11,
+          "bytes": 286611,
+          "gzipBytes": 253656
+        },
+        ".svg": {
+          "files": 5,
+          "bytes": 11793,
+          "gzipBytes": 4625
+        },
+        ".txt": {
+          "files": 1,
+          "bytes": 474,
+          "gzipBytes": 314
+        },
+        ".woff2": {
+          "files": 7,
+          "bytes": 218512,
+          "gzipBytes": 218669
+        }
+      },
+      "largestFiles": [
+        {
+          "path": "content-scripts/selection.js",
+          "bytes": 2385018,
+          "gzipBytes": 781819
+        },
+        {
+          "path": "content-scripts/host.js",
+          "bytes": 2290859,
+          "gzipBytes": 710634
+        },
+        {
+          "path": "chunks/execute-translate-DVcgY7Nx.js",
+          "bytes": 1901611,
+          "gzipBytes": 456273
+        },
+        {
+          "path": "content-scripts/subtitles.js",
+          "bytes": 1787556,
+          "gzipBytes": 551401
+        },
+        {
+          "path": "content-scripts/side.js",
+          "bytes": 923130,
+          "gzipBytes": 296680
+        },
+        {
+          "path": "chunks/atom-CMJiAgN3.js",
+          "bytes": 450747,
+          "gzipBytes": 140229
+        },
+        {
+          "path": "chunks/esm-Ik4AF5iu.js",
+          "bytes": 425989,
+          "gzipBytes": 135587
+        },
+        {
+          "path": "chunks/subtitles-preview-Tv6RCGNb.js",
+          "bytes": 334169,
+          "gzipBytes": 71676
+        },
+        {
+          "path": "chunks/language-p4aeRC2u.js",
+          "bytes": 248437,
+          "gzipBytes": 118142
+        },
+        {
+          "path": "chunks/css-code-editor-CZQUvz7A.js",
+          "bytes": 235206,
+          "gzipBytes": 71551
+        }
+      ],
+      "skippedSymlinks": [],
+      "skippedSpecialFiles": [],
+      "skippedSensitivePaths": []
+    },
+    ".output/firefox-mv3": {
+      "files": 170,
+      "bytes": 14612889,
+      "gzipBytes": 4659866,
+      "byExtension": {
+        "(none)": {
+          "files": 1,
+          "bytes": 35149,
+          "gzipBytes": 12091
+        },
+        ".css": {
+          "files": 6,
+          "bytes": 656614,
+          "gzipBytes": 101718
+        },
+        ".html": {
+          "files": 5,
+          "bytes": 11103,
+          "gzipBytes": 3398
+        },
+        ".js": {
+          "files": 130,
+          "bytes": 12955074,
+          "gzipBytes": 3981749
+        },
+        ".json": {
+          "files": 4,
+          "bytes": 437559,
+          "gzipBytes": 83646
+        },
+        ".png": {
+          "files": 11,
+          "bytes": 286611,
+          "gzipBytes": 253656
+        },
+        ".svg": {
+          "files": 5,
+          "bytes": 11793,
+          "gzipBytes": 4625
+        },
+        ".txt": {
+          "files": 1,
+          "bytes": 474,
+          "gzipBytes": 314
+        },
+        ".woff2": {
+          "files": 7,
+          "bytes": 218512,
+          "gzipBytes": 218669
+        }
+      },
+      "largestFiles": [
+        {
+          "path": "content-scripts/selection.js",
+          "bytes": 2385018,
+          "gzipBytes": 781819
+        },
+        {
+          "path": "content-scripts/host.js",
+          "bytes": 2290860,
+          "gzipBytes": 710638
+        },
+        {
+          "path": "chunks/execute-translate-DVcgY7Nx.js",
+          "bytes": 1901611,
+          "gzipBytes": 456273
+        },
+        {
+          "path": "content-scripts/subtitles.js",
+          "bytes": 1787556,
+          "gzipBytes": 551401
+        },
+        {
+          "path": "content-scripts/side.js",
+          "bytes": 923130,
+          "gzipBytes": 296680
+        },
+        {
+          "path": "chunks/atom-CMJiAgN3.js",
+          "bytes": 450747,
+          "gzipBytes": 140229
+        },
+        {
+          "path": "chunks/esm-Ik4AF5iu.js",
+          "bytes": 425989,
+          "gzipBytes": 135587
+        },
+        {
+          "path": "chunks/subtitles-preview-Tv6RCGNb.js",
+          "bytes": 334169,
+          "gzipBytes": 71676
+        },
+        {
+          "path": "chunks/language-p4aeRC2u.js",
+          "bytes": 248437,
+          "gzipBytes": 118142
+        },
+        {
+          "path": "chunks/css-code-editor-CZQUvz7A.js",
+          "bytes": 235206,
+          "gzipBytes": 71551
+        }
+      ],
+      "skippedSymlinks": [],
+      "skippedSpecialFiles": [],
+      "skippedSensitivePaths": []
+    }
+  },
+  "comparison": {
+    "baselineProductRevision": "ca8da8241883c9aff5862d15d045845a746c9a6b",
+    "numericChanges": [
+      {
+        "field": "dependencies.development",
+        "before": 41,
+        "after": 39,
+        "delta": -2
+      },
+      {
+        "field": "dependencies.runtime",
+        "before": 93,
+        "after": 82,
+        "delta": -11
+      },
+      {
+        "field": "dependencies.runtimeAndDevelopment",
+        "before": 134,
+        "after": 121,
+        "delta": -13
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension.(none).bytes",
+        "before": null,
+        "after": 35149,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension.(none).files",
+        "before": null,
+        "after": 1,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension.(none).gzipBytes",
+        "before": null,
+        "after": 12091,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..css.bytes",
+        "before": 688658,
+        "after": 656614,
+        "delta": -32044
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..css.files",
+        "before": 5,
+        "after": 6,
+        "delta": 1
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..css.gzipBytes",
+        "before": 106080,
+        "after": 101718,
+        "delta": -4362
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..html.bytes",
+        "before": 11789,
+        "after": 11103,
+        "delta": -686
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..html.gzipBytes",
+        "before": 3547,
+        "after": 3398,
+        "delta": -149
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..jpg.bytes",
+        "before": 209136,
+        "after": null,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..jpg.files",
+        "before": 1,
+        "after": null,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..jpg.gzipBytes",
+        "before": 181229,
+        "after": null,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..js.bytes",
+        "before": 19993216,
+        "after": 12955073,
+        "delta": -7038143
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..js.files",
+        "before": 149,
+        "after": 130,
+        "delta": -19
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..js.gzipBytes",
+        "before": 6148958,
+        "after": 3981745,
+        "delta": -2167213
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..json.bytes",
+        "before": 1802500,
+        "after": 437302,
+        "delta": -1365198
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..json.files",
+        "before": 11,
+        "after": 4,
+        "delta": -7
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..json.gzipBytes",
+        "before": 336622,
+        "after": 83514,
+        "delta": -253108
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..png.bytes",
+        "before": 875907,
+        "after": 286611,
+        "delta": -589296
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..png.files",
+        "before": 14,
+        "after": 11,
+        "delta": -3
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..png.gzipBytes",
+        "before": 826668,
+        "after": 253656,
+        "delta": -573012
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..svg.gzipBytes",
+        "before": 4647,
+        "after": 4625,
+        "delta": -22
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..txt.bytes",
+        "before": null,
+        "after": 474,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..txt.files",
+        "before": null,
+        "after": 1,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..txt.gzipBytes",
+        "before": null,
+        "after": 314,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..woff2.gzipBytes",
+        "before": 218654,
+        "after": 218669,
+        "delta": 15
+      },
+      {
+        "field": "outputs..output/chrome-mv3.bytes",
+        "before": 23811511,
+        "after": 14612631,
+        "delta": -9198880
+      },
+      {
+        "field": "outputs..output/chrome-mv3.files",
+        "before": 197,
+        "after": 170,
+        "delta": -27
+      },
+      {
+        "field": "outputs..output/chrome-mv3.gzipBytes",
+        "before": 7826405,
+        "after": 4659730,
+        "delta": -3166675
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension.(none).bytes",
+        "before": null,
+        "after": 35149,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension.(none).files",
+        "before": null,
+        "after": 1,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension.(none).gzipBytes",
+        "before": null,
+        "after": 12091,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..css.bytes",
+        "before": 688658,
+        "after": 656614,
+        "delta": -32044
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..css.files",
+        "before": 5,
+        "after": 6,
+        "delta": 1
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..css.gzipBytes",
+        "before": 106080,
+        "after": 101718,
+        "delta": -4362
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..html.bytes",
+        "before": 11789,
+        "after": 11103,
+        "delta": -686
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..html.gzipBytes",
+        "before": 3545,
+        "after": 3398,
+        "delta": -147
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..jpg.bytes",
+        "before": 209136,
+        "after": null,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..jpg.files",
+        "before": 1,
+        "after": null,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..jpg.gzipBytes",
+        "before": 181229,
+        "after": null,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..js.bytes",
+        "before": 19993205,
+        "after": 12955074,
+        "delta": -7038131
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..js.files",
+        "before": 149,
+        "after": 130,
+        "delta": -19
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..js.gzipBytes",
+        "before": 6149065,
+        "after": 3981749,
+        "delta": -2167316
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..json.bytes",
+        "before": 1802806,
+        "after": 437559,
+        "delta": -1365247
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..json.files",
+        "before": 11,
+        "after": 4,
+        "delta": -7
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..json.gzipBytes",
+        "before": 336797,
+        "after": 83646,
+        "delta": -253151
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..png.bytes",
+        "before": 875907,
+        "after": 286611,
+        "delta": -589296
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..png.files",
+        "before": 14,
+        "after": 11,
+        "delta": -3
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..png.gzipBytes",
+        "before": 826668,
+        "after": 253656,
+        "delta": -573012
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..svg.gzipBytes",
+        "before": 4647,
+        "after": 4625,
+        "delta": -22
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..txt.bytes",
+        "before": null,
+        "after": 474,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..txt.files",
+        "before": null,
+        "after": 1,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..txt.gzipBytes",
+        "before": null,
+        "after": 314,
+        "delta": null
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..woff2.gzipBytes",
+        "before": 218654,
+        "after": 218669,
+        "delta": 15
+      },
+      {
+        "field": "outputs..output/firefox-mv3.bytes",
+        "before": 23811806,
+        "after": 14612889,
+        "delta": -9198917
+      },
+      {
+        "field": "outputs..output/firefox-mv3.files",
+        "before": 197,
+        "after": 170,
+        "delta": -27
+      },
+      {
+        "field": "outputs..output/firefox-mv3.gzipBytes",
+        "before": 7826685,
+        "after": 4659866,
+        "delta": -3166819
+      },
+      {
+        "field": "source.byExtension..css",
+        "before": 8,
+        "after": 9,
+        "delta": 1
+      },
+      {
+        "field": "source.byExtension..md",
+        "before": 3,
+        "after": 4,
+        "delta": 1
+      },
+      {
+        "field": "source.byExtension..ts",
+        "before": 1023,
+        "after": 907,
+        "delta": -116
+      },
+      {
+        "field": "source.byExtension..tsx",
+        "before": 462,
+        "after": 414,
+        "delta": -48
+      },
+      {
+        "field": "source.byExtension..txt",
+        "before": 3,
+        "after": null,
+        "delta": null
+      },
+      {
+        "field": "source.byExtension..yml",
+        "before": 10,
+        "after": 3,
+        "delta": -7
+      },
+      {
+        "field": "source.localeFiles",
+        "before": 10,
+        "after": 3,
+        "delta": -7
+      },
+      {
+        "field": "source.sourceCodeFiles",
+        "before": 1485,
+        "after": 1321,
+        "delta": -164
+      },
+      {
+        "field": "source.testFiles",
+        "before": 375,
+        "after": 325,
+        "delta": -50
+      },
+      {
+        "field": "source.trackedFiles",
+        "before": 1834,
+        "after": 1662,
+        "delta": -172
+      },
+      {
+        "field": "source.trackedSrcFiles",
+        "before": 1531,
+        "after": 1359,
+        "delta": -172
+      }
+    ],
+    "note": "Only numeric metrics are compared. Largest-file arrays, provenance, hashes and dirty state are excluded. Check hashes/toolchain separately; size deltas do not measure runtime performance."
+  }
+}

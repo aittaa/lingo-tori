@@ -69,32 +69,34 @@ describe("provider config updates", () => {
       provider: "openai",
     } as PartialDeep<ProviderConfig>
 
-    expect(() =>
-      updateProviderConfig(DEFAULT_PROVIDER_CONFIG["google-translate"], invalidUpdates),
-    ).toThrow(/Invalid/)
+    expect(() => updateProviderConfig(DEFAULT_PROVIDER_CONFIG["deepl"], invalidUpdates)).toThrow(
+      /Invalid/,
+    )
   })
 })
 
 describe("feature provider refs", () => {
-  it("resolves Built-in AI without requiring a persisted provider config row", () => {
+  it("leaves removed hosted provider references unresolved", () => {
     const store = createStore()
     const config = structuredClone(DEFAULT_CONFIG)
     config.pageTranslation.providerId = BUILT_IN_AI_PROVIDER_ID
     store.set(configAtom, config)
+    expect(store.get(featureProviderRefAtom("pageTranslation"))).toBeNull()
+  })
 
+  it("resolves persisted providers as local refs", () => {
+    const store = createStore()
+    const config = structuredClone(DEFAULT_CONFIG)
+    config.providersConfig.push(structuredClone(DEFAULT_PROVIDER_CONFIG.openai))
+    config.pageTranslation.providerId = DEFAULT_PROVIDER_CONFIG.openai.id
+    store.set(configAtom, config)
     expect(store.get(featureProviderRefAtom("pageTranslation"))).toMatchObject({
-      kind: "system",
-      id: BUILT_IN_AI_PROVIDER_ID,
-      modelTier: "normal",
+      kind: "local",
+      id: DEFAULT_PROVIDER_CONFIG.openai.id,
     })
   })
 
-  it("continues to resolve persisted providers as local refs", () => {
-    const store = createStore()
-
-    expect(store.get(featureProviderRefAtom("pageTranslation"))).toMatchObject({
-      kind: "local",
-      id: DEFAULT_CONFIG.pageTranslation.providerId,
-    })
+  it("leaves unconfigured features unresolved", () => {
+    expect(createStore().get(featureProviderRefAtom("pageTranslation"))).toBeNull()
   })
 })

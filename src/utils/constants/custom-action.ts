@@ -9,7 +9,6 @@ export const ICON_PATTERN = /^[^:\s]+:[^:\s]+$/
 export const DEFAULT_ACTION_NAME = "Custom AI Action"
 export const BUILT_IN_DICTIONARY_ACTION_ID = "default-dictionary"
 export const BUILT_IN_SENTENCE_ANALYSIS_ACTION_ID = "default-sentence-analysis"
-export const BUILT_IN_IMPROVE_WRITING_ACTION_ID = "default-improve-writing"
 
 // The code-owned actions, by id → their key in `selectionToolbar.builtInActions`,
 // which persists only their enabled/provider/Notebase state. Listed in the
@@ -17,7 +16,6 @@ export const BUILT_IN_IMPROVE_WRITING_ACTION_ID = "default-improve-writing"
 export const BUILT_IN_ACTION_KEYS = {
   [BUILT_IN_DICTIONARY_ACTION_ID]: "dictionary",
   [BUILT_IN_SENTENCE_ANALYSIS_ACTION_ID]: "sentenceAnalysis",
-  [BUILT_IN_IMPROVE_WRITING_ACTION_ID]: "improveWriting",
 } as const
 
 export type BuiltInActionId = keyof typeof BUILT_IN_ACTION_KEYS
@@ -37,7 +35,6 @@ export function isBuiltInActionId(id: string): id is BuiltInActionId {
 export const BUILT_IN_ACTION_DEFAULT_SHORTCUTS: Record<BuiltInActionId, string> = {
   [BUILT_IN_DICTIONARY_ACTION_ID]: "Alt+Shift+D",
   [BUILT_IN_SENTENCE_ANALYSIS_ACTION_ID]: "Alt+Shift+G",
-  [BUILT_IN_IMPROVE_WRITING_ACTION_ID]: "Alt+Shift+W",
 }
 
 export function createOutputSchemaField(

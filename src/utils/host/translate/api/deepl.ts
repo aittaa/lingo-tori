@@ -1,4 +1,4 @@
-import type { LangCodeISO6391 } from "@read-frog/definitions"
+import type { LangCodeISO6391 } from "@/lib/languages"
 import type { ProviderConfig } from "@/types/config/provider"
 import type { TranslationTextFormat } from "@/types/config/translate"
 
@@ -131,7 +131,7 @@ export function normalizeDeepLLanguages(
 function formatDeepLLanguageCode(lang: LangCodeISO6391, direction: "source" | "target"): string {
   const formattedLang = lang.toUpperCase()
 
-  if (formattedLang === "ZH") {
+  if (formattedLang === "ZH" || formattedLang === "ZH-CN") {
     return direction === "target" ? "ZH-HANS" : "ZH"
   }
 

@@ -1,7 +1,7 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
 import type { JSONValue } from "ai"
 import type { RefObject } from "react"
 import type { SelectionToolbarInlineError } from "@/components/ui/selection-popover/inline-error"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import type { FeatureProviderAnalytics, SurfaceByFeature } from "@/types/analytics"
 import type {
   BackgroundStructuredObjectStreamSnapshot,
@@ -10,7 +10,6 @@ import type {
 import type { Config } from "@/types/config/config"
 import type { AISDKReasoning } from "@/types/config/provider"
 import type { SelectionToolbarCustomAction } from "@/types/config/selection-toolbar"
-import type { HostedAiModelTier } from "@/utils/constants/provider-ids"
 import type { CachedWebPageContext } from "@/utils/host/translate/webpage-context"
 import type { CustomActionProviderRef } from "@/utils/providers/provider-registry"
 
@@ -19,20 +18,19 @@ export interface SelectionToolbarCustomActionRequestSlice {
   action: SelectionToolbarCustomAction | null
   provider: CustomActionProviderRef | null
 }
-import { LANG_CODE_TO_EN_NAME } from "@read-frog/definitions"
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
   createSelectionToolbarPrecheckError,
   createSelectionToolbarRuntimeError,
   isAbortError,
 } from "@/components/ui/selection-popover/inline-error"
+import { LANG_CODE_TO_EN_NAME } from "@/lib/languages"
 import { ANALYTICS_FEATURE } from "@/types/analytics"
 import { createFeatureUsageContext, trackFeatureUsed } from "@/utils/analytics"
 import { classifyFailureReason } from "@/utils/analytics-failure-reason"
 import { classifyResolvedProvider } from "@/utils/analytics-provider"
 import { streamBackgroundStructuredObject } from "@/utils/content-script/background-stream-client"
 import { getSourceDocumentTitle } from "@/utils/content/document-title"
-import { getRandomUUID } from "@/utils/crypto-polyfill"
 import { truncateContextTextForCustomAction } from "@/utils/custom-action-prompt"
 import {
   buildSelectionToolbarCustomActionSystemPrompt,
@@ -82,7 +80,6 @@ interface CustomActionExecutionRequest {
     }>
     prompt: string
     providerId: string
-    modelTier?: HostedAiModelTier
     providerOptions?: Record<string, Record<string, JSONValue>>
     reasoning?: AISDKReasoning
     instructions: string
@@ -301,7 +298,6 @@ function buildCustomActionExecutionRequest({
     }),
     payload: {
       providerId: provider.id,
-      modelTier: provider.kind === "system" ? provider.modelTier : undefined,
       instructions: systemPrompt,
       prompt,
       outputSchema,
@@ -399,7 +395,6 @@ export function useCustomActionExecution({
         const finalResult = await streamBackgroundStructuredObject(
           {
             ...request.payload,
-            requestId: getRandomUUID(),
           },
           {
             signal: abortController.signal,

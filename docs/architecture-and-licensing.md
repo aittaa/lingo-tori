@@ -2,7 +2,7 @@
 
 ## Audit scope and evidence
 
-The baseline audit examined extension-owned integration code at `ca8da8241883c9aff5862d15d045845a746c9a6b`. Restricted package implementations were not inspected, copied, or reverse-engineered. This document describes findings and the intended final scope; implementation details belong to the separate core and experimental PRs. It does not certify that their code is present in this planning PR or establish legal clearance.
+The baseline audit examined extension-owned integration code at `ca8da8241883c9aff5862d15d045845a746c9a6b`. Restricted package implementations were not inspected, copied, or reverse-engineered. This document describes findings and proposed changes; it does not certify completed removal or legal clearance.
 
 Preserve the existing GPLv3 license and upstream attribution. Fork identity, branding, and runtime service ownership change; legal attribution remains. Package implementation reuse requires a clear compatible license and provenance.
 
@@ -22,13 +22,13 @@ The layout package is identified as proprietary. The other two packages have unr
 
 Resolve this through removal or an independently authored migration/import strategy, with the exception to historical frozen-migration policy documented and tested. Do not copy the snapshots into a new renderer, a replacement package, or documentation. The upstream migration skill normally requires immutable self-contained migration snapshots and a continuous registry; changes needed to remove restricted content must preserve the chain and user data through an explicit tested approach.
 
-### Planned historical compatibility exception
+### Historical compatibility exception implemented
 
-The separate independent-core change proposes an independently authored v102-to-v103 compatibility transform to remove legacy layout and speech fields while preserving unrelated settings. That code and its generated-fixture cleanup are not included in this planning PR.
+The v102-to-v103 step now uses an independently authored compatibility transform that removes legacy layout and speech fields while preserving unrelated settings. Its previous preset-producing implementation and generated render fixtures were removed without using them as implementation references.
 
-The core PR must validate the v103-v110 fixture cleanup, preserve all unrelated historical settings and assert that retired payloads stay inert. The compatibility exception does not permit rewriting unrelated migrations. Review v111 and its fixture with the corresponding service retirements.
+Historical example fixtures v103-v110 were scrubbed by parsing TypeScript and replacing only `layout` and `sampleData` value ranges; removed payloads were not displayed or retained. Eight fixture files contained 22 affected properties. The chain suite compares all other historical settings exactly and separately asserts that retired payloads remain inert. This is an explicit provenance exception to frozen historical snapshots, not permission to rewrite unrelated migrations. The new v111 migration and fixture are independently authored extension compatibility work.
 
-### Precise integration paths
+### Baseline integration paths (historical)
 
 - `src/components/layout-host/custom-action-layout-view.tsx` mounts the engine. `fallback-field-list.tsx` also imports its formatter, so the fallback is not independent yet.
 - `src/utils/layout-host/*`, `src/utils/constants/config.ts`, and `custom-action-templates.ts` import presets or engine contracts.
@@ -58,7 +58,7 @@ Remove original authentication clients, oRPC service clients, payment/quota UI, 
 
 The original upstream ebook bridge remains removed. Do not expose arbitrary fetch, keys, or privileged extension actions to page messages.
 
-The companion is removed. The replacement browser-only source is experimental; see [BYOS](byos.md) for its dedicated extension-origin vault, optional narrow callback permission and explicit official-support mismatch. Authentication evidence belongs to the separate experimental implementation, not this planning PR.
+The companion and browser-only account runtime are excluded. Old experimental provider rows remain storage-only compatibility data; capability resolution cannot select or execute them, and their selected IDs do not invalidate unrelated BYOK settings. No user records or browser databases are deleted.
 
 ## Migration and build risks
 

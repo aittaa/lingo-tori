@@ -36,6 +36,16 @@ function openHub() {
 describe("Translation Hub preferences", () => {
   beforeEach(() => {
     persisted.value = structuredClone(DEFAULT_CONFIG)
+    persisted.value.providersConfig = [
+      {
+        id: "test-deepl",
+        name: "Test translator",
+        enabled: true,
+        provider: "deepl",
+        apiKey: "test-key",
+      },
+    ]
+    persisted.value.translationHub.selectedProviderIds = ["test-deepl"]
     vi.mocked(storageAdapter.set).mockClear()
   })
 
@@ -60,10 +70,10 @@ describe("Translation Hub preferences", () => {
     expect(openHub().get(selectedProviderIdsAtom)).toEqual([])
 
     await first.set(selectedProviderIdsAtom, ["removed-provider", "read-frog-free-ai"])
-    expect(openHub().get(selectedProviderIdsAtom)).toEqual(["read-frog-free-ai"])
+    expect(openHub().get(selectedProviderIdsAtom)).toEqual([])
 
-    const localId = DEFAULT_CONFIG.providersConfig.find(
-      (provider) => provider.enabled && provider.provider === "microsoft-translate",
+    const localId = persisted.value.providersConfig.find(
+      (provider) => provider.enabled && provider.provider === "deepl",
     )?.id
     expect(localId).toBeDefined()
     await first.set(selectedProviderIdsAtom, [localId!])

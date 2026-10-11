@@ -27,7 +27,7 @@ describe("v101 to v102 migration", () => {
   it("parses an older Hub section without replacing unrelated settings", () => {
     const parsed = configSchema.parse({
       ...DEFAULT_CONFIG,
-      uiLanguage: "zh-CN",
+      uiLanguage: "ko",
       pageTranslation: {
         ...DEFAULT_CONFIG.pageTranslation,
         customPromptsConfig: {
@@ -37,7 +37,7 @@ describe("v101 to v102 migration", () => {
       },
       translationHub: { shortcut: "Alt+Shift+H" },
     })
-    expect(parsed.uiLanguage).toBe("zh-CN")
+    expect(parsed.uiLanguage).toBe("ko")
     expect(parsed.translationHub).toMatchObject({
       shortcut: "Alt+Shift+H",
       selectedProviderIds: null,

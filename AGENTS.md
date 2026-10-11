@@ -3,6 +3,7 @@
 ## Testing Notes
 
 - Run tests only immediately before merging a PR. Do not run tests during implementation, commits, pushes, or PR creation; prepare the relevant checks for the merge gate instead.
+- The former live free-API provider suite was removed with the retired translation providers.
 - When running tests locally as an AI agent, set `SKIP_FREE_API=true`.
 - Keep local validation independent of live external translation services; set `SKIP_FREE_API=true` for any compatible optional live-service checks.
 

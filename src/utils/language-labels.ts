@@ -1,7 +1,7 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import type { GlossaryTargetLang } from "@/utils/glossary/target-language"
-import { LANG_CODE_TO_LOCALE_NAME } from "@read-frog/definitions"
 import { camelCase } from "case-anything"
+import { LANG_CODE_TO_LOCALE_NAME } from "@/lib/languages"
 import { ALL_LANGUAGES } from "@/utils/glossary/target-language"
 import { i18n } from "@/utils/i18n"
 

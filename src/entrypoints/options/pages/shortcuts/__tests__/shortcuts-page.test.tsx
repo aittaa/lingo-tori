@@ -57,7 +57,6 @@ describe("shortcuts page", () => {
       "page-translation-shortcut",
       "translation-mode-shortcut",
       "selection-translation-shortcut",
-      "selection-speak-shortcut",
       "subtitles-toggle-shortcut",
       "node-translation-hotkey",
       "translation-hub-shortcut",

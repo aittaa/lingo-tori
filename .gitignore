@@ -46,3 +46,15 @@ scripts/output/
 
 reference/
 .gstack/
+
+# Personal learning databases and local runtime secrets
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.pem
+*.key
+lingotori-token*
+lingotori-secret*

@@ -1,5 +1,4 @@
 import { Navigate, useParams } from "react-router"
-import { env } from "@/env"
 import { i18n } from "@/utils/i18n"
 import { ConfigDetailSection } from "../../../components/config-detail-section"
 import { ConfigSection } from "../../../components/config-section"
@@ -55,7 +54,7 @@ export function GlossaryEditorPage() {
         // than beside one of the controls, because it answers all of them.
         action={
           <a
-            href={`${env.WXT_WEBSITE_URL}/docs/glossary`}
+            href="https://github.com/aittaa/lingo-tori#readme"
             className="shrink-0 text-xs font-normal text-link hover:opacity-90"
             target="_blank"
             rel="noreferrer"

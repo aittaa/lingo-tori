@@ -1,8 +1,5 @@
 import type { GeneratedI18nStructure } from "#i18n"
-import {
-  CUSTOM_ACTION_LAYOUT_SECTION_ID,
-  CUSTOM_ACTION_NOTEBASE_SECTION_ID,
-} from "@/utils/navigation"
+import { CUSTOM_ACTION_LAYOUT_SECTION_ID } from "@/utils/navigation"
 
 type I18nKey = keyof GeneratedI18nStructure
 
@@ -74,13 +71,7 @@ export const SEARCH_ITEMS: SearchItem[] = [
     descriptionKey: "options.preference.extensionActivation.mode.description",
     pageKey: "options.preference.title",
   },
-  {
-    sectionId: "google-drive-sync",
-    route: "/preference",
-    titleKey: "options.preference.config.googleDrive.title",
-    descriptionKey: "options.preference.config.googleDrive.description",
-    pageKey: "options.preference.title",
-  },
+
   {
     sectionId: "manual-config-sync",
     route: "/preference",
@@ -110,13 +101,6 @@ export const SEARCH_ITEMS: SearchItem[] = [
     descriptionKey: "options.preference.userExperience.beta.description",
     pageKey: "options.preference.title",
   },
-  {
-    sectionId: "analytics",
-    route: "/preference",
-    titleKey: "options.preference.userExperience.analytics.title",
-    descriptionKey: "options.preference.userExperience.analytics.description",
-    pageKey: "options.preference.title",
-  },
 
   // Shortcuts page
   {
@@ -140,13 +124,7 @@ export const SEARCH_ITEMS: SearchItem[] = [
     descriptionKey: "options.shortcuts.selectionTranslation.description",
     pageKey: "options.shortcuts.title",
   },
-  {
-    sectionId: "selection-speak-shortcut",
-    route: "/shortcuts",
-    titleKey: "options.shortcuts.selectionSpeak.title",
-    descriptionKey: "options.shortcuts.selectionSpeak.description",
-    pageKey: "options.shortcuts.title",
-  },
+
   {
     sectionId: "subtitles-toggle-shortcut",
     route: "/shortcuts",
@@ -220,14 +198,6 @@ export const SEARCH_ITEMS: SearchItem[] = [
     route: "/custom-actions",
     titleKey: "options.selectionToolbar.customActions.form.layout.title",
     descriptionKey: "options.selectionToolbar.customActions.form.layout.description",
-    pageKey: "options.selectionToolbar.customActions.title",
-  },
-  {
-    // The Notebase tab trigger itself; the scroll activates it.
-    sectionId: CUSTOM_ACTION_NOTEBASE_SECTION_ID,
-    route: "/custom-actions",
-    titleKey: "options.selectionToolbar.customActions.form.notebase.title",
-    descriptionKey: "options.selectionToolbar.customActions.form.notebase.description",
     pageKey: "options.selectionToolbar.customActions.title",
   },
 
@@ -445,35 +415,6 @@ export const SEARCH_ITEMS: SearchItem[] = [
   },
 
   // Input Translation page
-  {
-    // Titled with the section, so the row that reads "Enable" is still findable on its own.
-    sectionId: "input-translation-trigger",
-    route: "/input-translation",
-    titleKey: "options.inputTranslation.trigger.title",
-    descriptionKey: "options.inputTranslation.trigger.enable.description",
-    pageKey: "options.inputTranslation.title",
-  },
-  {
-    sectionId: "input-translation-threshold",
-    route: "/input-translation",
-    titleKey: "options.inputTranslation.trigger.threshold.title",
-    descriptionKey: "options.inputTranslation.trigger.threshold.description",
-    pageKey: "options.inputTranslation.title",
-  },
-  {
-    sectionId: "input-translation-languages",
-    route: "/input-translation",
-    titleKey: "options.inputTranslation.languages.title",
-    descriptionKey: "options.inputTranslation.languages.pair.description",
-    pageKey: "options.inputTranslation.title",
-  },
-  {
-    sectionId: "input-translation-cycle",
-    route: "/input-translation",
-    titleKey: "options.inputTranslation.languages.cycle.title",
-    descriptionKey: "options.inputTranslation.languages.cycle.description",
-    pageKey: "options.inputTranslation.title",
-  },
 
   // Video Subtitles page
   {
@@ -497,13 +438,7 @@ export const SEARCH_ITEMS: SearchItem[] = [
     descriptionKey: "options.videoSubtitles.preference.aiSegmentation.description",
     pageKey: "options.videoSubtitles.title",
   },
-  {
-    sectionId: "subtitles-ai-quota",
-    route: "/video-subtitles",
-    titleKey: "options.videoSubtitles.aiQuota.title",
-    descriptionKey: "options.videoSubtitles.aiQuota.description",
-    pageKey: "options.videoSubtitles.title",
-  },
+
   {
     // Its own page, drilled into from the Video Subtitles page's Subtitle style section.
     sectionId: "subtitles-style",
@@ -551,39 +486,4 @@ export const SEARCH_ITEMS: SearchItem[] = [
   },
 
   // Text to Speech page
-  {
-    sectionId: "language-voice",
-    route: "/tts",
-    titleKey: "options.tts.voice.language.title",
-    descriptionKey: "options.tts.voice.language.description",
-    pageKey: "options.tts.title",
-  },
-  {
-    sectionId: "tts-voice",
-    route: "/tts",
-    titleKey: "options.tts.voice.fallback.title",
-    descriptionKey: "options.tts.voice.fallback.description",
-    pageKey: "options.tts.title",
-  },
-  {
-    sectionId: "tts-rate",
-    route: "/tts",
-    titleKey: "options.tts.speech.rate.title",
-    descriptionKey: "options.tts.speech.rate.description",
-    pageKey: "options.tts.title",
-  },
-  {
-    sectionId: "tts-pitch",
-    route: "/tts",
-    titleKey: "options.tts.speech.pitch.title",
-    descriptionKey: "options.tts.speech.pitch.description",
-    pageKey: "options.tts.title",
-  },
-  {
-    sectionId: "tts-volume",
-    route: "/tts",
-    titleKey: "options.tts.speech.volume.title",
-    descriptionKey: "options.tts.speech.volume.description",
-    pageKey: "options.tts.title",
-  },
 ] satisfies SearchItemDefinition[]

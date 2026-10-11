@@ -5,15 +5,11 @@ import { useAtomValue, useSetAtom } from "jotai"
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CustomActionContent } from "@/components/custom-action/custom-action-content"
 import { CustomActionToolButton } from "@/components/custom-action/custom-action-tool-button"
-import { SaveToNotebaseButton } from "@/components/custom-action/save-to-notebase-button"
-import { isSaveToNotebaseDialogOpenAtom } from "@/components/custom-action/save-to-notebase-dialog-atom"
-import { SaveToNotebaseDialogHost } from "@/components/custom-action/save-to-notebase-dialog-host"
 import {
   buildCustomActionExecutionPlan,
   useCustomActionExecution,
   useCustomActionWebPageContext,
 } from "@/components/custom-action/use-custom-action-execution"
-import { useHostedAiProviderOptions } from "@/components/llm-providers/use-hosted-ai-provider-options"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { SelectionPopover } from "@/components/ui/selection-popover"
 import { createSelectionToolbarPrecheckError } from "@/components/ui/selection-popover/inline-error"
@@ -43,7 +39,6 @@ import {
   selectionAtom,
   selectionSessionAtom,
 } from "../atoms"
-import { ReviewDueTab } from "../review-due-tab"
 import { useSelectionOpenRequestResolver } from "../use-selection-open-request"
 import { useSelectionShortcuts } from "../use-selection-shortcuts"
 
@@ -75,7 +70,7 @@ function CustomActionFooterContent({
   providers,
   ...props
 }: ComponentProps<typeof SelectionToolbarFooterContent>) {
-  const customActionProviders = useHostedAiProviderOptions("customAction", providers)
+  const customActionProviders = providers
   return <SelectionToolbarFooterContent providers={customActionProviders} {...props} />
 }
 
@@ -112,7 +107,6 @@ export function SelectionCustomActionProvider({ children }: { children: ReactNod
   const language = useAtomValue(configFieldsAtomMap.language)
   const setIsSelectionToolbarOpen = useSetAtom(isSelectionToolbarOpenAtom)
   const setConfig = useSetAtom(writeConfigAtom)
-  const isSaveToNotebaseDialogOpen = useAtomValue(isSaveToNotebaseDialogOpenAtom)
   const bodyRef = useRef<HTMLDivElement>(null)
   const pendingOpenRequestRef = useRef<SelectionCustomActionPendingOpenRequest | null>(null)
   const popoverActionsRef = useRef<SelectionPopoverActions | null>(null)
@@ -428,7 +422,6 @@ export function SelectionCustomActionProvider({ children }: { children: ReactNod
         onAnchorChange={setAnchor}
         actionsRef={popoverActionsRef}
         onReuseRequest={handleReuseRequest}
-        disablePointerDismissal={isSaveToNotebaseDialogOpen}
       >
         <SelectionPopover.Content
           key={popoverSessionKey}
@@ -460,7 +453,6 @@ export function SelectionCustomActionProvider({ children }: { children: ReactNod
             />
             <SelectionToolbarErrorAlert error={displayedError} />
           </SelectionPopover.Body>
-          <ReviewDueTab source="extension_custom_ai_action" />
           <CustomActionFooterContent
             paragraphsText={paragraphsText}
             providers={baseCustomActionProviders}
@@ -471,18 +463,12 @@ export function SelectionCustomActionProvider({ children }: { children: ReactNod
           >
             {activeAction && (
               <>
-                <SaveToNotebaseButton
-                  action={activeAction}
-                  isRunning={displayedIsRunning}
-                  result={displayedResult}
-                />
                 <CustomActionToolButton action={activeAction} />
               </>
             )}
           </CustomActionFooterContent>
         </SelectionPopover.Content>
       </SelectionPopover.Root>
-      <SaveToNotebaseDialogHost />
     </SelectionCustomActionContext>
   )
 }

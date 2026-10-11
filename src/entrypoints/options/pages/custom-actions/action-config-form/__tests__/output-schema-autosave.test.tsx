@@ -29,7 +29,7 @@ function createAction(): SelectionToolbarCustomAction {
     id: "mapped-action",
     name: "Vocabulary",
     icon: "tabler:book",
-    providerId: "read-frog-free-ai",
+    providerId: "unconfigured",
     systemPrompt: "Explain the selected text.",
     prompt: "{{selection}}",
     outputSchema: ["meaning", "example"].map((id) => ({
@@ -42,17 +42,6 @@ function createAction(): SelectionToolbarCustomAction {
       selection: "A word",
       targetCode: "eng",
       values: { meaning: "Its meaning", example: "An example" },
-    },
-    notebaseConnection: {
-      notebaseId: "words",
-      notebaseNameSnapshot: "Words",
-      connectedAccount: { id: "reader", name: "Reader", email: "reader@example.com" },
-      mappings: ["meaning", "example"].map((id) => ({
-        id: `${id}-mapping`,
-        localFieldId: id,
-        notebaseColumnId: `${id}-column`,
-        notebaseColumnNameSnapshot: id,
-      })),
     },
   }
 }
@@ -122,7 +111,7 @@ async function getPersistedAction(): Promise<SelectionToolbarCustomAction> {
 
 describe("output schema autosave", () => {
   afterEach(() => vi.restoreAllMocks())
-  it("persists mapped-field deletion and removes its mapping before form validation", async () => {
+  it("persists field deletion and removes sample data before form validation", async () => {
     const action = createAction()
     const { router, store } = await setup(action)
     const writes = vi.spyOn(fakeBrowser.storage.local, "set")
@@ -131,10 +120,6 @@ describe("output schema autosave", () => {
       outputSchema: [action.outputSchema[1]!],
       // The deleted field's sample value goes in the same write.
       sampleData: { ...action.sampleData!, values: { example: "An example" } },
-      notebaseConnection: {
-        ...action.notebaseConnection!,
-        mappings: [action.notebaseConnection!.mappings[1]!],
-      },
     }
 
     await deleteMeaning()
@@ -157,9 +142,8 @@ describe("output schema autosave", () => {
     expect(screen.queryByText("options.autosave.leaveTitle")).not.toBeInTheDocument()
   })
 
-  it("preserves the connection and remaining mapping when deleting an unmapped field", async () => {
+  it("preserves the remaining field when deleting a field", async () => {
     const action = createAction()
-    action.notebaseConnection!.mappings = [action.notebaseConnection!.mappings[1]!]
     await setup(action)
 
     await deleteMeaning()
@@ -167,12 +151,10 @@ describe("output schema autosave", () => {
     await waitFor(async () =>
       expect((await getPersistedAction()).outputSchema).toEqual([action.outputSchema[1]!]),
     )
-    expect((await getPersistedAction()).notebaseConnection).toEqual(action.notebaseConnection)
   })
 
-  it("deletes a field normally when no Notebase is connected", async () => {
+  it("deletes a field without legacy sample data", async () => {
     const action = createAction()
-    delete action.notebaseConnection
     await setup(action)
 
     await deleteMeaning()
@@ -180,10 +162,9 @@ describe("output schema autosave", () => {
     await waitFor(async () =>
       expect((await getPersistedAction()).outputSchema).toEqual([action.outputSchema[1]!]),
     )
-    expect((await getPersistedAction()).notebaseConnection).toBeUndefined()
   })
 
-  it("moves the layout's references in the same write as a field rename", async () => {
+  it("preserves inert legacy layout while saving a field rename", async () => {
     const action = createAction()
     action.layout =
       '<p>{{ meaning }}</p>{% if ["meaning"] != blank %}<i>{{ example | upcase }}</i>{% endif %}'
@@ -195,8 +176,7 @@ describe("output schema autosave", () => {
     await waitFor(async () =>
       expect((await getPersistedAction()).outputSchema[0]!.name).toBe("definition"),
     )
-    const expectedLayout =
-      '<p>{{ ["definition"] }}</p>{% if ["definition"] != blank %}<i>{{ example | upcase }}</i>{% endif %}'
+    const expectedLayout = action.layout
     expect((await getPersistedAction()).layout).toBe(expectedLayout)
     const configWrites = writes.mock.calls.filter(([items]) =>
       Object.hasOwn(items, CONFIG_STORAGE_KEY),
@@ -216,7 +196,7 @@ describe("output schema autosave", () => {
     })
   })
 
-  it("keeps the layout and warns when the rename cannot be applied safely", async () => {
+  it("preserves inert layout locals when renaming fields", async () => {
     const action = createAction()
     // `definition` is a template local, so a moved reference would read it instead.
     action.layout = '{% assign definition = "x" %}{{ meaning }} {{ definition }}'
@@ -229,8 +209,8 @@ describe("output schema autosave", () => {
     )
     expect((await getPersistedAction()).layout).toBe(action.layout)
     expect(
-      await screen.findByText("options.selectionToolbar.customActions.form.layout.renameSkipped"),
-    ).toBeInTheDocument()
+      screen.queryByText("options.selectionToolbar.customActions.form.layout.renameSkipped"),
+    ).not.toBeInTheDocument()
   })
 
   it("leaves the layout untouched when a field is deleted", async () => {

@@ -1,4 +1,4 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import type { GlossarySnapshot } from "@/utils/glossary/active-matcher"
 import { setGlossarySnapshotLoader } from "@/utils/glossary/active-matcher"
 import {

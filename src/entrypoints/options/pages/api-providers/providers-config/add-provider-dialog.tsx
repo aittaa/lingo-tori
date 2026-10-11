@@ -15,6 +15,11 @@ import { i18n } from "@/utils/i18n"
 import { selectedProviderIdAtom } from "./atoms"
 import { addProvider } from "./utils"
 
+const providerButtonClassName =
+  "relative flex h-auto flex-col items-center space-y-1.5 rounded-lg p-2 outline-none hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring"
+const providerLabelClassName =
+  "line-clamp-2 flex w-full flex-1 items-center justify-center text-xs font-light"
+
 export default function AddProviderDialog({ onClose }: { onClose: () => void }) {
   const store = useStore()
   const requestNavigation = useSetAtom(requestEditorNavigationAtom)
@@ -100,7 +105,7 @@ function ProviderButton({
     <button
       type="button"
       key={providerType}
-      className="relative flex h-auto flex-col items-center space-y-1.5 rounded-lg p-2 hover:bg-muted/70"
+      className={providerButtonClassName}
       onClick={() => handleAddProvider(providerType)}
     >
       {sponsor?.sponsoring && (
@@ -110,9 +115,7 @@ function ProviderButton({
         />
       )}
       <ProviderIcon logo={API_PROVIDER_ITEMS[providerType].logo(theme)} size="md" />
-      <span className="line-clamp-2 flex w-full flex-1 items-center justify-center text-xs font-light">
-        {getProviderItemName(providerType)}
-      </span>
+      <span className={providerLabelClassName}>{getProviderItemName(providerType)}</span>
     </button>
   )
 }

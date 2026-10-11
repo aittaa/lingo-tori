@@ -15,8 +15,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -54,8 +54,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -76,7 +76,7 @@ describe("youtube subtitles fetcher", () => {
                 requestId: message.requestId,
                 success: true,
                 data: {
-                  videoId: "test123",
+                  videoId: "test1234567",
                   captionTracks: [],
                   audioCaptionTracks: [],
                   device: null,
@@ -85,7 +85,7 @@ describe("youtube subtitles fetcher", () => {
                   selectedTrackLanguageCode: null,
                   selectedTrackVssId: null,
                   defaultCaptionTrackIndex: null,
-                  cachedTimedtextUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+                  cachedTimedtextUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en",
                   isLiveContent: false,
                 },
               },
@@ -105,8 +105,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -115,10 +115,10 @@ describe("youtube subtitles fetcher", () => {
     })
 
     const playerData = {
-      videoId: "test123",
+      videoId: "test1234567",
       captionTracks: [
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en",
           languageCode: "en",
           vssId: ".en",
         },
@@ -160,8 +160,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -170,10 +170,10 @@ describe("youtube subtitles fetcher", () => {
     })
 
     const playerData = {
-      videoId: "test123",
+      videoId: "test1234567",
       captionTracks: [
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en",
           languageCode: "en",
           vssId: ".en",
         },
@@ -190,7 +190,7 @@ describe("youtube subtitles fetcher", () => {
     const cachedSubtitles = [{ text: "cached", start: 0, end: 1 }]
 
     ;(fetcher as any).subtitles = cachedSubtitles
-    ;(fetcher as any).cachedTrackHash = "test123:en::.en"
+    ;(fetcher as any).cachedTrackHash = "test1234567:en::.en"
 
     const requestPlayerDataSpy = vi.spyOn(fetcher as any, "requestPlayerData").mockResolvedValue({
       success: true,
@@ -209,8 +209,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -219,10 +219,10 @@ describe("youtube subtitles fetcher", () => {
     })
 
     const playerData = {
-      videoId: "test123",
+      videoId: "test1234567",
       captionTracks: [
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en",
           languageCode: "en",
           vssId: ".en",
         },
@@ -266,8 +266,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -276,10 +276,10 @@ describe("youtube subtitles fetcher", () => {
     })
 
     const initialPlayerData = {
-      videoId: "test123",
+      videoId: "test1234567",
       captionTracks: [
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en",
           languageCode: "en",
           vssId: ".en",
         },
@@ -297,7 +297,7 @@ describe("youtube subtitles fetcher", () => {
       ...initialPlayerData,
       captionTracks: [
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=fr",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=fr",
           languageCode: "fr",
           vssId: ".fr",
         },
@@ -336,8 +336,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -346,15 +346,15 @@ describe("youtube subtitles fetcher", () => {
     })
 
     const playerData = {
-      videoId: "test123",
+      videoId: "test1234567",
       captionTracks: [
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en&fmt=vtt",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en&fmt=vtt",
           languageCode: "en",
           vssId: ".en",
         },
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en&kind=asr",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en&kind=asr",
           languageCode: "en",
           kind: "asr",
           vssId: "a.en",
@@ -389,8 +389,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -399,15 +399,15 @@ describe("youtube subtitles fetcher", () => {
     })
 
     const playerData = {
-      videoId: "test123",
+      videoId: "test1234567",
       captionTracks: [
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=ar",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=ar",
           languageCode: "ar",
           vssId: ".ar",
         },
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en",
           languageCode: "en",
           vssId: ".en",
         },
@@ -442,8 +442,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -452,15 +452,15 @@ describe("youtube subtitles fetcher", () => {
     })
 
     const playerData = {
-      videoId: "test123",
+      videoId: "test1234567",
       captionTracks: [
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=ar",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=ar",
           languageCode: "ar",
           vssId: ".ar",
         },
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en",
           languageCode: "en",
           vssId: ".en",
         },
@@ -492,8 +492,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -503,18 +503,18 @@ describe("youtube subtitles fetcher", () => {
 
     const captionTracks = [
       {
-        baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=ar",
+        baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=ar",
         languageCode: "ar",
         vssId: ".ar",
       },
       {
-        baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+        baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en",
         languageCode: "en",
         vssId: ".en",
       },
     ]
     const basePlayerData = {
-      videoId: "test123",
+      videoId: "test1234567",
       captionTracks,
       audioCaptionTracks: [],
       device: null,
@@ -559,8 +559,8 @@ describe("youtube subtitles fetcher", () => {
 
     Object.defineProperty(window, "location", {
       value: {
-        href: "https://www.youtube.com/watch?v=test123",
-        search: "?v=test123",
+        href: "https://www.youtube.com/watch?v=test1234567",
+        search: "?v=test1234567",
         origin: "https://www.youtube.com",
         pathname: "/watch",
         hostname: "www.youtube.com",
@@ -569,10 +569,10 @@ describe("youtube subtitles fetcher", () => {
     })
 
     const playerData = {
-      videoId: "test123",
+      videoId: "test1234567",
       captionTracks: [
         {
-          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test1234567&lang=en",
           languageCode: "en",
           vssId: ".en",
         },

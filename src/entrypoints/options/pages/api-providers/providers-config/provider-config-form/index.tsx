@@ -7,7 +7,6 @@ import {
   requestEditorNavigationAtom,
 } from "@/components/form/autosave-navigation"
 import { toAutosaveSession } from "@/components/form/use-autosave"
-import { useHostedAiStatus } from "@/components/llm-providers/use-hosted-ai-status"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import {
   isAPIProviderConfig,
@@ -70,10 +69,6 @@ function EditableProviderConfig({ providerConfig }: { providerConfig: APIProvide
   const setAllProvidersConfig = useSetAtom(configFieldsAtomMap.providersConfig)
   const setConfig = useSetAtom(writeConfigAtom)
   const config = useAtomValue(configAtom)
-  // Decides which built-in tiers count as usable below. Unknown status reads as
-  // usable, so an unreachable status endpoint never traps someone with a
-  // credential they want gone.
-  const { status: hostedAiStatus } = useHostedAiStatus()
   const patchProvider = useSetAtom(patchProviderConfigAtom)
   const { form, autosave } = useProviderForm(providerConfig, async (_snapshot, changes) => {
     await patchProvider({ id: providerConfig.id, changes })
@@ -111,7 +106,7 @@ function EditableProviderConfig({ providerConfig }: { providerConfig: APIProvide
       .get(configFieldsAtomMap.providersConfig)
       .filter((provider) => provider.id !== providerConfig.id)
 
-    const unsatisfied = findFeatureMissingProvider(updatedAllProviders, config, hostedAiStatus)
+    const unsatisfied = findFeatureMissingProvider(updatedAllProviders, config)
     if (unsatisfied) {
       // Name the feature. The block is worth nothing if the user cannot tell
       // which slot it is protecting — and it fires for switched-off features
@@ -131,7 +126,6 @@ function EditableProviderConfig({ providerConfig }: { providerConfig: APIProvide
       providerConfig.id,
       config,
       updatedAllProviders,
-      hostedAiStatus,
     )
     const hasAffectedCustomActions = getSelectionToolbarActions(config.selectionToolbar).some(
       (action) => action.providerId === providerConfig.id,
@@ -149,7 +143,6 @@ function EditableProviderConfig({ providerConfig }: { providerConfig: APIProvide
       providerConfig.id,
       config,
       updatedAllProviders,
-      hostedAiStatus,
     )
     let patch = buildFeatureProviderPatch(fallbacks)
     if (updatedSelectionToolbar) {
@@ -163,27 +156,21 @@ function EditableProviderConfig({ providerConfig }: { providerConfig: APIProvide
       providerConfig.id,
       config,
       updatedAllProviders,
-      hostedAiStatus,
     )
     if (languageDetectionFallback !== null) {
       patch = {
         ...patch,
         languageDetection: {
           ...config.languageDetection,
+          mode: languageDetectionFallback ? "llm" : "basic",
           providerId: languageDetectionFallback,
         },
       }
     }
 
-    if (Object.keys(patch).length > 0) {
-      await setConfig(patch)
-    }
-
-    await setAllProvidersConfig(updatedAllProviders)
+    await setConfig({ ...patch, providersConfig: updatedAllProviders })
     const nextProvider = chooseNextProviderConfig(updatedAllProviders)
-    if (nextProvider) {
-      await setSelectedProviderId(nextProvider.id)
-    }
+    await setSelectedProviderId(nextProvider?.id)
   }
 
   const providerType = providerConfig.provider
