@@ -1,6 +1,6 @@
 # Footprint baseline
 
-`baseline.json` records the baseline product revision `ca8da8241883c9aff5862d15d045845a746c9a6b`. Its existing Chrome and Firefox artifacts come from successful builds on clean `main`, documented in the local preparation evidence at `../lingo-tori-local/validation-results.json` and `../lingo-tori-local/logs/` (paths relative to the repository root). That sidecar is local evidence, not a committed dependency of this tool.
+`baseline.json` records the baseline product revision `ca8da8241883c9aff5862d15d045845a746c9a6b`. Chrome and Firefox artifacts came from successful builds of that clean baseline. Commands and recorded results appear below; build logs are not source dependencies.
 
 Historical source and dependency counts were established by the initial read-only audit at clean `ca8da824` and match the saved baseline measurement. Existing artifact provenance is established separately by the setup evidence. Package and lockfile SHA-256 hashes were checked against that evidence. Later measurement and comparison runs may occur during concurrent source edits: their current Git state and source counts do not prove that existing outputs were rebuilt from that worktree. Later planning or product changes do not change the recorded baseline build revision.
 

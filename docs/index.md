@@ -4,7 +4,7 @@ LingoTori is being developed as an independent GPLv3 fork of Read Frog focused o
 
 ## Status
 
-The baseline is `ca8da8241883c9aff5862d15d045845a746c9a6b`. Current work focuses on translation, dictionary explanations and BYOK. New non-upstream learning/SRS/web/backend and the companion implementation are removed. Original reading suggestions and necessary independent contracts remain. Browser-only ChatGPT sign-in is experimental source with explicit official-support and live-verification limits. The active target review stack is #9 → #12; #10 and #11 are superseded without merge. See [validation](validation.md) for observed checks and limitations.
+The baseline is `ca8da8241883c9aff5862d15d045845a746c9a6b`. Current work focuses on translation, dictionary explanations and BYOK. New non-upstream learning/SRS/web/backend and the companion implementation are removed. Original reading suggestions and necessary independent contracts remain. Browser-only ChatGPT sign-in is experimental source with explicit official-support and live-verification limits. Completed settings, independent-core and CI work are reviewed separately; #12 retains the experimental follow-up. #10 and #11 are superseded without merge. See [validation](validation.md) for the per-PR merge gate.
 
 - [Product requirements](product-requirements.md): retained features, exclusions, and user experience.
 - [Architecture and licensing](architecture-and-licensing.md): dependency findings, independent implementation boundaries, and data ownership.
