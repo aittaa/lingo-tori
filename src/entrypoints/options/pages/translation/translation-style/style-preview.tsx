@@ -8,7 +8,7 @@ import { cn } from "@/utils/styles/utils"
 import { PagePreviewFrame } from "./page-preview-frame"
 
 /** The sample the preview shows until the CSS editor's own text box replaces it. */
-export const PREVIEW_TEXT = "神谷先生不是在对抗世界，而是在对抗可能让世界为之侧目的事物。"
+export const PREVIEW_TEXT = "新しい言語で読むと、世界が少し広がります。"
 
 /**
  * A line of translated text wearing the configured style. Not a `ConfigItem` — it sets nothing,
@@ -16,7 +16,7 @@ export const PREVIEW_TEXT = "神谷先生不是在对抗世界，而是在对抗
  */
 export function StylePreview({
   text = PREVIEW_TEXT,
-  language = "zh",
+  language = "ja",
   dir = "ltr",
   className,
 }: {

@@ -1,0 +1,72 @@
+{
+  "sourceRevision": "b75c8ac8eb454f0c1bb30ecd217fda978f043860",
+  "baseRevision": "ff1fdb47635c49391ffce6d3fa5e7d6f5c43b49b",
+  "scope": "final source commit; later evidence-only commits do not change extension inputs",
+  "checks": {
+    "formatting": {
+      "status": "PASS",
+      "command": "node node_modules/oxfmt/bin/oxfmt --check --threads=2 <changed-existing-files>",
+      "files": 16
+    },
+    "scopedLint": {
+      "status": "PASS",
+      "command": "node node_modules/oxlint/bin/oxlint --type-aware --threads=2 scripts/audit-ui-resources.mjs src/entrypoints/options/pages/context-menu/index.tsx src/entrypoints/options/pages/translation/translation-style/style-preview.tsx src/entrypoints/options/pages/translation/translation-style/custom-css/index.tsx src/entrypoints/options/pages/video-subtitles/subtitles-style/style-editor/subtitles-preview.tsx"
+    },
+    "staticResources": {
+      "status": "PASS",
+      "command": "node scripts/audit-ui-resources.mjs --base ff1fdb47635c49391ffce6d3fa5e7d6f5c43b49b",
+      "localLinks": 31,
+      "removedKeys": 120,
+      "newKeys": 9,
+      "newFallbackGaps": 0,
+      "placeholderDifferences": 0,
+      "removedKeySourceReferences": 0,
+      "scope": "Source and final evidence documentation"
+    },
+    "chromiumBuild": {
+      "status": "PASS",
+      "command": "SKIP_FREE_API=true RAYON_NUM_THREADS=2 UV_THREADPOOL_SIZE=2 node node_modules/wxt/bin/wxt.mjs build",
+      "baseSeconds": 6.777,
+      "candidateSeconds": 5.475
+    },
+    "firefoxBuild": {
+      "status": "PASS",
+      "command": "SKIP_FREE_API=true RAYON_NUM_THREADS=2 UV_THREADPOOL_SIZE=2 node node_modules/wxt/bin/wxt.mjs build -b firefox --mv3",
+      "baseSeconds": 4.957,
+      "candidateSeconds": 4.898
+    },
+    "fullTypeCheck": {
+      "status": "FAIL",
+      "command": "SKIP_FREE_API=true node node_modules/oxlint/bin/oxlint --type-aware --type-check --threads=2",
+      "baseErrors": 2,
+      "candidateErrors": 2,
+      "newErrors": 0,
+      "diagnostics": [
+        "src/types/config/provider/constants.ts:235 TS2322: byos is outside retained API provider enum",
+        "src/entrypoints/background/__tests__/translation-queues.test.ts:1158 TS2345: fixture batch shape"
+      ]
+    },
+    "regressionTests": {
+      "status": "NOT RUN",
+      "reason": "AGENTS.md permits tests only immediately before merging a PR",
+      "mergeGateCommand": "SKIP_FREE_API=true pnpm test --maxWorkers=2"
+    },
+    "installedBrowserClipboard": {
+      "status": "NOT RUN"
+    },
+    "liveProvider": {
+      "status": "NOT RUN"
+    },
+    "dependencyInstallation": {
+      "status": "NOT RUN"
+    },
+    "changesetCli": {
+      "status": "NOT RUN",
+      "reason": "Changeset CLI is not installed in the available dependency tree; frontmatter names the existing @lingotori/extension package"
+    },
+    "svgVisualInspection": {
+      "status": "PASS",
+      "scope": "SVG rendered and inspected; not an installed-extension demo"
+    }
+  }
+}

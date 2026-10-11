@@ -1,0 +1,427 @@
+{
+  "schemaVersion": 1,
+  "repository": {
+    "head": "b75c8ac8eb454f0c1bb30ecd217fda978f043860",
+    "dirty": false
+  },
+  "toolchain": {
+    "node": "v25.5.0",
+    "zlib": "1.2.12",
+    "gzipLevel": 9,
+    "gzipMethod": "sum of independent per-file gzip streams"
+  },
+  "hashes": {
+    "packageJsonSha256": "572b30c9dea02f5469d5b4d753f12c10aefe8c102ba067993c872bb9c0a578bc",
+    "pnpmLockSha256": "14cf1920e95dc663a71c7d10943abd9113b8b0418da898fb9555429f56840387"
+  },
+  "dependencies": {
+    "runtime": 82,
+    "development": 39,
+    "optional": 0,
+    "peer": 0,
+    "runtimeAndDevelopment": 121
+  },
+  "source": {
+    "trackedFiles": 1560,
+    "trackedSrcFiles": 1325,
+    "sourceCodeFiles": 1293,
+    "testFiles": 318,
+    "localeFiles": 3,
+    "byExtension": {
+      ".cjs": 1,
+      ".css": 8,
+      ".html": 4,
+      ".json": 1,
+      ".md": 4,
+      ".png": 2,
+      ".svg": 9,
+      ".ts": 885,
+      ".tsx": 408,
+      ".yml": 3
+    }
+  },
+  "outputs": {
+    ".output/chrome-mv3": {
+      "files": 160,
+      "bytes": 13883858,
+      "gzipBytes": 4222865,
+      "byExtension": {
+        "(none)": {
+          "files": 1,
+          "bytes": 35149,
+          "gzipBytes": 12124
+        },
+        ".css": {
+          "files": 5,
+          "bytes": 652415,
+          "gzipBytes": 100005
+        },
+        ".html": {
+          "files": 4,
+          "bytes": 9486,
+          "gzipBytes": 2905
+        },
+        ".js": {
+          "files": 123,
+          "bytes": 12495583,
+          "gzipBytes": 3770557
+        },
+        ".json": {
+          "files": 4,
+          "bytes": 392235,
+          "gzipBytes": 73400
+        },
+        ".png": {
+          "files": 10,
+          "bytes": 68211,
+          "gzipBytes": 40256
+        },
+        ".svg": {
+          "files": 5,
+          "bytes": 11793,
+          "gzipBytes": 4647
+        },
+        ".txt": {
+          "files": 1,
+          "bytes": 474,
+          "gzipBytes": 317
+        },
+        ".woff2": {
+          "files": 7,
+          "bytes": 218512,
+          "gzipBytes": 218654
+        }
+      },
+      "largestFiles": [
+        {
+          "path": "content-scripts/host.js",
+          "bytes": 2267557,
+          "gzipBytes": 698360
+        },
+        {
+          "path": "content-scripts/selection.js",
+          "bytes": 2092772,
+          "gzipBytes": 644556
+        },
+        {
+          "path": "chunks/execute-translate-q9a0RX8i.js",
+          "bytes": 1883131,
+          "gzipBytes": 448566
+        },
+        {
+          "path": "content-scripts/subtitles.js",
+          "bytes": 1764254,
+          "gzipBytes": 539140
+        },
+        {
+          "path": "content-scripts/side.js",
+          "bytes": 900079,
+          "gzipBytes": 286180
+        },
+        {
+          "path": "chunks/esm-DHCSaJsE.js",
+          "bytes": 425990,
+          "gzipBytes": 135474
+        },
+        {
+          "path": "chunks/_virtual_wxt-plugins-C-IwSSI1.js",
+          "bytes": 414282,
+          "gzipBytes": 127632
+        },
+        {
+          "path": "chunks/subtitles-preview-CEPIfPHu.js",
+          "bytes": 333793,
+          "gzipBytes": 71241
+        },
+        {
+          "path": "chunks/language-B0d3UU91.js",
+          "bytes": 248453,
+          "gzipBytes": 117404
+        },
+        {
+          "path": "chunks/css-code-editor-FH4nt9PO.js",
+          "bytes": 235203,
+          "gzipBytes": 71066
+        }
+      ],
+      "skippedSymlinks": [],
+      "skippedSpecialFiles": [],
+      "skippedSensitivePaths": []
+    },
+    ".output/firefox-mv3": {
+      "files": 160,
+      "bytes": 13884116,
+      "gzipBytes": 4223001,
+      "byExtension": {
+        "(none)": {
+          "files": 1,
+          "bytes": 35149,
+          "gzipBytes": 12124
+        },
+        ".css": {
+          "files": 5,
+          "bytes": 652415,
+          "gzipBytes": 100005
+        },
+        ".html": {
+          "files": 4,
+          "bytes": 9486,
+          "gzipBytes": 2905
+        },
+        ".js": {
+          "files": 123,
+          "bytes": 12495584,
+          "gzipBytes": 3770559
+        },
+        ".json": {
+          "files": 4,
+          "bytes": 392492,
+          "gzipBytes": 73534
+        },
+        ".png": {
+          "files": 10,
+          "bytes": 68211,
+          "gzipBytes": 40256
+        },
+        ".svg": {
+          "files": 5,
+          "bytes": 11793,
+          "gzipBytes": 4647
+        },
+        ".txt": {
+          "files": 1,
+          "bytes": 474,
+          "gzipBytes": 317
+        },
+        ".woff2": {
+          "files": 7,
+          "bytes": 218512,
+          "gzipBytes": 218654
+        }
+      },
+      "largestFiles": [
+        {
+          "path": "content-scripts/host.js",
+          "bytes": 2267558,
+          "gzipBytes": 698362
+        },
+        {
+          "path": "content-scripts/selection.js",
+          "bytes": 2092772,
+          "gzipBytes": 644556
+        },
+        {
+          "path": "chunks/execute-translate-q9a0RX8i.js",
+          "bytes": 1883131,
+          "gzipBytes": 448566
+        },
+        {
+          "path": "content-scripts/subtitles.js",
+          "bytes": 1764254,
+          "gzipBytes": 539140
+        },
+        {
+          "path": "content-scripts/side.js",
+          "bytes": 900079,
+          "gzipBytes": 286180
+        },
+        {
+          "path": "chunks/esm-DHCSaJsE.js",
+          "bytes": 425990,
+          "gzipBytes": 135474
+        },
+        {
+          "path": "chunks/_virtual_wxt-plugins-C-IwSSI1.js",
+          "bytes": 414282,
+          "gzipBytes": 127632
+        },
+        {
+          "path": "chunks/subtitles-preview-CEPIfPHu.js",
+          "bytes": 333793,
+          "gzipBytes": 71241
+        },
+        {
+          "path": "chunks/language-B0d3UU91.js",
+          "bytes": 248453,
+          "gzipBytes": 117404
+        },
+        {
+          "path": "chunks/css-code-editor-FH4nt9PO.js",
+          "bytes": 235203,
+          "gzipBytes": 71066
+        }
+      ],
+      "skippedSymlinks": [],
+      "skippedSpecialFiles": [],
+      "skippedSensitivePaths": []
+    }
+  },
+  "comparison": {
+    "baselineProductRevision": "ff1fdb47635c49391ffce6d3fa5e7d6f5c43b49b",
+    "numericChanges": [
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..html.gzipBytes",
+        "before": 2908,
+        "after": 2905,
+        "delta": -3
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..js.bytes",
+        "before": 12606693,
+        "after": 12495583,
+        "delta": -111110
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..js.gzipBytes",
+        "before": 3813665,
+        "after": 3770557,
+        "delta": -43108
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..json.bytes",
+        "before": 436628,
+        "after": 392235,
+        "delta": -44393
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..json.gzipBytes",
+        "before": 83165,
+        "after": 73400,
+        "delta": -9765
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..png.bytes",
+        "before": 286611,
+        "after": 68211,
+        "delta": -218400
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..png.files",
+        "before": 11,
+        "after": 10,
+        "delta": -1
+      },
+      {
+        "field": "outputs..output/chrome-mv3.byExtension..png.gzipBytes",
+        "before": 253277,
+        "after": 40256,
+        "delta": -213021
+      },
+      {
+        "field": "outputs..output/chrome-mv3.bytes",
+        "before": 14257761,
+        "after": 13883858,
+        "delta": -373903
+      },
+      {
+        "field": "outputs..output/chrome-mv3.files",
+        "before": 161,
+        "after": 160,
+        "delta": -1
+      },
+      {
+        "field": "outputs..output/chrome-mv3.gzipBytes",
+        "before": 4488762,
+        "after": 4222865,
+        "delta": -265897
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..html.gzipBytes",
+        "before": 2908,
+        "after": 2905,
+        "delta": -3
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..js.bytes",
+        "before": 12606694,
+        "after": 12495584,
+        "delta": -111110
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..js.gzipBytes",
+        "before": 3813667,
+        "after": 3770559,
+        "delta": -43108
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..json.bytes",
+        "before": 436885,
+        "after": 392492,
+        "delta": -44393
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..json.gzipBytes",
+        "before": 83299,
+        "after": 73534,
+        "delta": -9765
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..png.bytes",
+        "before": 286611,
+        "after": 68211,
+        "delta": -218400
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..png.files",
+        "before": 11,
+        "after": 10,
+        "delta": -1
+      },
+      {
+        "field": "outputs..output/firefox-mv3.byExtension..png.gzipBytes",
+        "before": 253277,
+        "after": 40256,
+        "delta": -213021
+      },
+      {
+        "field": "outputs..output/firefox-mv3.bytes",
+        "before": 14258019,
+        "after": 13884116,
+        "delta": -373903
+      },
+      {
+        "field": "outputs..output/firefox-mv3.files",
+        "before": 161,
+        "after": 160,
+        "delta": -1
+      },
+      {
+        "field": "outputs..output/firefox-mv3.gzipBytes",
+        "before": 4488898,
+        "after": 4223001,
+        "delta": -265897
+      },
+      {
+        "field": "source.byExtension..jpg",
+        "before": 1,
+        "after": null,
+        "delta": null
+      },
+      {
+        "field": "source.byExtension..png",
+        "before": 6,
+        "after": 2,
+        "delta": -4
+      },
+      {
+        "field": "source.byExtension..svg",
+        "before": 8,
+        "after": 9,
+        "delta": 1
+      },
+      {
+        "field": "source.trackedFiles",
+        "before": 1614,
+        "after": 1560,
+        "delta": -54
+      },
+      {
+        "field": "source.trackedSrcFiles",
+        "before": 1329,
+        "after": 1325,
+        "delta": -4
+      }
+    ],
+    "note": "Only numeric metrics are compared. Largest-file arrays, provenance, hashes and dirty state are excluded. Check hashes/toolchain separately; size deltas do not measure runtime performance."
+  }
+}

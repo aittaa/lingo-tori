@@ -1,14 +1,12 @@
 name: LingoTori
 extName: "LingoTori - AI 번역·사전"
 extDescription: "직접 설정한 AI 제공자로 웹페이지와 동영상 자막을 번역합니다. 단어의 뜻과 문장 설명을 확인하세요."
-uninstallSurveyUrl: https://tally.so/r/nPK6Ob
 dataTypes:
   string: 텍스트
   number: 숫자
 contextMenu:
   translate: 번역
   translateSelection: '"%s" 번역'
-  readAloudSelection: '"%s" 읽어주기'
   showOriginal: 원문 보기
 sidePanel:
   firefoxUserActionHint: Firefox에서는 브라우저 사이드바에서 LingoTori를 열어 주세요.
@@ -47,16 +45,7 @@ popup:
   aiSmartContextDescription: 웹페이지 컨텍스트를 사용하여 번역 품질을 향상시킵니다. LLM 번역 제공자가 필요합니다.
   more:
     title: 더보기
-    help: 도움말
-    tutorial: 사용 가이드
-    emailUs: 이메일 문의
-    featureRequest: 기능 제안
     bugReport: 버그 신고
-    community: 커뮤니티
-    joinDiscord: Discord 참여
-    joinWechat: WeChat 그룹 참여
-    starGithub: Github에서 스타
-    rateUs: 리뷰 남기기
 errorRecovery:
   title: 문제가 발생했습니다
   description: 복구 모드가 활성화되었습니다. 현재 설정을 백업으로 내보낸 뒤 설정을 초기화하고 다시 시도하세요.
@@ -105,29 +94,11 @@ options:
     configTitle: API 제공업체
     addProvider: 제공업체 추가
     builtInProvider: 내장 제공업체
-    builtInAiUsage:
-      title: 내장 AI 할당량
-      remaining: "$1% 남음"
-      supportedFeatures: "$1개 기능 지원"
-      resetsAt: "$1에 초기화"
-      daily: 일일 할당량
-      weekly: 주간 할당량
-      features:
-        pageTranslation: 페이지 번역
-        customAction: 사용자 지정 AI 작업
-        noteSuggestion: 노트 제안
-        selectionTranslation: 선택 영역 번역
-        videoSubtitles: 비디오 자막
-        inputTranslation: 입력 번역
-        languageDetection: 언어 감지
-    sponsorCta: 빠르고 가성비 좋은 AI 받기
-    sponsorCtaJalapenoCloud: GLM 5.2 50% 할인 받기
     setApiKeyWarning:
       message: $1 페이지에서 제공자를 설정하세요
     badges:
       featureCount: $1 개 기능
       sponsor: 스폰서
-      sponsorJalapenoCloud: $$2 무료
     dialog:
       title: 새 제공업체 추가
       groups:
@@ -152,7 +123,7 @@ options:
       delete: 삭제
       deleteDialog:
         title: 제공업체를 삭제하시겠습니까?
-        description: 이 작업은 취소할 수 없습니다. 이 제공업체를 사용하는 기능은 다른 사용 가능한 제공업체로 자동 재할당됩니다.
+        description: "이 작업은 되돌릴 수 없습니다."
         confirm: 삭제
         cancel: 취소
       atLeastOneLLMProvider: 최소 하나의 LLM 번역 제공업체가 필요합니다.
@@ -204,37 +175,37 @@ options:
         customChatComplete: 사용자 정의 Chat Complete
         customResponses: 사용자 정의 Responses
       description:
-        openai: GPT-4o 같은 모델을 제공합니다
+        openai: "OpenAI 모델 API"
         azure: Azure 배포를 통해 OpenAI 모델 사용
-        deepseek: 중국에서 사용을 권장합니다
-        openrouter: 여러 LLM 제공업체를 위한 통합 인터페이스, 사용량 기반 과금
-        ollama: 로컬 LLM
-        google: 고급 추론 능력을 갖춘 구글의 주력 AI 모델
-        anthropic: 안전성과 추론 능력이 뛰어난 Claude 모델
-        xai: 실시간 데이터 접근이 가능한 Grok 모델을 제공하는 일론 머스크의 AI 회사
-        atlascloud: DeepSeek, Kimi, Qwen, Doubao, GLM 등 최신 모델에 OpenAI 호환 방식으로 접근하는 통합 플랫폼
-        jalapenocloud: 최고의 팀들이 사용하는 엔터프라이즈급 AI, 이제 당신을 위해 찾아왔습니다!
-        siliconflow: 중국 및 국제 모델을 위한 고성능 추론 플랫폼
-        tensdaq: 혁신적인 경매 AI MaaS 플랫폼으로 시장 수요와 공급에 따라 가격이 결정되어 고비용 고정 요금제를 없앰
+        deepseek: "DeepSeek 모델 API"
+        openrouter: "OpenRouter 모델 API"
+        ollama: "설정한 Ollama 엔드포인트에서 모델 추론 실행"
+        google: "Google Gemini 모델 API"
+        anthropic: "Anthropic 모델 API"
+        xai: "xAI 모델 API"
+        atlascloud: "Atlas Cloud 모델 API"
+        jalapenocloud: "Jalapeno Cloud 모델 API"
+        siliconflow: "SiliconFlow 모델 API"
+        tensdaq: "Tensdaq 모델 API"
         openaiCompatible: OpenAI Chat Completions API와 호환되는 사용자 지정 엔드포인트에 연결
         openResponses: Open Responses API와 호환되는 사용자 지정 엔드포인트에 연결
         deeplx: 비공식 DeepL API
         deepl: 공식 DeepL API
-        bedrock: 엔터프라이즈급 파운데이션 모델을 위한 AWS 관리 서비스
-        groq: 초고속 LLM 추론 속도에 특화된 하드웨어
-        deepinfra: 인기 있는 오픈소스 모델을 위한 비용 효율적인 클라우드 추론
-        mistral: 효율적인 다국어 모델에 특화된 유럽 AI 회사
-        togetherai: 오픈소스 모델 실행 및 파인튜닝을 위한 협업 플랫폼
-        cohere: 강력한 다국어 및 RAG 기능을 갖춘 엔터프라이즈 중심 AI
-        fireworks: 오픈소스 모델을 위한 프로덕션 준비 추론 플랫폼
-        cerebras: 빠른 번역과 텍스트 분석을 위한 초고속 AI 추론
-        replicate: 전문적인 번역 작업을 위한 다양한 오픈소스 모델 액세스
-        perplexity: 맥락적 번역과 읽기 지원을 위한 실시간 지식 강화 AI
-        volcengine: ByteDance의 클라우드 AI 플랫폼, Doubao 모델 제공
-        minimax: MiniMax AI 플랫폼, 고급 MiniMax-M2 모델 제공
-        alibaba: 알리바바 클라우드의 Qwen 모델 시리즈, 고급 추론 및 다국어 기능 제공
-        moonshotai: Moonshot AI의 Kimi 모델 시리즈, 강력한 추론 및 긴 컨텍스트 기능 제공
-        huggingface: Hugging Face 추론 API, 수천 개의 오픈소스 모델 접근 제공
+        bedrock: "Amazon Bedrock 모델 API"
+        groq: "Groq 모델 API"
+        deepinfra: "DeepInfra 모델 API"
+        mistral: "Mistral 모델 API"
+        togetherai: "Together AI 모델 API"
+        cohere: "Cohere 모델 API"
+        fireworks: "Fireworks 모델 API"
+        cerebras: "Cerebras 모델 API"
+        replicate: "Replicate 모델 API"
+        perplexity: "Perplexity 모델 API"
+        volcengine: "Volcengine 모델 API"
+        minimax: "MiniMax 모델 API"
+        alibaba: "Alibaba Cloud 모델 API"
+        moonshotai: "Moonshot AI 모델 API"
+        huggingface: "Hugging Face 모델 API"
     apiKey:
       showAPIKey: API Key 표시
       getAPIKey: API Key 받기
@@ -389,7 +360,7 @@ options:
         description: 아직 불안정할 수 있는 실험적 기능을 켭니다
   shortcuts:
     title: 단축키
-    pageDescription: 읽는 중에 번역, 읽기, AI 액션을 실행하는 키를 설정합니다.
+    pageDescription: "읽는 중에 번역과 AI 액션을 실행하는 키를 설정합니다."
     setShortcut: 단축키 설정
     pageTranslation:
       title: 페이지 번역
@@ -457,7 +428,7 @@ options:
     demoImageAlt: 선택 툴바 데모
     enable:
       title: 선택 툴바 활성화
-      description: 웹 페이지에서 텍스트를 선택할 때 도구 모음을 표시하여 빠르게 번역, 읽기, AI 액션을 사용할 수 있습니다
+      description: "웹페이지에서 텍스트를 선택하면 번역과 AI 액션 도구 모음을 표시합니다"
     actions:
       title: 작업
       translate:
@@ -492,12 +463,9 @@ options:
       providerUnavailable: 선택한 제공업체를 사용할 수 없습니다
     customActions:
       title: 커스텀 AI 액션
-      pageDescription: 직접 만든 프롬프트를 선택 도구 모음에서 선택한 텍스트에 실행하세요. 생성된 결과의 데이터, 스타일, 인터랙션을 모두 직접 설정할 수 있습니다.
+      pageDescription: "선택한 텍스트에 사용할 AI 액션의 프롬프트와 출력 필드를 설정합니다. 결과는 텍스트 필드로 표시됩니다."
       description: 선택한 텍스트에 대한 구조화된 AI 작업을 직접 추가하세요
       configTitle: 액션 구성
-      introVideo:
-        trigger: "영상 보기"
-        title: "30초 만에 보는 커스텀 AI 액션"
       builtIn: 기본 제공
       add: AI 액션 추가
       edit: AI 액션 편집
@@ -505,7 +473,6 @@ options:
       noEnabledLlmProvider: 커스텀 AI 액션을 만들기 전에 최소 하나의 LLM 제공업체를 활성화하세요
       tabs:
         config: 구성
-        vocabulary: vocabulary
         hasErrors: 오류 있음
         connected: 연결됨
         needsAttention: 확인 필요
@@ -557,66 +524,8 @@ options:
           confirm: 삭제
           cancel: 취소
         layout:
-          title: 레이아웃
-          description: 팝업에서 결과가 표시되는 방식입니다. HTML과 Liquid로 작성하며, 응답이 스트리밍되는 동안 필드가 채워집니다.
-          reset: 기본값으로 복원
-          resetFieldList: 필드 목록
-          resetDictionary: 사전 카드
-          resetSentenceAnalysis: 문장 분석 카드
-          resetImproveWriting: "글쓰기 첨삭 카드"
-          resetConfirmTitle: 이 레이아웃을 바꿀까요?
-          resetConfirmDescription: 편집기의 내용이 바뀝니다. 이후에도 편집기에서 실행 취소할 수 있습니다.
-          resetConfirm: 바꾸기
-          edit: 편집
-          preview: 미리 보기
-          width: 너비
-          themeLight: 라이트
-          themeDark: 다크
-          replay: 다시 재생
-          sampleData: 샘플 데이터
-          sampleDataHint: 이 미리 보기에서만 사용되며 저장되지 않습니다.
-          sampleDataSavedHint: 이 미리 보기에서만 사용되며 이 작업과 함께 저장됩니다.
-          sampleDataReset: 샘플 초기화
-          sampleSelection: 선택한 텍스트
-          sampleTargetLanguage: 대상 언어
-          insertField: 필드
-          insertSpeak: 읽기 버튼
-          insertCondition: 값이 있을 때
-          insertContext: 컨텍스트
-          insertLoop: 모든 필드
-          syntaxHelp: 문법
-          builtInHint: 기본 제공 작업의 레이아웃은 편집할 수 없습니다. '사용자 지정'으로 사본을 만들어 편집하세요.
-          viewSource: 소스 보기
-          emptyNotice: 레이아웃이 비어 있어 팝업에 기본 필드 목록이 표시됩니다.
-          fallbackBanner: 이 레이아웃을 표시할 수 없어 기본 레이아웃을 대신 사용합니다. $1
-          sanitized: "안전을 위해 제거됨: $1"
-          unusedFields: "이 레이아웃에 없는 필드:"
-          tooLong: 레이아웃은 최대 $1자까지 가능합니다.
-          renameSkipped: 레이아웃이 아직 '$1'을(를) 참조합니다. 직접 수정하세요.
-          reservedName: "'ctx'와 'forloop'는 레이아웃 예약어입니다. 다른 이름을 선택하세요."
-          help:
-            output: 필드 값을 표시합니다. 값에 포함된 HTML은 이스케이프됩니다.
-            condition: 필드에 값이 있을 때만 내용을 표시합니다.
-            loop: 모든 필드에 대해 순서대로 반복합니다. f.name, f.value, f.type을 사용할 수 있습니다.
-            speak: data-speak가 있는 요소는 응답이 완료된 후 값(비어 있으면 요소 자신의 텍스트)을 읽어 줍니다.
-            status: 상태별로 스타일을 지정합니다. 호스트의 data-status는 streaming, done, error 중 하나입니다.
-            filters: newline_to_br는 줄바꿈을 유지하고(마지막에 사용), lines는 텍스트를 줄 목록으로 나눕니다.
-            styles: <style> 블록의 CSS는 이 결과 안에서만 적용됩니다. --rf-* 색상은 라이트/다크 테마를 따릅니다.
-          lint:
-            parseError: "Liquid 문법 오류: $1"
-            unknownField: 이름이 '$1'인 필드가 없습니다.
-            unknownContextKey: "ctx에 '$1'이(가) 없습니다. 사용 가능: $2."
-            fieldShadowedByLocal: 이 레이아웃에서 '$1'에 값을 할당하므로 같은 이름의 필드가 가려집니다.
-            liquidInStyle: <style> 안에서는 Liquid가 실행되지 않고 일반 텍스트로 남습니다.
-            styleInConditional: <style> 블록은 '$1' 태그 안에 있어도 항상 적용됩니다.
-            cssImport: "@import는 제거됩니다. 레이아웃은 외부 스타일을 불러올 수 없습니다."
-            cssFontFace: "@font-face는 제거됩니다. 기기에 있는 글꼴을 사용하세요."
-            unquotedAttributeOutput: 이 속성 값을 따옴표로 감싸세요. 그렇지 않으면 값이 속성 밖으로 벗어날 수 있습니다.
-            filterIgnored: "'$1' 태그에서는 필터가 무시됩니다. 먼저 필터를 적용한 값을 할당하세요."
-            newlineToBrNotLast: newline_to_br는 출력의 마지막 필터일 때만 동작합니다.
-            tooLong: 이 레이아웃은 $1자를 넘어 저장할 수 없습니다.
-            fieldNotShown: "'$1'은(는) 이 레이아웃에 표시되지 않습니다."
-            reservedFieldName: 필드 이름 '$1'은(는) 레이아웃 예약어입니다. 필드 이름을 바꾸세요.
+          title: "결과 필드"
+          description: "결과는 스키마 순서대로 일반 텍스트 필드로 표시됩니다."
         tokens:
           selection: 선택한 텍스트 내용
           paragraphs: 선택 영역과 겹치는 문단 내용을 빈 줄로 이어 붙인 값이며, 사용자 정의 AI 액션에 전달될 때는 앞의 2000자로 잘립니다
@@ -986,8 +895,6 @@ options:
       title: 사용자 정의 페이지 프롬프트
       description: 다양한 유형의 프롬프트를 사용자 정의하여, 번역 시 프롬프트 유형을 직접 조정할 수 있습니다. 프롬프트는 사용자가 LLM에게 보내는 텍스트를 말합니다.
       managePrompts: 프롬프트 관리
-      communityPrompts: 커뮤니티에서 프롬프트 가져오기 또는 공유
-      communityPromptsUrl: https://github.com/mengxi-ream/read-frog/discussions/821
       variableReference: 변수 레퍼런스
       addPrompt: 프롬프트 추가
       default: 기본
@@ -1132,20 +1039,6 @@ options:
       aiSegmentation:
         title: AI 스마트 분할
         description: AI가 자막을 문장처럼 읽히도록 다시 나눕니다. 타이밍도 AI가 정하므로 싱크가 어긋날 수 있습니다. LLM 번역 공급자가 필요합니다.
-    aiQuota:
-      title: AI 자막 사용량
-      description: AI 음성 인식으로 모든 동영상에 정확한 자막을 만들어 줍니다
-      launchBonusPromo: $1 이전에 구독하면 전사 300분을 추가로 드립니다
-      loginRequired: 로그인하여 AI 자막 사용량 확인
-      upgradeRequired: AI 자막은 Pro 또는 Ultra 구독이 필요합니다
-      pools:
-        subscription: 월간 할당량
-        launchBonus: 출시 기념 보너스
-      resetsOn: $1에 초기화
-      expiresOn: $1에 만료
-      loadError: 사용량을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.
-      remainingOf: 남은 시간 $1 / $2분
-      used: $1분 사용됨
     style:
       title: 자막 스타일
       description: 표시 모드, 위치, 글꼴, 색상, 배경을 미리보기로 확인하며 설정합니다
@@ -1283,16 +1176,11 @@ action:
   regenerate: 다시 생성
   viewContextDetails: 컨텍스트
   customizeCustomAction: $1 작업 맞춤 설정
-  customActionLayoutFallback: 이 결과를 레이아웃으로 표시할 수 없어 간단한 보기로 표시합니다.
-  upgrade: 업그레이드
+  customActionLayoutFallback: "결과는 일반 텍스트 필드로 표시됩니다."
   openCustomActions: Custom AI Actions 열기
-  reviewDueOne: "복습할 카드 $1장"
-  reviewDueOther: "복습할 카드 $1장"
   contextDetailsTitleLabel: 제목
   contextDetailsParagraphsLabel: 문단 내용
   translation: 번역
-  speak: 읽기
-  playing: 재생 중
   moreActions: 더 보기
   pinToToolbar: 도구 모음에 고정
   unpinFromToolbar: 도구 모음에서 고정 해제
@@ -1301,8 +1189,7 @@ action:
 noteSuggestion:
   title: 읽기 도움말
   description: 이 글에 쓰인 단어와 뜻을 살펴보세요.
-  save: 저장
-  saved: 저장됨
+  save: "저장"
   staleSuggestion: 이 제안은 더 이상 유효하지 않습니다
   toggleLabel: 노트 제안 표시
 thinking:
@@ -1314,10 +1201,10 @@ shortcutKeySelector:
   placeholder: 단축키를 입력해 주세요
 subtitles:
   sidebar:
-    close: 학습 패널 닫기
-    needsSubtitles: 이 동영상에는 자막이 없습니다. 먼저 AI 자막을 생성해 보세요.
+    close: "자막 패널 닫기"
+    needsSubtitles: "이 동영상에는 사용 가능한 자막이 없습니다. LingoTori는 기존 자막을 번역하며, 자막을 생성하지 않습니다."
     menu:
-      label: 학습
+      label: "자막 도구"
     summary:
       tab: AI 요약
       generating: 요약을 생성하는 중…
@@ -1331,14 +1218,20 @@ subtitles:
       retry: 다시 시도
       emptyTitle: 표시할 자막이 없습니다
       backToCurrent: 현재 위치로
-  loadingAiSubtitles: AI 자막 불러오는 중… (예상 3분)
-  aiSubtitlesHint: 첨단 AI 음성 인식으로 정확한 자막을 생성하며, 공식 자막이 없어도 사용할 수 있습니다.
-  requestAiSubtitles: AI 자막 요청
-  usingAiSubtitles: AI 자막 사용 중
+  loadingAiSubtitles: "이 빌드에서는 AI 자막 생성을 사용할 수 없습니다."
   toggle:
     enabled: 자막 번역을 켰습니다
     disabled: 자막 번역을 껐습니다
   actions:
+    copySource: "원문 자막 복사"
+    copyTranslated: "번역 자막 복사"
+    copyPreparing: "자막을 준비하는 중입니다. 긴 동영상은 시간이 걸릴 수 있습니다"
+    copyTranslating: "자막을 번역하는 중입니다"
+    copyReady: "자막이 준비되었습니다. 복사 버튼을 눌러 복사하세요."
+    copyComplete: "자막을 클립보드에 복사했습니다"
+    copyRetry: "복사 다시 시도"
+    copyFailed: "자막을 복사하지 못했습니다. 동영상 탭을 활성화하고, 메시지가 표시되면 클립보드 접근을 허용한 뒤 다시 시도하세요."
+    copyUnavailable: "이 페이지에서는 클립보드 접근을 사용할 수 없습니다."
     downloadTranslated: 번역 자막 다운로드
     downloadTranslatedPreparing: 자막 준비 중, 긴 동영상은 시간이 더 걸릴 수 있습니다
     downloadTranslatedTranslating: 자막 번역 중
@@ -1365,15 +1258,7 @@ subtitles:
     aiRateLimited: 요청이 너무 많습니다. 나중에 다시 시도해 주세요
     aiAuthFailed: API 인증에 실패했습니다. API 키를 확인해 주세요
     aiServiceUnavailable: 번역 서비스를 일시적으로 사용할 수 없습니다
-    aiQuotaExceeded: 이번 달 AI 자막 사용량을 모두 사용했습니다
-    aiQuotaExceededWithReset: 이번 달 AI 자막 사용량을 모두 사용했습니다 · $1에 초기화
-    aiLoginRequired: 로그인하여 AI 자막 사용량 확인
-    aiSubscriptionRequired: AI 자막은 Pro 또는 Ultra 구독이 필요합니다
-    aiPaymentRequired: AI 자막을 계속 생성하려면 결제 수단을 업데이트하세요
-    aiVideoTooLong: 이 영상은 너무 길어 AI 자막을 만들 수 없습니다
-    aiLiveReplayUnsupported: 라이브 스트리밍 다시보기는 아직 AI 자막을 지원하지 않습니다
-    aiStillProcessing: 아직 전사가 진행 중입니다. 몇 분 후 다시 클릭해 주세요
-    aiRequestFailed: AI 자막 요청에 실패했습니다. 잠시 후 다시 시도해 주세요
+    aiLiveReplayUnsupported: "이 빌드에서는 AI 자막 생성을 사용할 수 없습니다."
     aiNoResponse: AI 서비스가 응답하지 않았습니다. 원문을 표시합니다
     translatedExportFailed: 번역 자막 생성에 실패했습니다
     translatedExportIncomplete: 모든 자막 줄을 번역하지 못했습니다
@@ -1395,8 +1280,6 @@ translationHub:
   translate: 번역
   copiedToClipboard: 번역이 클립보드에 복사되었습니다!
   copyTranslation: 번역 복사
-  speakSourceText: 원문 읽어주기
-  speakTranslation: 번역문 읽어주기
   expandCard: 카드 펼치기
   collapseCard: 카드 접기
   expandAllCards: 모두 펼치기
@@ -1585,6 +1468,3 @@ languages:
   wls: 월리스어
   rar: 라로통가어
   hif: 피지 힌디어
-
-lingotori:
-  study: 학습
