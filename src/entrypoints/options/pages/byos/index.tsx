@@ -334,6 +334,9 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     setWorking(true)
     setNotice("")
     void boundedMessage(sendByosMessage("lingotoriByosCancelAuth", undefined))
+      .then(async () => {
+        if (epoch(generation) === owner) await refresh(owner)
+      })
       .catch(() => {
         if (epoch(generation) === owner) setNotice(t.failed)
       })

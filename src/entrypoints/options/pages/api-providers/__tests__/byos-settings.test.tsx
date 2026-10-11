@@ -511,6 +511,41 @@ it("keeps an existing account's reconnect pending without discovering its old mo
   expect(mocks.permission).not.toHaveBeenCalled()
 })
 
+it("restores the connected account's saved model after cancelling a reconnect recovered on mount", async () => {
+  let authPending = true
+  mocks.send.mockImplementation(async (type) => {
+    if (type === "lingotoriByosSession") return { ...connected, authPending }
+    if (type === "lingotoriByosCancelAuth") {
+      authPending = false
+      return undefined
+    }
+    if (type === "lingotoriByosModels")
+      return {
+        models: [
+          ...availableModels.models,
+          { slug: "historical-model", display_name: "Saved Account Model" },
+        ],
+      }
+    return undefined
+  })
+  const store = renderSettings(),
+    initial = store.get(configAtom)
+  await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled())
+  expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosModels", undefined)
+
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+  // No focus event or reopen should be needed to use the preserved account.
+  await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled())
+  expect(screen.getByLabelText("Model")).toHaveValue("historical-model")
+  expect(screen.getByRole("button", { name: "Save model" })).toBeEnabled()
+  expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument()
+  expect(mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosSession")).toHaveLength(2)
+  expect(mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosModels")).toHaveLength(1)
+  expect(mocks.permission).not.toHaveBeenCalled()
+  expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+  expect(store.get(configAtom)).toBe(initial)
+})
+
 it("preserves an unsaved model choice when returning to settings refreshes discovery", async () => {
   mocks.send.mockImplementation(async (type) =>
     type === "lingotoriByosSession"

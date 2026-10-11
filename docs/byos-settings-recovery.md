@@ -49,3 +49,13 @@ After the parent reviews the exact candidate commit and the user authorizes the 
 5. Do not invoke translation as part of this UI pass. A real inference request needs its own confirmation and result; report browser errors by stage without copying callback URLs, authorization codes or tokens.
 
 Browser acceptance is NOT RUN in this follow-up. No merge, auto-merge, release or deployment is authorized by passing these checks.
+
+## Cancelling a restored reconnect
+
+A separate follow-up starts from stream fix `a34c30d6e961b19d299ee0e9b625d0bec9efb268` in draft #21. A settings regression reproduces the connected account → pending reconnect → reopened settings → Cancel sequence. Before the fix, 23 UI tests pass and the new case fails because the preserved account's model selector remains disabled until a later focus refresh.
+
+Successful cancellation now refreshes the current session and account catalog before clearing the working state. The existing generation guard prevents an outdated cancellation completion from refreshing a newer UI operation. The saved model is reconciled against the returned catalog, without changing config or feature assignment, starting OAuth or requesting permission. Failure follows the existing error path.
+
+All fixtures are synthetic. No installed-browser acceptance, live sign-in or inference is performed. The source of drafts #20 and #21 remains preserved; this correction is a separate stacked draft.
+
+PASS: 13 scoped files / 131 tests; 24 UI tests rerun after mock-return cleanup; full type-aware lint/type check; owned-file formatting, whitespace and changeset checks. Chrome MV3 builds in 5.588 seconds and Firefox MV3 in 7.347 seconds, each reported as 14.64 MB unpacked. Logs use the `cancel-*` prefix in `.output/byos-recovery/`. The complete repository test suite was not rerun.
