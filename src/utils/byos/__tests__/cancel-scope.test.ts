@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest"
 import { createByosService } from "../service"
-import { callbackUrl, memoryVault, mockTransport } from "./auth-fixtures"
+import { callbackUrl, credentials, memoryVault, mockTransport } from "./auth-fixtures"
 
 it("preserves a newer sign-in when stale settings cancel the older attempt", async () => {
   const vault = memoryVault(),
@@ -127,5 +127,24 @@ it("assigns a control identifier to a legacy pending record without changing OAu
   })
   await resumed.cancelAuth(session.authAttemptId!)
   expect((await vault.read()).pending).toBeUndefined()
+  expect(fetcher).not.toHaveBeenCalled()
+})
+
+it("removes its pending attempt before cleanup failure while preserving the prior account", async () => {
+  const vault = memoryVault(),
+    transport = mockTransport(),
+    fetcher = vi.fn<typeof fetch>()
+  const prior = credentials(),
+    id = crypto.randomUUID()
+  await vault.update((record) => {
+    record.credentials = prior
+  })
+  const service = createByosService(vault, transport, "extension", callbackUrl, fetcher)
+  await service.authStart(id)
+  vi.mocked(transport.cleanup).mockRejectedValueOnce(new Error("Synthetic cleanup failure"))
+  await expect(service.cancelAuth(id)).rejects.toThrow("Synthetic cleanup failure")
+  expect(await service.session()).toMatchObject({ state: "plan-enabled", authPending: false })
+  expect((await vault.read()).pending).toBeUndefined()
+  expect((await vault.read()).credentials).toEqual(prior)
   expect(fetcher).not.toHaveBeenCalled()
 })

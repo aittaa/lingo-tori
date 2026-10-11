@@ -608,3 +608,37 @@ it("cancels its restored attempt identifier even if another settings page has st
   expect(mocks.permission).not.toHaveBeenCalled()
   expect(store.get(configAtom)).toBe(initial)
 })
+
+it.each(["rejected", "timeout"])(
+  "restores model catalog after cancellation cleanup %s",
+  async (mode) => {
+    let authPending = true
+    mocks.send.mockImplementation(async (type) => {
+      if (type === "lingotoriByosSession")
+        return { ...connected, authPending, authAttemptId: pendingAttemptId }
+      if (type === "lingotoriByosCancelAuth") {
+        authPending = false
+        if (mode === "timeout") return new Promise<never>(() => {})
+        throw new Error("Synthetic cleanup failure")
+      }
+      if (type === "lingotoriByosModels")
+        return { models: [{ slug: "historical-model", display_name: "Saved Account Model" }] }
+      return undefined
+    })
+    const store = renderSettings(),
+      initial = store.get(configAtom)
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled())
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(mode === "timeout" ? 10001 : 1)
+    })
+    vi.useRealTimers()
+    await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled())
+    expect(screen.getByLabelText("Model")).toHaveValue("historical-model")
+    expect(screen.getByRole("button", { name: "Save model" })).toBeEnabled()
+    expect(screen.getByText("Could not connect. Try again.")).toBeInTheDocument()
+    expect(store.get(configAtom)).toBe(initial)
+    expect(mocks.permission).not.toHaveBeenCalled()
+  },
+)
