@@ -1,30 +1,13 @@
 import type { SubtitlesFragment } from "@/utils/subtitles/types"
-import { saveAs } from "file-saver"
 
-const INVALID_FILENAME_CHARS_PATTERN = /[<>:"/\\|?*]/g
-const TRAILING_FILENAME_CHARS_PATTERN = /[. ]+$/g
-const LINE_BREAK_PATTERN = /\r?\n/
-const WHITESPACE_PATTERN = /\s+/g
-const MAX_FILENAME_LENGTH = 80
+const LINE_BREAK_PATTERN = /\r\n?|\n/
 
 function pad(value: number, size: number): string {
   return String(value).padStart(size, "0")
 }
 
-function sanitizeFilenamePart(value: string): string {
-  return value
-    .split("")
-    .filter((char) => char >= " ")
-    .join("")
-    .replace(INVALID_FILENAME_CHARS_PATTERN, " ")
-    .replace(WHITESPACE_PATTERN, " ")
-    .trim()
-    .replace(TRAILING_FILENAME_CHARS_PATTERN, "")
-    .slice(0, MAX_FILENAME_LENGTH)
-}
-
 export function formatSrtTimestamp(timeMs: number): string {
-  const safeTimeMs = Math.max(0, Math.floor(timeMs))
+  const safeTimeMs = Number.isFinite(timeMs) ? Math.max(0, Math.floor(timeMs)) : 0
   const hours = Math.floor(safeTimeMs / 3_600_000)
   const minutes = Math.floor((safeTimeMs % 3_600_000) / 60_000)
   const seconds = Math.floor((safeTimeMs % 60_000) / 1000)
@@ -42,6 +25,8 @@ function normalizeSubtitleText(text: string): string {
 }
 
 function normalizeSubtitleFragment(fragment: SubtitlesFragment): SubtitlesFragment | null {
+  if (!Number.isFinite(fragment.start) || !Number.isFinite(fragment.end)) return null
+
   const text = normalizeSubtitleText(fragment.text)
   if (!text) {
     return null
@@ -72,39 +57,12 @@ export function buildSubtitlesSrtContent(subtitles: SubtitlesFragment[]): string
     .join("\n\n")
 }
 
-export function buildSubtitlesSrtFilename({
-  pageTitle,
-  videoId,
-  suffix,
-}: {
-  pageTitle: string
-  videoId?: string | null
-  suffix?: string | null
-}): string {
-  const safeTitle = sanitizeFilenamePart(pageTitle)
-  const safeVideoId = sanitizeFilenamePart(videoId ?? "")
-  const safeSuffix = sanitizeFilenamePart(suffix ?? "")
-  const baseName = [safeTitle || "video-subtitles", safeVideoId, safeSuffix]
-    .filter(Boolean)
-    .join("-")
-
-  return `${baseName}.srt`
-}
-
-export async function downloadSubtitlesAsSrt({
-  subtitles,
-  pageTitle,
-  videoId,
-  suffix,
-}: {
-  subtitles: SubtitlesFragment[]
-  pageTitle: string
-  videoId?: string | null
-  suffix?: string | null
-}) {
-  const srt = buildSubtitlesSrtContent(subtitles)
-  const blob = new Blob([srt], { type: "application/x-subrip;charset=utf-8" })
-  const filename = buildSubtitlesSrtFilename({ pageTitle, videoId, suffix })
-
-  saveAs(blob, filename)
+/** Invoke directly from a click handler, after subtitle preparation has completed. */
+export async function copySubtitlesText(text: string): Promise<void> {
+  if (!text.trim()) throw new Error("No subtitle text to copy")
+  if (typeof navigator === "undefined" || typeof navigator.clipboard?.writeText !== "function") {
+    throw new Error("Clipboard access is unavailable")
+  }
+  // No await, permission query or data fetch before this call: preserve activation.
+  await navigator.clipboard.writeText(text)
 }

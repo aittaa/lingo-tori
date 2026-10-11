@@ -4,7 +4,6 @@ import type { PromptableProviderRef } from "@/utils/providers/provider-ref"
 import type { SubtitlesFetcher } from "@/utils/subtitles/fetchers/types"
 import type { SubtitlesVideoContext } from "@/utils/subtitles/processor/translator"
 import type { SubtitlesFragment } from "@/utils/subtitles/types"
-import { toastManager } from "@/components/ui/base-ui/toast"
 import { getLocalConfig } from "@/utils/config/storage"
 import {
   MAX_GAP_MS,
@@ -23,61 +22,51 @@ import {
   fetchSubtitlesSummary,
   translateSubtitles,
 } from "@/utils/subtitles/processor/translator"
-import { downloadSubtitlesAsSrt } from "@/utils/subtitles/srt"
-import {
-  subtitlesStore,
-  TranslatedDownloadPhase,
-  translatedSubtitlesDownloadStatusAtom,
-} from "./atoms"
+import { buildSubtitlesSrtContent } from "@/utils/subtitles/srt"
+import { subtitlesStore, SubtitleCopyPhase, translatedSubtitlesCopyStatusAtom } from "./atoms"
+import { SubtitleClipboardExporter } from "./subtitle-clipboard-exporter"
 
-const SUCCESS_MESSAGE_DURATION_MS = 4000
 const MAX_COLLAPSED_AI_SEGMENT_DURATION_MS = 1
 const TRANSLATED_EXPORT_BATCH_CONCURRENCY = 2
 
-export class TranslatedSubtitlesDownloader {
-  private isDownloading = false
+export class TranslatedSubtitlesExporter {
   private operationId = 0
-  private successTimeout: ReturnType<typeof setTimeout> | null = null
   private snapshotFetcher: SubtitlesFetcher | null = null
+  private clipboard: SubtitleClipboardExporter
 
   constructor(
     private getFetcher: () => SubtitlesFetcher,
-    private config: PlatformConfig,
-  ) {}
+    config: PlatformConfig,
+    getContext: () => unknown = () => config.getVideoId?.(),
+  ) {
+    this.clipboard = new SubtitleClipboardExporter(
+      (assertActive) => this.prepare(assertActive),
+      (status) => subtitlesStore.set(translatedSubtitlesCopyStatusAtom, status),
+      getContext,
+    )
+  }
+
+  copy = (): Promise<void> => this.clipboard.run()
 
   private get fetcher(): SubtitlesFetcher {
     return this.snapshotFetcher ?? this.getFetcher()
   }
 
-  download = async (): Promise<void> => {
-    if (this.isDownloading) {
-      return
-    }
-
-    this.clearSuccessTimeout()
-    this.isDownloading = true
+  private async prepare(assertActive: () => void): Promise<string> {
     this.snapshotFetcher = this.getFetcher()
     const operationId = ++this.operationId
     const pageTitle = getSourceDocumentTitle()
-    const videoId = this.config.getVideoId?.()
-    this.setStatus(TranslatedDownloadPhase.Checking, null)
-
     try {
       const configSnapshot = await getLocalConfig()
+      assertActive()
       this.assertActive(operationId)
-      if (!configSnapshot) {
-        throw new Error(i18n.t("subtitles.errors.translatedExportFailed"))
-      }
-
+      if (!configSnapshot) throw new Error(i18n.t("subtitles.errors.translatedExportFailed"))
       const sourceSubtitles = await this.fetcher.fetch()
+      assertActive()
       this.assertActive(operationId)
-      if (sourceSubtitles.length === 0) {
-        throw new Error(i18n.t("subtitles.errors.noSubtitlesFound"))
-      }
-
+      if (sourceSubtitles.length === 0) throw new Error(i18n.t("subtitles.errors.noSubtitlesFound"))
       this.assertDifferentTargetLanguage(configSnapshot)
-      this.setStatus(TranslatedDownloadPhase.Preparing, 0)
-
+      this.setStatus(SubtitleCopyPhase.Preparing, 0)
       const sourceProcessedSubtitles = this.fetcher.isPreSegmented?.()
         ? [...sourceSubtitles]
         : optimizeSubtitles(sourceSubtitles, this.fetcher.getSourceLanguage())
@@ -88,70 +77,36 @@ export class TranslatedSubtitlesDownloader {
         operationId,
         pageTitle,
       )
-
+      assertActive()
       this.assertActive(operationId)
-      await downloadSubtitlesAsSrt({
-        subtitles: translatedSubtitles.map(({ translation, ...fragment }) => ({
+      return buildSubtitlesSrtContent(
+        translatedSubtitles.map(({ translation, ...fragment }) => ({
           ...fragment,
           text: translation ?? "",
         })),
-        pageTitle,
-        videoId,
-        suffix: "translated",
-      })
-      this.assertActive(operationId)
-
-      this.setStatus(TranslatedDownloadPhase.Complete, null)
-      this.successTimeout = setTimeout(() => {
-        if (!this.isActive(operationId)) {
-          return
-        }
-        this.successTimeout = null
-        this.setStatus(TranslatedDownloadPhase.Idle, null)
-      }, SUCCESS_MESSAGE_DURATION_MS)
-    } catch (error) {
-      if (!this.isActive(operationId)) {
-        return
-      }
-      toastManager.add({
-        type: "error",
-        title: error instanceof Error ? error.message : String(error),
-      })
-      this.setStatus(TranslatedDownloadPhase.Idle, null)
+      )
     } finally {
-      if (this.isActive(operationId)) {
-        this.isDownloading = false
-        this.snapshotFetcher = null
-      }
+      if (operationId === this.operationId) this.snapshotFetcher = null
     }
   }
 
   dispose(): void {
     this.operationId++
-    this.isDownloading = false
     this.snapshotFetcher = null
-    this.clearSuccessTimeout()
-    this.setStatus(TranslatedDownloadPhase.Idle, null)
+    this.clipboard.dispose()
   }
 
-  private clearSuccessTimeout(): void {
-    if (this.successTimeout !== null) {
-      clearTimeout(this.successTimeout)
-      this.successTimeout = null
-    }
-  }
-
-  private setStatus(phase: TranslatedDownloadPhase, progress: number | null): void {
-    subtitlesStore.set(translatedSubtitlesDownloadStatusAtom, { phase, progress })
+  private setStatus(phase: SubtitleCopyPhase, progress: number | null): void {
+    subtitlesStore.set(translatedSubtitlesCopyStatusAtom, { phase, progress })
   }
 
   private isActive(operationId: number): boolean {
-    return operationId === this.operationId
+    return operationId === this.operationId && this.snapshotFetcher === this.getFetcher()
   }
 
   private assertActive(operationId: number): void {
     if (!this.isActive(operationId)) {
-      throw new Error("Translated subtitle download was disposed")
+      throw new Error("Translated subtitle export was disposed")
     }
   }
 
@@ -221,7 +176,7 @@ export class TranslatedSubtitlesDownloader {
         translatedFragments.push(...translatedBatch)
         translatedCount += translatedBatch.length
         this.setStatus(
-          TranslatedDownloadPhase.Translating,
+          SubtitleCopyPhase.Translating,
           Math.min(100, Math.round((translatedCount / fragments.length) * 100)),
         )
       }

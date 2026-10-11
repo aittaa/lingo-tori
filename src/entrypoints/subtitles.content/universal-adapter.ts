@@ -32,7 +32,7 @@ import {
   resolveSubtitlesProviderRef,
   fetchSubtitlesSummary,
 } from "@/utils/subtitles/processor/translator"
-import { downloadSubtitlesAsSrt } from "@/utils/subtitles/srt"
+import { buildSubtitlesSrtContent } from "@/utils/subtitles/srt"
 import { showAiSubtitlesWallToast, showSubtitlesErrorToast } from "@/utils/subtitles/toast"
 import { requestVideoSummary, VIDEO_SUMMARY_QUERY_SCOPE } from "@/utils/subtitles/video-summary"
 import { queryClient } from "@/utils/tanstack-query"
@@ -41,6 +41,9 @@ import {
   currentTimeMsAtom,
   currentVideoIdAtom,
   sourceTrackAtom,
+  sourceSubtitlesCopyStatusAtom,
+  translatedSubtitlesCopyStatusAtom,
+  SubtitleCopyPhase,
   translatedTrackAtom,
   videoSummaryPartialAtom,
   subtitlesPositionAtom,
@@ -52,8 +55,9 @@ import {
 } from "./atoms"
 import { renderSubtitlesTranslateButton } from "./renderer/render-translate-button"
 import { SegmentationPipeline } from "./segmentation-pipeline"
+import { SubtitleClipboardExporter } from "./subtitle-clipboard-exporter"
 import { SubtitlesScheduler } from "./subtitles-scheduler"
-import { TranslatedSubtitlesDownloader } from "./translated-subtitles-downloader"
+import { TranslatedSubtitlesExporter } from "./translated-subtitles-exporter"
 import { TranslationCoordinator } from "./translation-coordinator"
 import { ROOT_VIEW } from "./ui/subtitles-settings-panel/views"
 
@@ -88,8 +92,8 @@ export interface SubtitlesProvidersAdapter {
   toggleSubtitlesManually: (enabled: boolean) => void
   toggleSubtitlesByShortcut: (enabled: boolean) => void
   requestAiSubtitles: () => Promise<void>
-  downloadSourceSubtitles: () => Promise<void>
-  downloadTranslatedSubtitles: () => Promise<void>
+  copySourceSubtitles: () => Promise<void>
+  copyTranslatedSubtitles: () => Promise<void>
 }
 
 export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
@@ -118,7 +122,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   private isNativeSubtitlesHidden = false
   private segmentationPipeline: SegmentationPipeline | null = null
   private translationCoordinator: TranslationCoordinator | null = null
-  private translatedSubtitlesDownloader: TranslatedSubtitlesDownloader | null = null
+  private sourceSubtitlesExporter: SubtitleClipboardExporter | null = null
+  private translatedSubtitlesExporter: TranslatedSubtitlesExporter | null = null
   private subtitlesSummaryContextHash: string | null = null
   private adObserver: MutationObserver | null = null
   private observedAdPlayer: HTMLElement | null = null
@@ -160,7 +165,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
 
   async initialize() {
     this.publishVideoId()
-    this.initializeTranslatedSubtitlesDownloader()
+    this.initializeTranslatedSubtitlesExporter()
     void this.restorePosition()
     void this.renderTranslateButton()
 
@@ -258,25 +263,31 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     }
   }
 
-  downloadSourceSubtitles = async () => {
-    await this.getOrLoadSourceSubtitles()
+  private getExportContext = () => `${this.sourceCacheVersion}:${this.config.getVideoId?.() ?? ""}`
 
-    await downloadSubtitlesAsSrt({
-      subtitles: this.sourceProcessedSubtitles,
-      pageTitle: getSourceDocumentTitle(),
-      videoId: this.config.getVideoId?.(),
-    })
+  copySourceSubtitles = (): Promise<void> => {
+    this.sourceSubtitlesExporter ??= new SubtitleClipboardExporter(
+      async (assertActive) => {
+        await this.getOrLoadSourceSubtitles()
+        assertActive()
+        return buildSubtitlesSrtContent(this.sourceProcessedSubtitles)
+      },
+      (status) => subtitlesStore.set(sourceSubtitlesCopyStatusAtom, status),
+      this.getExportContext,
+    )
+    return this.sourceSubtitlesExporter.run()
   }
 
-  downloadTranslatedSubtitles = async () => {
-    this.initializeTranslatedSubtitlesDownloader()
-    await this.translatedSubtitlesDownloader!.download()
+  copyTranslatedSubtitles = (): Promise<void> => {
+    this.initializeTranslatedSubtitlesExporter()
+    return this.translatedSubtitlesExporter!.copy()
   }
 
-  private initializeTranslatedSubtitlesDownloader() {
-    this.translatedSubtitlesDownloader ??= new TranslatedSubtitlesDownloader(
+  private initializeTranslatedSubtitlesExporter() {
+    this.translatedSubtitlesExporter ??= new TranslatedSubtitlesExporter(
       () => this.fetcher,
       this.config,
+      this.getExportContext,
     )
   }
 
@@ -403,6 +414,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   }
 
   private clearSourceCache() {
+    this.sourceSubtitlesExporter?.dispose()
+    this.translatedSubtitlesExporter?.dispose()
     this.sourceCacheVersion++
     this.sourceSubtitles = []
     this.clearSourceProcessedSubtitles()
@@ -425,7 +438,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     this.prepareSummaryForNavigation()
     this.clearNavigationReinitTimeout()
     this.teardownAdObserver()
-    this.translatedSubtitlesDownloader?.dispose()
+    this.sourceSubtitlesExporter?.dispose()
+    this.translatedSubtitlesExporter?.dispose()
     this.destroyScheduler()
     this.translationCoordinator?.stop()
     this.segmentationPipeline?.stop()
@@ -700,12 +714,25 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
 
     const isTranscriptInUse =
       subtitlesStore.get(sourceTrackAtom).length > 0 || this.pendingTranscriptLoads > 0
-    if (!isSchedulerActive && !isTranscriptInUse) {
-      return
-    }
+    const isExportInUse = [sourceSubtitlesCopyStatusAtom, translatedSubtitlesCopyStatusAtom].some(
+      (statusAtom) => {
+        const phase = subtitlesStore.get(statusAtom).phase
+        return phase !== SubtitleCopyPhase.Idle && phase !== SubtitleCopyPhase.Checking
+      },
+    )
+    if (!isSchedulerActive && !isTranscriptInUse && !isExportInUse) return
 
-    const useSameTrack = await this.fetcher.shouldUseSameTrack()
-    if (useSameTrack) {
+    const fetcher = this.fetcher
+    const cacheVersion = this.sourceCacheVersion
+    const useSameTrack = await fetcher.shouldUseSameTrack()
+    if (useSameTrack || fetcher !== this.fetcher || cacheVersion !== this.sourceCacheVersion) return
+
+    // Netflix polls every second, so invalidate only after an actual track change.
+    this.sourceSubtitlesExporter?.dispose()
+    this.translatedSubtitlesExporter?.dispose()
+    if (!isSchedulerActive && !isTranscriptInUse) {
+      this.clearSourceCache()
+      fetcher.cleanup()
       return
     }
 

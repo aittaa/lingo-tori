@@ -68,25 +68,32 @@ export const videoSummaryPartialAtom = atom<string>("")
 
 export const subtitlesSidebarActiveSectionAtom = atom<SectionId>(DEFAULT_SECTION_ID)
 
-export const TranslatedDownloadPhase = {
+export const SubtitleCopyPhase = {
   Idle: "idle",
   Checking: "checking",
   Preparing: "preparing",
   Translating: "translating",
+  Ready: "ready",
+  Copying: "copying",
+  CopyFailed: "copy-failed",
   Complete: "complete",
 } as const
 
 // eslint-disable-next-line ts/no-redeclare
-export type TranslatedDownloadPhase =
-  (typeof TranslatedDownloadPhase)[keyof typeof TranslatedDownloadPhase]
+export type SubtitleCopyPhase = (typeof SubtitleCopyPhase)[keyof typeof SubtitleCopyPhase]
 
-export const translatedSubtitlesDownloadStatusAtom = atom<{
-  phase: TranslatedDownloadPhase
+export const translatedSubtitlesCopyStatusAtom = atom<{
+  phase: SubtitleCopyPhase
   progress: number | null
 }>({
-  phase: TranslatedDownloadPhase.Idle,
+  phase: SubtitleCopyPhase.Idle,
   progress: null,
 })
+
+export const sourceSubtitlesCopyStatusAtom = atom<{
+  phase: SubtitleCopyPhase
+  progress: number | null
+}>({ phase: SubtitleCopyPhase.Idle, progress: null })
 
 export interface SubtitlePosition {
   percent: number

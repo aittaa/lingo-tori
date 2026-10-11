@@ -5,6 +5,8 @@ import {
   adPlayingAtom,
   currentTimeMsAtom,
   sourceTrackAtom,
+  sourceSubtitlesCopyStatusAtom,
+  SubtitleCopyPhase,
   subtitlesSidebarOpenAtom,
   subtitlesSourceAtom,
   subtitlesStore,
@@ -239,17 +241,17 @@ describe("universalVideoAdapter", () => {
     expect(startTranslationSpy).not.toHaveBeenCalled()
   })
 
-  it("delegates translated subtitle downloads to the downloader", async () => {
+  it("delegates translated subtitle copy to the exporter", async () => {
     const { adapter } = createAdapter([])
     const downloader = {
-      download: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      copy: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       dispose: vi.fn<(...args: any[]) => any>(),
     }
-    ;(adapter as any).translatedSubtitlesDownloader = downloader
+    ;(adapter as any).translatedSubtitlesExporter = downloader
 
-    await adapter.downloadTranslatedSubtitles()
+    await adapter.copyTranslatedSubtitles()
 
-    expect(downloader.download).toHaveBeenCalledTimes(1)
+    expect(downloader.copy).toHaveBeenCalledTimes(1)
   })
 
   it("returns false from startTranslation when the fetcher fails", async () => {
@@ -449,10 +451,10 @@ describe("universalVideoAdapter", () => {
   it("disposes translated subtitle download state when navigation starts", () => {
     const { adapter } = createAdapter([])
     const downloader = {
-      download: vi.fn<(...args: any[]) => any>(),
+      copy: vi.fn<(...args: any[]) => any>(),
       dispose: vi.fn<(...args: any[]) => any>(),
     }
-    ;(adapter as any).translatedSubtitlesDownloader = downloader
+    ;(adapter as any).translatedSubtitlesExporter = downloader
     attachScheduler(adapter, false)
 
     ;(adapter as any).clearVisibleStateForNavigation()
@@ -646,5 +648,22 @@ describe("universalVideoAdapter", () => {
       { text: "recut", start: 1000, end: 2000 },
       { text: "after", start: 2000, end: 3000 },
     ])
+  })
+  it("prepares source captions before copying and clears the prepared text on track change", async () => {
+    const writeText = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined)
+    vi.stubGlobal("navigator", { clipboard: { writeText } })
+    const { adapter, subtitlesFetcher } = createAdapter([{ text: "Hello.", start: 0, end: 1000 }])
+    await adapter.copySourceSubtitles()
+    expect(writeText).not.toHaveBeenCalled()
+    expect(subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase).toBe(SubtitleCopyPhase.Ready)
+    subtitlesFetcher.shouldUseSameTrack.mockResolvedValueOnce(true)
+    await adapter.handleSourceTrackChanged()
+    expect(subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase).toBe(SubtitleCopyPhase.Ready)
+    const copy = adapter.copySourceSubtitles()
+    expect(writeText).toHaveBeenCalledWith("1\n00:00:00,000 --> 00:00:01,000\nHello.")
+    await copy
+    expect(subtitlesFetcher.fetch).toHaveBeenCalledTimes(1)
+    await adapter.handleSourceTrackChanged()
+    expect(subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase).toBe(SubtitleCopyPhase.Idle)
   })
 })
