@@ -5,7 +5,7 @@ import { aiTranslate } from "../ai"
 
 const mocks = vi.hoisted(() => ({
   generateText: vi.fn<(...args: any[]) => any>(),
-  getModelById: vi.fn<(...args: any[]) => any>(),
+  getLanguageModelForConfig: vi.fn<(...args: any[]) => any>(),
   resolveModelId: vi.fn<(...args: any[]) => any>(),
   getProviderOptionsWithOverride: vi.fn<(...args: any[]) => any>(),
 }))
@@ -15,7 +15,7 @@ vi.mock("ai", () => ({
 }))
 
 vi.mock("@/utils/providers/model", () => ({
-  getModelById: mocks.getModelById,
+  getLanguageModelForConfig: mocks.getLanguageModelForConfig,
 }))
 
 vi.mock("@/utils/providers/model-id", () => ({
@@ -43,7 +43,7 @@ const promptResolver = vi.fn<(...args: any[]) => any>().mockResolvedValue({
 describe("aiTranslate", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.getModelById.mockResolvedValue("model")
+    mocks.getLanguageModelForConfig.mockReturnValue("model")
     mocks.resolveModelId.mockReturnValue("gpt-5-mini")
     mocks.getProviderOptionsWithOverride.mockReturnValue({})
   })

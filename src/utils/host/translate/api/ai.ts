@@ -3,7 +3,7 @@ import type { MatchedTerm } from "@/utils/glossary/types"
 import type { TranslatePromptOptions, TranslatePromptResult } from "@/utils/prompts/translate"
 import { generateText } from "ai"
 import { extractAISDKErrorMessage } from "@/utils/error/extract-message"
-import { getModelById } from "@/utils/providers/model"
+import { getLanguageModelForConfig } from "@/utils/providers/model"
 import { resolveModelId } from "@/utils/providers/model-id"
 import { getProviderOptionsWithOverride } from "@/utils/providers/options"
 import { getTopLevelReasoning } from "@/utils/providers/reasoning"
@@ -33,7 +33,6 @@ export async function aiTranslate<TContext>(
   },
 ) {
   const {
-    id: providerId,
     model: providerModel,
     provider,
     providerOptions: userProviderOptions,
@@ -41,7 +40,7 @@ export async function aiTranslate<TContext>(
   } = providerConfig
   const reasoning = getTopLevelReasoning(providerConfig)
   const modelName = resolveModelId(providerModel)
-  const model = await getModelById(providerId)
+  const model = getLanguageModelForConfig(providerConfig)
 
   const providerOptions = getProviderOptionsWithOverride(
     modelName ?? "",
