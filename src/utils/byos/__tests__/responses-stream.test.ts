@@ -8,7 +8,11 @@ const completed = { type: "response.completed", response: { status: "completed" 
 const frame = (event: unknown, newline = "\n") =>
   `data: ${JSON.stringify(event)}${newline}${newline}`
 
-function streamResponse(text: string, contentType = "text/event-stream", chunkSize = 7) {
+function streamResponse(
+  text: string,
+  contentType: string | null = "text/event-stream",
+  chunkSize = 7,
+) {
   const bytes = new Uint8Array(Buffer.from(text, "utf8"))
   let offset = 0
   return new Response(
@@ -23,7 +27,12 @@ function streamResponse(text: string, contentType = "text/event-stream", chunkSi
         offset = end
       },
     }),
-    { headers: { "Content-Type": contentType, "x-request-id": "req_synthetic_stream" } },
+    {
+      headers: {
+        ...(contentType === null ? {} : { "Content-Type": contentType }),
+        "x-request-id": "req_synthetic_stream",
+      },
+    },
   )
 }
 
@@ -178,9 +187,66 @@ describe("Responses wire stream", () => {
     ).resolves.toEqual({ text: delta.delta })
   })
 
+  it.each(["\n", "\r\n", "\r"])(
+    "accepts a headerless stream only after framed completion with %j line endings",
+    async (newline) => {
+      const response = streamResponse(frame(delta, newline) + frame(completed, newline), null, 1)
+      expect(response.headers.get("content-type")).toBeNull()
+      await expect(invoke(response)).resolves.toEqual({ text: delta.delta })
+    },
+  )
+
+  it.each([
+    [
+      JSON.stringify({ object: "response", status: "completed", output: [] }),
+      "inference_incomplete",
+    ],
+    ["<html><body>synthetic-private-page</body></html>", "inference_incomplete"],
+    ["data: synthetic-private-not-json\n\n", "invalid_stream_json"],
+    [frame({ unexpected: "synthetic-private-value" }), "invalid_stream_event"],
+    [frame({ type: "response.output_text.delta", delta: 42 }), "invalid_stream_delta"],
+    [frame(delta), "inference_incomplete"],
+    [frame(delta) + `data: ${JSON.stringify(completed)}`, "inference_incomplete"],
+    [frame(completed) + frame(delta), "invalid_stream_after_completed"],
+    [
+      frame({
+        type: "response.failed",
+        response: { error: { code: "subscription_sharing_usage_limit_exceeded" } },
+      }),
+      "subscription_sharing_usage_limit_exceeded",
+    ],
+    [
+      frame({ type: "response.refusal.done", refusal: "synthetic-private-refusal" }) +
+        frame(completed),
+      "inference_refused",
+    ],
+  ])(
+    "rejects a headerless impostor or failed stream without exposing its body (%s)",
+    async (body, code) => {
+      await expect(invoke(streamResponse(body, null))).rejects.toMatchObject({
+        code,
+        message: `BYOS: ${code}`,
+        isRetryable: false,
+      })
+    },
+  )
+
+  it("rejects a missing body even when Content-Type is omitted", async () => {
+    await expect(invoke(new Response(null))).rejects.toMatchObject({
+      code: "invalid_stream_body",
+      status: 200,
+      isRetryable: false,
+    })
+  })
+
   it.each([
     ["application/json", JSON.stringify({ object: "response", status: "completed", output: [] })],
     ["application/x-text/event-stream", frame(delta) + frame(completed)],
+    ["text/html", frame(delta) + frame(completed)],
+    ["text/plain", frame(delta) + frame(completed)],
+    ["application/octet-stream", frame(delta) + frame(completed)],
+    ["", frame(delta) + frame(completed)],
+    [" ", frame(delta) + frame(completed)],
   ])(
     "rejects %s without nonstreaming fallback and identifies the safe stage",
     async (type, body) => {

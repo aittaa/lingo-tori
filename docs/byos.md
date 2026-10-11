@@ -1,6 +1,6 @@
 # Experimental browser-only BYOS
 
-Status on 2026-10-11: user-completed sign-in and the account model catalog now work in local Chrome after adding guarded loopback recovery. Earlier attempts failed with `ERR_CONNECTION_REFUSED`. Video translation still fails and its cause remains under investigation; successful inference is not established. The companion runtime, server setup and address/pairing-key UI are removed.
+Status on 2026-10-11: user-completed sign-in and the account model catalog work in local Chrome after guarded loopback recovery. The first real English-to-Korean video translation with the saved GPT-6.1-Sol account model is verified after handling a missing Responses Content-Type through strict SSE validation; see [live stream acceptance evidence](byos-missing-content-type.md). This verifies the tested initial flow, not all lifecycle or cancellation cases. Earlier sign-in attempts failed with `ERR_CONNECTION_REFUSED`. The companion runtime, server setup and address/pairing-key UI are removed.
 
 ## Support and architecture distinction
 

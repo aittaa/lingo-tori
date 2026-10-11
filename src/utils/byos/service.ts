@@ -970,8 +970,12 @@ export function createByosService(
             { isRetryable: false },
           )
         }
-        const mediaType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase()
-        if (mediaType !== "text/event-stream") {
+        const contentType = response.headers.get("content-type")
+        const mediaType = contentType?.split(";")[0]?.trim().toLowerCase()
+        // A live plan stream can reach fetch without Content-Type. A missing header
+        // still has to pass the framed SSE parser and completed-event checks.
+        // An explicitly non-SSE media type remains an error.
+        if (contentType !== null && mediaType !== "text/event-stream") {
           void response.body?.cancel().catch(() => {})
           streamFailure("invalid_stream_content_type")
         }
