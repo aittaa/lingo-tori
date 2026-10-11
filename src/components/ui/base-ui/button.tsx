@@ -24,12 +24,9 @@ const buttonVariants = cva(
         accent: `${solidBevel} text-accent-foreground [--btn-bevel:var(--rf-accent-bevel)] [--btn-edge:var(--rf-accent-edge)] [--btn-fill-active:var(--rf-accent-active)] [--btn-fill-hover:var(--rf-accent-hover)] [--btn-fill:var(--rf-accent)] [--btn-press:var(--rf-accent-press)]`,
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-        // A small action we want noticed without a solid fill. Accent text reads on the light page
-        // (APCA Lc 59) but not on the dark one, where the dark accent is tuned for white text on
-        // a fill (Lc 31 as text); there the text turns white and the border and tint carry the
-        // accent.
+        // Accent text follows the theme: deep teal on cream, mint on dark surfaces.
         "outline-accent":
-          "border-accent/50 bg-background text-accent hover:border-accent hover:bg-accent/10 aria-expanded:border-accent aria-expanded:bg-accent/10 dark:border-accent/70 dark:bg-accent/10 dark:text-accent-foreground dark:hover:bg-accent/20 dark:aria-expanded:bg-accent/20",
+          "border-accent/50 bg-background text-accent hover:border-accent hover:bg-accent/10 aria-expanded:border-accent aria-expanded:bg-accent/10 dark:border-accent/70 dark:bg-accent/10 dark:hover:bg-accent/20 dark:aria-expanded:bg-accent/20",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144" fill="none">
+  <title>LingoTori white long-tailed tit</title>
+  <!-- Original vector refinement of the selected generated candidate A. See docs/branding/README.md. -->
+  <g transform="translate(0 14)" stroke="#103e49" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path fill="#32939a" d="M78 81C94 63 86 38 102 24C110 17 120 19 123 10L120 24C132 42 106 61 89 91Z"/>
+    <path fill="#b8ded7" stroke="none" d="M84 82C94 62 103 43 115 33C122 27 116 42 110 49L89 88Z"/>
+    <path fill="#fffdf7" d="M19 68C17 49 31 33 51 33C73 31 82 49 82 62C92 72 99 87 91 101C83 115 66 118 49 116C25 115 13 99 16 81Z"/>
+    <path fill="#dceee7" stroke="none" d="M18 84C23 104 49 112 72 105C81 103 85 99 90 94C90 107 71 116 50 114C30 113 18 101 18 84Z"/>
+    <path fill="#32939a" d="M74 77C82 69 93 77 98 85C103 94 104 98 99 98C85 97 68 86 74 77Z"/>
+    <circle cx="36" cy="62" r="5.5" fill="#103e49" stroke="none"/>
+    <circle cx="62" cy="66" r="5.5" fill="#103e49" stroke="none"/>
+    <path fill="#247780" d="M44 68Q48 64 53 70L48 75Z" stroke-width="2"/>
+  </g>
+</svg>

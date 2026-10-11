@@ -10,3 +10,11 @@ https://github.com/aittaa/lingo-tori
 Distributed under the GNU General Public License, version 3.
 The unmodified license text is included in LICENSE.
 Third-party dependency notices embedded in generated files remain intact.
+
+LingoTori bird branding:
+The selected white long-tailed tit candidate A was newly generated for
+LingoTori with OpenAI image generation. The original selected raster and its
+Library identity/hash are retained in docs/branding. Production SVG paths
+were refined from that reference by Codex; no prior unknown-origin icon is
+reused. These assets and modifications are distributed under GPL-3.0 with
+LingoTori. See docs/branding/README.md for provenance and regeneration.

@@ -398,7 +398,7 @@ export default function FloatingButton() {
           ref={mainButtonRef}
           data-testid="floating-main-button"
           className={cn(
-            "pointer-events-auto relative flex h-10 items-center border-border bg-white shadow-lg transition-transform duration-300 dark:bg-neutral-900",
+            "pointer-events-auto relative flex h-10 items-center border-border bg-card shadow-lg transition-transform duration-300",
             isDraggingButton
               ? "w-10 cursor-grabbing touch-none justify-center rounded-full border opacity-100"
               : floatingButtonSide === "right"

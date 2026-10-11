@@ -1,6 +1,7 @@
 @import "tailwindcss" source("../..");
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./host-theme.css";
 @import "./glass-badge.css";
 @import "./subtitle-lines.css";
 
@@ -216,254 +217,145 @@
   --rf-font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
-
-  /* Scales, copied from the design system. Kept out of @theme so components cannot reach past
-     the semantic layer. Names match the Tailwind palette they alias, so a stray text-neutral-900
-     lands on the same colour; lemon and cornflower have no Tailwind counterpart by design. */
-  --rf-neutral-50: var(--color-neutral-50);
-  --rf-neutral-100: var(--color-neutral-100);
-  --rf-neutral-200: var(--color-neutral-200);
-  --rf-neutral-300: var(--color-neutral-300);
-  --rf-neutral-400: var(--color-neutral-400);
-  --rf-neutral-500: var(--color-neutral-500);
-  --rf-neutral-600: var(--color-neutral-600);
-  --rf-neutral-700: var(--color-neutral-700);
-  --rf-neutral-800: var(--color-neutral-800);
-  --rf-neutral-900: var(--color-neutral-900);
-  --rf-neutral-950: var(--color-neutral-950);
-
-  /* lemon: Tailwind yellow's lightness and hue curve turned 3 degrees toward lemon, with
-     Tailwind's chroma capped at 95% of the sRGB edge. The 50-steps are inserted halfway steps:
-     450 is the light-mode brand, 550 the dark-mode brand, 650 the dark bevel's shade. */
-  --rf-lemon-50: oklch(98.7% 0.026 105.276);
-  --rf-lemon-100: oklch(97.3% 0.071 106.257);
-  --rf-lemon-200: oklch(94.5% 0.129 104.604);
-  --rf-lemon-300: oklch(90.5% 0.1795 101.175);
-  --rf-lemon-400: oklch(86% 0.16779 95);
-  --rf-lemon-450: oklch(82.75% 0.16086 92.055);
-  --rf-lemon-500: oklch(79.5% 0.15438 89.111);
-  --rf-lemon-550: oklch(73.8% 0.14395 84.004);
-  --rf-lemon-600: oklch(68.1% 0.13451 78.898);
-  --rf-lemon-650: oklch(61.75% 0.12429 74.202);
-  --rf-lemon-700: oklch(55.4% 0.11446 69.506);
-  --rf-lemon-800: oklch(47.6% 0.10161 64.971);
-  --rf-lemon-900: oklch(42.1% 0.09328 60.772);
-  --rf-lemon-950: oklch(28.6% 0.066 56.877);
-
-  /* cornflower: the extension's old accent blue grown into a scale, Tailwind blue's lightness
-     curve at one fixed hue. 400 was the light accent and 550 is the dark one; the light accent
-     is now 450, half a step deeper, so white text on it reads. */
-  --rf-cornflower-50: oklch(97% 0.01363 265.19);
-  --rf-cornflower-100: oklch(93.2% 0.03115 265.19);
-  --rf-cornflower-200: oklch(88.2% 0.05743 265.19);
-  --rf-cornflower-300: oklch(80.9% 0.10221 265.19);
-  --rf-cornflower-400: oklch(69.256% 0.16062 265.19);
-  --rf-cornflower-450: oklch(65.778% 0.17098 265.19);
-  --rf-cornflower-500: oklch(62.3% 0.18134 265.19);
-  --rf-cornflower-550: oklch(58% 0.18 265.19);
-  --rf-cornflower-600: oklch(54.6% 0.19216 265.19);
-  --rf-cornflower-700: oklch(48.8% 0.19059 265.19);
-  --rf-cornflower-800: oklch(42.4% 0.15608 265.19);
-  --rf-cornflower-900: oklch(37.9% 0.11451 265.19);
-  --rf-cornflower-950: oklch(28.2% 0.07137 265.19);
-
-  --rf-blue-50: var(--color-blue-50);
-  --rf-blue-100: var(--color-blue-100);
-  --rf-blue-200: var(--color-blue-200);
-  --rf-blue-300: var(--color-blue-300);
-  --rf-blue-400: var(--color-blue-400);
-  /* inserted: 400->500 jumps 0.084 L; the dark --rf-link sits between them */
-  --rf-blue-450: oklch(66% 0.184 254.753);
-  --rf-blue-500: var(--color-blue-500);
-  /* inserted: halfway between 500 and 600, the light --rf-link */
-  --rf-blue-550: oklch(58.5% 0.2295 261.348);
-  --rf-blue-600: var(--color-blue-600);
-  --rf-blue-700: var(--color-blue-700);
-  --rf-blue-800: var(--color-blue-800);
-  --rf-blue-900: var(--color-blue-900);
-  --rf-blue-950: var(--color-blue-950);
 }
 
-/* Semantic layer, the design system's, behind the `--rf-` prefix. Components only ever reference
-   these. Contrast notes in the design system's theme.css are APCA Lc. */
+/* Semantic tokens shared by extension pages and isolated UI. The palette lives in
+   host-theme.css so built-in translation accents use the same bird colours. Keep
+   the existing token names: saved themes and custom CSS continue to resolve. */
 :root {
-  --rf-background: var(--color-white);
-  --rf-foreground: var(--rf-neutral-950);
-  --rf-card: var(--color-white);
-  --rf-card-foreground: var(--rf-neutral-950);
-  --rf-popover: var(--color-white);
-  --rf-popover-foreground: var(--rf-neutral-950);
-  /* The shadow scale's colour (see @theme above): Notion's near-black, at the scale's own opacity. */
-  --rf-elevation-ink: 25 25 25;
+  --rf-background: var(--rf-cream-100);
+  --rf-foreground: var(--rf-teal-900);
+  --rf-card: var(--rf-cream-50);
+  --rf-card-foreground: var(--rf-foreground);
+  --rf-popover: var(--rf-cream-50);
+  --rf-popover-foreground: var(--rf-foreground);
+  --rf-elevation-ink: 16 62 73;
   --rf-elevation-strength: 1;
-  --rf-primary: var(--rf-neutral-900);
-  --rf-primary-foreground: var(--rf-neutral-50);
-  --rf-secondary: var(--rf-neutral-100);
-  --rf-secondary-foreground: var(--rf-neutral-900);
-  --rf-muted: var(--rf-neutral-100);
-  --rf-muted-foreground: var(--rf-neutral-500);
-  /* The one chromatic colour for doing things. It fills the inviting action in a region and marks
-     a control as on (the switch's track, a checked checkbox or radio, the dashed "add" buttons).
-     Neutral hovers and highlights are `muted` and `secondary`, never this. */
-  --rf-accent: var(--rf-cornflower-450);
-  --rf-accent-foreground: var(--color-white);
-  /* White on lemon is chosen for looks over readability. Reserve it for the few things we most
-     want pressed. */
-  --rf-brand: var(--rf-lemon-450);
-  --rf-brand-foreground: var(--color-white);
-  /* The status colours, the design system's mint, tangerine and watermelon: drawn inside sRGB with
-     chroma at the accent's 0.17 or under, so they read clear like lemon and cornflower instead of
-     Tailwind's P3 neon, and each as light as it can be while still reaching Lc 60 as text on white.
-     Warning keeps to hue 54, short of lemon and of the brown a darker orange slides into. No
-     foreground: tint instead, as `bg-success/10 text-success`. */
+  --rf-primary: var(--rf-teal-900);
+  --rf-primary-foreground: var(--rf-cream-50);
+  --rf-secondary: var(--rf-cream-200);
+  --rf-secondary-foreground: var(--rf-foreground);
+  --rf-muted: var(--rf-cream-200);
+  --rf-muted-foreground: var(--rf-muted-text-day);
+  /* A deeper shade of the mascot's wing keeps cream labels readable. */
+  --rf-accent: var(--rf-teal-700);
+  --rf-accent-foreground: var(--rf-cream-50);
+  --rf-brand: var(--rf-accent);
+  --rf-brand-foreground: var(--rf-accent-foreground);
   --rf-destructive: oklch(66% 0.18 18);
   --rf-success: oklch(62.4% 0.134 160);
   --rf-warning: oklch(65.3% 0.155 54);
-  --rf-border: var(--rf-neutral-200);
-  --rf-input: var(--rf-neutral-200);
-  --rf-ring: var(--rf-neutral-400);
-  --rf-link: var(--rf-blue-550);
+  --rf-border: var(--rf-border-day);
+  --rf-input: var(--rf-input-day);
+  --rf-ring: var(--rf-ink);
+  --rf-link: var(--rf-teal-700);
 
-  /* Solid buttons are a flat fill under a bevel, after openui.com's BevelButton: a 1px top
-     highlight, a glow fading down from the top, a shade along the bottom, then a drop shadow.
-     Hover lightens the fill by the neighbouring step and active deepens it. On accent and brand
-     the shade, edge and drop take the next step of the fill's own scale, 600, rather than 800 or
-     black, which would drag blue toward grey and lemon toward brown. */
-  --rf-primary-hover: var(--rf-neutral-800);
-  --rf-primary-active: var(--rf-neutral-950);
-  --rf-primary-edge: oklch(1 0 0 / 12%);
+  /* Retain the existing button mechanics with restrained highlights. Hover and
+     pressed fills remain dark enough for cream text in every solid variant. */
+  --rf-primary-hover: var(--rf-teal-800);
+  --rf-primary-active: var(--rf-teal-950);
+  --rf-primary-edge: color-mix(in srgb, var(--rf-cream-50) 12%, transparent);
   --rf-primary-bevel:
-    inset 0 1px 0 oklch(1 0 0 / 20%), inset 0 6px 10px -5px oklch(1 0 0 / 14%),
-    inset 0 -4px 7px -2px oklch(0 0 0 / 55%), 0 1px 2px oklch(0 0 0 / 14%),
-    0 2px 6px -2px oklch(0 0 0 / 16%);
-  --rf-primary-press: inset 0 1px 3px oklch(0 0 0 / 50%);
-  --rf-brand-hover: var(--rf-lemon-400);
-  --rf-brand-active: var(--rf-lemon-500);
-  --rf-brand-edge: color-mix(in oklab, var(--rf-lemon-600) 40%, transparent);
-  --rf-brand-bevel:
-    inset 0 1px 0 oklch(1 0 0 / 55%), inset 0 6px 10px -5px oklch(1 0 0 / 32%),
-    inset 0 -4px 7px -2px color-mix(in oklab, var(--rf-lemon-600) 35%, transparent),
-    0 1px 2px color-mix(in oklab, var(--rf-lemon-600) 20%, transparent),
-    0 2px 6px -2px color-mix(in oklab, var(--rf-lemon-600) 26%, transparent);
-  --rf-brand-press: inset 0 1px 3px color-mix(in oklab, var(--rf-lemon-650) 40%, transparent);
-  --rf-accent-hover: var(--rf-cornflower-400);
-  --rf-accent-active: var(--rf-cornflower-500);
-  --rf-accent-edge: color-mix(in oklab, var(--rf-cornflower-600) 40%, transparent);
-  --rf-accent-bevel:
-    inset 0 1px 0 oklch(1 0 0 / 32%), inset 0 6px 10px -5px oklch(1 0 0 / 20%),
-    inset 0 -4px 7px -2px color-mix(in oklab, var(--rf-cornflower-600) 45%, transparent),
-    0 1px 2px color-mix(in oklab, var(--rf-cornflower-600) 18%, transparent),
-    0 2px 6px -2px color-mix(in oklab, var(--rf-cornflower-600) 24%, transparent);
-  --rf-accent-press: inset 0 1px 3px color-mix(in oklab, var(--rf-cornflower-700) 40%, transparent);
+    inset 0 1px 0 rgb(255 255 255 / 16%), inset 0 -1px 0 rgb(0 0 0 / 16%),
+    0 1px 2px rgb(16 62 73 / 12%);
+  --rf-primary-press: inset 0 1px 3px rgb(0 0 0 / 22%);
+  --rf-brand-hover: var(--rf-teal-800);
+  --rf-brand-active: var(--rf-teal-900);
+  --rf-brand-edge: color-mix(in srgb, var(--rf-teal-950) 20%, transparent);
+  --rf-brand-bevel: var(--rf-primary-bevel);
+  --rf-brand-press: var(--rf-primary-press);
+  --rf-accent-hover: var(--rf-brand-hover);
+  --rf-accent-active: var(--rf-brand-active);
+  --rf-accent-edge: var(--rf-brand-edge);
+  --rf-accent-bevel: var(--rf-brand-bevel);
+  --rf-accent-press: var(--rf-brand-press);
 
-  /* Charts are one hue, the accent's; lemon is kept for the brand. chart-1 is the accent itself and
-     each later step moves further from the page, so here they darken and in dark mode they lighten. */
-  --rf-chart-1: var(--rf-cornflower-450);
-  --rf-chart-2: var(--rf-cornflower-550);
-  --rf-chart-3: var(--rf-cornflower-700);
-  --rf-chart-4: var(--rf-cornflower-800);
-  --rf-chart-5: var(--rf-cornflower-950);
+  --rf-chart-1: var(--rf-teal-600);
+  --rf-chart-2: var(--rf-teal-700);
+  --rf-chart-3: var(--rf-teal-800);
+  --rf-chart-4: var(--rf-teal-900);
+  --rf-chart-5: var(--rf-teal-950);
   --rf-radius: 0.625rem;
-  --rf-sidebar: var(--rf-neutral-50);
-  --rf-sidebar-foreground: var(--rf-neutral-950);
-  --rf-sidebar-primary: var(--rf-neutral-900);
-  --rf-sidebar-primary-foreground: var(--rf-neutral-50);
-  --rf-sidebar-accent: var(--rf-neutral-100);
-  --rf-sidebar-accent-foreground: var(--rf-neutral-900);
-  --rf-sidebar-border: var(--rf-neutral-200);
-  --rf-sidebar-ring: var(--rf-neutral-400);
+  --rf-sidebar: var(--rf-cream-200);
+  --rf-sidebar-foreground: var(--rf-foreground);
+  --rf-sidebar-primary: var(--rf-accent);
+  --rf-sidebar-primary-foreground: var(--rf-accent-foreground);
+  --rf-sidebar-accent: var(--rf-teal-100);
+  --rf-sidebar-accent-foreground: var(--rf-foreground);
+  --rf-sidebar-border: var(--rf-border);
+  --rf-sidebar-ring: var(--rf-ring);
 
   /* Extension-only tokens */
-  /* shadow-md's two drops as a property, for a surface that stacks them under a button's bevel:
-     the bevel and a shadow-* class both write --tw-shadow, so only one of the two can win. */
   --rf-elevation-floating:
     0 5px 8px 0 rgb(var(--rf-elevation-ink) / calc(0.027 * var(--rf-elevation-strength))),
     0 20px 24px 0 rgb(var(--rf-elevation-ink) / calc(0.05 * var(--rf-elevation-strength)));
-  /* The colours `--animate-ring-flash` pulses to. Kept in step with the `aria-invalid` rules
-     on `Input`, whose destructive tint differs per theme, since a keyframe cannot carry a
-     `.dark` variant of its own. */
   --rf-ring-flash-border: var(--rf-destructive);
   --rf-ring-flash-ring: color-mix(in oklab, var(--rf-destructive) 20%, transparent);
 }
 
 .dark {
-  --rf-background: var(--rf-neutral-950);
-  --rf-foreground: var(--rf-neutral-50);
-  --rf-card: var(--rf-neutral-900);
-  --rf-card-foreground: var(--rf-neutral-50);
-  --rf-popover: var(--rf-neutral-900);
-  --rf-popover-foreground: var(--rf-neutral-50);
-  /* Light mode's ink would lighten this page rather than darken it. Black at eight times the
-     opacity reads as the same drop: a near-black page leaves a shadow little room to darken. */
+  --rf-background: var(--rf-teal-950);
+  --rf-foreground: var(--rf-cream-50);
+  --rf-card: var(--rf-surface-night);
+  --rf-card-foreground: var(--rf-foreground);
+  --rf-popover: var(--rf-surface-night);
+  --rf-popover-foreground: var(--rf-foreground);
   --rf-elevation-ink: 0 0 0;
   --rf-elevation-strength: 8;
-  --rf-primary: var(--rf-neutral-200);
-  --rf-primary-foreground: var(--rf-neutral-900);
-  --rf-secondary: var(--rf-neutral-800);
-  --rf-secondary-foreground: var(--rf-neutral-50);
-  --rf-muted: var(--rf-neutral-800);
-  --rf-muted-foreground: var(--rf-neutral-400);
-  --rf-accent: var(--rf-cornflower-550);
-  --rf-accent-foreground: var(--color-white);
-  --rf-brand: var(--rf-lemon-550);
-  --rf-brand-foreground: var(--color-white);
-  /* Lighter and a touch whiter: each clears Lc 60 on the popover, the lightest dark surface. */
+  --rf-primary: var(--rf-cream-50);
+  --rf-primary-foreground: var(--rf-teal-950);
+  --rf-secondary: var(--rf-muted-night);
+  --rf-secondary-foreground: var(--rf-foreground);
+  --rf-muted: var(--rf-muted-night);
+  --rf-muted-foreground: var(--rf-muted-text-night);
+  --rf-accent: var(--rf-teal-300);
+  --rf-accent-foreground: var(--rf-teal-950);
+  --rf-brand: var(--rf-accent);
+  --rf-brand-foreground: var(--rf-accent-foreground);
   --rf-destructive: oklch(78.2% 0.121 18);
   --rf-success: oklch(75.2% 0.136 160);
   --rf-warning: oklch(77.7% 0.142 54);
-  --rf-border: oklch(1 0 0 / 10%);
-  --rf-input: oklch(1 0 0 / 15%);
-  --rf-ring: var(--rf-neutral-500);
-  --rf-link: var(--rf-blue-450);
+  --rf-border: var(--rf-border-night);
+  --rf-input: var(--rf-input-night);
+  --rf-ring: var(--rf-cream-50);
+  --rf-link: var(--rf-teal-300);
 
-  /* Dark-mode primary is a light button, so it takes a light bevel: a white top edge and a faint
-     shade. The accent and brand shades still come from their own scales, 700 and 650, since the
-     fills themselves sit deeper here. */
-  --rf-primary-hover: var(--rf-neutral-100);
-  --rf-primary-active: var(--rf-neutral-300);
-  --rf-primary-edge: oklch(0 0 0 / 8%);
+  /* Mint controls use dark ink; their labels and switch thumbs stay distinct. */
+  --rf-primary-hover: var(--rf-cream-100);
+  --rf-primary-active: var(--rf-teal-100);
+  --rf-primary-edge: rgb(0 0 0 / 10%);
   --rf-primary-bevel:
-    inset 0 2px 1px -0.5px var(--color-white), inset 0 -3px 6px -1px oklch(0 0 0 / 12%),
-    0 1px 2px oklch(0 0 0 / 60%);
-  --rf-primary-press: inset 0 1px 3px oklch(0 0 0 / 22%);
-  --rf-brand-hover: var(--rf-lemon-500);
-  --rf-brand-active: var(--rf-lemon-600);
-  --rf-brand-edge: oklch(1 0 0 / 14%);
-  --rf-brand-bevel:
-    inset 0 1px 0 oklch(1 0 0 / 40%), inset 0 6px 10px -5px oklch(1 0 0 / 20%),
-    inset 0 -4px 7px -2px color-mix(in oklab, var(--rf-lemon-650) 50%, transparent),
-    0 1px 2px oklch(0 0 0 / 60%);
-  --rf-brand-press: inset 0 1px 3px color-mix(in oklab, var(--rf-lemon-700) 45%, transparent);
-  --rf-accent-hover: var(--rf-cornflower-500);
-  --rf-accent-active: var(--rf-cornflower-600);
-  --rf-accent-edge: oklch(1 0 0 / 12%);
-  --rf-accent-bevel:
-    inset 0 1px 0 oklch(1 0 0 / 25%), inset 0 6px 10px -5px oklch(1 0 0 / 14%),
-    inset 0 -4px 7px -2px color-mix(in oklab, var(--rf-cornflower-700) 55%, transparent),
-    0 1px 2px oklch(0 0 0 / 60%);
-  --rf-accent-press: inset 0 1px 3px color-mix(in oklab, var(--rf-cornflower-700) 60%, transparent);
+    inset 0 1px 0 rgb(255 255 255 / 22%), inset 0 -1px 0 rgb(0 0 0 / 10%),
+    0 1px 2px rgb(0 0 0 / 35%);
+  --rf-primary-press: inset 0 1px 3px rgb(0 0 0 / 16%);
+  --rf-brand-hover: var(--rf-teal-200);
+  --rf-brand-active: var(--rf-teal-400);
+  --rf-brand-edge: rgb(255 255 255 / 12%);
+  --rf-brand-bevel: var(--rf-primary-bevel);
+  --rf-brand-press: var(--rf-primary-press);
+  --rf-accent-hover: var(--rf-brand-hover);
+  --rf-accent-active: var(--rf-brand-active);
+  --rf-accent-edge: var(--rf-brand-edge);
+  --rf-accent-bevel: var(--rf-brand-bevel);
+  --rf-accent-press: var(--rf-brand-press);
 
-  --rf-chart-1: var(--rf-cornflower-550);
-  --rf-chart-2: var(--rf-cornflower-400);
-  --rf-chart-3: var(--rf-cornflower-300);
-  --rf-chart-4: var(--rf-cornflower-200);
-  --rf-chart-5: var(--rf-cornflower-50);
-  --rf-sidebar: var(--rf-neutral-900);
-  --rf-sidebar-foreground: var(--rf-neutral-50);
-  --rf-sidebar-primary: var(--rf-neutral-200);
-  --rf-sidebar-primary-foreground: var(--rf-neutral-900);
-  --rf-sidebar-accent: var(--rf-neutral-800);
-  --rf-sidebar-accent-foreground: var(--rf-neutral-50);
-  --rf-sidebar-border: oklch(1 0 0 / 10%);
-  --rf-sidebar-ring: var(--rf-neutral-500);
+  --rf-chart-1: var(--rf-teal-400);
+  --rf-chart-2: var(--rf-teal-300);
+  --rf-chart-3: var(--rf-teal-200);
+  --rf-chart-4: var(--rf-teal-100);
+  --rf-chart-5: var(--rf-teal-50);
+  --rf-sidebar: var(--rf-surface-night);
+  --rf-sidebar-foreground: var(--rf-foreground);
+  --rf-sidebar-primary: var(--rf-accent);
+  --rf-sidebar-primary-foreground: var(--rf-accent-foreground);
+  --rf-sidebar-accent: var(--rf-muted-night);
+  --rf-sidebar-accent-foreground: var(--rf-foreground);
+  --rf-sidebar-border: var(--rf-border);
+  --rf-sidebar-ring: var(--rf-ring);
 
-  /* Extension-only tokens */
-  /* Declared again so it resolves against this block's ink and strength. */
   --rf-elevation-floating:
     0 5px 8px 0 rgb(var(--rf-elevation-ink) / calc(0.027 * var(--rf-elevation-strength))),
     0 20px 24px 0 rgb(var(--rf-elevation-ink) / calc(0.05 * var(--rf-elevation-strength)));
-  /* Mirrors `dark:aria-invalid:*` on `Input`: a softened border and a stronger ring, because
-     the light-theme pair is too hot against a near-black surface. */
   --rf-ring-flash-border: color-mix(in oklab, var(--rf-destructive) 50%, transparent);
   --rf-ring-flash-ring: color-mix(in oklab, var(--rf-destructive) 40%, transparent);
 }
