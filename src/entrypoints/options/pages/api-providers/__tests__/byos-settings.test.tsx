@@ -480,3 +480,62 @@ it("reselecting ChatGPT during a pending grant cannot duplicate authentication",
   await act(async () => release(true))
   expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
 })
+
+it("restores an existing pending sign-in when settings opens and refreshes its completed account", async () => {
+  mocks.send.mockResolvedValue({ state: "disconnected", authPending: true })
+  renderSettings()
+  await waitFor(() =>
+    expect(screen.getByText("Complete sign-in in the opened tab.")).toBeInTheDocument(),
+  )
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled()
+  expect(screen.queryByRole("button", { name: "Sign in with ChatGPT" })).not.toBeInTheDocument()
+  expect(mocks.permission).not.toHaveBeenCalled()
+  expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosAuth", undefined)
+
+  mockConnected()
+  fireEvent(window, new Event("focus"))
+  await waitFor(() => expect(screen.getByLabelText("Model")).toHaveValue("synthetic-model"))
+  expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument()
+})
+
+it("keeps an existing account's reconnect pending without discovering its old model catalog", async () => {
+  mocks.send.mockImplementation(async (type) =>
+    type === "lingotoriByosSession" ? { ...connected, authPending: true } : availableModels,
+  )
+  renderSettings()
+  await waitFor(() =>
+    expect(screen.getByText("Complete sign-in in the opened tab.")).toBeInTheDocument(),
+  )
+  expect(mocks.send).not.toHaveBeenCalledWith("lingotoriByosModels", undefined)
+  expect(screen.queryByLabelText("Model")).not.toBeInTheDocument()
+  expect(mocks.permission).not.toHaveBeenCalled()
+})
+
+it("preserves an unsaved model choice when returning to settings refreshes discovery", async () => {
+  mocks.send.mockImplementation(async (type) =>
+    type === "lingotoriByosSession"
+      ? connected
+      : type === "lingotoriByosModels"
+        ? {
+            models: [
+              ...availableModels.models,
+              { slug: "second-model", display_name: "Second Model" },
+            ],
+          }
+        : undefined,
+  )
+  const store = renderSettings(),
+    initial = store.get(configAtom)
+  await waitFor(() => expect(screen.getByLabelText("Model")).toHaveValue("synthetic-model"))
+  fireEvent.change(screen.getByLabelText("Model"), { target: { value: "second-model" } })
+  fireEvent(window, new Event("focus"))
+  await waitFor(() =>
+    expect(mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosModels")).toHaveLength(
+      2,
+    ),
+  )
+  await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled())
+  expect(screen.getByLabelText("Model")).toHaveValue("second-model")
+  expect(store.get(configAtom)).toBe(initial)
+  expect(mocks.permission).not.toHaveBeenCalled()
+})

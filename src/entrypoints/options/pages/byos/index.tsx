@@ -195,8 +195,6 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
   }, [])
   const refresh = useCallback(
     async (owner: number) => {
-      setModels([])
-      setModel("")
       let next: ByosSession
       try {
         next = await boundedMessage(sendByosMessage("lingotoriByosSession", undefined))
@@ -209,7 +207,15 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       }
       if (epoch(generation) !== owner) return
       setSession(next)
+      if (next.authPending) {
+        setAttempt("tab")
+        setModels([])
+        setModel("")
+        return
+      }
       if (next.state === "disconnected") {
+        setModels([])
+        setModel("")
         if (next.authPending === false && pendingRef.current === "tab") {
           setAttempt(null)
           setNotice(t.ended)
@@ -217,7 +223,11 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         return
       }
       setAttempt(null)
-      if (next.state !== "plan-enabled") return
+      if (next.state !== "plan-enabled") {
+        setModels([])
+        setModel("")
+        return
+      }
       try {
         const available = await boundedMessage(sendByosMessage("lingotoriByosModels", undefined))
         if (epoch(generation) !== owner) return
@@ -230,6 +240,8 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
           state: "temporarily-unavailable" as const,
         }))
         if (epoch(generation) !== owner) return
+        setModels([])
+        setModel("")
         setSession(
           recovered.state === "plan-enabled"
             ? { ...recovered, state: "temporarily-unavailable" }
