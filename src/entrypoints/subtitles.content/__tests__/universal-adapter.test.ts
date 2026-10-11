@@ -603,6 +603,35 @@ describe("universalVideoAdapter", () => {
     expect(subtitlesStore.get(sourceTrackAtom).map((cue) => cue.text)).toEqual(["hello"])
   })
 
+  it("reports a failed transcript refresh and retains intent to publish on a later retry", async () => {
+    const { adapter, subtitlesFetcher } = createAdapter([{ text: "new", start: 0, end: 500 }])
+    attachScheduler(adapter, false)
+    subtitlesStore.set(sourceTrackAtom, [{ text: "old", start: 0, end: 500 }])
+    subtitlesFetcher.fetch.mockRejectedValueOnce(
+      new OverlaySubtitlesError("Track temporarily unavailable"),
+    )
+    await expect(adapter.handleSourceTrackChanged()).resolves.toBeUndefined()
+    expect(mocks.showSubtitlesErrorToast).toHaveBeenCalledWith("Track temporarily unavailable")
+    expect(subtitlesStore.get(sourceTrackAtom)).toEqual([])
+    await expect(adapter.handleSourceTrackChanged()).resolves.toBeUndefined()
+    expect(subtitlesStore.get(sourceTrackAtom).map((cue) => cue.text)).toEqual(["new"])
+  })
+
+  it("cancels retained transcript refresh intent immediately when navigation tears down the view", async () => {
+    const { adapter, subtitlesFetcher } = createAdapter([{ text: "new", start: 0, end: 500 }])
+    attachScheduler(adapter, false)
+    subtitlesStore.set(sourceTrackAtom, [{ text: "old", start: 0, end: 500 }])
+    subtitlesFetcher.fetch.mockRejectedValueOnce(
+      new OverlaySubtitlesError("Track temporarily unavailable"),
+    )
+    await adapter.handleSourceTrackChanged()
+    ;(adapter as any).clearVisibleStateForNavigation()
+    subtitlesFetcher.fetch.mockClear()
+    await adapter.handleSourceTrackChanged()
+    expect(subtitlesFetcher.fetch).not.toHaveBeenCalled()
+    expect(subtitlesStore.get(sourceTrackAtom)).toEqual([])
+  })
+
   it("auto-starts subtitles for a video that arrives with the learning panel open", async () => {
     const { adapter } = createAdapter([{ text: "hello", start: 0, end: 500 }])
     attachScheduler(adapter, false)

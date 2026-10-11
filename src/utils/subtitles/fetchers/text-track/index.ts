@@ -153,11 +153,15 @@ export class TextTrackFetcher implements SubtitlesFetcher {
     ])
   }
 
-  private selectTrack(video: HTMLVideoElement): TextTrack | null {
+  private sourceTracks(video: HTMLVideoElement): TextTrack[] {
     const { isSourceTrack } = this.options
-    const candidates = Array.from(video.textTracks).filter(
+    return Array.from(video.textTracks).filter(
       (track) => SUBTITLE_KINDS.has(track.kind) && (!isSourceTrack || isSourceTrack(track)),
     )
+  }
+
+  private selectTrack(video: HTMLVideoElement): TextTrack | null {
+    const candidates = this.sourceTracks(video)
     return (
       candidates.find((track) => track.mode === "showing") ??
       candidates.find(
@@ -191,10 +195,27 @@ export class TextTrackFetcher implements SubtitlesFetcher {
       return
     }
 
-    const selected = this.selectTrack(video)
-    if (selected?.mode === "showing") this.playerSelectedTrack = selected
+    const showingSources = this.sourceTracks(video).filter((track) => track.mode === "showing")
+    const selected = showingSources[0]
+    if (selected) {
+      const previous = this.playerSelectedTrack
+      if (
+        showingSources.length === 1 &&
+        previous &&
+        previous !== selected &&
+        previous.mode === "hidden" &&
+        this.playerModes.get(previous) === "showing"
+      ) {
+        // The player showed a replacement while our old track was already
+        // hidden. Keep that observed hidden mode instead of enabling it again
+        // during cleanup. Explicit multiple-showing states stay untouched.
+        this.playerModes.set(previous, "hidden")
+      }
+      this.playerSelectedTrack = selected
+    }
     for (const track of Array.from(video.textTracks)) {
       if (track.mode === "showing") {
+        this.playerModes.set(track, "showing")
         this.setMode(track, "hidden")
       }
     }

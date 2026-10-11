@@ -193,7 +193,7 @@ describe("TextTrackFetcher", () => {
       await expect(fetcher.shouldUseSameTrack()).resolves.toBe(false)
       await expect(fetcher.fetch()).resolves.toEqual([{ text: "second", start: 0, end: 1000 }])
       fetcher.showNativeSubtitles()
-      expect(first.mode).toBe(disableOld ? "disabled" : "showing")
+      expect(first.mode).toBe(disableOld ? "disabled" : "hidden")
       expect(second.mode).toBe("showing")
     },
   )
@@ -232,5 +232,50 @@ describe("TextTrackFetcher", () => {
     second.mode = "showing"
     await expect(fetcher.shouldUseSameTrack()).resolves.toBe(false)
     await expect(fetcher.fetch()).resolves.toEqual([{ text: "second", start: 0, end: 1000 }])
+  })
+
+  it("does not reactivate the old hidden track while restarting after the player shows only B", async () => {
+    const first = new FakeTrack("subtitles", "English", "en", "showing")
+    const second = new FakeTrack("subtitles", "Japanese", "ja", "disabled")
+    first.loadCues("first")
+    second.loadCues("second")
+    const video = videoWith(first, second)
+    const tracks = video.textTracks as unknown as FakeTrackList
+    const fetcher = createFetcher(video)
+    fetcher.hideNativeSubtitles()
+    await fetcher.fetch()
+    second.mode = "showing"
+    tracks.emit("change")
+    fetcher.cleanup()
+    expect(first.mode).toBe("hidden")
+    expect(second.mode).toBe("showing")
+    fetcher.hideNativeSubtitles()
+    await expect(fetcher.fetch()).resolves.toEqual([{ text: "second", start: 0, end: 1000 }])
+  })
+
+  it("preserves an initial explicit multiple-showing-track state when no replacement selection occurs", () => {
+    const first = new FakeTrack("subtitles", "English", "en", "showing")
+    const second = new FakeTrack("subtitles", "Japanese", "ja", "showing")
+    const fetcher = createFetcher(videoWith(first, second))
+    fetcher.hideNativeSubtitles()
+    fetcher.cleanup()
+    expect(first.mode).toBe("showing")
+    expect(second.mode).toBe("showing")
+  })
+
+  it("restores a selection back to A when the late hiding timer observes it without a change event", () => {
+    const first = new FakeTrack("subtitles", "English", "en", "showing")
+    const second = new FakeTrack("subtitles", "Japanese", "ja", "disabled")
+    const video = videoWith(first, second)
+    const tracks = video.textTracks as unknown as FakeTrackList
+    const fetcher = createFetcher(video)
+    fetcher.hideNativeSubtitles()
+    second.mode = "showing"
+    tracks.emit("change")
+    first.mode = "showing"
+    vi.advanceTimersByTime(TEXT_TRACK_NATIVE_REHIDE_DELAY_MS)
+    fetcher.showNativeSubtitles()
+    expect(first.mode).toBe("showing")
+    expect(second.mode).toBe("hidden")
   })
 })

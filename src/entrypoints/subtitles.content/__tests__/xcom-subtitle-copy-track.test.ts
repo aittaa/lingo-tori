@@ -3,6 +3,7 @@
 import type { ContentScriptContext } from "#imports"
 import type { Config } from "@/types/config/config"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { toastManager } from "@/components/ui/base-ui/toast"
 import { configAtom } from "@/utils/atoms/config"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
@@ -145,6 +146,7 @@ function setup() {
     fetcher,
     first,
     second,
+    tracks,
     video,
     emitTrackChange: () => trackEvents.dispatchEvent(new Event("change")),
     writeText,
@@ -413,6 +415,76 @@ describe("x.com same-video subtitle track selection", () => {
     await vi.advanceTimersByTimeAsync(XCOM_STATUS_POLL_INTERVAL_MS)
     expect(subtitlesStore.get(sourceTrackAtom).map((cue) => cue.text)).toEqual(["Next track."])
   })
+
+  it("keeps the player's replacement B selected through active cleanup without re-showing already-hidden A", async () => {
+    const { adapter, first, second, video, emitTrackChange } = setup()
+    await vi.advanceTimersByTimeAsync(0)
+    fixture.targetCode = "eng"
+    second.language = "en"
+    attachScheduler(adapter, video)
+    adapter.toggleSubtitlesManually(true)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(first.mode).toBe("hidden")
+    second.mode = "showing"
+    emitTrackChange()
+    await vi.advanceTimersByTimeAsync(XCOM_STATUS_POLL_INTERVAL_MS)
+    expect(subtitlesStore.get(sourceTrackAtom).map((cue) => cue.text)).toEqual(["Next track."])
+    adapter.toggleSubtitlesManually(false)
+    expect(first.mode).toBe("hidden")
+    expect(second.mode).toBe("showing")
+  })
+
+  it.each([false, true])(
+    "handles a cancelled transcript refresh and republishes C (translated C prepared before poll: %s)",
+    async (prepareTranslatedBeforePoll) => {
+      const { adapter, first, second, tracks, selectNextTrack, emitTrackChange } = setup()
+      await vi.advanceTimersByTimeAsync(0)
+      await adapter.ensureSourceTrackPublished()
+      const refresh = adapter.handleSourceTrackChanged.bind(adapter)
+      const toast = vi.spyOn(toastManager, "add")
+      const rejectedRefreshes: string[] = []
+      vi.spyOn(adapter, "handleSourceTrackChanged").mockImplementation(() => {
+        const task = refresh()
+        // Observe the production method's rejection without letting Vitest's
+        // unhandled-rejection hook terminate this deterministic reproduction.
+        void task.catch((error: unknown) =>
+          rejectedRefreshes.push(error instanceof Error ? error.name : String(error)),
+        )
+        return task
+      })
+      second.cues = []
+      selectNextTrack()
+      emitTrackChange()
+      await vi.advanceTimersByTimeAsync(XCOM_STATUS_POLL_INTERVAL_MS)
+      expect(subtitlesStore.get(sourceTrackAtom)).toEqual([])
+      second.mode = "disabled"
+      first.mode = "disabled"
+      tracks.push({
+        kind: "subtitles",
+        label: "Fixture third",
+        language: "en",
+        mode: "showing",
+        cues: [{ text: "Third track.", startTime: 6, endTime: 8 }],
+      })
+      emitTrackChange()
+      await vi.advanceTimersByTimeAsync(100)
+      if (prepareTranslatedBeforePoll) {
+        await adapter.copyTranslatedSubtitles()
+      }
+      expect(subtitlesStore.get(translatedSubtitlesCopyStatusAtom).phase).toBe(
+        prepareTranslatedBeforePoll ? SubtitleCopyPhase.Ready : SubtitleCopyPhase.Idle,
+      )
+      await vi.advanceTimersByTimeAsync(XCOM_STATUS_POLL_INTERVAL_MS - 100)
+      expect({
+        rejectedRefreshes,
+        text: subtitlesStore.get(sourceTrackAtom).map((cue) => cue.text),
+      }).toEqual({ rejectedRefreshes: [], text: ["Third track."] })
+      expect(toast).not.toHaveBeenCalled()
+      expect(subtitlesStore.get(translatedSubtitlesCopyStatusAtom).phase).toBe(
+        prepareTranslatedBeforePoll ? SubtitleCopyPhase.Ready : SubtitleCopyPhase.Idle,
+      )
+    },
+  )
 
   it("keeps native captions hidden when x.com polls while the initial enabled fetch is unfinished", async () => {
     const { adapter, fetcher, first, video, emitTrackChange } = setup()

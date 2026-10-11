@@ -108,6 +108,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   private hasPendingNavigationReset = false
   private trackChangeRefreshPromise: Promise<void> | null = null
   private pendingTranscriptLoads = 0
+  private hasPendingTranscriptRefresh = false
   private pendingSourceLoads = new WeakMap<SubtitlesFetcher, number>()
 
   private sourceSubtitles: SubtitlesFragment[] = []
@@ -194,9 +195,14 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
 
   async handleSourceTrackChanged(): Promise<void> {
     if (!this.trackChangeRefreshPromise) {
-      this.trackChangeRefreshPromise = this.refreshSourceTrackIfNeeded().finally(() => {
-        this.trackChangeRefreshPromise = null
-      })
+      this.trackChangeRefreshPromise = this.refreshSourceTrackIfNeeded()
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") return
+          showSubtitlesErrorToast(error instanceof Error ? error.message : String(error))
+        })
+        .finally(() => {
+          this.trackChangeRefreshPromise = null
+        })
     }
 
     await this.trackChangeRefreshPromise
@@ -472,7 +478,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     this.sourceVideoId = null
   }
 
-  private clearRuntimeSession() {
+  private clearRuntimeSession({ preserveTranscriptIntent = false } = {}) {
+    if (!preserveTranscriptIntent) this.hasPendingTranscriptRefresh = false
     this.translationCoordinator?.stop()
     this.segmentationPipeline?.stop()
     this.translationCoordinator = null
@@ -487,6 +494,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   }
 
   private clearVisibleStateForNavigation() {
+    this.hasPendingTranscriptRefresh = false
     this.prepareSummaryForNavigation()
     this.clearNavigationReinitTimeout()
     this.teardownAdObserver()
@@ -773,7 +781,9 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       return
 
     const isTranscriptInUse =
-      subtitlesStore.get(sourceTrackAtom).length > 0 || this.pendingTranscriptLoads > 0
+      subtitlesStore.get(sourceTrackAtom).length > 0 ||
+      this.pendingTranscriptLoads > 0 ||
+      this.hasPendingTranscriptRefresh
     const isExportInUse = [sourceSubtitlesCopyStatusAtom, translatedSubtitlesCopyStatusAtom].some(
       (statusAtom) => {
         const phase = subtitlesStore.get(statusAtom).phase
@@ -794,7 +804,22 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       (isTranscriptInUse &&
         this.publishedTrackIdentity !== undefined &&
         identity !== this.publishedTrackIdentity)
-    if (useSameTrack && !hasPublishedTrackChanged) return
+    if (useSameTrack && !hasPublishedTrackChanged) {
+      if (this.hasPendingTranscriptRefresh) {
+        // A copy preparation may already have cached the latest track after
+        // cancellation. Publish it without discarding that valid preparation.
+        await this.getOrLoadSourceSubtitles()
+        if (
+          fetcher !== this.fetcher ||
+          cacheVersion !== this.sourceCacheVersion ||
+          identity !== fetcher.getTrackIdentity?.()
+        )
+          throw new DOMException("Transcript refresh superseded", "AbortError")
+        this.publishSourceTrack(this.sourceProcessedSubtitles)
+        this.hasPendingTranscriptRefresh = false
+      }
+      return
+    }
 
     // Netflix polls every second, so invalidate only after an actual track change.
     this.sourceSubtitlesExporter?.dispose()
@@ -807,7 +832,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
 
     if (!scheduler || !isSchedulerActive) {
       const operationId = ++this.switchOperationId
-      this.clearRuntimeSession()
+      this.hasPendingTranscriptRefresh = true
+      this.clearRuntimeSession({ preserveTranscriptIntent: true })
       this.clearSourceCache()
       this.fetcher.cleanup()
       scheduler?.reset()
@@ -817,6 +843,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
         return
       }
       this.publishSourceTrack(this.sourceProcessedSubtitles)
+      this.hasPendingTranscriptRefresh = false
       return
     }
 
