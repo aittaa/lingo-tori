@@ -1,4 +1,4 @@
-import type { APIProviderConfig, ProvidersConfig } from "@/types/config/provider"
+import type { APIProviderConfig } from "@/types/config/provider"
 import { dequal } from "dequal"
 import { useAtomValue, useSetAtom, useStore } from "jotai"
 import { useEffect, useState } from "react"
@@ -8,12 +8,7 @@ import {
 } from "@/components/form/autosave-navigation"
 import { toAutosaveSession } from "@/components/form/use-autosave"
 import { toastManager } from "@/components/ui/base-ui/toast"
-import {
-  isAPIProviderConfig,
-  isLLMProvider,
-  isNonAPIProvider,
-  isTranslateProvider,
-} from "@/types/config/provider"
+import { isAPIProviderConfig, isLLMProvider, isTranslateProvider } from "@/types/config/provider"
 import { configAtom, configFieldsAtomMap, writeConfigAtom } from "@/utils/atoms/config"
 import { patchProviderConfigAtom } from "@/utils/atoms/entity-config"
 import { providerConfigAtom } from "@/utils/atoms/provider"
@@ -81,11 +76,6 @@ function EditableProviderConfig({ providerConfig }: { providerConfig: APIProvide
         : undefined,
     )
   }, [currentProviderConfig, autosave])
-
-  const chooseNextProviderConfig = (providersConfig: ProvidersConfig) => {
-    const firstProvider = providersConfig.find((provider) => !isNonAPIProvider(provider.provider))
-    return firstProvider ?? providersConfig[0]
-  }
 
   const handleDuplicate = async () => {
     await requestNavigation(async () => {
@@ -169,7 +159,7 @@ function EditableProviderConfig({ providerConfig }: { providerConfig: APIProvide
     }
 
     await setConfig({ ...patch, providersConfig: updatedAllProviders })
-    const nextProvider = chooseNextProviderConfig(updatedAllProviders)
+    const nextProvider = updatedAllProviders.find(isAPIProviderConfig)
     await setSelectedProviderId(nextProvider?.id)
   }
 

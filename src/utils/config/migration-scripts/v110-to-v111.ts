@@ -18,12 +18,13 @@ export function migrate(oldConfig: any): any {
         delete provider[key]
       return provider
     })
-  const enabledIds = new Set(
+  // BYOS rows and their assignments are inert compatibility data, even when disabled.
+  const assignmentIds = new Set(
     next.providersConfig
-      .filter((provider: any) => provider.enabled)
+      .filter((provider: any) => provider.enabled || provider.provider === "byos")
       .map((provider: any) => provider.id),
   )
-  const normalize = (value: any) => (enabledIds.has(value) ? value : "unconfigured")
+  const normalize = (value: any) => (assignmentIds.has(value) ? value : "unconfigured")
   for (const feature of [
     next.pageTranslation,
     next.videoSubtitles,
@@ -32,11 +33,14 @@ export function migrate(oldConfig: any): any {
   ]) {
     if (feature) feature.providerId = normalize(feature.providerId)
   }
-  if (next.languageDetection?.mode === "llm" && !enabledIds.has(next.languageDetection.providerId))
+  if (
+    next.languageDetection?.mode === "llm" &&
+    !assignmentIds.has(next.languageDetection.providerId)
+  )
     next.languageDetection = { mode: "basic" }
   if (next.translationHub?.selectedProviderIds)
     next.translationHub.selectedProviderIds = next.translationHub.selectedProviderIds.filter(
-      (id: string) => enabledIds.has(id),
+      (id: string) => assignmentIds.has(id),
     )
   const toolbar = next.selectionToolbar
   if (toolbar) {
