@@ -81,7 +81,7 @@ export default function ProviderSelector({
   providers,
   value,
   onChange,
-  placeholder,
+  placeholder = i18n.t("options.selectionToolbar.customActions.form.selectProvider"),
   className,
   triggerNameClassName,
   triggerSize = "default",
