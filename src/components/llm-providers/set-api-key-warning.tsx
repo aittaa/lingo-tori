@@ -32,11 +32,11 @@ function needsApiKeyWarning(
 export function SetApiKeyWarning({ providerConfig }: { providerConfig: ProviderConfig | null }) {
   const inRouterContext = useInRouterContext()
 
-  if (!needsApiKeyWarning(providerConfig)) {
+  if (providerConfig && !needsApiKeyWarning(providerConfig)) {
     return null
   }
 
-  const route = buildProviderConfigRoute(providerConfig.id)
+  const route = providerConfig ? buildProviderConfigRoute(providerConfig.id) : "/api-providers"
   const label = i18n.t("options.apiProviders.title")
   // One sentence per locale with the link's position marked, rather than a prefix and a suffix
   // the link is sandwiched between — word order around it differs too much per language.

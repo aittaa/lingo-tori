@@ -13,7 +13,6 @@ import {
   useCustomActionExecution,
   useCustomActionWebPageContext,
 } from "@/components/custom-action/use-custom-action-execution"
-import { useHostedAiProviderOptions } from "@/components/llm-providers/use-hosted-ai-provider-options"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { SelectionPopover } from "@/components/ui/selection-popover"
 import { createSelectionToolbarPrecheckError } from "@/components/ui/selection-popover/inline-error"
@@ -75,7 +74,7 @@ function CustomActionFooterContent({
   providers,
   ...props
 }: ComponentProps<typeof SelectionToolbarFooterContent>) {
-  const customActionProviders = useHostedAiProviderOptions("customAction", providers)
+  const customActionProviders = providers
   return <SelectionToolbarFooterContent providers={customActionProviders} {...props} />
 }
 
@@ -475,6 +474,9 @@ export function SelectionCustomActionProvider({ children }: { children: ReactNod
                   action={activeAction}
                   isRunning={displayedIsRunning}
                   result={displayedResult}
+                  selection={layoutSelection}
+                  context={activeSession?.contextSnapshot.text ?? cleanSelection}
+                  language={language.sourceCode}
                 />
                 <CustomActionToolButton action={activeAction} />
               </>

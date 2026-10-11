@@ -9,22 +9,21 @@ import { classifyResolvedProvider } from "@/utils/analytics-provider"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { streamBackgroundNoteSuggestion } from "@/utils/content-script/background-stream-client"
 import { STREAM_PORT_DISCONNECTED_MESSAGE } from "@/utils/content-script/port-streaming"
-import { getRandomUUID } from "@/utils/crypto-polyfill"
 import { resolveNoteSuggestionAction } from "@/utils/custom-actions"
 import { getOrCreateWebPageContext } from "@/utils/host/translate/webpage-context"
-import { getHostedAiTierStatus } from "@/utils/hosted-ai/status"
 import { logger } from "@/utils/logger"
 import { noteSuggestionEnvelopeSchema } from "@/utils/note-suggestion/types"
 import { validateNoteSuggestion } from "@/utils/note-suggestion/validate"
 import { resolveModelId } from "@/utils/providers/model-id"
 import { getProviderOptionsWithOverride } from "@/utils/providers/options"
-import { fetchHostedAiStatus } from "@/utils/providers/provider-ref"
 import { getTopLevelReasoning } from "@/utils/providers/reasoning"
 import { buildNoteSuggestionPrompts } from "./prompt"
 
 export interface NoteSuggestionSessionResult {
   /** Composite key: popoverSessionKey:translateRequestKey:rerunNonce. */
   sessionKey: string
+  sourceLanguage?: string
+  sourceContext?: string
   validated: ValidatedNoteSuggestion
   /** The configured Note suggestion action as of fire time. */
   actionSnapshot: SelectionToolbarCustomAction
@@ -36,6 +35,7 @@ export interface NoteSuggestionSessionResult {
 
 export interface NoteSuggestionFireInput {
   sessionKey: string
+  sourceLanguage?: string
   selectionText: string
   paragraphsText: string
   /** English name of the target language. */
@@ -125,32 +125,6 @@ export function useNoteSuggestion() {
         return
       }
 
-      if (provider.kind === "system") {
-        // A background auto-fire feature must not hammer a hosted tier the
-        // account cannot use: skip silently on any explicit unavailable
-        // verdict — durable facts (sign-in, Ultra plan) and reported runtime
-        // state (quota exhausted, service down) alike, since nobody is
-        // watching to act on the error and status is far cheaper than a
-        // doomed stream call. Fail open when status itself is unreachable —
-        // the run surfaces any real error, which `fetchHostedAiStatus` already
-        // does; going through it also shares the request with whatever else
-        // resolves a hosted ref at the same moment, since one status response
-        // covers every feature.
-        const status = await fetchHostedAiStatus()
-        if (signal.aborted) {
-          return
-        }
-        const tierStatus = getHostedAiTierStatus(status, "noteSuggestion", provider.modelTier)
-        if (tierStatus && !tierStatus.available) {
-          logger.info(
-            "[NoteSuggestion] Skipped: hosted tier unavailable",
-            tierStatus.unavailableReason,
-          )
-          completedSessionKeysRef.current.add(input.sessionKey)
-          return
-        }
-      }
-
       const webPageContext = await getOrCreateWebPageContext().catch(() => null)
       if (signal.aborted) {
         return
@@ -166,31 +140,21 @@ export function useNoteSuggestion() {
         webUrl: webPageContext?.url ?? window.location.href,
         webContent: webPageContext?.webContent ?? "",
         action: actionSnapshot,
-        envelopeContract: provider.kind === "system" ? "hosted" : "local",
       })
 
-      const payload =
-        provider.kind === "system"
-          ? {
-              providerId: provider.id,
-              modelTier: provider.modelTier,
-              requestId: getRandomUUID(),
-              instructions: systemPrompt,
-              prompt,
-            }
-          : {
-              providerId: provider.id,
-              instructions: systemPrompt,
-              prompt,
-              providerOptions: getProviderOptionsWithOverride(
-                resolveModelId(provider.config.model) ?? "",
-                provider.config.provider,
-                provider.config.providerOptions,
-                getTopLevelReasoning(provider.config),
-              ),
-              reasoning: getTopLevelReasoning(provider.config),
-              temperature: provider.config.temperature,
-            }
+      const payload = {
+        providerId: provider.id,
+        instructions: systemPrompt,
+        prompt,
+        providerOptions: getProviderOptionsWithOverride(
+          resolveModelId(provider.config.model) ?? "",
+          provider.config.provider,
+          provider.config.providerOptions,
+          getTopLevelReasoning(provider.config),
+        ),
+        reasoning: getTopLevelReasoning(provider.config),
+        temperature: provider.config.temperature,
+      }
 
       const snapshot = await streamBackgroundNoteSuggestion(payload, { signal })
       if (signal.aborted) {
@@ -221,6 +185,8 @@ export function useNoteSuggestion() {
 
       setSuggestion({
         sessionKey: input.sessionKey,
+        sourceLanguage: input.sourceLanguage ?? "auto",
+        sourceContext: input.paragraphsText,
         validated,
         actionSnapshot,
         firedAt,

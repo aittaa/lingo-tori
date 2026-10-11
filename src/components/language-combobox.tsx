@@ -1,6 +1,6 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
 import type { ComponentProps } from "react"
 import type { LanguageItem } from "./language-combobox-options"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import { useMemo } from "react"
 import { Button } from "@/components/ui/base-ui/button"
 import {

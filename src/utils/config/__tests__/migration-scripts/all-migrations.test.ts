@@ -11,7 +11,45 @@ import {
 } from "../../migration"
 import { testSeries as v001TestSeries } from "../example/v001"
 
+// Provenance exception: legacy template/sample payloads were removed from fixtures.
+// Compare all other historical settings exactly, without regenerating or retaining layouts.
+function withoutRetiredLayoutData(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutRetiredLayoutData)
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => key !== "layout" && key !== "sampleData")
+        .map(([key, item]) => [key, withoutRetiredLayoutData(item)]),
+    )
+  }
+  return value
+}
+
 describe("all Config Migrations", () => {
+  it("keeps retired preset and sample payloads out of historical fixture sources", async () => {
+    const fixtures = import.meta.glob("../example/v*.ts")
+    const violations: string[] = []
+    function assertInert(value: unknown): void {
+      if (Array.isArray(value)) {
+        value.forEach(assertInert)
+        return
+      }
+      if (value === null || typeof value !== "object") return
+      for (const [key, item] of Object.entries(value)) {
+        if (key === "layout") {
+          if (item !== "" && item !== undefined) violations.push("non-inert layout")
+        } else if (key === "sampleData") {
+          if (item !== undefined) violations.push("retired sample payload")
+        } else assertInert(item)
+      }
+    }
+    for (const [path, load] of Object.entries(fixtures)) {
+      const version = Number(/v(\d+)\.ts$/.exec(path)?.[1])
+      if (version <= 110) assertInert(await load())
+    }
+    expect(violations).toEqual([])
+  })
+
   it("migrates a complete v001 config through the full chain to the latest schema", async () => {
     const migrated = await migrateConfig(structuredClone(v001TestSeries.default!.config), 1)
 
@@ -100,7 +138,7 @@ describe("all Config Migrations", () => {
 
         // Validate migration results
         migrationResults.forEach(({ actual, expected }) => {
-          expect(actual).toEqual(expected)
+          expect(withoutRetiredLayoutData(actual)).toEqual(withoutRetiredLayoutData(expected))
         })
 
         // Ensure at least one series was tested

@@ -1,5 +1,5 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
 import type { GlossarySnapshot } from "../active-matcher"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { buildMatchKey } from "../match-key"

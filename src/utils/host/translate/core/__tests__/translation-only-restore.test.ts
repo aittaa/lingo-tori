@@ -4,7 +4,7 @@
 // restore — never rebuilt from an ancestor innerHTML snapshot.
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { DEFAULT_CONFIG } from "@/utils/constants/config"
+import { DEFAULT_CONFIG as EMPTY_CONFIG } from "@/utils/constants/config"
 import { CONTENT_WRAPPER_CLASS, TRANSLATION_ONLY_ATTRIBUTE } from "@/utils/constants/dom-labels"
 import { flushBatchedOperations } from "../../../dom/batch-dom"
 import {
@@ -13,6 +13,20 @@ import {
 } from "../../dom/translation-cleanup"
 import { translateNodesBilingualMode, translateNodeTranslationOnlyMode } from "../translation-modes"
 import { findStaleTranslationOnlyAnchor } from "../translation-state"
+
+const DEFAULT_CONFIG = {
+  ...EMPTY_CONFIG,
+  providersConfig: [
+    {
+      id: "test-deeplx",
+      provider: "deeplx" as const,
+      enabled: true,
+      name: "Test DeepLX",
+      baseURL: "https://example.com/translate",
+    },
+  ],
+  pageTranslation: { ...EMPTY_CONFIG.pageTranslation, providerId: "test-deeplx" },
+}
 
 const { mockShouldFilterSmallParagraph, mockTranslateTextForPage, mockShouldSkipAsTargetLanguage } =
   vi.hoisted(() => ({

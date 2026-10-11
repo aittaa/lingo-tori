@@ -1,5 +1,5 @@
 ---
-"@read-frog/extension": patch
+"@lingotori/extension": patch
 ---
 
 feat(selection-toolbar): show field references as pills in the custom action layout editor

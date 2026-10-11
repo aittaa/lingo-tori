@@ -1,11 +1,9 @@
 import type { APIProviderConfig } from "@/types/config/provider"
-import type { HostedAiFeature } from "@/utils/hosted-ai/types"
 import { Icon } from "@iconify/react"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import { useEffect, useRef, useState } from "react"
 import { useLocation } from "react-router"
 import { SponsorBadge } from "@/components/badges/sponsor-badge"
-import { useHostedAiStatus } from "@/components/llm-providers/use-hosted-ai-status"
 import ProviderIcon from "@/components/provider-icon"
 import { useTheme } from "@/components/providers/theme-provider"
 import { SortableList } from "@/components/sortable-list"
@@ -23,10 +21,8 @@ import {
   FEATURE_PROVIDER_DEFS,
   getFeatureLabelI18nKey,
 } from "@/utils/constants/feature-providers"
-import { BUILT_IN_AI_PROVIDER_IDS, type BuiltInAiProviderId } from "@/utils/constants/provider-ids"
 import { API_PROVIDER_ITEMS } from "@/utils/constants/providers"
 import { getSelectionToolbarActions } from "@/utils/custom-actions"
-import { getHostedAiTierStatus } from "@/utils/hosted-ai/status"
 import { i18n } from "@/utils/i18n"
 import {
   getRequestedProviderId,
@@ -34,22 +30,13 @@ import {
   PROVIDER_CONFIG_SECTION_ID,
   shouldHighlightApiKey,
 } from "@/utils/navigation"
-import { isDurablyUnusableTier } from "@/utils/providers/provider-availability"
-import {
-  BUILT_IN_AI_PROVIDER_LOGO,
-  BUILT_IN_AI_ADVANCE_PROVIDER_ID,
-  getBuiltInAiProviderName,
-  isBuiltInAiProviderId,
-} from "@/utils/providers/provider-registry"
 import { ConfigItem } from "../../../components/config-item"
-import { EntityEditor } from "../../../components/entity-editor"
 import { EntityEditorLayout } from "../../../components/entity-editor-layout"
 import { EntityListItem } from "../../../components/entity-list-item"
 import { EntityListRail } from "../../../components/entity-list-rail"
 import AddProviderDialog from "./add-provider-dialog"
 import { highlightedProviderFieldAtom, selectedProviderIdAtom } from "./atoms"
 import { ProviderConfigForm } from "./provider-config-form"
-import { BuiltInProviderEditor, ProviderEditor } from "./provider-editor"
 import { addProvider } from "./utils"
 
 /**
@@ -79,10 +66,7 @@ function useRequestedProvider() {
 
     const providerId = getRequestedProviderId(search)
     if (providerId) {
-      if (
-        !isBuiltInAiProviderId(providerId) &&
-        !getProviderConfigById(providersConfig, providerId)
-      ) {
+      if (!getProviderConfigById(providersConfig, providerId)) {
         return
       }
 
@@ -127,11 +111,7 @@ function useRequestedProvider() {
 export function ProvidersConfig() {
   const selectedProviderId = useAtomValue(selectedProviderIdAtom)
   useRequestedProvider()
-  const editor = isBuiltInAiProviderId(selectedProviderId) ? (
-    <BuiltInProviderPanel key={selectedProviderId} providerId={selectedProviderId} />
-  ) : (
-    <ProviderConfigForm key={selectedProviderId} />
-  )
+  const editor = <ProviderConfigForm key={selectedProviderId} />
 
   return (
     <ConfigItem
@@ -214,7 +194,6 @@ function ProviderCardList() {
           renderItem={(providerConfig) => <ProviderCard providerConfig={providerConfig} />}
         />
       </EntityListRail>
-      <BuiltInProviderSection />
     </div>
   )
 }
@@ -322,132 +301,5 @@ function FeatureCountBadge({ count, children }: { count: number; children: React
         </TooltipContent>
       </Tooltip>
     </div>
-  )
-}
-
-function BuiltInProviderSection() {
-  return (
-    <section className="flex flex-col gap-2 pt-1">
-      <h3 className="px-1 text-xs font-medium text-muted-foreground">
-        {i18n.t("options.apiProviders.builtInProvider" as never)}
-      </h3>
-      <div className="flex flex-col gap-4 pt-2">
-        {BUILT_IN_AI_PROVIDER_IDS.map((providerId) => (
-          <BuiltInProviderCard key={providerId} providerId={providerId} />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function BuiltInProviderCard({ providerId }: { providerId: BuiltInAiProviderId }) {
-  const [selectedProviderId, setSelectedProviderId] = useAtom(selectedProviderIdAtom)
-  const config = useAtomValue(configAtom)
-  const providerName = getBuiltInAiProviderName(providerId)
-  const assignedFeatures = FEATURE_KEYS.filter(
-    (key) => FEATURE_PROVIDER_DEFS[key].getProviderId(config) === providerId,
-  )
-  const assignedCustomActions = getSelectionToolbarActions(config.selectionToolbar).filter(
-    (action) => action.providerId === providerId,
-  )
-  const isLanguageDetectionProvider =
-    config.languageDetection.mode === "llm" && config.languageDetection.providerId === providerId
-  const totalAssigned =
-    assignedFeatures.length + assignedCustomActions.length + (isLanguageDetectionProvider ? 1 : 0)
-
-  return (
-    <EntityListItem.Root
-      data-provider-id={providerId}
-      selected={selectedProviderId === providerId}
-      onClick={() => setSelectedProviderId(providerId)}
-    >
-      <EntityListItem.Badges>
-        <FeatureCountBadge count={totalAssigned}>
-          {assignedFeatures.map((key) => (
-            <li key={key}>{i18n.t(getFeatureLabelI18nKey(key))}</li>
-          ))}
-          {isLanguageDetectionProvider && (
-            <li>{i18n.t("options.apiProviders.languageDetection.title")}</li>
-          )}
-          {assignedCustomActions.map((action) => (
-            <li key={action.id}>{action.name}</li>
-          ))}
-        </FeatureCountBadge>
-      </EntityListItem.Badges>
-      <EntityListItem.Content>
-        <ProviderIcon
-          logo={BUILT_IN_AI_PROVIDER_LOGO}
-          name={providerName}
-          size="base"
-          textClassName="text-sm"
-        />
-        <EntityListItem.Toggle aria-label={providerName} checked disabled />
-      </EntityListItem.Content>
-    </EntityListItem.Root>
-  )
-}
-
-/**
- * Every hosted-capable FEATURE_KEYS entry, in FEATURE_KEYS order. Language
- * detection is a separate ProviderCapability rather than a FeatureKey, so the
- * built-in editor renders it with LanguageDetectionAssignment below.
- */
-const BUILT_IN_FEATURE_KEYS = [
-  "pageTranslation",
-  "videoSubtitles",
-  "selectionTranslation",
-  "inputTranslation",
-  "noteSuggestion",
-] as const
-
-function BuiltInProviderPanel({ providerId }: { providerId: BuiltInAiProviderId }) {
-  const isAdvance = providerId === BUILT_IN_AI_ADVANCE_PROVIDER_ID
-  const modelTier = isAdvance ? ("advance" as const) : ("normal" as const)
-  const { status } = useHostedAiStatus()
-
-  // Both cards list every hosted-capable feature. Same policy as the provider
-  // dropdowns, and now literally the same predicate: the Ultra badge is the
-  // viewer-independent `requiresUltra` product fact; rows lock only on durable
-  // account facts (sign-in, plan), never on transient service state (exhausted
-  // quota, open circuit, unconfigured model) — those surface at run time. Fail
-  // open while status is unknown so one failed fetch never locks the UI.
-  const getAssignmentStatus = (feature: HostedAiFeature) => {
-    const tierStatus = getHostedAiTierStatus(status, feature, modelTier)
-    return {
-      disabled: isDurablyUnusableTier(tierStatus),
-      requiresUltra: tierStatus?.requiresUltra === true,
-    }
-  }
-
-  return (
-    <BuiltInProviderEditor.Provider providerId={providerId}>
-      <EntityEditor.Root>
-        <EntityEditor.Body className="gap-6">
-          <div className="flex flex-col gap-4">
-            <ProviderEditor.Identity />
-            <ProviderEditor.Attribution>
-              {i18n.t(
-                isAdvance
-                  ? "options.apiProviders.providers.attribution.builtInAiAdvance"
-                  : "options.apiProviders.providers.attribution.builtInAi",
-              )}
-            </ProviderEditor.Attribution>
-          </div>
-          <ProviderEditor.Assignments defaultOpen>
-            {BUILT_IN_FEATURE_KEYS.map((featureKey) => (
-              <ProviderEditor.FeatureAssignment
-                key={featureKey}
-                featureKey={featureKey}
-                {...getAssignmentStatus(featureKey)}
-              />
-            ))}
-            <ProviderEditor.LanguageDetectionAssignment
-              {...getAssignmentStatus("languageDetection")}
-            />
-            <ProviderEditor.CustomActionAssignments {...getAssignmentStatus("customAction")} />
-          </ProviderEditor.Assignments>
-        </EntityEditor.Body>
-      </EntityEditor.Root>
-    </BuiltInProviderEditor.Provider>
   )
 }

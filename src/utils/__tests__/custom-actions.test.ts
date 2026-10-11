@@ -28,7 +28,6 @@ describe("selection toolbar built-in actions", () => {
     expect(getSelectionToolbarActions(selectionToolbar).map((action) => action.id)).toEqual([
       "default-dictionary",
       "default-sentence-analysis",
-      "default-improve-writing",
       "custom-action",
     ])
   })
@@ -51,34 +50,7 @@ describe("selection toolbar built-in actions", () => {
       "default-sentence-analysis-annotations",
       "default-sentence-analysis-translation",
     ])
-    expect(action?.layout).toContain("default-sentence-analysis-annotations")
-  })
-
-  it("resolves the built-in Improve Writing, on by default, from its stored state", () => {
-    const selectionToolbar = cloneSelectionToolbar()
-    const action = findSelectionToolbarAction(selectionToolbar, "default-improve-writing")
-    expect(action).toMatchObject({
-      id: "default-improve-writing",
-      enabled: true,
-      providerId: DEFAULT_CONFIG.selectionToolbar.builtInActions.improveWriting.providerId,
-      icon: "streamline-color:ai-edit-spark-flat",
-    })
-    expect(action?.outputSchema.map((field) => field.id)).toEqual([
-      "default-improve-writing-setting",
-      "default-improve-writing-annotations",
-      "default-improve-writing-improved",
-      "default-improve-writing-summary",
-    ])
-    expect(action?.layout).toContain("default-improve-writing-annotations")
-
-    selectionToolbar.builtInActions.improveWriting = {
-      enabled: false,
-      providerId: "openai-default",
-    }
-    expect(findSelectionToolbarAction(selectionToolbar, "default-improve-writing")).toMatchObject({
-      enabled: false,
-      providerId: "openai-default",
-    })
+    expect(action?.layout).toBe("")
   })
 
   it("persists only mutable state when replacing the built-in Sentence Analysis", () => {
@@ -98,10 +70,8 @@ describe("selection toolbar built-in actions", () => {
       sentenceAnalysis: {
         enabled: false,
         providerId: "openai-default",
-        notebaseConnection: undefined,
         shortcut: "Alt+Shift+G",
       },
-      improveWriting: selectionToolbar.builtInActions.improveWriting,
     })
     expect(next.customActions).toBe(selectionToolbar.customActions)
     expect(findSelectionToolbarAction(next, "default-sentence-analysis")).toMatchObject({
@@ -114,17 +84,6 @@ describe("selection toolbar built-in actions", () => {
   it("persists only mutable state when replacing the built-in Dictionary", () => {
     const selectionToolbar = cloneSelectionToolbar()
     const dictionary = getBuiltInDictionaryAction(selectionToolbar)
-    const connection = {
-      notebaseId: "notebase-1",
-      notebaseNameSnapshot: "Words",
-      connectedAccount: {
-        id: "account-1",
-        name: "Reader",
-        email: "reader@example.com",
-        image: null,
-      },
-      mappings: [],
-    }
 
     const next = replaceSelectionToolbarAction(selectionToolbar, {
       ...dictionary,
@@ -132,13 +91,11 @@ describe("selection toolbar built-in actions", () => {
       prompt: "Attempted prompt edit",
       enabled: false,
       providerId: "openai-default",
-      notebaseConnection: connection,
     })
 
     expect(next.builtInActions.dictionary).toEqual({
       enabled: false,
       providerId: "openai-default",
-      notebaseConnection: connection,
       shortcut: "Alt+Shift+D",
     })
     expect(getBuiltInDictionaryAction(next)).toMatchObject({
@@ -147,7 +104,6 @@ describe("selection toolbar built-in actions", () => {
       prompt: dictionary.prompt,
       enabled: false,
       providerId: "openai-default",
-      notebaseConnection: connection,
     })
     expect(next.customActions).toEqual([])
   })
@@ -194,30 +150,9 @@ describe("selection toolbar built-in actions", () => {
     expect(duplicateSelectionToolbarAction(custom, [dictionary, custom]).layout).toBe("<p>mine</p>")
   })
 
-  it("deep-copies enabled, provider, and the full connection into an editable action", () => {
+  it("copies enabled and provider into an editable action", () => {
     const selectionToolbar = cloneSelectionToolbar()
-    selectionToolbar.builtInActions.dictionary = {
-      enabled: false,
-      providerId: "openai-default",
-      notebaseConnection: {
-        notebaseId: "notebase-1",
-        notebaseNameSnapshot: "Words",
-        connectedAccount: {
-          id: "account-1",
-          name: "Reader",
-          email: "reader@example.com",
-          image: null,
-        },
-        mappings: [
-          {
-            id: "mapping-1",
-            localFieldId: "default-dictionary-term",
-            notebaseColumnId: "column-1",
-            notebaseColumnNameSnapshot: "Term",
-          },
-        ],
-      },
-    }
+    selectionToolbar.builtInActions.dictionary = { enabled: false, providerId: "openai-default" }
     const dictionary = getBuiltInDictionaryAction(selectionToolbar)
     const duplicate = duplicateSelectionToolbarAction(dictionary, [
       dictionary,
@@ -233,23 +168,17 @@ describe("selection toolbar built-in actions", () => {
     })
     expect(duplicate).not.toHaveProperty("shortcut")
     expect(duplicate.id).not.toBe(dictionary.id)
-    expect(duplicate.notebaseConnection).not.toBe(dictionary.notebaseConnection)
-    expect(duplicate.notebaseConnection?.mappings).not.toBe(dictionary.notebaseConnection?.mappings)
   })
 
   it("reads a built-in action's key from its state, and its default key without one", () => {
     const selectionToolbar = cloneSelectionToolbar()
     selectionToolbar.builtInActions.dictionary.shortcut = ""
     selectionToolbar.builtInActions.sentenceAnalysis.shortcut = "Alt+Shift+K"
-    delete selectionToolbar.builtInActions.improveWriting.shortcut
 
     expect(findSelectionToolbarAction(selectionToolbar, "default-dictionary")?.shortcut).toBe("")
     expect(
       findSelectionToolbarAction(selectionToolbar, "default-sentence-analysis")?.shortcut,
     ).toBe("Alt+Shift+K")
-    expect(findSelectionToolbarAction(selectionToolbar, "default-improve-writing")?.shortcut).toBe(
-      "Alt+Shift+W",
-    )
   })
 
   it("writes back a state without a key without one, until the key changes", () => {

@@ -67,25 +67,6 @@ describe("CustomActionCardList", () => {
     ).toBeTruthy()
   })
 
-  it("lists the built-in Improve Writing, turned on", () => {
-    const store = createStore()
-    store.set(configAtom, structuredClone(DEFAULT_CONFIG))
-
-    render(
-      <Provider store={store}>
-        <MemoryRouter>
-          <CustomActionCardList />
-        </MemoryRouter>
-      </Provider>,
-    )
-
-    const name = i18n.t("options.selectionToolbar.customActions.templates.improveWriting.name")
-    expect(document.querySelector('[data-action-id="default-improve-writing"]')).toHaveTextContent(
-      name,
-    )
-    expect(screen.getByRole("switch", { name })).toBeChecked()
-  })
-
   it("shows New on Sentence Analysis and Improve Writing, Updated on Dictionary, during the badge window", () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 9, 2))
@@ -108,8 +89,6 @@ describe("CustomActionCardList", () => {
     expect(sentenceAnalysis).toHaveTextContent(
       i18n.t("options.selectionToolbar.customActions.badges.new"),
     )
-    expect(document.querySelector('[data-action-id="default-improve-writing"]')).toHaveTextContent(
-      i18n.t("options.selectionToolbar.customActions.badges.new"),
-    )
+    expect(document.querySelector('[data-action-id="default-improve-writing"]')).toBeNull()
   })
 })

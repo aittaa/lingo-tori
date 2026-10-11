@@ -34,6 +34,16 @@ function createConfig({
   targetCode?: Config["language"]["targetCode"]
 } = {}): Config {
   const config = structuredClone(DEFAULT_CONFIG)
+  config.providersConfig = [
+    {
+      id: "test-deeplx",
+      provider: "deeplx",
+      enabled: true,
+      name: "Test DeepLX",
+      baseURL: "https://example.com/translate",
+    },
+  ]
+  config.pageTranslation.providerId = "test-deeplx"
   config.pageTranslation.mode = mode
   config.pageTranslation.page.enableTargetLanguageSkip = enableSkip
   config.pageTranslation.page.minCharactersPerNode = 0

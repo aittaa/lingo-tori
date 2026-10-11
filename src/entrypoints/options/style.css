@@ -3,9 +3,6 @@ body {
   font-size: initial; /* reset to 16px */
 }
 
-/* Field pills in the custom action Layout editor
-   (@read-frog/layout-engine/codemirror): a tint of the accent, like the
-   website's card template editor. */
 :root {
   --rf-field-pill-background: color-mix(in oklab, var(--rf-accent) 16%, transparent);
   --rf-field-pill-foreground: var(--rf-foreground);

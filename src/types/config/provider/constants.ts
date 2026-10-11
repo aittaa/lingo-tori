@@ -19,8 +19,7 @@ export {
 
 // translate provider names
 export const TRANSLATE_PROVIDER_TYPES = [
-  "google-translate",
-  "microsoft-translate",
+  "byos",
   "deeplx",
   "deepl",
   "openai",
@@ -61,6 +60,7 @@ export function isTranslateProvider(provider: string): provider is TranslateProv
 }
 
 export const LLM_PROVIDER_TYPES = [
+  "byos",
   "openai",
   "deepseek",
   "google",
@@ -229,13 +229,12 @@ export function isPureAPIProvider(provider: string): provider is PureAPIProvider
 
 export type NonAPIProviderTypes = (typeof NON_API_TRANSLATE_PROVIDERS)[number]
 export function isNonAPIProvider(provider: string): provider is NonAPIProviderTypes {
-  return NON_API_TRANSLATE_PROVIDERS.includes(provider)
+  return (NON_API_TRANSLATE_PROVIDERS as readonly string[]).includes(provider)
 }
 
 // all provider names
 export const ALL_PROVIDER_TYPES = [
-  "google-translate",
-  "microsoft-translate",
+  "byos",
   "deeplx",
   "deepl",
   "openai-compatible",

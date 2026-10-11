@@ -51,12 +51,3 @@ export function getDateFromDaysBack(daysBack: number) {
  * Slugs are cosmetic — the extension id resolves the listing — but they are kept current
  * so the click does not eat a redirect hop.
  */
-export function getReviewUrl(utmSource: string = "extension"): string {
-  if (import.meta.env.BROWSER === "edge") {
-    return `https://microsoftedge.microsoft.com/addons/detail/read-frog-translate-l/cbcbomlgikfbdnoaohcjfledcoklcjbo?form=MA13IW&utm_source=${utmSource}`
-  }
-  if (import.meta.env.BROWSER === "firefox") {
-    return `https://addons.mozilla.org/firefox/addon/read-frog-open-ai-translator/reviews/?utm_source=${utmSource}`
-  }
-  return `https://chromewebstore.google.com/detail/read-frog-translate-learn/modkelfkcfjpgbfmnbnllalkiogfofhb/reviews?utm_source=${utmSource}`
-}

@@ -53,12 +53,6 @@ vi.mock("../layout-field", () => ({
   ReadOnlyLayoutField: () => <div>ReadOnlyLayoutField</div>,
 }))
 
-vi.mock("../notebase-connection-field", () => ({
-  NotebaseConnectionField: () => (
-    <div>{i18n.t("options.selectionToolbar.customActions.form.notebase.title")}</div>
-  ),
-}))
-
 const AI_CONFIG_HELPER_TRIGGER = i18n.t(
   "options.selectionToolbar.customActions.form.aiConfigHelper.trigger",
 )
@@ -72,21 +66,10 @@ function cloneConfig(config: Config): Config {
   return JSON.parse(JSON.stringify(config)) as Config
 }
 
-describe("customActionConfigForm notebase availability", () => {
+describe("custom action editing", () => {
   it("renders built-in fields read-only and duplicates the complete action", async () => {
     const store = createStore()
     const config = cloneConfig(DEFAULT_CONFIG)
-    config.selectionToolbar.builtInActions.dictionary.notebaseConnection = {
-      notebaseId: "table-1",
-      notebaseNameSnapshot: "Dictionary",
-      connectedAccount: {
-        id: "user-1",
-        name: "Reader",
-        email: "reader@example.com",
-        image: null,
-      },
-      mappings: [],
-    }
     seedConfig(store, config)
 
     render(
@@ -125,7 +108,6 @@ describe("customActionConfigForm notebase availability", () => {
     expect(duplicated).toMatchObject({
       enabled: true,
       providerId: config.selectionToolbar.builtInActions.dictionary.providerId,
-      notebaseConnection: config.selectionToolbar.builtInActions.dictionary.notebaseConnection,
     })
     expect(duplicated.id).not.toBe("default-dictionary")
   })
@@ -155,49 +137,7 @@ describe("customActionConfigForm notebase availability", () => {
     )
   })
 
-  it("shows the notebase connection field when beta experience is disabled", () => {
-    const store = createStore()
-    const config = cloneConfig(DEFAULT_CONFIG)
-
-    config.betaExperience.enabled = false
-    config.selectionToolbar.customActions = [
-      {
-        id: "action-1",
-        name: "Summarize",
-        icon: "tabler:sparkles",
-        providerId: config.providersConfig[0]!.id,
-        systemPrompt: "You are helpful.",
-        prompt: "Summarize the selected text.",
-        outputSchema: [],
-        notebaseConnection: {
-          notebaseId: "table-1",
-          notebaseNameSnapshot: "Articles",
-          connectedAccount: {
-            id: "user-1",
-            name: "Reader",
-            email: "reader@example.com",
-            image: null,
-          },
-          mappings: [],
-        },
-      },
-    ]
-
-    seedConfig(store, config)
-    void store.set(selectedCustomActionIdAtom, "action-1")
-
-    render(
-      <Provider store={store}>
-        <CustomActionConfigForm />
-      </Provider>,
-    )
-
-    expect(
-      screen.getByText(i18n.t("options.selectionToolbar.customActions.form.notebase.title")),
-    ).toBeInTheDocument()
-  })
-
-  it("duplicates a custom action with its mutable state and connection", async () => {
+  it("duplicates a custom action with its mutable state and sample data", async () => {
     const store = createStore()
     const config = cloneConfig(DEFAULT_CONFIG)
     const action = {
@@ -220,17 +160,6 @@ describe("customActionConfigForm notebase availability", () => {
         selection: "A long article",
         targetCode: "eng" as const,
         values: { "summary-field": "A short summary" },
-      },
-      notebaseConnection: {
-        notebaseId: "table-1",
-        notebaseNameSnapshot: "Articles",
-        connectedAccount: {
-          id: "user-1",
-          name: "Reader",
-          email: "reader@example.com",
-          image: null,
-        },
-        mappings: [],
       },
     }
     config.selectionToolbar.customActions = [action]
@@ -271,7 +200,6 @@ describe("customActionConfigForm notebase availability", () => {
       name: "Summarize 1",
     })
     expect(duplicate.id).not.toBe(action.id)
-    expect(duplicate.notebaseConnection).not.toBe(action.notebaseConnection)
     expect(duplicate.sampleData).not.toBe(action.sampleData)
   })
 
@@ -312,9 +240,9 @@ describe("customActionConfigForm notebase availability", () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
     const prompt = writeText.mock.calls[0]![0]
-    expect(prompt).toContain("**Name:** `Summarize`")
-    expect(prompt).toContain("```text\nSummarize {{selection}}.\n```")
-    expect(prompt).toContain("named `Explain`")
+    expect(prompt).toContain("LingoTori custom reading action")
+    expect(prompt).toContain("BYOK provider")
+    expect(prompt).toContain("ordered output fields")
     expect(await screen.findByRole("button", { name: i18n.t("action.copied") })).toBeInTheDocument()
   })
 })

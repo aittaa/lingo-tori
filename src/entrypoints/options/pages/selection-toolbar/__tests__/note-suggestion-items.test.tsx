@@ -218,7 +218,7 @@ describe("NoteSuggestionItems", () => {
       ...selectionToolbar,
       noteSuggestion: {
         ...selectionToolbar.noteSuggestion,
-        enabled: false,
+        enabled: !DEFAULT_CONFIG.selectionToolbar.noteSuggestion.enabled,
       },
     })
   })

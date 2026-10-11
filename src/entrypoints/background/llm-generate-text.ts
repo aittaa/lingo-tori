@@ -2,7 +2,6 @@ import type {
   BackgroundGenerateTextPayload,
   BackgroundGenerateTextResponse,
 } from "@/types/background-generate-text"
-import { validateProviderHostedFeature } from "@/utils/hosted-ai/routing"
 import { logger } from "@/utils/logger"
 import { onMessage } from "@/utils/message"
 import { generateTextForProviderRef } from "./background-stream"
@@ -10,7 +9,9 @@ import { generateTextForProviderRef } from "./background-stream"
 export async function runGenerateTextInBackground(
   payload: BackgroundGenerateTextPayload,
 ): Promise<BackgroundGenerateTextResponse> {
-  validateProviderHostedFeature(payload.providerRef, payload.hostedFeature)
+  if (payload.providerRef?.kind !== "local" || !payload.providerRef.config) {
+    throw new Error("A configured local provider is required")
+  }
   return { text: await generateTextForProviderRef(payload) }
 }
 

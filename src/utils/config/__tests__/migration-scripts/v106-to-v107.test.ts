@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { configSchema } from "@/types/config/config"
+import { migrateConfig } from "../../migration"
 import { migrate } from "../../migration-scripts/v106-to-v107"
 import { testSeries as v106TestSeries } from "../example/v106"
 
@@ -146,7 +146,7 @@ describe("v106-to-v107 migration", () => {
     expect(twice.providersConfig[1]).toBe(once.providersConfig[1])
   })
 
-  it("produces a config the current schema accepts", () => {
+  it("produces a config that can migrate to the current schema", async () => {
     const config = structuredClone(v106TestSeries["complex-config-from-v020"]!.config)
     config.providersConfig.push(
       perplexityProvider({ model: "sonar-deep-research", isCustomModel: false, customModel: null }),
@@ -159,11 +159,7 @@ describe("v106-to-v107 migration", () => {
       },
     )
 
-    const result = configSchema.safeParse(migrate(config))
-    if (!result.success) {
-      console.error(result.error.issues)
-    }
-    expect(result.success).toBe(true)
+    await expect(migrateConfig(migrate(config), 107)).resolves.toBeDefined()
   })
 
   it("preserves malformed config shapes as much as possible", () => {

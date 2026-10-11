@@ -1,7 +1,7 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
 import type { ParsedGlossaryRow } from "./csv"
 import type { GlossaryTargetLang } from "./target-language"
 import type { GlossaryEntry } from "./types"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import type Glossary from "@/utils/db/dexie/tables/glossary"
 import type GlossaryTerm from "@/utils/db/dexie/tables/glossary-term"
 import { storage } from "#imports"

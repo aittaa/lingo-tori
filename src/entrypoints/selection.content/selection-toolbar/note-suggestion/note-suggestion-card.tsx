@@ -18,9 +18,9 @@ import { Switch } from "@/components/ui/base-ui/switch"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { findSelectionToolbarAction } from "@/utils/custom-actions"
-import { i18n } from "@/utils/i18n"
+import { i18n, getUiLocale } from "@/utils/i18n"
+import { learningCopy, learningLocale } from "@/utils/learning/copy"
 import { trackNoteSuggestionEvent } from "@/utils/note-suggestion/analytics"
-import { getOutputSchemaFingerprint } from "@/utils/notebase/pending-save"
 
 function formatNoteValue(value: string | number | null): string | null {
   if (value === null) {
@@ -129,8 +129,7 @@ export function NoteSuggestionCard({
     const liveAction = findSelectionToolbarAction(selectionToolbar, actionSnapshot.id)
     if (
       !liveAction ||
-      getOutputSchemaFingerprint(liveAction.outputSchema) !==
-        getOutputSchemaFingerprint(actionSnapshot.outputSchema)
+      JSON.stringify(liveAction.outputSchema) !== JSON.stringify(actionSnapshot.outputSchema)
     ) {
       toastManager.add({ type: "error", title: i18n.t("noteSuggestion.staleSuggestion") })
       setSaveState("stale")
@@ -151,6 +150,8 @@ export function NoteSuggestionCard({
     const outcome = await save({
       action: liveAction,
       results: selectedNotes,
+      language: suggestion.sourceLanguage ?? "auto",
+      context: suggestion.sourceContext,
       analyticsSource: "note_suggestion",
     })
     if (outcome === "saved") {
@@ -161,7 +162,7 @@ export function NoteSuggestionCard({
   const isInteractionDisabled = isSaving || saveState !== "idle"
   const isButtonDisabled = isInteractionDisabled || selectedNotes.length === 0
   const buttonLabel = isSaving
-    ? i18n.t("action.saveToNotebaseSaving")
+    ? learningCopy[learningLocale(getUiLocale())].saving
     : saveState === "saved"
       ? i18n.t("noteSuggestion.saved")
       : i18n.t("noteSuggestion.save")

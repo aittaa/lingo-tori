@@ -1,9 +1,23 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { DEFAULT_CONFIG } from "@/utils/constants/config"
+import { DEFAULT_CONFIG as EMPTY_CONFIG } from "@/utils/constants/config"
 import { getSourceDocumentTitle } from "@/utils/content/document-title"
 import { PageTranslationManager } from "../page-translation"
+
+const DEFAULT_CONFIG = {
+  ...EMPTY_CONFIG,
+  providersConfig: [
+    {
+      id: "test-deepl",
+      provider: "deepl" as const,
+      enabled: true,
+      name: "Test DeepL",
+      apiKey: "test-key",
+    },
+  ],
+  pageTranslation: { ...EMPTY_CONFIG.pageTranslation, providerId: "test-deepl" },
+}
 
 const {
   mockDeepQueryTopLevelSelector,
@@ -149,6 +163,16 @@ describe("pageTranslationManager title handling", () => {
   it("primes webpage context on start for AI-aware llm translation", async () => {
     mockGetLocalConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
+      providersConfig: [
+        {
+          id: "openai-default",
+          name: "Test OpenAI",
+          provider: "openai",
+          enabled: true,
+          apiKey: "test-key",
+          model: { model: "gpt-4o-mini", isCustomModel: false, customModel: null },
+        },
+      ],
       pageTranslation: {
         ...DEFAULT_CONFIG.pageTranslation,
         providerId: "openai-default",

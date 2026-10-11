@@ -58,10 +58,7 @@ export function HelpButton() {
         setCorner(newCorner)
         localStorage.setItem(STORAGE_KEY, newCorner)
       } else {
-        window.open(
-          "https://github.com/mengxi-ream/read-frog/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen",
-          "_blank",
-        )
+        window.open("https://github.com/aittaa/lingo-tori/issues", "_blank")
       }
       hasDraggedRef.current = false
       setDragging(false)

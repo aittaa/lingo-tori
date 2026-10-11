@@ -3,7 +3,6 @@ import { PageLayout } from "../../components/page-layout"
 import { ActionShortcuts } from "./action-shortcuts"
 import { NodeTranslationHotkey } from "./node-translation-hotkey"
 import { PageTranslationShortcut } from "./page-translation-shortcut"
-import { SelectionSpeakShortcut } from "./selection-speak-shortcut"
 import { SelectionTranslationShortcut } from "./selection-translation-shortcut"
 import { SubtitlesToggleShortcut } from "./subtitles-toggle-shortcut"
 import { TranslationHubShortcut } from "./translation-hub-shortcut"
@@ -26,7 +25,6 @@ export function ShortcutsPage() {
       <PageTranslationShortcut />
       <TranslationModeShortcut />
       <SelectionTranslationShortcut />
-      <SelectionSpeakShortcut />
       <SubtitlesToggleShortcut />
       <NodeTranslationHotkey />
       <TranslationHubShortcut />

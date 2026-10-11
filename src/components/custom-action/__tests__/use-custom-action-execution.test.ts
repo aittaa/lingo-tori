@@ -59,8 +59,17 @@ function createCustomActionRequest() {
 
   const provider = resolveProviderRefForCapability(
     "customAction",
-    DEFAULT_CONFIG.providersConfig,
-    action.providerId,
+    [
+      {
+        id: "test-openai",
+        name: "Test OpenAI",
+        provider: "openai",
+        enabled: true,
+        apiKey: "test-key",
+        model: { model: "gpt-4o-mini", isCustomModel: false, customModel: null },
+      },
+    ],
+    "test-openai",
   )
 
   if (!provider) {

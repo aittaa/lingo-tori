@@ -45,7 +45,7 @@ function createAction(
     name: "Dictionary",
     enabled: true,
     icon: "tabler:book-2",
-    providerId: "read-frog-free-ai",
+    providerId: "unconfigured",
     systemPrompt: "system",
     prompt: "prompt",
     outputSchema: [
@@ -130,6 +130,8 @@ describe("NoteSuggestionCard", () => {
       action: liveAction,
       results: [{ Term: "ephemeral", Definition: "lasting a very short time" }],
       analyticsSource: "note_suggestion",
+      language: "auto",
+      context: undefined,
     })
     expect(mocks.toastAdd).not.toHaveBeenCalled()
   })
@@ -263,24 +265,6 @@ describe("NoteSuggestionCard", () => {
     const liveAction = createAction({
       name: "Live Dictionary",
       providerId: "new-provider",
-      notebaseConnection: {
-        notebaseId: "notebase-live",
-        notebaseNameSnapshot: "Live Notes",
-        connectedAccount: {
-          id: "account-live",
-          name: "Reader",
-          email: "reader@example.com",
-          image: null,
-        },
-        mappings: [
-          {
-            id: "mapping-live",
-            localFieldId: "field-term",
-            notebaseColumnId: "column-live",
-            notebaseColumnNameSnapshot: "Term",
-          },
-        ],
-      },
     })
     const store = createStoreWithAction(liveAction)
     renderCard(store, snapshot)
@@ -301,7 +285,7 @@ describe("NoteSuggestionCard", () => {
     fireEvent.click(screen.getByRole("switch"))
 
     const expectedNoteSuggestion = {
-      enabled: false,
+      enabled: !DEFAULT_CONFIG.selectionToolbar.noteSuggestion.enabled,
       actionId: action.id,
       providerId: DEFAULT_CONFIG.selectionToolbar.noteSuggestion.providerId,
     }

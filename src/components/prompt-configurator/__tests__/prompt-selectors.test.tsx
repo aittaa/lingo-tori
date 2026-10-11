@@ -161,13 +161,8 @@ describe("translation prompt selectors", () => {
     })
   })
 
-  it("keeps prompt selection available for Built-in AI", () => {
-    testState.pageTranslationProviderRef = {
-      kind: "system",
-      id: "read-frog-free-ai",
-      name: "Built-in AI",
-      modelTier: "normal",
-    }
+  it("keeps prompt selection available for a configured LLM", () => {
+    testState.pageTranslationProviderRef = { kind: "local", config: { provider: "mock-llm" } }
     render(<TranslatePromptSelector />)
 
     fireEvent.click(screen.getByRole("option", { name: "Custom" }))
@@ -182,7 +177,7 @@ describe("translation prompt selectors", () => {
   it("keeps prompt selection hidden for a local translation-only provider", () => {
     testState.pageTranslationProviderRef = {
       kind: "local",
-      config: { provider: "google-translate" },
+      config: { provider: "deeplx" },
     }
 
     render(<TranslatePromptSelector />)
@@ -192,12 +187,7 @@ describe("translation prompt selectors", () => {
 
   it("shows the selected built-in and uses the same order in Translation Hub", () => {
     testState.translationHub!.promptId = "precision-rewrite"
-    testState.pageTranslationProviderRef = {
-      kind: "system",
-      id: "read-frog-free-ai",
-      name: "Built-in AI",
-      modelTier: "normal",
-    }
+    testState.pageTranslationProviderRef = { kind: "local", config: { provider: "mock-llm" } }
     render(<TranslationHubPromptSelector />)
 
     expect(screen.getByRole("combobox")).toHaveTextContent("Deep polish")

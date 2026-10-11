@@ -1,4 +1,4 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import { useAtom } from "jotai"
 import { MultiLanguageCombobox } from "@/components/multi-language-combobox"
 import { Switch } from "@/components/ui/base-ui/switch"

@@ -188,7 +188,7 @@ async function main() {
   }
   dependencies.runtimeAndDevelopment = dependencies.runtime + dependencies.development
   const outputs = {}
-  for (const output of [...options.outputs].sort()) {
+  for (const output of [...options.outputs].sort((left, right) => left.localeCompare(right))) {
     // Containment makes output labels portable and prevents inadvertently
     // inventorying unrelated directories such as the user's home directory.
     const relative = path.relative(options.repo, output)

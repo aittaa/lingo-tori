@@ -4,6 +4,7 @@ import type { Config } from "@/types/config/config"
 import { createStore } from "jotai"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
+import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { configAtom, writeConfigAtom } from "../config"
 import { patchActionConfigAtom, patchProviderConfigAtom } from "../entity-config"
 import { storageAdapter } from "../storage-adapter"
@@ -43,6 +44,7 @@ function mountStore() {
 describe("config persistence and invalidation", () => {
   beforeEach(() => {
     storage.value = structuredClone(DEFAULT_CONFIG)
+    storage.value.providersConfig.push(structuredClone(DEFAULT_PROVIDER_CONFIG.openai))
     vi.mocked(storageAdapter.get).mockClear()
     vi.mocked(storageAdapter.set).mockClear()
     vi.mocked(storageAdapter.setMeta).mockClear()
@@ -56,7 +58,7 @@ describe("config persistence and invalidation", () => {
     await tick()
     const source = storage.value.providersConfig.find((provider) => provider.provider === "openai")!
     storage.value.providersConfig = storage.value.providersConfig.map((provider) =>
-      provider.id === source.id
+      provider.provider === "openai" && provider.id === source.id
         ? { ...provider, description: "external", headers: { old: "value" } }
         : provider,
     )
@@ -76,11 +78,11 @@ describe("config persistence and invalidation", () => {
     vi.mocked(storageAdapter.set).mockRejectedValueOnce(new Error("failed write"))
     const first = store.set(writeConfigAtom, { betaExperience: { enabled: true } })
     const failure = first.catch((error: unknown) => error)
-    const second = store.set(writeConfigAtom, { uiLanguage: "zh-CN" })
+    const second = store.set(writeConfigAtom, { uiLanguage: "ko" })
     expect(await failure).toEqual(new Error("failed write"))
     await second
     await tick()
-    expect(storage.value.uiLanguage).toBe("zh-CN")
+    expect(storage.value.uiLanguage).toBe("ko")
     expect(store.get(configAtom)).toEqual(storage.value)
   })
 
@@ -90,16 +92,16 @@ describe("config persistence and invalidation", () => {
     vi.mocked(storageAdapter.get).mockImplementationOnce(() => staleRead.promise)
     const store = mountStore()
     await tick()
-    await store.set(writeConfigAtom, { uiLanguage: "zh-CN" })
+    await store.set(writeConfigAtom, { uiLanguage: "ko" })
     staleRead.resolve(stale)
     await tick()
-    expect(store.get(configAtom).uiLanguage).toBe("zh-CN")
+    expect(store.get(configAtom).uiLanguage).toBe("ko")
   })
 
   it("treats delayed notifications as invalidation and rereads the latest value", async () => {
     const store = mountStore()
     await tick()
-    await store.set(writeConfigAtom, { uiLanguage: "zh-CN" })
+    await store.set(writeConfigAtom, { uiLanguage: "ko" })
     await store.set(writeConfigAtom, { uiLanguage: "ja" })
     storage.watchers.forEach((notify) => notify())
     await tick()
@@ -118,14 +120,14 @@ describe("config persistence and invalidation", () => {
       await pending.promise
       storage.value = value as Config
     })
-    const write = store.set(writeConfigAtom, { uiLanguage: "zh-CN" })
+    const write = store.set(writeConfigAtom, { uiLanguage: "ko" })
     storage.watchers.forEach((notify) => notify())
     await tick()
-    expect(store.get(configAtom).uiLanguage).toBe("zh-CN")
+    expect(store.get(configAtom).uiLanguage).toBe("ko")
     pending.resolve()
     await write
     await tick()
-    expect(store.get(configAtom).uiLanguage).toBe("zh-CN")
+    expect(store.get(configAtom).uiLanguage).toBe("ko")
   })
 
   it("patches only the edited action fields without replacing siblings or order", async () => {
@@ -159,24 +161,6 @@ describe("config persistence and invalidation", () => {
       name: "local A",
       prompt: "external prompt",
     })
-  })
-
-  it("removes a built-in action connection rather than deep-merging the old value back", async () => {
-    storage.value.selectionToolbar.builtInActions.dictionary.notebaseConnection = {
-      notebaseId: "table",
-      notebaseNameSnapshot: "Words",
-      connectedAccount: { id: "user", name: "Reader", email: "reader@example.com" },
-      mappings: [],
-    }
-    const store = mountStore()
-    await tick()
-    await store.set(patchActionConfigAtom, {
-      id: "default-dictionary",
-      changes: { notebaseConnection: undefined },
-    })
-    expect(
-      storage.value.selectionToolbar.builtInActions.dictionary.notebaseConnection,
-    ).toBeUndefined()
   })
 
   it("rejects an entity deleted before the queued update instead of recreating it", async () => {

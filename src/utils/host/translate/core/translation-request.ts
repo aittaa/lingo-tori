@@ -117,7 +117,7 @@ async function acquireDeepLXHtmlAttributeProbe(providerKey: string): Promise<{
 
 function getDeepLXHtmlAttributeProviderKey(config: Config): string | undefined {
   const resolved = resolvePageTranslationProvider(config)
-  if (resolved.kind === "system" || resolved.config.provider !== "deeplx") {
+  if (resolved.config.provider !== "deeplx") {
     return undefined
   }
   return `${resolved.config.id}:${resolved.config.baseURL ?? ""}`

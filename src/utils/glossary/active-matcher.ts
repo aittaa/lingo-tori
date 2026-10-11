@@ -1,5 +1,5 @@
-import type { LangCodeISO6393 } from "@read-frog/definitions"
 import type { GlossaryEntry, GlossaryMatcher, MatchedTerm } from "./types"
+import type { LangCodeISO6393 } from "@/lib/languages"
 import { storage } from "#imports"
 import { GLOSSARY_REVISION_KEY } from "../constants/glossary"
 import { logger } from "../logger"

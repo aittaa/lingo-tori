@@ -5,6 +5,8 @@ import { ROUTE_DEFS } from "./app-sidebar/nav-items"
 
 type RoutePath = (typeof ROUTE_DEFS)[number]["path"]
 
+const ByosPage = lazy(() => import("./pages/byos").then((module) => ({ default: module.ByosPage })))
+
 const PreferencePage = lazy(() =>
   import("./pages/preference").then((module) => ({ default: module.PreferencePage })),
 )
@@ -32,12 +34,6 @@ const SelectionToolbarPage = lazy(() =>
 const ContextMenuPage = lazy(() =>
   import("./pages/context-menu").then((module) => ({ default: module.ContextMenuPage })),
 )
-const InputTranslationPage = lazy(() =>
-  import("./pages/input-translation").then((module) => ({ default: module.InputTranslationPage })),
-)
-const TextToSpeechPage = lazy(() =>
-  import("./pages/text-to-speech").then((module) => ({ default: module.TextToSpeechPage })),
-)
 const GlossaryPage = lazy(() =>
   import("./pages/advanced/glossary").then((module) => ({ default: module.GlossaryPage })),
 )
@@ -51,9 +47,6 @@ const GlossaryEditorPage = lazy(() =>
 function AdvancedRedirect() {
   return <Navigate to="/advanced/glossary" replace />
 }
-const HelpAndCommunityPage = lazy(() =>
-  import("./pages/help-and-community").then((module) => ({ default: module.HelpAndCommunityPage })),
-)
 const CustomCssPage = lazy(() =>
   import("./pages/translation/translation-style/custom-css").then((module) => ({
     default: module.CustomCssPage,
@@ -122,6 +115,7 @@ const SubtitlesQueuePage = lazy(() =>
 
 const ROUTE_COMPONENTS: Record<RoutePath, ComponentType> = {
   "/": ApiProvidersPage,
+  "/byos": ByosPage,
   "/preference": PreferencePage,
   "/shortcuts": ShortcutsPage,
   "/api-providers": ApiProvidersPage,
@@ -131,10 +125,7 @@ const ROUTE_COMPONENTS: Record<RoutePath, ComponentType> = {
   "/floating-button": FloatingButtonPage,
   "/selection-toolbar": SelectionToolbarPage,
   "/context-menu": ContextMenuPage,
-  "/input-translation": InputTranslationPage,
-  "/tts": TextToSpeechPage,
   "/advanced": AdvancedRedirect,
-  "/help-and-community": HelpAndCommunityPage,
   "/advanced/glossary": GlossaryPage,
   "/advanced/glossary/:glossaryId": GlossaryEditorPage,
   "/preference/config-backup": ConfigBackupPage,

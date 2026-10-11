@@ -8,7 +8,6 @@ export const FEATURE_KEYS = [
   "pageTranslation",
   "videoSubtitles",
   "selectionTranslation",
-  "inputTranslation",
   "noteSuggestion",
 ] as const
 
@@ -36,11 +35,6 @@ export const FEATURE_PROVIDER_DEFS = {
     getProviderId: (c: Config) => c.selectionToolbar.features.translate.providerId,
     configPath: ["selectionToolbar", "features", "translate", "providerId"],
   },
-  inputTranslation: {
-    isProvider: isTranslateProvider,
-    getProviderId: (c: Config) => c.inputTranslation.providerId,
-    configPath: ["inputTranslation", "providerId"],
-  },
   noteSuggestion: {
     isProvider: isLLMProvider,
     getProviderId: (c: Config) => c.selectionToolbar.noteSuggestion.providerId,
@@ -53,7 +47,6 @@ export const FEATURE_KEY_I18N_MAP = {
   pageTranslation: "pageTranslation",
   videoSubtitles: "videoSubtitles",
   selectionTranslation: "selectionTranslation",
-  inputTranslation: "inputTranslation",
   noteSuggestion: "noteSuggestion",
 } as const satisfies Record<FeatureKey, string>
 

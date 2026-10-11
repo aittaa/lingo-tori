@@ -12,6 +12,7 @@ interface OpenAIGPT5ReasoningEffortPolicy {
 // Reviewed against provider catalogs and AI SDK docs on 2026-09-26.
 // Keep existing IDs: persisted provider configs validate against these enums.
 export const LLM_PROVIDER_MODELS = {
+  byos: ["use-custom-model"],
   openai: [
     "gpt-6-luna",
     "gpt-6-sol",
@@ -468,21 +469,10 @@ export const LLM_PROVIDER_MODELS = {
   ],
 } as const
 
-export const NON_API_TRANSLATE_PROVIDERS = ["google-translate", "microsoft-translate"] as const
-export const NON_API_TRANSLATE_PROVIDERS_MAP: Record<
-  (typeof NON_API_TRANSLATE_PROVIDERS)[number],
-  string
-> = {
-  "google-translate": "Google Translate",
-  "microsoft-translate": "Microsoft Translator",
-}
+export const NON_API_TRANSLATE_PROVIDERS = [] as const
+export const NON_API_TRANSLATE_PROVIDERS_MAP = {}
 
-export const PURE_TRANSLATE_PROVIDERS = [
-  "google-translate",
-  "microsoft-translate",
-  "deeplx",
-  "deepl",
-] as const
+export const PURE_TRANSLATE_PROVIDERS = ["deeplx", "deepl"] as const
 
 const OPENAI_GPT5_REASONING_EFFORT_POLICIES: OpenAIGPT5ReasoningEffortPolicy[] = [
   {

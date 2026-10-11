@@ -19,6 +19,19 @@ import {
 } from "../providers"
 
 describe("provider constants", () => {
+  it("keeps BYOS bridge secrets out of shared provider configuration", () => {
+    expect(providersConfigSchema.safeParse([DEFAULT_PROVIDER_CONFIG.byos]).success).toBe(true)
+    for (const extra of [
+      { apiKey: "secret" },
+      { headers: { Authorization: "secret" } },
+      { baseURL: "https://example.test" },
+    ]) {
+      expect(
+        providersConfigSchema.safeParse([{ ...DEFAULT_PROVIDER_CONFIG.byos, ...extra }]).success,
+      ).toBe(false)
+    }
+  })
+
   it("keeps every default provider compatible with its model schema", () => {
     for (const provider of API_PROVIDER_TYPES) {
       expect(apiProviderConfigItemSchema.parse(DEFAULT_PROVIDER_CONFIG[provider])).toEqual(
@@ -118,7 +131,7 @@ describe("provider constants", () => {
       [...openAICompatibleTypes, ...openResponsesTypes].sort(),
     )
     expect([...protocolCompatibleTypes].filter((type) => dedicatedTypes.has(type))).toEqual([])
-    expect([...protocolCompatibleTypes, ...dedicatedTypes].sort()).toEqual(
+    expect([...protocolCompatibleTypes, ...dedicatedTypes, "byos"].sort()).toEqual(
       [...LLM_PROVIDER_TYPES].sort(),
     )
     expect(API_PROVIDER_TYPES.slice(0, 5)).toEqual(

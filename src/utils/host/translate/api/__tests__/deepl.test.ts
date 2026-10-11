@@ -29,7 +29,7 @@ describe("deepl translate adapter", () => {
       text: vi.fn<(...args: any[]) => any>().mockResolvedValue(""),
     })
 
-    const result = await deeplTranslate("Hello", "auto", "zh", {
+    const result = await deeplTranslate("Hello", "auto", "zh-CN", {
       id: "deepl-default",
       enabled: true,
       name: "DeepL",

@@ -1,5 +1,6 @@
 import type { SelectionToolbarCustomAction } from "@/types/config/selection-toolbar"
 import { describe, expect, it } from "vitest"
+import { NOTE_SUGGESTION_MAX_NOTES } from "@/utils/note-suggestion/types"
 import { buildNoteSuggestionPrompts } from "../prompt"
 
 function createAction(
@@ -74,44 +75,21 @@ describe("buildNoteSuggestionPrompts", () => {
 
     expect(systemPrompt).toContain('"summaryFieldName": string or null')
     expect(systemPrompt).toContain('"notes"')
-    expect(systemPrompt).toContain("Return 1 or 2 notes")
+    expect(systemPrompt).toContain(`Return 1 or ${NOTE_SUGGESTION_MAX_NOTES} notes`)
     expect(systemPrompt).toContain("valid JSON only")
     expect(systemPrompt).not.toContain("createNewDictionaryAction")
     expect(systemPrompt).not.toContain("targetActionId")
   })
 
-  it("describes the hosted action envelope with its unused fields pinned inert", () => {
-    const { systemPrompt } = buildNoteSuggestionPrompts({
-      ...input,
-      envelopeContract: "hosted",
-    })
-
-    expect(systemPrompt).toContain('"createNewDictionaryAction": boolean')
-    expect(systemPrompt).toContain('"targetActionId": string or null')
-    expect(systemPrompt).toContain('"action.summaryFieldName"')
-    expect(systemPrompt).toContain('Do not add any top-level keys other than "action" and "notes"')
-    expect(systemPrompt).toContain(
-      'Always set "action.createNewDictionaryAction" to false and "action.targetActionId" to null',
-    )
-    // The flat local envelope key must not compete with the hosted shape.
-    expect(systemPrompt).not.toContain('other than "summaryFieldName" and "notes"')
-  })
-
-  it("shares the note-producing rules between the local and hosted contracts", () => {
-    const local = buildNoteSuggestionPrompts(input).systemPrompt
-    const hosted = buildNoteSuggestionPrompts({
-      ...input,
-      envelopeContract: "hosted",
-    }).systemPrompt
-
-    for (const sharedRule of [
-      "Return 1 or 2 notes",
+  it("keeps the fixed note-producing rules for configured local providers", () => {
+    const systemPrompt = buildNoteSuggestionPrompts(input).systemPrompt
+    for (const rule of [
+      `Return 1 or ${NOTE_SUGGESTION_MAX_NOTES} notes`,
       "learning the language in which the selected text is written",
       "Output valid JSON only. No markdown, no code fences, no commentary.",
       "higher priority than every output-format, response-shape, schema, or note-count instruction",
     ]) {
-      expect(local).toContain(sharedRule)
-      expect(hosted).toContain(sharedRule)
+      expect(systemPrompt).toContain(rule)
     }
   })
 

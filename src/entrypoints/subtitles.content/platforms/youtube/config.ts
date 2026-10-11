@@ -23,24 +23,6 @@ const SHORTS_ACTIVE_PLAYER = "#reel-overlay-container .html5-video-player"
 const WATCH_PLAYER = "#movie_player.html5-video-player"
 const ABOVE_PLAYER_CHROME_BELOW_PLAYER_MENUS = 60
 
-function createYoutubeAiSubtitlesContext() {
-  const videoId = getYoutubeVideoId()
-  if (!videoId) {
-    return null
-  }
-  // The player's own duration, sent as `durationSec` with the create request.
-  // An untrusted admission hint only — the server measures the real duration
-  // in its worker before billing — so the ad-playback edge (where `duration`
-  // briefly reports the ad's length) is harmless. NaN until metadata loads,
-  // which cannot happen behind an open settings panel.
-  const video = document.querySelector<HTMLVideoElement>("video.html5-main-video")
-  const duration = video?.duration
-  if (!duration || !Number.isFinite(duration) || duration <= 0) {
-    return null
-  }
-  return { videoId, url: location.href, durationSec: Math.ceil(duration) }
-}
-
 async function isYoutubeLiveContent(): Promise<boolean> {
   const videoId = getYoutubeVideoId()
   if (!videoId) {
@@ -82,7 +64,6 @@ const YOUTUBE_MODE_CONFIGS: Record<YoutubeMode, PlatformConfig> = {
     },
     supportsSidebar: true,
     getVideoId: getYoutubeVideoId,
-    createAiSubtitlesContext: createYoutubeAiSubtitlesContext,
     isAdPlaying: isYoutubeAdPlaying,
     isLiveContent: isYoutubeLiveContent,
   },
@@ -109,7 +90,6 @@ const YOUTUBE_MODE_CONFIGS: Record<YoutubeMode, PlatformConfig> = {
       checkVisibility: () => true,
     },
     getVideoId: getYoutubeVideoId,
-    createAiSubtitlesContext: createYoutubeAiSubtitlesContext,
     isAdPlaying: isYoutubeAdPlaying,
     isLiveContent: isYoutubeLiveContent,
   },
@@ -136,7 +116,6 @@ const YOUTUBE_MODE_CONFIGS: Record<YoutubeMode, PlatformConfig> = {
       checkVisibility: () => true,
     },
     getVideoId: getYoutubeVideoId,
-    createAiSubtitlesContext: createYoutubeAiSubtitlesContext,
     isAdPlaying: isYoutubeAdPlaying,
     isLiveContent: isYoutubeLiveContent,
   },

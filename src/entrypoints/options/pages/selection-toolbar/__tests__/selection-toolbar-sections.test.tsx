@@ -67,27 +67,20 @@ describe("selection toolbar page sections", () => {
     })
   })
 
-  it("switches one built-in action at a time, leaving the other enabled", () => {
+  it("keeps translation configurable without a speech control", () => {
     const selectionToolbar = testState.selectionToolbar!
-
-    // Its rows link to their keys on the Shortcuts page.
     render(
       <MemoryRouter>
         <ActionsSection />
       </MemoryRouter>,
     )
-    const [translate, speak] = screen.getAllByRole("switch")
-
-    fireEvent.click(speak!)
-
+    const translate = screen.getAllByRole("switch")[0]!
+    fireEvent.click(translate)
     expect(setSelectionToolbarMock).toHaveBeenCalledWith({
       ...selectionToolbar,
-      features: {
-        ...selectionToolbar.features,
-        speak: { ...selectionToolbar.features.speak, enabled: false },
-      },
+      features: { translate: { ...selectionToolbar.features.translate, enabled: false } },
     })
-    expect(translate).toBeChecked()
+    expect(screen.queryByText(/speak|speech/i)).not.toBeInTheDocument()
   })
 
   it("adds a disabled site without dropping the rest of the toolbar config", () => {

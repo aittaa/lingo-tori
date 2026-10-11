@@ -1,0 +1,278 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #213a32;
+  background: #f5f6ef;
+  font-synthesis: none;
+  line-height: 1.5;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 1120px;
+  padding: 28px 32px 48px;
+  margin: auto;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.brand {
+  font-size: 23px;
+  font-weight: 800;
+  color: #214b39;
+  text-decoration: none;
+  letter-spacing: -1px;
+}
+.brand span {
+  font-size: 10px;
+  letter-spacing: 2px;
+  margin-left: 14px;
+  color: #65786d;
+}
+.intro {
+  padding: 56px 0 20px;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #74836c;
+}
+h1 {
+  font-size: clamp(32px, 5vw, 48px);
+  line-height: 1.15;
+  letter-spacing: -1.5px;
+  margin: 12px 0;
+}
+h2 {
+  margin: 0 0 20px;
+  font-size: 23px;
+}
+.intro > p:last-child {
+  color: #627168;
+}
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  border: 1px solid #dce2d5;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #ebefdf;
+}
+.stats div {
+  padding: 22px 28px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #dce2d5;
+}
+.stats strong {
+  font-size: 34px;
+}
+.stats strong.small {
+  font-size: 18px;
+  margin: 11px 0;
+}
+.stats span {
+  font-size: 12px;
+  color: #647365;
+}
+.panel {
+  background: #fffef9;
+  border: 1px solid #dfe4d8;
+  border-radius: 18px;
+  padding: 28px;
+}
+.review {
+  text-align: center;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.review h2 {
+  font-size: 36px;
+  overflow-wrap: anywhere;
+}
+.review p,
+.review blockquote {
+  max-width: 700px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.review blockquote {
+  font-size: 15px;
+  color: #697b6f;
+  border-left: 3px solid #d8e1c8;
+  padding-left: 16px;
+  text-align: left;
+}
+.meaning {
+  font-size: 18px;
+}
+.complete {
+  background: #e9efdf;
+  color: #477148;
+  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  line-height: 46px;
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+button,
+.file-button,
+select {
+  font: inherit;
+  border: 1px solid #cbd5c3;
+  border-radius: 9px;
+  background: #fffef9;
+  padding: 10px 16px;
+  color: #264f3b;
+  cursor: pointer;
+}
+button:hover,
+.file-button:hover {
+  background: #eff3e6;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.primary {
+  background: #285840;
+  color: white;
+  border-color: #285840;
+}
+.primary:hover {
+  background: #204934;
+}
+.ratings,
+.tools {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+.ratings button {
+  min-width: 92px;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  gap: 6px;
+  margin-bottom: 15px;
+}
+input,
+textarea {
+  width: 100%;
+  border: 1px solid #d4dccd;
+  background: white;
+  border-radius: 8px;
+  font: inherit;
+  padding: 11px;
+  color: inherit;
+}
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+input:focus,
+textarea:focus,
+button:focus-visible {
+  outline: 2px solid #799b67;
+  outline-offset: 2px;
+}
+.status {
+  min-height: 24px;
+  font-size: 14px;
+}
+.file-button {
+  font-size: 16px;
+  margin: 0;
+}
+.file-button input {
+  max-width: 200px;
+  font-size: 12px;
+  padding: 4px;
+  border: 0;
+}
+.words {
+  padding: 0;
+  list-style: none;
+  max-height: 440px;
+  overflow: auto;
+}
+.words li {
+  padding: 14px 0;
+  border-bottom: 1px solid #e7ebdf;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.words span {
+  font-size: 13px;
+  color: #697869;
+  white-space: pre-wrap;
+}
+summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+details form {
+  max-width: 700px;
+  margin-top: 24px;
+}
+details p {
+  color: #6d7c6c;
+}
+code {
+  overflow-wrap: anywhere;
+}
+footer {
+  text-align: center;
+  color: #889380;
+  font-size: 12px;
+  padding-top: 36px;
+}
+@media (max-width: 650px) {
+  main {
+    padding: 20px 16px;
+  }
+  .intro {
+    padding-top: 36px;
+  }
+  .columns {
+    grid-template-columns: 1fr;
+  }
+  .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .stats div:last-child {
+    grid-column: 1/-1;
+    border-top: 1px solid #dce2d5;
+  }
+  .panel {
+    padding: 22px;
+  }
+  .review h2 {
+    font-size: 29px;
+  }
+  .ratings {
+    justify-content: center;
+  }
+}

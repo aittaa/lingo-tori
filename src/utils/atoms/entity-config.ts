@@ -4,7 +4,6 @@ import { atom } from "jotai"
 import { isAPIProviderConfig } from "@/types/config/provider"
 import { findSelectionToolbarAction, replaceSelectionToolbarAction } from "@/utils/custom-actions"
 import { syncLayoutSampleData } from "@/utils/layout-host/sample"
-import { sanitizeSelectionToolbarCustomAction } from "@/utils/notebase/connection"
 import { writeConfigAtom } from "./config"
 
 export const patchProviderConfigAtom = atom(
@@ -31,7 +30,7 @@ export const patchActionConfigAtom = atom(
     await set(writeConfigAtom, (current) => {
       const action = findSelectionToolbarAction(current.selectionToolbar, id)
       if (!action) throw new Error("Action no longer exists")
-      const patched = sanitizeSelectionToolbarCustomAction({ ...action, ...changes, id })
+      const patched = { ...action, ...changes, id }
       // The sample data follows the fields: a new field gets a sample value, a
       // removed field's goes. A built-in action's is dropped on replace.
       const next = {

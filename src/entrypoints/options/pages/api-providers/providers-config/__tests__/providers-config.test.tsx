@@ -1,14 +1,10 @@
 // @vitest-environment jsdom
 
 import type { ReactNode } from "react"
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ProvidersConfig } from "@/entrypoints/options/pages/api-providers/providers-config"
-import {
-  BUILT_IN_AI_PROVIDER_ID,
-  BUILT_IN_AI_ADVANCE_PROVIDER_ID,
-} from "@/utils/providers/provider-registry"
 
 const {
   anchoredToastAddMock,
@@ -149,57 +145,6 @@ vi.mock("@/utils/constants/feature-providers", () => ({
   getFeatureLabelI18nKey: (key: string) => `feature.${key}`,
 }))
 
-// The built-in panel gates Ultra assignment rows on the live plan; tests set
-// hostedAiState.value per case (default: settled error, i.e. status unknown).
-const { hostedAiState } = vi.hoisted(() => {
-  const state: { value: { status: unknown; isPending: boolean; isError: boolean } } = {
-    value: { status: undefined, isPending: false, isError: true },
-  }
-  return { hostedAiState: state }
-})
-
-vi.mock("@/components/llm-providers/use-hosted-ai-status", () => ({
-  useHostedAiStatus: () => hostedAiState.value,
-}))
-
-function makeUltraAccessStatus(accessAllowed: boolean) {
-  // A denial carries its reason: the server answers the advance tier of a
-  // non-Ultra account with `ultra_required`, never with a bare accessAllowed
-  // flag. The panel locks on the reason, so a fixture without one models a
-  // state the wire cannot produce.
-  //
-  // `requiresUltra` is left off deliberately. The real wire sets it on every
-  // advance tier, but it renders the Ultra badge inside the row's <label>,
-  // which then becomes part of the switch's accessible name and breaks the
-  // `getByRole("switch", { name })` queries below. These cases are about
-  // locking, not badging — the badge has its own test above.
-  const advance = accessAllowed
-    ? { accessAllowed: true, available: true, unavailableReason: null }
-    : { accessAllowed: false, available: false, unavailableReason: "ultra_required" as const }
-  return {
-    credits: [],
-    features: {
-      pageTranslation: { advance },
-      selectionTranslation: { advance },
-      noteSuggestion: { advance },
-      customAction: { advance },
-      videoSubtitles: { advance },
-      inputTranslation: { advance },
-      languageDetection: { advance },
-    },
-  }
-}
-
-/** Must mirror the built-in hosted assignment rows, except dynamic custom actions. */
-const BUILT_IN_ASSIGNMENT_LABELS = [
-  "feature.pageTranslation",
-  "feature.videoSubtitles",
-  "feature.selectionTranslation",
-  "feature.inputTranslation",
-  "feature.noteSuggestion",
-  "options.apiProviders.languageDetection.title",
-] as const
-
 vi.mock("@/utils/i18n", () => ({
   i18n: {
     t: (key: string, values?: Array<string | number>) =>
@@ -254,7 +199,6 @@ describe("ProvidersConfig", () => {
     writeConfigMock.mockReset()
     testState.selectedProviderId = providerConfig.id
     config.languageDetection = { mode: "basic", providerId: undefined }
-    hostedAiState.value = { status: undefined, isPending: false, isError: true }
   })
 
   it("anchors an in-use disable error to the corresponding provider switch", () => {
@@ -272,152 +216,19 @@ describe("ProvidersConfig", () => {
     })
   })
 
-  it("renders the built-in provider composition without CRUD actions or a sponsor CTA", () => {
-    testState.selectedProviderId = BUILT_IN_AI_PROVIDER_ID
-
+  it("lists local providers without hosted tiers", () => {
     renderProvidersConfig()
-
     expect(
-      screen.getByText("options.apiProviders.providers.attribution.builtInAi"),
-    ).toBeInTheDocument()
-    expect(screen.queryByText("options.apiProviders.sponsorCta")).not.toBeInTheDocument()
-    expect(screen.queryByText("options.apiProviders.form.duplicate")).not.toBeInTheDocument()
-    expect(screen.queryByText("options.apiProviders.form.delete")).not.toBeInTheDocument()
-    // Both tiers list every hosted-capable feature row; the normal tier marks
-    // the Ultra-gated ones with the badge instead of hiding them.
-    for (const label of BUILT_IN_ASSIGNMENT_LABELS) {
-      expect(screen.getByText(label)).toBeInTheDocument()
-    }
-  })
-
-  it("lists both built-in provider cards", () => {
-    renderProvidersConfig()
-
-    expect(screen.getByText("options.apiProviders.providers.name.builtInAi")).toBeInTheDocument()
-    expect(
-      screen.getByText("options.apiProviders.providers.name.builtInAiAdvance"),
-    ).toBeInTheDocument()
-  })
-
-  it("renders the Ultra editor with its own attribution and all three feature assignments", () => {
-    testState.selectedProviderId = BUILT_IN_AI_ADVANCE_PROVIDER_ID
-
-    renderProvidersConfig()
-
-    expect(
-      screen.getByText("options.apiProviders.providers.attribution.builtInAiAdvance"),
-    ).toBeInTheDocument()
-    for (const label of BUILT_IN_ASSIGNMENT_LABELS) {
-      expect(screen.getByText(label)).toBeInTheDocument()
-    }
-    expect(screen.queryByText("options.apiProviders.sponsorCta")).not.toBeInTheDocument()
-  })
-
-  it("keeps Ultra assignment rows interactive while the plan status is unknown", () => {
-    testState.selectedProviderId = BUILT_IN_AI_ADVANCE_PROVIDER_ID
-    // Default hostedAiState: settled error → status undefined → no verdict.
-
-    renderProvidersConfig()
-
-    for (const label of BUILT_IN_ASSIGNMENT_LABELS) {
-      expect(screen.getByRole("switch", { name: label })).not.toHaveAttribute(
-        "aria-disabled",
-        "true",
-      )
-    }
-  })
-
-  it("locks Ultra assignment rows when the server denies ultra access", () => {
-    testState.selectedProviderId = BUILT_IN_AI_ADVANCE_PROVIDER_ID
-    hostedAiState.value = {
-      status: makeUltraAccessStatus(false),
-      isPending: false,
-      isError: false,
-    }
-
-    renderProvidersConfig()
-
-    // base-ui renders a span[role=switch]; disabled surfaces as aria-disabled.
-    for (const label of BUILT_IN_ASSIGNMENT_LABELS) {
-      expect(screen.getByRole("switch", { name: label })).toHaveAttribute("aria-disabled", "true")
-    }
-  })
-
-  it("unlocks Ultra assignment rows for an ultra-entitled account", () => {
-    testState.selectedProviderId = BUILT_IN_AI_ADVANCE_PROVIDER_ID
-    hostedAiState.value = {
-      status: makeUltraAccessStatus(true),
-      isPending: false,
-      isError: false,
-    }
-
-    renderProvidersConfig()
-
-    for (const label of BUILT_IN_ASSIGNMENT_LABELS) {
-      expect(screen.getByRole("switch", { name: label })).not.toBeDisabled()
-    }
-  })
-
-  it("assigns language detection from a Built-in AI editor", () => {
-    testState.selectedProviderId = BUILT_IN_AI_PROVIDER_ID
-
-    renderProvidersConfig()
-    fireEvent.click(
-      screen.getByRole("switch", {
-        name: "options.apiProviders.languageDetection.title",
-      }),
-    )
-
-    expect(writeConfigMock).toHaveBeenCalledWith({
-      languageDetection: {
-        mode: "llm",
-        providerId: BUILT_IN_AI_PROVIDER_ID,
-      },
-    })
-  })
-
-  it("counts default assignments on the free Built-in AI card badge", () => {
-    // Note suggestion defaults to the OpenAI provider, so only the built-in
-    // Dictionary, Sentence Analysis and Improve Writing actions count on the
-    // free card (Improve Writing is turned off, but still assigned to it); the
-    // Ultra card has nothing assigned and shows no badge.
-    const { container } = renderProvidersConfig()
-
-    const freeCard = container.querySelector(`[data-provider-id="${BUILT_IN_AI_PROVIDER_ID}"]`)
-    const ultraCard = container.querySelector(
-      `[data-provider-id="${BUILT_IN_AI_ADVANCE_PROVIDER_ID}"]`,
-    )
-    if (!(freeCard instanceof HTMLElement) || !(ultraCard instanceof HTMLElement)) {
-      throw new Error("Built-in provider cards not rendered")
-    }
-
-    expect(
-      within(freeCard).getByText("options.apiProviders.badges.featureCount:3"),
-    ).toBeInTheDocument()
-    expect(
-      within(ultraCard).queryByText(/options\.apiProviders\.badges\.featureCount/),
+      screen.queryByText("options.apiProviders.providers.name.builtInAi"),
     ).not.toBeInTheDocument()
-  })
-
-  it("counts language detection on the assigned Built-in AI card badge", () => {
-    config.languageDetection = {
-      mode: "llm",
-      providerId: BUILT_IN_AI_PROVIDER_ID,
-    }
-
-    const { container } = renderProvidersConfig()
-    const freeCard = container.querySelector(`[data-provider-id="${BUILT_IN_AI_PROVIDER_ID}"]`)
-    if (!(freeCard instanceof HTMLElement)) {
-      throw new Error("Built-in provider card not rendered")
-    }
-
     expect(
-      within(freeCard).getByText("options.apiProviders.badges.featureCount:4"),
-    ).toBeInTheDocument()
+      screen.queryByText("options.apiProviders.providers.name.builtInAiAdvance"),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole("switch", { name: providerConfig.name })).toBeInTheDocument()
   })
 
   it("opens the provider a ?provider= deep link names", () => {
-    testState.selectedProviderId = BUILT_IN_AI_PROVIDER_ID
+    testState.selectedProviderId = "other-local-provider"
 
     renderProvidersConfig(`/api-providers?provider=${providerConfig.id}`)
 
@@ -425,10 +236,10 @@ describe("ProvidersConfig", () => {
   })
 
   it("keeps the current selection when the deep link names an unknown provider", () => {
-    testState.selectedProviderId = BUILT_IN_AI_PROVIDER_ID
+    testState.selectedProviderId = "other-local-provider"
 
     renderProvidersConfig("/api-providers?provider=deleted-provider")
 
-    expect(testState.selectedProviderId).toBe(BUILT_IN_AI_PROVIDER_ID)
+    expect(testState.selectedProviderId).toBe("other-local-provider")
   })
 })

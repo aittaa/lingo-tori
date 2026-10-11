@@ -1,0 +1,12 @@
+LingoTori is an independent fork of Read Frog.
+
+Original work: Read Frog contributors.
+Upstream source and preserved authorship history:
+https://github.com/mengxi-ream/read-frog
+
+LingoTori source, modifications and corresponding build instructions:
+https://github.com/aittaa/lingo-tori
+
+Distributed under the GNU General Public License, version 3.
+The unmodified license text is included in LICENSE.
+Third-party dependency notices embedded in generated files remain intact.
