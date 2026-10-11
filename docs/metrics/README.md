@@ -1,4 +1,4 @@
-# Footprint baseline
+# Footprint measurements
 
 `baseline.json` records the baseline product revision `ca8da8241883c9aff5862d15d045845a746c9a6b`. Its existing Chrome and Firefox artifacts come from successful builds on clean `main`, documented in the local preparation evidence at `../lingo-tori-local/validation-results.json` and `../lingo-tori-local/logs/` (paths relative to the repository root). That sidecar is local evidence, not a committed dependency of this tool.
 
@@ -55,3 +55,20 @@ The baseline contains 93 runtime and 41 development dependencies, 1,531 tracked 
 Archive bytes and hashes are copied from verified preparation evidence, not regenerated or unpacked by the tool. Tool-reported build summary sizes may differ from the exact on-disk inventory; use the same inventory definition on both sides of a comparison.
 
 All timings are single recorded samples. Smaller output, fewer dependencies, and shorter one-off build times do not demonstrate lower browser CPU, memory use or faster runtime behavior. A runtime claim needs a separate controlled browser experiment with the same page, effective configuration, hardware, browser and repeated runs.
+
+## Initial independent candidate
+
+[after.json](after.json) records source commit `d1d083bd56ad137407102beceb113a2a4bf6aa15` with documentation-only working changes. Both final output directories include the unchanged GPL text and attribution notice. Final packaging also includes reviewed repository documentation in the source ZIP.
+
+| Metric                          |   Baseline |  Candidate |  Change |
+| ------------------------------- | ---------: | ---------: | ------: |
+| Direct runtime dependencies     |         93 |         82 |     -11 |
+| Direct development dependencies |         41 |         39 |      -2 |
+| Total direct dependencies       |        134 |        121 |     -13 |
+| Tracked src files               |      1,531 |      1,359 |    -172 |
+| UI locales                      |         10 |          3 |      -7 |
+| Chrome output files             |        197 |        170 |     -27 |
+| Chrome output bytes             | 23,811,511 | 14,612,631 | -38.63% |
+| Firefox output bytes            | 23,811,806 | 14,612,889 | -38.63% |
+
+These byte counts include license/notice files and use the same filesystem inventory definition as the baseline. Baseline measurement used Node 25.5.0; candidate measurement uses Node 26.11.1, so gzip totals have differing toolchain provenance. Exact uncompressed file bytes and manifest key counts are the primary comparison. No browser speed/memory claim is made. See [validation](../validation.md) for tests, artifacts and remaining live/browser gates.

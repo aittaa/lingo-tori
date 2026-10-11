@@ -22,6 +22,12 @@ The layout package is identified as proprietary. The other two packages have unr
 
 Resolve this through removal or an independently authored migration/import strategy, with the exception to historical frozen-migration policy documented and tested. Do not copy the snapshots into a new renderer, a replacement package, or documentation. The upstream migration skill normally requires immutable self-contained migration snapshots and a continuous registry; changes needed to remove restricted content must preserve the chain and user data through an explicit tested approach.
 
+### Historical compatibility exception implemented
+
+The v102-to-v103 step now uses an independently authored compatibility transform that removes legacy layout and speech fields while preserving unrelated settings. Its previous preset-producing implementation and generated render fixtures were removed without using them as implementation references.
+
+Historical example fixtures v103-v110 were scrubbed by parsing TypeScript and replacing only `layout` and `sampleData` value ranges; removed payloads were not displayed or retained. Eight fixture files contained 22 affected properties. The chain suite compares all other historical settings exactly and separately asserts that retired payloads remain inert. This is an explicit provenance exception to frozen historical snapshots, not permission to rewrite unrelated migrations. The new v111 migration and fixture remain independently owned by the learning implementation.
+
 ### Precise integration paths
 
 - `src/components/layout-host/custom-action-layout-view.tsx` mounts the engine. `fallback-field-list.tsx` also imports its formatter, so the fallback is not independent yet.

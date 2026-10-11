@@ -4,11 +4,12 @@ LingoTori is being developed as an independent GPLv3 fork of Read Frog focused o
 
 ## Status
 
-This documentation records the approved product direction and an audit of baseline commit `ca8da8241883c9aff5862d15d045845a746c9a6b`. It is a plan, not evidence that the removals or replacement features have shipped. Implementation and validation must be recorded in the corresponding issues and pull requests.
+The baseline is `ca8da8241883c9aff5862d15d045845a746c9a6b`. The first independent implementation is being prepared in draft pull requests: local vocabulary/SRS and a personal learning web, an official-protocol local BYOS companion, and extension integration with upstream commercial services removed. Nothing has been merged or released. See [validation and remaining gates](validation.md) for observed checks and limitations.
 
 - [Product requirements](product-requirements.md): retained features, exclusions, and user experience.
 - [Architecture and licensing](architecture-and-licensing.md): dependency findings, independent implementation boundaries, and data ownership.
 - [Implementation plan](implementation-plan.md): reviewable phases, acceptance criteria, and release gates.
+- [Local vocabulary, synchronization and learning web](learning.md): setup, persistence and v1 limitations.
 - [BYOS companion specification](byos.md): official companion and hosting boundaries.
 
 ## Operating rules

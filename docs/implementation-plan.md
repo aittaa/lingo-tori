@@ -2,9 +2,16 @@
 
 ## Baseline and status policy
 
-Baseline: `ca8da8241883c9aff5862d15d045845a746c9a6b`. All phases below are planned. This documentation does not claim source changes, tests, deployment, or feature completion. Update status only with a linked change and observed validation evidence.
+Baseline: `ca8da8241883c9aff5862d15d045845a746c9a6b`. The acceptance criteria below remain the target; the initial implementation is in draft and does not satisfy every release gate. See [validation](validation.md) for observed results. No merge, release, deployment or live account exercise has occurred.
 
 Use small conventional-commit draft PRs and English issues. Follow `AGENTS.md` changeset requirements for user-facing changes. Preserve GPLv3 and attribution. No merge, deployment, live paid API exercise, or token-dependent testing is authorized by this plan.
+
+## Initial implementation scope
+
+- Phases 0–3 and 5 have initial code and offline regression coverage, pending installed-extension verification.
+- Phase 4 provides versioned full-state manual synchronization, deterministic `simple-v1` review-event replay, a loopback-only single-namespace personal server, and an independent learning web. Local persisted state is retained on failed synchronization. A separate outbox, deletion/tombstone protocol, hosted accounts, multi-account UI and offline web PWA are deferred; the corresponding acceptance criteria are not claimed complete.
+- The local BYOS companion and extension adapter use the documented official protocol with mock-only tests. Actual account eligibility, sign-in/token rotation, model listing and generation remain unverified. No live tokens were created.
+- Phase 6 has local type, lint, unit and build validation; installed-browser smoke tests and a faithful extension demo remain open. Original automated workflows are removed from the candidate and remote Actions remain disabled.
 
 ## Phase 0: Establish safe fork operation
 
@@ -96,7 +103,7 @@ Acceptance:
 
 ## Targeted validation
 
-Use `/Users/hyeonkim-server/workspace/lingo-tori-local/pnpm` from the repository. Set `SKIP_FREE_API=true` for test commands because `free-api.test.ts` depends on live translation services. Do not install dependencies or invoke token-dependent services as a substitute for missing local prerequisites.
+Use `/Users/hyeonkim-server/workspace/lingo-tori-local/pnpm` from the repository. Retain `SKIP_FREE_API=true` for safe local test commands. The candidate removes the old live free-translation suite with its Google/Microsoft Translate adapters. Do not install dependencies or invoke token-dependent services as a substitute for missing local prerequisites.
 
 Preserve and adapt meaningful tests around:
 
@@ -110,4 +117,4 @@ Add focused tests for the independent renderer, offline save/review, replay-safe
 
 ## Open decisions
 
-Choose and document the independent scheduler/license, backend protocol/versioning, learning web origin, companion connection mechanism, concurrency policy and legacy note import format. No local audit establishes access to notes held only on upstream servers. Resolve these decisions without copying proprietary or unresolved-license implementations.
+The initial scheduler is independently authored `simple-v1`; the shared state schema is version 1. The learning web uses the loopback server origin, and the companion requires explicit extension-origin pairing and permits one active inference operation. JSON import preserves existing note and review IDs. Remaining decisions include a future hosted identity/deployment model, deletion semantics, multiple senses per term, multi-account BYOS, and access to upstream-only notes. No local audit establishes access to notes held only on upstream servers. Resolve these without copying proprietary or unresolved-license implementations.
