@@ -101,8 +101,8 @@ options:
   apiProviders:
     title: API Providers
     pageDescription: Connect the AI services LingoTori calls, then choose which one runs each feature.
-    description: Add the providers LingoTori can call. Over 20 are built in, with custom support for Chat Completions-compatible and Open Responses APIs.
-    configTitle: Provider config
+    description: Use your own API keys or a compatible endpoint.
+    configTitle: API providers
     addProvider: Add provider
     builtInProvider: Built-in provider
     builtInAiUsage:

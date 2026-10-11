@@ -101,8 +101,8 @@ options:
   apiProviders:
     title: API 제공업체
     pageDescription: LingoTori가 호출하는 AI 서비스를 연결하고, 각 기능에 사용할 서비스를 선택하세요.
-    description: LingoTori가 호출할 수 있는 제공업체를 추가합니다. 20개 이상이 내장되어 있으며, Chat Completions 호환 API와 Open Responses API를 사용자 정의로 추가할 수 있습니다.
-    configTitle: 제공업체 구성
+    description: 개인 API 키나 호환 엔드포인트를 사용하세요.
+    configTitle: API 제공업체
     addProvider: 제공업체 추가
     builtInProvider: 내장 제공업체
     builtInAiUsage:

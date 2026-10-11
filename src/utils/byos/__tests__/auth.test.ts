@@ -397,3 +397,26 @@ it("does not exchange a callback code after logout during routing cleanup", asyn
   await expect(login).rejects.toThrow(/./)
   expect(fetcher).not.toHaveBeenCalled()
 })
+
+it("retries a failed initialization while concurrent callers share each attempt", async () => {
+  const vault = memoryVault(),
+    transport = mockTransport(),
+    fetcher = vi.fn<typeof fetch>()
+  const read = vi.spyOn(vault, "read")
+  read.mockRejectedValueOnce(new Error("synthetic initialization failure"))
+  const service = createByosService(vault, transport, "extension", callbackUrl, fetcher)
+  const first = service.session(),
+    concurrent = service.status()
+  await expect(first).rejects.toThrow("synthetic initialization failure")
+  await expect(concurrent).rejects.toThrow("synthetic initialization failure")
+  expect(read).toHaveBeenCalledOnce()
+  await Promise.all([service.initialize(), service.initialize()])
+  expect(read).toHaveBeenCalledTimes(2)
+  expect(await service.session()).toEqual({ state: "disconnected" })
+  expect(await service.status()).toEqual({
+    available: true,
+    reason: "browser_only_signin_unavailable",
+  })
+  expect(transport.reconcile).toHaveBeenCalledOnce()
+  expect(fetcher).not.toHaveBeenCalled()
+})

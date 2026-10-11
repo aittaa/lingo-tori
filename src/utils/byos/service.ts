@@ -109,7 +109,7 @@ export function createByosService(
     await transport.cleanup(pending?.tabId)
   }
   async function initialize() {
-    initialization ??= (async () => {
+    const attempt = (initialization ??= (async () => {
       const record = await vault.read()
       if (record.refreshing) {
         // Rotation may have happened before the worker stopped; never replay that token.
@@ -125,8 +125,15 @@ export function createByosService(
         await clearPending(true)
       else if (!(await transport.reconcile(record.pending)) && record.pending)
         await clearPending(true)
-    })()
-    await initialization
+    })())
+    try {
+      await attempt
+    } catch (error) {
+      // Other callers can still be unwinding this attempt after an explicit retry
+      // starts. Never clear that newer initialization promise.
+      if (initialization === attempt) initialization = undefined
+      throw error
+    }
   }
   async function request(url: string, options: RequestInit = {}) {
     const parsed = new URL(url)

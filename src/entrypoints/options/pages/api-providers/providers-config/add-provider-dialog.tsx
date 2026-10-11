@@ -1,5 +1,7 @@
 import type { APIProviderTypes } from "@/types/config/provider"
+import { IconBrandOpenai } from "@tabler/icons-react"
 import { useSetAtom, useStore } from "jotai"
+import { useRef } from "react"
 import { SponsorBadge } from "@/components/badges/sponsor-badge"
 import { requestEditorNavigationAtom } from "@/components/form/autosave-navigation"
 import ProviderIcon from "@/components/provider-icon"
@@ -15,7 +17,14 @@ import { i18n } from "@/utils/i18n"
 import { selectedProviderIdAtom } from "./atoms"
 import { addProvider } from "./utils"
 
-export default function AddProviderDialog({ onClose }: { onClose: () => void }) {
+export default function AddProviderDialog({
+  onClose,
+  onSelectChatGPT,
+}: {
+  onClose: () => void
+  onSelectChatGPT?: () => void
+}) {
+  const selectedChatGPT = useRef(false)
   const store = useStore()
   const requestNavigation = useSetAtom(requestEditorNavigationAtom)
   const setProvidersConfig = useSetAtom(configFieldsAtomMap.providersConfig)
@@ -34,10 +43,36 @@ export default function AddProviderDialog({ onClose }: { onClose: () => void }) 
   }
 
   return (
-    <DialogContent className="max-h-[90vh] overflow-y-auto md:max-w-2xl lg:max-w-4xl xl:max-w-5xl">
+    <DialogContent
+      finalFocus={() => {
+        if (!selectedChatGPT.current) return true
+        selectedChatGPT.current = false
+        return (
+          document.getElementById("chatgpt-model") ??
+          document.getElementById("chatgpt-account-card") ??
+          true
+        )
+      }}
+      className="max-h-[90vh] overflow-y-auto md:max-w-2xl lg:max-w-4xl xl:max-w-5xl"
+    >
       <DialogHeader>
         <DialogTitle>{i18n.t("options.apiProviders.dialog.title")}</DialogTitle>
       </DialogHeader>
+      {onSelectChatGPT && (
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-3 text-left font-medium outline-none hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => {
+            selectedChatGPT.current = true
+            onClose()
+            // Closing the modal and starting the shared flow remain one user gesture.
+            onSelectChatGPT()
+          }}
+        >
+          <IconBrandOpenai aria-hidden="true" className="size-6" stroke={1.5} />
+          <span>ChatGPT</span>
+        </button>
+      )}
       {Object.entries(PROVIDER_GROUPS).map(([groupKey, group]) => (
         <ProviderButtonGroup
           key={groupKey}

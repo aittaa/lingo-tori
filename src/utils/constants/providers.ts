@@ -197,7 +197,7 @@ export const PROVIDER_ITEMS: Record<
 > = {
   byos: {
     logo: () => customProviderLogo,
-    name: "Local companion (BYOS)",
+    name: "ChatGPT",
     website: "",
   },
   deeplx: {
@@ -362,7 +362,7 @@ export const PROVIDER_ITEMS: Record<
 export const DEFAULT_PROVIDER_CONFIG = {
   byos: {
     id: "byos-default",
-    name: "Local companion (BYOS)",
+    name: "ChatGPT",
     enabled: true,
     provider: "byos",
     model: { model: "use-custom-model", isCustomModel: true, customModel: null },

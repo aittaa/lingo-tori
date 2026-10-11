@@ -101,8 +101,8 @@ options:
   apiProviders:
     title: APIプロバイダー
     pageDescription: LingoTori が呼び出す AI サービスを接続し、各機能で使うものを選びます。
-    description: LingoTori が呼び出せるプロバイダーを追加します。20 以上を内蔵し、Chat Completions 互換 API と Open Responses API をカスタム追加できます。
-    configTitle: プロバイダー設定
+    description: 自分の API キーや互換エンドポイントを使用します。
+    configTitle: APIプロバイダー
     addProvider: プロバイダーを追加
     builtInProvider: 組み込みプロバイダー
     builtInAiUsage:

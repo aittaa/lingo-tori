@@ -10,9 +10,11 @@ The requested experimental architecture differs: it stores tokens in an extensio
 
 ## User flow
 
-API Providers contains **Sign in with ChatGPT** and independently authored EN/KO/JA guidance. BYOK configuration remains usable and unchanged unless the user explicitly changes a feature assignment. On Chromium, a future direct **Continue with ChatGPT** action requests the optional callback permission. Denial, missing capability or failed rule installation stops before authorization. No permission is requested on startup or settings mount. Firefox authentication is unavailable.
+API Providers starts with a compact ChatGPT account card, followed by API-key providers. Its **Sign in with ChatGPT** button and **Add provider → ChatGPT** use the same direct-click workflow: request the optional Chromium callback permission, then open authorization without an intermediate setup dialog. Denial, missing capability or failed rule installation stops before authorization. No permission is requested on startup or settings mount. Firefox authentication is unavailable.
 
-Connection/account state, cancellation, reconnect, sign-out, discovered models and explicit feature assignment share that settings section. There is no companion address or pairing key. Authentication errors never silently switch to another provider or billing path. Usage and first-use guidance must not promise a plan entitlement or invent remaining quota.
+Pending sign-in shows progress and cancellation next to the action. Sign-out and usage actions appear only for an identified account. After successful sign-in and model discovery, the user can save a model and explicitly assign it in Feature providers. Selecting an already connected ChatGPT account from Add provider returns to its settings. BYOK remains usable, and neither sign-in nor model saving changes feature assignments automatically. There is no companion address or pairing key. Authentication errors never silently switch to another provider or billing path.
+
+A failed background initialization can be retried without restarting the worker; concurrent callers still share one initialization attempt. A callback-rule timeout gives a short extension-reload recovery message. This does not establish the cause of the reported installed-browser sign-in failure, which remains separate from synthetic coverage.
 
 ## Credential and callback boundaries
 

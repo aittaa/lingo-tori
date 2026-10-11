@@ -12,7 +12,7 @@ export function buildByosProviderPatch(
   const id = existing?.id || "lingotori-byos"
   const next = {
     id,
-    name: "ChatGPT plan (BYOS)",
+    name: "ChatGPT",
     enabled: true,
     provider: "byos" as const,
     model: {

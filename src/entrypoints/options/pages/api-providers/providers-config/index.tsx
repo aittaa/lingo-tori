@@ -108,7 +108,7 @@ function useRequestedProvider() {
   ])
 }
 
-export function ProvidersConfig() {
+export function ProvidersConfig({ onSelectChatGPT }: { onSelectChatGPT?: () => void }) {
   const selectedProviderId = useAtomValue(selectedProviderIdAtom)
   useRequestedProvider()
   const editor = <ProviderConfigForm key={selectedProviderId} />
@@ -119,13 +119,17 @@ export function ProvidersConfig() {
       orientation="vertical"
       title={i18n.t("options.apiProviders.configTitle")}
       description={i18n.t("options.apiProviders.description")}
+      titleClassName="text-base leading-6 font-medium"
     >
-      <EntityEditorLayout list={<ProviderCardList />} editor={editor} />
+      <EntityEditorLayout
+        list={<ProviderCardList onSelectChatGPT={onSelectChatGPT} />}
+        editor={editor}
+      />
     </ConfigItem>
   )
 }
 
-function ProviderCardList() {
+function ProviderCardList({ onSelectChatGPT }: { onSelectChatGPT?: () => void }) {
   const [providersConfig, setProvidersConfig] = useAtom(configFieldsAtomMap.providersConfig)
   const apiProvidersConfig = getAPIProvidersConfig(providersConfig)
   const [selectedProviderId, setSelectedProviderId] = useAtom(selectedProviderIdAtom)
@@ -174,17 +178,20 @@ function ProviderCardList() {
           render={
             <Button
               variant="outline"
-              className="h-auto rounded-xl border-dashed border-accent bg-accent/8 p-3 hover:bg-accent/14 dark:border-accent dark:bg-accent/12 dark:hover:bg-accent/20"
+              className="h-9 justify-start border-border bg-background px-3 motion-reduce:transition-none"
               onClick={() => setIsAddDialogOpen(true)}
             />
           }
         >
-          <div className="flex w-full items-center justify-center gap-2">
+          <div className="flex w-full items-center gap-2">
             <Icon icon="tabler:plus" className="size-4" />
             <span className="text-sm">{i18n.t("options.apiProviders.addProvider")}</span>
           </div>
         </DialogTrigger>
-        <AddProviderDialog onClose={() => setIsAddDialogOpen(false)} />
+        <AddProviderDialog
+          onClose={() => setIsAddDialogOpen(false)}
+          onSelectChatGPT={onSelectChatGPT}
+        />
       </Dialog>
       <EntityListRail>
         <SortableList
