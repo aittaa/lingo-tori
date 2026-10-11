@@ -1,6 +1,14 @@
 import type { AuthTransport } from "./transport"
-import type { AuthVault, Credentials, PendingAuth } from "./vault"
+import type { AuthVault, Credentials, PendingAuth, VaultRecord } from "./vault"
 import { z } from "zod"
+import {
+  abortable,
+  ByosBridgeError,
+  failureDetails,
+  machineError,
+  responseError,
+  TERMINAL_REFRESH_CODES,
+} from "./errors"
 import {
   challenge,
   ISSUER,
@@ -29,6 +37,7 @@ export const sessionSchema = z.object({
     "temporarily-unavailable",
   ]),
   account: z.object({ subject: z.string(), email: z.string() }).optional(),
+  authPending: z.boolean().optional(),
 })
 export type ByosSession = z.infer<typeof sessionSchema>
 export const modelsSchema = z.object({
@@ -44,14 +53,7 @@ export function assertByosSender(
   if (optionsUrl && sender.url?.split(/[?#]/)[0] !== optionsUrl)
     throw new Error("Open BYOS in extension Settings to manage this connection")
 }
-export class ByosBridgeError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status = 0,
-  ) {
-    super(`BYOS: ${code}`)
-  }
-}
+export { ByosBridgeError } from "./errors"
 export const BYOS_UNAVAILABLE_CODE = "browser_only_signin_unavailable"
 export interface CallbackSender {
   id?: string
@@ -71,6 +73,21 @@ function fail(code: string, status = 0): never {
   throw new ByosBridgeError(code, status)
 }
 
+function hasPlanAccess(credentials: Credentials | undefined): credentials is Credentials {
+  return (
+    !!credentials?.scopes.includes("chatgpt.tokens.use.direct") &&
+    credentials.scopes.includes("resource.invoke")
+  )
+}
+function clearRefreshState(record: VaultRecord) {
+  delete record.accessRejected
+  delete record.refreshing
+  delete record.refreshUncertain
+  delete record.refreshConfigurationError
+  delete record.refreshRetryAfter
+  delete record.refreshFailures
+  delete record.refreshFailure
+}
 /** Experimental extension-only authentication; all credential operations stay in the background. */
 export function createByosService(
   vault: AuthVault,
@@ -84,6 +101,7 @@ export function createByosService(
   let starting = false
   let refreshing: Promise<void> | undefined
   let initialization: Promise<void> | undefined
+  let signingOut: Promise<ByosSession & { remoteRevocationConfirmed: boolean }> | undefined
   const controllers = new Set<AbortController>()
   const abortAll = () => {
     for (const controller of controllers) controller.abort()
@@ -97,8 +115,7 @@ export function createByosService(
         record.generation++
         if (record.refreshing) {
           delete record.refreshing
-          delete record.credentials
-          record.blocked = "reconnect-required"
+          record.refreshUncertain = true
           record.tokenVersion++
         }
       }
@@ -111,14 +128,26 @@ export function createByosService(
   async function initialize() {
     const attempt = (initialization ??= (async () => {
       const record = await vault.read()
-      if (record.refreshing) {
-        // Rotation may have happened before the worker stopped; never replay that token.
+      if (
+        record.refreshing ||
+        record.blocked === "restricted" ||
+        record.blocked === "limit-reached" ||
+        record.blocked === "temporarily-unavailable" ||
+        (record.blocked === "reconnect-required" && record.credentials)
+      ) {
         await vault.update((current) => {
-          current.generation++
-          current.tokenVersion++
-          delete current.credentials
-          delete current.refreshing
-          current.blocked = "reconnect-required"
+          if (current.refreshing) {
+            current.generation++
+            current.tokenVersion++
+            current.refreshUncertain = true
+            delete current.refreshing
+          }
+          if (current.blocked === "reconnect-required" && current.credentials) {
+            current.refreshUncertain = true
+            current.accessRejected = true
+          }
+          if (current.blocked !== "reconnect-required" || current.credentials)
+            delete current.blocked
         })
       }
       if (record.pending?.claimed || (record.pending && record.pending.expires <= now()))
@@ -129,13 +158,17 @@ export function createByosService(
     try {
       await attempt
     } catch (error) {
-      // Other callers can still be unwinding this attempt after an explicit retry
-      // starts. Never clear that newer initialization promise.
       if (initialization === attempt) initialization = undefined
       throw error
     }
   }
-  async function request(url: string, options: RequestInit = {}) {
+  async function request(
+    url: string,
+    options: RequestInit = {},
+    timeoutMs = 60000,
+    revoking = false,
+  ) {
+    if (signingOut && !revoking) fail("session_changed")
     const parsed = new URL(url)
     if (
       parsed.protocol !== "https:" ||
@@ -146,44 +179,49 @@ export function createByosService(
       fail("invalid_upstream")
     const controller = new AbortController()
     controllers.add(controller)
+    const signal = AbortSignal.any([
+      controller.signal,
+      AbortSignal.timeout(timeoutMs),
+      ...(options.signal ? [options.signal] : []),
+    ])
     try {
-      return await fetcher(parsed.href, {
-        ...options,
-        redirect: "error",
-        credentials: "omit",
-        cache: "no-store",
-        signal: AbortSignal.any([
-          controller.signal,
-          AbortSignal.timeout(60000),
-          ...(options.signal ? [options.signal] : []),
-        ]),
-      })
-    } catch {
-      options.signal?.throwIfAborted()
-      return fail("upstream_unavailable")
+      return await abortable(
+        fetcher(parsed.href, {
+          ...options,
+          redirect: "error",
+          credentials: "omit",
+          cache: "no-store",
+          signal,
+        }),
+        signal,
+      )
+    } catch (error) {
+      const timedOut =
+        (signal.reason instanceof DOMException && signal.reason.name === "TimeoutError") ||
+        (error instanceof DOMException && error.name === "TimeoutError")
+      if (controller.signal.aborted && !timedOut) fail("session_changed")
+      if (options.signal?.aborted && !timedOut)
+        throw new DOMException("The operation was aborted", "AbortError")
+      return fail(timedOut ? "upstream_timeout" : "upstream_unavailable")
     } finally {
       controllers.delete(controller)
     }
   }
-  async function json(url: string, options: RequestInit = {}) {
-    const response = await request(url, options)
-    if (!response.ok)
-      fail(
-        response.status === 429
-          ? "usage_limit"
-          : response.status === 403
-            ? "restricted"
-            : "upstream_failure",
-        response.status,
-      )
+  async function json(url: string, options: RequestInit = {}, timeoutMs = 60000, revoking = false) {
+    const signal = AbortSignal.any([
+      AbortSignal.timeout(timeoutMs),
+      ...(options.signal ? [options.signal] : []),
+    ])
+    const response = await request(url, { ...options, signal }, timeoutMs, revoking)
+    if (!response.ok) throw await responseError(response, signal)
     try {
-      return (await response.json()) as unknown
+      return await abortable(response.json() as Promise<unknown>, signal)
     } catch {
-      return fail("invalid_upstream_response")
+      return fail("invalid_upstream_response", response.status)
     }
   }
   async function ensureGeneration(generation: number) {
-    if ((await vault.read()).generation !== generation) fail("session_changed")
+    if (signingOut || (await vault.read()).generation !== generation) fail("session_changed")
   }
   const parseTokens = (body: unknown) => {
     const parsed = tokensSchema.safeParse(body)
@@ -223,7 +261,11 @@ export function createByosService(
     if (refreshing) return refreshing
     refreshing = (async () => {
       const previous = await vault.update((record) => {
-        if (!record.credentials || record.refreshing) return fail("reconnect-required")
+        if (!record.credentials || record.refreshUncertain || record.refreshing)
+          return fail("reconnect-required")
+        if (record.refreshConfigurationError) throw new ByosBridgeError("invalid_client")
+        if ((record.refreshRetryAfter ?? 0) > now())
+          throw new ByosBridgeError("refresh_retry_later")
         record.refreshing = true
         return {
           credentials: record.credentials,
@@ -249,10 +291,9 @@ export function createByosService(
             }),
           }),
         )
-        // A rotated response does not establish a new identity. Optional ID tokens are
-        // not retained or used to replace the identity validated during sign-in.
         await vault.update((record) => {
           if (
+            signingOut ||
             record.generation !== previous.generation ||
             record.tokenVersion !== previous.version ||
             !record.refreshing
@@ -266,20 +307,35 @@ export function createByosService(
             expires: now() + tokens.expires_in * 1000,
           }
           record.tokenVersion++
-          delete record.refreshing
+          clearRefreshState(record)
           delete record.blocked
         })
       } catch (error) {
+        const failure =
+          error instanceof ByosBridgeError ? error : new ByosBridgeError("upstream_unavailable")
         await vault.update((record) => {
-          if (
-            record.generation === previous.generation &&
-            record.tokenVersion === previous.version
-          ) {
+          if (record.generation !== previous.generation || record.tokenVersion !== previous.version)
+            return
+          delete record.refreshing
+          record.refreshFailure = failureDetails(failure)
+          if (TERMINAL_REFRESH_CODES.has(failure.code)) {
             record.generation++
             record.tokenVersion++
             delete record.credentials
-            delete record.refreshing
+            clearRefreshState(record)
             record.blocked = "reconnect-required"
+          } else if (
+            failure.status === 0 ||
+            failure.code === "invalid_upstream_response" ||
+            failure.code === "invalid_token_response"
+          ) {
+            record.refreshUncertain = true
+          } else if (failure.code === "invalid_client") {
+            record.refreshConfigurationError = true
+          } else {
+            record.refreshFailures = Math.min((record.refreshFailures ?? 0) + 1, 6)
+            record.refreshRetryAfter =
+              now() + Math.min(1000 * 2 ** (record.refreshFailures - 1), 30000)
           }
         })
         throw error
@@ -294,22 +350,48 @@ export function createByosService(
   async function access() {
     await initialize()
     let record = await vault.read()
-    if (record.blocked) fail(record.blocked)
-    if (
-      !record.credentials?.scopes.includes("chatgpt.tokens.use.direct") ||
-      !record.credentials.scopes.includes("resource.invoke")
-    )
-      fail("plan_permission_required")
+    if (signingOut) fail("session_changed")
+    if (record.accessRejected)
+      fail(record.refreshUncertain ? "reconnect-required" : "authorization_required")
+    if (record.blocked === "reconnect-required" && !record.credentials) fail("reconnect-required")
+    if (!hasPlanAccess(record.credentials)) fail("plan_permission_required")
     if (record.credentials.expires <= now() + 60000) {
-      await refresh()
-      record = await vault.read()
+      if (
+        !record.refreshUncertain &&
+        !record.refreshConfigurationError &&
+        (record.refreshRetryAfter ?? 0) <= now()
+      ) {
+        try {
+          await refresh()
+        } catch (error) {
+          const current = await vault.read()
+          if (
+            current.generation !== record.generation ||
+            current.accessRejected ||
+            !hasPlanAccess(current.credentials) ||
+            current.credentials.expires <= now()
+          )
+            throw error
+        }
+        record = await vault.read()
+      }
     }
-    if (
-      !record.credentials?.scopes.includes("chatgpt.tokens.use.direct") ||
-      !record.credentials.scopes.includes("resource.invoke")
-    )
-      fail("plan_permission_required")
-    return { token: record.credentials.accessToken, generation: record.generation }
+    if (!hasPlanAccess(record.credentials))
+      fail(
+        record.blocked === "reconnect-required" ? "reconnect-required" : "plan_permission_required",
+      )
+    if (record.credentials.expires <= now()) {
+      if (record.refreshUncertain) fail("reconnect-required")
+      if (record.refreshConfigurationError) throw new ByosBridgeError("invalid_client")
+      const failure = record.refreshFailure
+      if (failure) throw new ByosBridgeError(failure.code, failure.status, failure)
+      fail("refresh_retry_later")
+    }
+    return {
+      token: record.credentials.accessToken,
+      generation: record.generation,
+      version: record.tokenVersion,
+    }
   }
   async function authenticated(url: string, options: RequestInit = {}) {
     let active = await access()
@@ -321,29 +403,115 @@ export function createByosService(
     }
     let response = await send()
     await ensureGeneration(active.generation)
-    if (response.status === 401) {
-      await response.body?.cancel()
-      if ((await vault.read()).credentials?.accessToken === active.token) await refresh()
-      active = await access()
-      response = await send()
-      await ensureGeneration(active.generation)
-    }
     if (!response.ok) {
-      const state =
-        response.status === 401
-          ? "reconnect-required"
-          : response.status === 403
-            ? "restricted"
-            : response.status === 429
-              ? "limit-reached"
-              : undefined
-      if (state)
+      const error = await responseError(response, options.signal ?? undefined)
+      if (response.status === 401)
         await vault.update((record) => {
-          if (record.generation === active.generation) record.blocked = state
+          if (
+            record.generation === active.generation &&
+            record.tokenVersion === active.version &&
+            record.credentials?.accessToken === active.token
+          )
+            record.accessRejected = true
         })
-      fail(state ?? "upstream_failure", response.status)
+      // Subscriber-context and admission failures are not proof of revocation.
+      // Retry once only when the API explicitly identifies an expired token.
+      if (response.status === 401 && ["token_expired", "invalid_token"].includes(error.code)) {
+        if ((await vault.read()).credentials?.accessToken === active.token) await refresh()
+        active = await access()
+        response = await send()
+        await ensureGeneration(active.generation)
+        if (!response.ok) {
+          if (response.status === 401)
+            await vault.update((record) => {
+              if (
+                record.generation === active.generation &&
+                record.tokenVersion === active.version &&
+                record.credentials?.accessToken === active.token
+              )
+                record.accessRejected = true
+            })
+          throw await responseError(response, options.signal ?? undefined)
+        }
+      } else throw error
     }
     return { response, generation: active.generation }
+  }
+  async function backoff(signal: AbortSignal) {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      await abortable(
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, 150)
+        }),
+        signal,
+      )
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+  async function retryRevocation<T>(operation: () => Promise<T>, signal: AbortSignal): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      signal.throwIfAborted()
+      try {
+        return await operation()
+      } catch (error) {
+        const retryable =
+          error instanceof ByosBridgeError && (error.status === 0 || error.status >= 500)
+        if (!retryable || attempt >= 1) throw error
+        await backoff(signal)
+      }
+    }
+  }
+  async function revokeSession(
+    token: string | undefined,
+    clientId: string | undefined,
+    signal: AbortSignal,
+  ) {
+    if (!token || !clientId) return false
+    try {
+      const discovery = await retryRevocation(
+        () => json(`${ISSUER}/.well-known/openid-configuration`, { signal }, 2000, true),
+        signal,
+      )
+      const fields = z
+        .object({ issuer: z.literal(ISSUER), revocation_endpoint: z.string() })
+        .safeParse(discovery)
+      if (!fields.success) return false
+      const endpoint = new URL(fields.data.revocation_endpoint)
+      if (
+        endpoint.protocol !== "https:" ||
+        endpoint.origin !== ISSUER ||
+        endpoint.username ||
+        endpoint.password ||
+        endpoint.search ||
+        endpoint.hash
+      )
+        return false
+      const response = await retryRevocation(async () => {
+        const result = await request(
+          endpoint.href,
+          {
+            signal,
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              token,
+              token_type_hint: "refresh_token",
+              client_id: clientId,
+            }),
+          },
+          2000,
+          true,
+        )
+        if (result.status >= 500) throw await responseError(result, signal)
+        void result.body?.cancel().catch(() => {})
+        return result
+      }, signal)
+      return response.status === 200
+    } catch {
+      return false
+    }
   }
   return {
     initialize,
@@ -354,21 +522,30 @@ export function createByosService(
     async session(): Promise<ByosSession> {
       await initialize()
       const record = await vault.read()
+      const expired = !!record.credentials && record.credentials.expires <= now()
+      const state: ByosSession["state"] =
+        record.blocked === "reconnect-required" && !record.credentials
+          ? "reconnect-required"
+          : record.accessRejected || (expired && record.refreshUncertain)
+            ? "reconnect-required"
+            : expired &&
+                ((record.refreshRetryAfter ?? 0) > now() || record.refreshConfigurationError)
+              ? "temporarily-unavailable"
+              : record.credentials
+                ? hasPlanAccess(record.credentials)
+                  ? "plan-enabled"
+                  : "identity-only"
+                : "disconnected"
       return {
-        state:
-          record.blocked ??
-          (record.credentials
-            ? record.credentials.scopes.includes("chatgpt.tokens.use.direct") &&
-              record.credentials.scopes.includes("resource.invoke")
-              ? "plan-enabled"
-              : "identity-only"
-            : "disconnected"),
+        state,
+        authPending: !!record.pending && record.pending.expires > now(),
         ...(record.credentials
           ? { account: { subject: record.credentials.subject, email: record.credentials.email } }
           : {}),
       }
     },
     async authStart() {
+      if (signingOut) fail("signout_in_progress")
       if (starting) fail("auth_in_progress")
       starting = true
       const ownIntent = ++intent
@@ -429,6 +606,103 @@ export function createByosService(
         }
       } finally {
         starting = false
+      }
+    },
+    async recoverCallbackNavigation(details: {
+      url: string
+      tabId: number
+      frameId: number
+      error: string
+    }): Promise<boolean> {
+      const ownIntent = intent
+      if (
+        details.error !== "net::ERR_CONNECTION_REFUSED" ||
+        details.frameId !== 0 ||
+        !Number.isSafeInteger(details.tabId) ||
+        details.tabId < 0 ||
+        typeof details.url !== "string" ||
+        details.url.length > 16100
+      )
+        return false
+      let failed: URL, destination: URL
+      try {
+        failed = new URL(details.url)
+        destination = new URL(callbackUrl)
+      } catch {
+        return false
+      }
+      if (
+        destination.protocol !== "chrome-extension:" ||
+        destination.hostname !== extensionId ||
+        !!destination.port ||
+        destination.pathname !== "/byos-callback.html" ||
+        destination.search ||
+        destination.hash ||
+        destination.username ||
+        destination.password
+      )
+        return false
+      if (
+        failed.protocol !== "http:" ||
+        failed.hostname !== "127.0.0.1" ||
+        failed.pathname !== "/auth/callback" ||
+        failed.username ||
+        failed.password ||
+        failed.hash ||
+        failed.search.length > 16000
+      )
+        return false
+      const params = failed.searchParams
+      if (params.getAll("state").length !== 1) return false
+      for (const key of ["code", "client_id", "error"])
+        if (params.getAll(key).length > 1) return false
+      if (params.has("code") === params.has("error")) return false
+      const code = params.get("code"),
+        error = params.get("error"),
+        clientId = params.get("client_id")
+      if (
+        (code !== null && (!code.trim() || code.length > 8192)) ||
+        (error !== null && !/^[a-zA-Z][a-zA-Z0-9_-]{0,127}$/.test(error)) ||
+        (clientId !== null && (!clientId.trim() || clientId.length > 256))
+      )
+        return false
+      await initialize()
+      if (!(await transport.available())) return false
+      const pending = await vault.update((record) => {
+        const attempt = record.pending
+        if (
+          ownIntent !== intent ||
+          signingOut ||
+          !attempt ||
+          attempt.claimed ||
+          attempt.relayStarted ||
+          attempt.expires <= now() ||
+          attempt.generation !== record.generation ||
+          attempt.tabId !== details.tabId ||
+          params.get("state") !== attempt.state
+        )
+          return undefined
+        // Compare the whole registered loopback origin/path, including the port.
+        if (`${failed.origin}${failed.pathname}` !== attempt.redirectUri) return undefined
+        attempt.relayStarted = true
+        return { ...attempt }
+      })
+      if (!pending) return false
+      const relay = new URLSearchParams()
+      for (const key of ["code", "state", "client_id", "error"]) {
+        const value = params.get(key)
+        if (value !== null) relay.set(key, value)
+      }
+      destination.search = relay.toString()
+      try {
+        await ensureGeneration(pending.generation)
+        if (ownIntent !== intent || pending.expires <= now()) return false
+        // Relay through the actual extension page. Its existing strict sender,
+        // state, PKCE and nonce checks still own code exchange and validation.
+        await transport.navigate(pending.tabId, destination.href)
+        return true
+      } catch {
+        return false
       }
     },
     async callback(query: string, sender: CallbackSender) {
@@ -525,6 +799,7 @@ export function createByosService(
         }
         await vault.update((record) => {
           if (
+            !!signingOut ||
             record.generation !== pending.generation ||
             record.pending?.state !== pending.state ||
             !record.pending.claimed
@@ -536,6 +811,7 @@ export function createByosService(
             email: credentials.email,
           }
           record.credentials = credentials
+          clearRefreshState(record)
           record.tokenVersion++
           delete record.pending
           delete record.blocked
@@ -590,23 +866,41 @@ export function createByosService(
       }
     },
     async signout(): Promise<ByosSession & { remoteRevocationConfirmed: boolean }> {
+      if (signingOut) return signingOut
       intent++
-      await initialize()
-      // The generation is advanced before network/cleanup so no late response can
-      // restore local access. Remote revocation is not claimed without confirmation.
-      const pending = await vault.update((record) => {
-        record.generation++
-        record.tokenVersion++
-        const previous = record.pending
-        delete record.pending
-        delete record.credentials
-        delete record.refreshing
-        delete record.blocked
-        return previous
+      signingOut = (async () => {
+        abortAll()
+        // Capture only the token needed to end this renewable session. Local
+        // access ends atomically before cleanup, discovery, or any revocation I/O.
+        const previous = await vault.update((record) => {
+          record.generation++
+          record.tokenVersion++
+          const snapshot = {
+            pending: record.pending,
+            token: record.credentials?.refreshToken,
+            clientId: record.credentials?.clientId,
+          }
+          delete record.pending
+          delete record.credentials
+          delete record.blocked
+          clearRefreshState(record)
+          return snapshot
+        })
+        const signal = AbortSignal.timeout(6500)
+        const cleanup = abortable(transport.cleanup(previous.pending?.tabId), signal).catch(
+          () => {},
+        )
+        const revocation = revokeSession(previous.token, previous.clientId, signal)
+        const [, confirmed] = await Promise.all([cleanup, revocation])
+        return {
+          state: "disconnected" as const,
+          authPending: false,
+          remoteRevocationConfirmed: confirmed,
+        }
+      })().finally(() => {
+        signingOut = undefined
       })
-      abortAll()
-      await transport.cleanup(pending?.tabId)
-      return { state: "disconnected", remoteRevocationConfirmed: false }
+      return signingOut
     },
     async invoke(payload: ByosInvocation, signal?: AbortSignal): Promise<{ text: string }> {
       signal?.throwIfAborted()
@@ -641,15 +935,31 @@ export function createByosService(
             .map((line) => line.slice(5).trimStart())
             .join("\n")
           if (!data || data === "[DONE]") return
-          let event: { type?: string; delta?: string; response?: { status?: string } }
+          let event: {
+            type?: string
+            delta?: string
+            error?: unknown
+            code?: string
+            param?: string
+            request_id?: string
+            response?: { status?: string; error?: unknown }
+          }
           try {
             event = JSON.parse(data)
           } catch {
             fail("invalid_stream")
           }
           if (!event || typeof event.type !== "string" || completed) fail("invalid_stream")
-          if (["response.failed", "response.incomplete", "error"].includes(event.type))
-            fail("inference_failed")
+          if (["response.failed", "error"].includes(event.type))
+            throw machineError(
+              {
+                error: event.response?.error ?? event.error ?? event,
+                request_id: event.request_id,
+              },
+              response.status,
+              response.headers.get("x-request-id"),
+            )
+          if (event.type === "response.incomplete") fail("inference_incomplete")
           if (event.type === "response.output_text.delta") {
             if (typeof event.delta !== "string") fail("invalid_stream")
             text += event.delta

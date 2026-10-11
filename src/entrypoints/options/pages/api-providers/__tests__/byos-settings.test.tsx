@@ -409,6 +409,22 @@ it("shows a specific recovery message for a callback-routing timeout", async () 
   expect(screen.getByRole("button", { name: "Sign in with ChatGPT" })).toBeEnabled()
 })
 
+it("returns to sign-in when the background no longer has the pending login", async () => {
+  renderSettings()
+  await waitForSignedOut()
+  fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
+  await waitFor(() =>
+    expect(screen.getByText("Complete sign-in in the opened tab.")).toBeInTheDocument(),
+  )
+  mocks.send.mockResolvedValue({ state: "disconnected", authPending: false })
+  fireEvent(window, new Event("focus"))
+
+  await waitForSignedOut()
+  expect(screen.getByText("Sign-in did not finish. Try again.")).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument()
+  expect(mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosAuth")).toHaveLength(1)
+})
+
 it("the Add provider ChatGPT option uses the same gesture workflow and closes without a setup step", async () => {
   const store = renderSettings(),
     initial = store.get(configAtom)

@@ -39,6 +39,7 @@ const copy = {
     chromium: "ChatGPT sign-in is available in Chromium browsers.",
     denied: "Sign-in permission was not granted.",
     failed: "Could not connect. Try again.",
+    ended: "Sign-in did not finish. Try again.",
     background: "Extension connection unavailable. Reload this settings page and try again.",
     callback: "Allow callback access to start sign-in.",
     routing: "Callback routing did not start. Reload the extension, then try again.",
@@ -75,6 +76,7 @@ const copy = {
     chromium: "ChatGPT 로그인은 Chromium 브라우저에서 사용할 수 있습니다.",
     denied: "로그인 권한이 허용되지 않았습니다.",
     failed: "연결하지 못했습니다. 다시 시도하세요.",
+    ended: "로그인이 완료되지 않았습니다. 다시 시도하세요.",
     background:
       "확장 프로그램에 연결할 수 없습니다. 이 설정 페이지를 새로고침하고 다시 시도하세요.",
     callback: "로그인을 시작하려면 콜백 접근을 허용하세요.",
@@ -112,6 +114,7 @@ const copy = {
     chromium: "ChatGPT ログインは Chromium ブラウザーで利用できます。",
     denied: "ログイン権限が許可されませんでした。",
     failed: "接続できませんでした。再試行してください。",
+    ended: "ログインが完了しませんでした。再試行してください。",
     background: "拡張機能に接続できません。この設定ページを再読み込みして再試行してください。",
     callback: "ログインを開始するにはコールバックへのアクセスを許可してください。",
     routing:
@@ -206,7 +209,13 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       }
       if (epoch(generation) !== owner) return
       setSession(next)
-      if (next.state === "disconnected") return
+      if (next.state === "disconnected") {
+        if (next.authPending === false && pendingRef.current === "tab") {
+          setAttempt(null)
+          setNotice(t.ended)
+        }
+        return
+      }
       setAttempt(null)
       if (next.state !== "plan-enabled") return
       try {

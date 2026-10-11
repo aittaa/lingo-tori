@@ -55,6 +55,9 @@ export default defineConfig({
   zip: {
     includeSources: ["**/*"],
     excludeSources: [
+      ".codex/**",
+      ".agents/**",
+      "docs/local-session-handoff.md",
       ".env",
       ".env.*",
       "**/.env",

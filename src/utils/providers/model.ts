@@ -118,8 +118,7 @@ export function getLanguageModelForConfig(providerConfig: LLMProviderConfig) {
   }
   if (providerConfig.provider === "byos") {
     const modelId = resolveModelId(providerConfig.model)
-    if (!modelId)
-      throw new ProviderSetupError("Choose a model for the local companion in Settings.")
+    if (!modelId) throw new ProviderSetupError("Choose a ChatGPT model in Settings.")
     return createByosModel(modelId)
   }
   // Custom/local endpoints may intentionally authenticate outside an API key.

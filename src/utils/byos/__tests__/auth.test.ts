@@ -32,6 +32,7 @@ describe("experimental browser-only sign-in", () => {
     expect(fetcher).not.toHaveBeenCalled()
     expect(await service.callback(query, sender)).toEqual({
       state: "plan-enabled",
+      authPending: false,
       account: { subject: "synthetic-subject", email: "person@example.test" },
     })
     expect((await vault.read()).pending).toBeUndefined()
@@ -269,10 +270,18 @@ describe("refresh, logout and inference boundaries", () => {
     const one = service.models(),
       two = service.models()
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce())
+    const firstOutcome = one.then(
+      () => null,
+      (error: unknown) => error,
+    )
+    const secondOutcome = two.then(
+      () => null,
+      (error: unknown) => error,
+    )
     await service.signout()
     release()
-    await expect(one).rejects.toThrow("session_changed")
-    await expect(two).rejects.toThrow("session_changed")
+    for (const failure of await Promise.all([firstOutcome, secondOutcome]))
+      expect(failure).toMatchObject({ code: "session_changed" })
     expect((await vault.read()).credentials).toBeUndefined()
   })
   it("forces reconnect after an interrupted durable refresh without reusing its token", async () => {
@@ -280,13 +289,14 @@ describe("refresh, logout and inference boundaries", () => {
       transport = mockTransport(),
       fetcher = vi.fn<typeof fetch>()
     await vault.update((record) => {
-      record.credentials = credentials()
+      record.credentials = { ...credentials(), expires: 1 }
       record.refreshing = true
     })
     const service = createByosService(vault, transport, "extension", callbackUrl, fetcher)
     expect((await service.session()).state).toBe("reconnect-required")
     await expect(service.models()).rejects.toThrow("reconnect-required")
     expect(fetcher).not.toHaveBeenCalled()
+    expect((await vault.read()).credentials?.refreshToken).toBe("synthetic-refresh")
   })
   it("uses only official Responses, requires completed SSE, redacts failures and preserves cancellation", async () => {
     const vault = memoryVault(),
@@ -339,16 +349,28 @@ describe("refresh, logout and inference boundaries", () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve
     })
-    const fetcher = vi.fn<typeof fetch>(async () => {
-      await gate
-      return Response.json({ models: [] })
+    const fetcher = vi.fn<typeof fetch>(async (url) => {
+      if (fetchUrl(url) === `${RESOURCE}/models`) {
+        await gate
+        return Response.json({ models: [] })
+      }
+      if (fetchUrl(url) === `${ISSUER}/.well-known/openid-configuration`)
+        return Response.json({
+          issuer: ISSUER,
+          revocation_endpoint: `${ISSUER}/synthetic-revocation`,
+        })
+      return new Response(null, { status: 200 })
     })
     const service = createByosService(vault, transport, "extension", callbackUrl, fetcher)
     const discovery = service.models()
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce())
+    const outcome = discovery.then(
+      () => null,
+      (error: unknown) => error,
+    )
     await service.signout()
     release()
-    await expect(discovery).rejects.toThrow("session_changed")
+    expect(await outcome).toMatchObject({ code: "session_changed" })
   })
 })
 
@@ -412,7 +434,7 @@ it("retries a failed initialization while concurrent callers share each attempt"
   expect(read).toHaveBeenCalledOnce()
   await Promise.all([service.initialize(), service.initialize()])
   expect(read).toHaveBeenCalledTimes(2)
-  expect(await service.session()).toEqual({ state: "disconnected" })
+  expect(await service.session()).toEqual({ state: "disconnected", authPending: false })
   expect(await service.status()).toEqual({
     available: true,
     reason: "browser_only_signin_unavailable",

@@ -95,24 +95,45 @@ const canonical = (value: unknown) =>
 export function createAuthTransport(): AuthTransport {
   const api = () => browser.declarativeNetRequest
   let uncertainInstall = false
+  let pendingRuleChanges = 0
+  const updateRules = (
+    dnr: typeof browser.declarativeNetRequest,
+    options: Parameters<typeof browser.declarativeNetRequest.updateSessionRules>[0],
+  ) => {
+    pendingRuleChanges++
+    try {
+      return dnr.updateSessionRules(options).finally(() => pendingRuleChanges--)
+    } catch (error) {
+      pendingRuleChanges--
+      return Promise.reject(error)
+    }
+  }
   const removeRule = async () => {
-    const dnr = api()
-    if (
-      dnr &&
-      (await browser.permissions.contains({ permissions: ["declarativeNetRequestWithHostAccess"] }))
-    )
-      await bounded(dnr.updateSessionRules({ removeRuleIds: [AUTH_RULE_ID] }))
+    pendingRuleChanges++
+    try {
+      const dnr = api()
+      if (
+        dnr &&
+        (await browser.permissions.contains({
+          permissions: ["declarativeNetRequestWithHostAccess"],
+        }))
+      )
+        await bounded(updateRules(dnr, { removeRuleIds: [AUTH_RULE_ID] }))
+    } finally {
+      pendingRuleChanges--
+    }
   }
   return {
     async available() {
       // The experimental transport is Chromium-only until separately verified.
       return (
-        !uncertainInstall &&
         browser.runtime.getURL("/").startsWith("chrome-extension://") &&
         !!api() &&
         (await browser.permissions.contains({
           permissions: ["declarativeNetRequestWithHostAccess"],
-        }))
+        })) &&
+        !uncertainInstall &&
+        pendingRuleChanges === 0
       )
     },
     async createTab() {
@@ -126,7 +147,7 @@ export function createAuthTransport(): AuthTransport {
       if (!dnr || !(await this.available()))
         throw new ByosBridgeError("callback_permission_required")
       uncertainInstall = true
-      const install = dnr.updateSessionRules({
+      const install = updateRules(dnr, {
         removeRuleIds: [AUTH_RULE_ID],
         addRules: [
           buildCallbackRule(
@@ -160,9 +181,16 @@ export function createAuthTransport(): AuthTransport {
       await browser.tabs.update(tabId, { url: authorizationUrl })
     },
     async cleanup(tabId) {
-      await browser.alarms.clear(AUTH_ALARM)
-      await removeRule()
-      if (tabId !== undefined) await browser.tabs.remove(tabId).catch(() => {})
+      // A caller may time out before Chrome even starts deleting the rule.
+      // Keep new sign-ins gated through every await and actual mutation.
+      pendingRuleChanges++
+      try {
+        await browser.alarms.clear(AUTH_ALARM)
+        await removeRule()
+        if (tabId !== undefined) await browser.tabs.remove(tabId).catch(() => {})
+      } finally {
+        pendingRuleChanges--
+      }
     },
     async reconcile(pending) {
       if (!pending || !(await this.available())) {
@@ -174,20 +202,9 @@ export function createAuthTransport(): AuthTransport {
         await removeRule()
         return false
       }
-      const url = tab.url ? new URL(tab.url) : undefined
-      const callback = new URL(browser.runtime.getURL(CALLBACK_PATH))
-      if (
-        !url ||
-        !(
-          url.origin === "https://auth.openai.com" ||
-          (url.protocol === callback.protocol &&
-            url.hostname === callback.hostname &&
-            url.pathname === callback.pathname)
-        )
-      ) {
-        await removeRule()
-        return false
-      }
+      // The committed URL can be blank, an external identity provider, or an
+      // in-progress callback when the worker wakes. It does not authenticate
+      // the transaction; the owned tab/rule and callback state do that.
       const dnr = api()
       if (!dnr) return false
       const rules = await dnr.getSessionRules()
@@ -197,6 +214,12 @@ export function createAuthTransport(): AuthTransport {
         pending.redirectUri,
       )
       const rule = rules.find((candidate) => candidate.id === AUTH_RULE_ID)
+      if (!rule && browser.webNavigation?.onErrorOccurred) {
+        // The trusted navigation-error relay can still receive this exact
+        // pending tab's loopback return if Chrome lost the session rule.
+        await browser.alarms.create(AUTH_ALARM, { when: pending.expires })
+        return true
+      }
       if (
         !rule ||
         canonical(rule.action) !== canonical(expected.action) ||

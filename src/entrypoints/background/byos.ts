@@ -16,6 +16,17 @@ export function setupByos() {
     browser.runtime.id,
     browser.runtime.getURL(CALLBACK_PATH),
   )
+  if (
+    browser.runtime.getURL("/").startsWith("chrome-extension://") &&
+    browser.webNavigation?.onErrorOccurred
+  ) {
+    browser.webNavigation.onErrorOccurred.addListener(
+      (details) => {
+        void service.recoverCallbackNavigation(details).catch(() => {})
+      },
+      { url: [{ schemes: ["http"], hostEquals: "127.0.0.1", pathEquals: "/auth/callback" }] },
+    )
+  }
   void service.initialize().catch(() => {})
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === AUTH_ALARM) void service.expire().catch(() => {})

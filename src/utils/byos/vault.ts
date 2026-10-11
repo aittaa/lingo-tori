@@ -1,3 +1,4 @@
+import type { ByosFailureDetails } from "./errors"
 import type { ByosSession } from "./service"
 import { Dexie } from "dexie"
 
@@ -12,6 +13,7 @@ export interface PendingAuth {
   clientId?: string
   subject?: string
   claimed?: boolean
+  relayStarted?: boolean
 }
 export interface Credentials {
   clientId: string
@@ -30,6 +32,12 @@ export interface VaultRecord {
   pending?: PendingAuth
   credentials?: Credentials
   refreshing?: boolean
+  accessRejected?: boolean
+  refreshUncertain?: boolean
+  refreshConfigurationError?: boolean
+  refreshRetryAfter?: number
+  refreshFailures?: number
+  refreshFailure?: ByosFailureDetails
   blocked?: ByosSession["state"]
 }
 export interface AuthVault {

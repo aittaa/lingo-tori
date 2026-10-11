@@ -16,9 +16,9 @@ The active target stack is planning #9 → integration #12. New-learning #10 and
 
 ## Validation
 
-Use the prepared sibling `lingo-tori-local/env.sh`. Dependencies already exist; do not reinstall without a concrete reason. Scope tests to changed behavior, then run type/lint, formatting and Chrome/Firefox builds. Test preserved reading suggestions and dictionary/custom-action execution when removing save integrations. Inspect built entrypoints, package references, permissions and license inclusion. The installed extension should omit Study navigation, retain BYOK setup, and show browser-only ChatGPT configuration without companion fields or automatic sign-in.
+Use the Node and pnpm versions declared in `package.json`. Scope tests to changed behavior, then run type/lint, formatting and Chrome/Firefox builds. Test preserved reading suggestions and dictionary/custom-action execution when removing save integrations. Inspect built entrypoints, package references, permissions and license inclusion. The installed extension should omit Study navigation, retain BYOK setup, and show browser-only ChatGPT configuration without companion fields or automatic sign-in.
 
-No live OAuth, real token/credential creation or paid inference. Do not start a replacement preview server, touch unrelated services, broaden access, re-enable Actions, merge a PR or deploy. Earlier approval denials still apply.
+Automated checks use synthetic credentials and mocked services. Browser acceptance, CI execution and release acceptance are distinct from source test results. Local test success does not authorize or establish a release.
 
 ## Future backlog
 

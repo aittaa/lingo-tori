@@ -1,5 +1,6 @@
 import type { LLMProviderConfig } from "@/types/config/provider"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { createByosModel } from "@/utils/byos/model"
 import { getRequestErrorMeta } from "@/utils/request/retry-policy"
 import { aiTranslate } from "../ai"
 
@@ -46,6 +47,50 @@ describe("aiTranslate", () => {
     mocks.getModelById.mockResolvedValue("model")
     mocks.resolveModelId.mockReturnValue("gpt-5-mini")
     mocks.getProviderOptionsWithOverride.mockReturnValue({})
+  })
+
+  it.each([
+    ["plain translation", "번역된 자막", "번역된 자막"],
+    ["multiline plain translation", "첫 줄\n\n%%\n\n둘째 줄", "첫 줄\n\n%%\n\n둘째 줄"],
+    ["thinking wrapper", "<think>private reasoning</think>번역된 자막", "번역된 자막"],
+    [
+      "multiline thinking wrapper",
+      "<think>reasoning\ncontinues</think>첫 줄\n둘째 줄",
+      "첫 줄\n둘째 줄",
+    ],
+    ["empty thinking suffix", "<think>reasoning</think>", ""],
+    ["empty output", "", ""],
+  ])("preserves %s without requiring a thinking tag", async (_label, text, expected) => {
+    mocks.generateText.mockResolvedValue({ text })
+    expect(await aiTranslate("source", "Korean", providerConfig, promptResolver)).toBe(expected)
+  })
+  it("passes plain subtitle batch output through the actual BYOS model and AI SDK", async () => {
+    const actual = await vi.importActual<typeof import("ai")>("ai")
+    const translated = "첫 줄\n\n%%\n\n둘째 줄"
+    const invoke = vi.fn<NonNullable<Parameters<typeof createByosModel>[1]>>(async () => ({
+      text: translated,
+    }))
+    mocks.getModelById.mockResolvedValue(createByosModel("synthetic-model", invoke))
+    mocks.generateText.mockImplementation(actual.generateText)
+    const byos: LLMProviderConfig = {
+      id: "byos-default",
+      name: "ChatGPT",
+      provider: "byos",
+      enabled: true,
+      model: { model: "use-custom-model", isCustomModel: true, customModel: "synthetic-model" },
+    }
+    const result = await aiTranslate(
+      "first\n\n%%\n\nsecond",
+      "Korean",
+      byos,
+      async (_target, input) => ({
+        systemPrompt: "Translate subtitles and preserve standalone %% separators.",
+        prompt: input,
+      }),
+      { isBatch: true },
+    )
+    expect(result).toBe(translated)
+    expect(invoke).toHaveBeenCalledOnce()
   })
 
   it("preserves AI SDK error metadata for retry policy decisions", async () => {

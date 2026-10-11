@@ -1,6 +1,6 @@
 # Experimental browser-only BYOS
 
-Status on 2026-10-11: independently authored **source implementation under mock validation**, not live-verified. The companion runtime, server setup and address/pairing-key UI are removed. No real OAuth registration, sign-in, token exchange, model discovery, inference or installed-browser permission grant was performed in this task.
+Status on 2026-10-11: user-completed sign-in and the account model catalog now work in local Chrome after adding guarded loopback recovery. Earlier attempts failed with `ERR_CONNECTION_REFUSED`. Video translation still fails and its cause remains under investigation; successful inference is not established. The companion runtime, server setup and address/pairing-key UI are removed.
 
 ## Support and architecture distinction
 
@@ -16,6 +16,14 @@ Pending sign-in shows progress and cancellation next to the action. Sign-out and
 
 A failed background initialization can be retried without restarting the worker; concurrent callers still share one initialization attempt. A callback-rule timeout gives a short extension-reload recovery message. This does not establish the cause of the reported installed-browser sign-in failure, which remains separate from synthetic coverage.
 
+Worker restart reconciliation preserves the pending route when its tab and exact rule still exist, including while the tab shows an external sign-in page or has no committed URL. The intermediate page's origin is not an authentication proof. Expiry, the exact callback sender/tab and the one-use state remain enforced.
+
+If Chrome reports `net::ERR_CONNECTION_REFUSED` for that pending tab's exact loopback return, a background navigation listener can relay it to the fixed extension callback page. It requires the unexpired transaction's tab, port, path, generation and state, rejects subframes and other browser errors, and records the relay atomically. Only the callback's allowed query fields are forwarded; they are never logged. The existing callback page still performs sender/state/PKCE/identity validation through the background. The already-declared navigation permission is sufficient; no new permission or broad web-accessible origin is added. A missing session rule may be retained only with this recovery capability and the existing routing permission; a mismatched rule still fails closed.
+
+HTTP 403/429 failures belong to the request and do not permanently disable an account. Refresh errors distinguish unusable tokens from temporary server failures and configuration errors. Temporary server failures retain credentials with bounded retry delays. An uncertain rotation, including a lost response or interrupted worker, retains the record without replaying a possibly consumed refresh token; an unexpired access token remains usable unless the API has rejected it. A fresh sign-in is required when no usable access remains.
+
+Sign-out ends local access immediately and attempts remote refresh-token revocation through validated, same-issuer OIDC discovery. Cleanup, network calls and bounded retries share a time limit. Only HTTP 200 confirms remote revocation; otherwise the UI reports that it remains unconfirmed. Pending routing mutations prevent a late cleanup from deleting a newer sign-in rule.
+
 ## Credential and callback boundaries
 
 - The background owns a dedicated extension-origin IndexedDB vault, separate from ordinary provider settings and config exports/synchronization. Tokens are not stored in `chrome.storage.local` or exposed through generic messages. Existing legacy user records are not read or deleted by this cleanup.
@@ -23,10 +31,12 @@ A failed background initialization can be retried without restarting the worker;
 - The manifest declares only an optional Chromium callback permission. A session redirect is restricted to the pending authorization tab, GET/main-frame navigation and the exact loopback host/port/path. Callback accessibility is limited to the known authorization and loopback origins, never a broad fallback. See [declarative request rules](https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest) and [web-accessible resources](https://developer.chrome.com/docs/extensions/reference/manifest/web-accessible-resources).
 - Persist the pending state, nonce, PKCE verifier, tab identity, callback URI, generation and expiry before authorization. Validate exact extension sender/path/frame/tab, reject duplicated or unexpected callback values, consume the transaction once and remove owned rules/tabs on completion, cancellation or expiry.
 - Validate ID-token signature, issuer, audience, expiry, nonce, returning identity and granted inference scopes. Keep issued registration identity separate from clearable tokens; retain the app-owned host identity across sign-out.
-- Serialize refresh and use persisted generation/version checks so late login or refresh completion cannot restore a signed-out session. An uncertain interrupted refresh rotation requires reconnection. Source error handling must not log or return token bodies.
+- Serialize refresh and use persisted generation/version checks so late login or refresh completion cannot restore a signed-out session. Never automatically replay an uncertain refresh rotation. Source error handling preserves only bounded, sanitized machine fields and must not log or return token bodies.
 
 ## Validation and remaining gates
 
 Use synthetic signatures, fake vault/browser transports and fail-closed mocked fetches. Cover permission denial, rule-install timeout and late completion, callback tampering/replay/expiry/wrong sender, worker restart reconciliation, missing scopes, token rotation, concurrent refresh/logout, model discovery and streaming failures. Credential records must remain excluded from content scripts, exported settings, sync, analytics and logs.
 
-Narrow callback accessibility depends on navigation initiator behavior; optional permission/rule installation and real browser restarts need a separately authorized browser acceptance pass. Source mocks do not prove those browser behaviors. No broad callback origin, required-permission fallback or unsupported upstream endpoint may be introduced to conceal a failure. Live authentication and inference remain untested and unauthorized in this task.
+Narrow callback accessibility depends on navigation initiator behavior. The successful user-driven sign-in and model catalog confirm this path in the tested Chrome session, not every browser lifecycle case. Rotation, revocation, account switching and inference still require browser acceptance checks. No broad callback origin, required-permission fallback or unsupported upstream endpoint should conceal a failure.
+
+The AI SDK adapter currently buffers the upstream SSE response and emits text only after successful completion and validation. It supports cancellation, but does not provide progressive text rendering to extension consumers. Multiple account registrations, retaining a provisional issued client ID after an incomplete first exchange, release versioning and CI execution remain release follow-ups. This development build is not a release candidate.

@@ -4,22 +4,18 @@
     "productRevision": "ca8da8241883c9aff5862d15d045845a746c9a6b",
     "productBranchAtBuild": "main",
     "evidenceCreatedUtc": "2026-10-11T08:33:28.352800+00:00",
-    "evidenceDirectory": "../lingo-tori-local",
-    "evidenceRecord": "../lingo-tori-local/validation-results.json",
     "measurementContext": "Historical baseline source/dependency counts were established by the read-only audit at clean ca8da824 and match this saved measurement. Existing output artifact provenance is established separately by the setup evidence. Package/lockfile hashes match that evidence. Later measurement or comparison runs may occur during concurrent source edits; current Git state and source counts do not prove that existing outputs were rebuilt from that worktree.",
     "builds": [
       {
         "output": ".output/chrome-mv3",
         "command": "WXT_SKIP_ENV_VALIDATION=true pnpm build",
         "result": "PASS",
-        "log": "../lingo-tori-local/logs/build-chrome.log",
         "reportedFinishSeconds": 6.611
       },
       {
         "output": ".output/firefox-mv3",
         "command": "WXT_SKIP_ENV_VALIDATION=true pnpm zip:firefox",
         "result": "PASS",
-        "log": "../lingo-tori-local/logs/zip-firefox.log",
         "reportedFinishSeconds": 8.022,
         "reportedZipSeconds": 1.681
       }
@@ -27,18 +23,15 @@
     "validation": [
       {
         "command": "pnpm type-check",
-        "result": "PASS",
-        "log": "../lingo-tori-local/logs/type-check.log"
+        "result": "PASS"
       },
       {
         "command": "pnpm fmt:check",
-        "result": "PASS",
-        "log": "../lingo-tori-local/logs/fmt-check.log"
+        "result": "PASS"
       },
       {
         "command": "WXT_SKIP_ENV_VALIDATION=true SKIP_FREE_API=true pnpm test --exclude='**/free-api.test.ts' --maxWorkers=4",
-        "result": "PASS",
-        "log": "../lingo-tori-local/logs/test.log"
+        "result": "PASS"
       }
     ],
     "tests": {

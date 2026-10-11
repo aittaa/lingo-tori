@@ -6,7 +6,7 @@ import {
   providersConfigSchema,
 } from "../schemas"
 
-describe("local companion provider schema", () => {
+describe("ChatGPT provider schema", () => {
   it("persists BYOS as a configured provider and accepts it for LLM features", () => {
     const provider = DEFAULT_PROVIDER_CONFIG.byos
     expect(providersConfigSchema.parse([provider])).toEqual([provider])
