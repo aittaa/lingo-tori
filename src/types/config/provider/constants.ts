@@ -264,7 +264,7 @@ export const ALL_PROVIDER_TYPES = [
   "alibaba",
   "moonshotai",
   "huggingface",
-] as const satisfies Readonly<TranslateProviderTypes[]>
+] as const satisfies Readonly<(TranslateProviderTypes | "byos")[]>
 export type AllProviderTypes = (typeof ALL_PROVIDER_TYPES)[number]
 
 export const AI_SDK_REASONING_VALUES = [

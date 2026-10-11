@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { configSchema } from "@/types/config/config"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
+import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import {
   getProviderIdsForCapability,
   resolveProviderRefForCapability,
 } from "@/utils/providers/provider-registry"
-import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import {
   apiProviderConfigItemSchema,
   llmProviderConfigItemSchema,
@@ -33,7 +33,10 @@ describe("inert experimental provider compatibility", () => {
   it("preserves inactive assignments and unrelated BYOK settings without selecting or invoking the row", () => {
     const config = structuredClone(DEFAULT_CONFIG)
     const inert = { ...structuredClone(DEFAULT_PROVIDER_CONFIG.byos), id: "legacy-experimental" }
-    const byok = { ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai), apiKey: "synthetic-byok-key" }
+    const byok = {
+      ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai),
+      apiKey: "synthetic-byok-key",
+    }
     config.providersConfig = [inert, byok]
     config.pageTranslation.providerId = inert.id
     config.videoSubtitles.providerId = inert.id
@@ -45,10 +48,19 @@ describe("inert experimental provider compatibility", () => {
     const preserved = configSchema.parse(config)
     expect(preserved.providersConfig).toEqual(config.providersConfig)
     expect(preserved.pageTranslation.providerId).toBe(inert.id)
-    for (const capability of ["pageTranslation", "videoSubtitles", "selectionTranslation", "customAction", "languageDetection"] as const) {
-      expect(getProviderIdsForCapability(capability, preserved.providersConfig)).not.toContain(inert.id)
-      expect(resolveProviderRefForCapability(capability, preserved.providersConfig, inert.id)).toBeNull()
+    for (const capability of [
+      "pageTranslation",
+      "videoSubtitles",
+      "selectionTranslation",
+      "customAction",
+      "languageDetection",
+    ] as const) {
+      expect(getProviderIdsForCapability(capability, preserved.providersConfig)).not.toContain(
+        inert.id,
+      )
+      expect(
+        resolveProviderRefForCapability(capability, preserved.providersConfig, inert.id),
+      ).toBeNull()
     }
   })
-
 })
