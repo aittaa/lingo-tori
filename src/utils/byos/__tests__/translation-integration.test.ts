@@ -127,6 +127,72 @@ it("does not retry a refused subtitle batch or fall back to individual requests"
   }
 })
 
+it.each([
+  ["invalid content type", "{}", "application/json", "invalid_stream_content_type"],
+  ["malformed frame", "data: {broken}\n\n", "text/event-stream", "invalid_stream_json"],
+  [
+    "failed inference",
+    'data: {"type":"response.failed","response":{"error":{"code":"subscription_sharing_unsupported_capability"}}}\n\n',
+    "text/event-stream",
+    "subscription_sharing_unsupported_capability",
+  ],
+  [
+    "incomplete inference",
+    'data: {"type":"response.incomplete"}\n\n',
+    "text/event-stream",
+    "inference_incomplete",
+  ],
+  [
+    "interrupted inference",
+    'data: {"type":"response.output_text.delta","delta":"partial"}\n\n',
+    "text/event-stream",
+    "inference_incomplete",
+  ],
+])(
+  "does not automatically replay %s, while allowing a later explicit request",
+  async (_name, body, contentType, code) => {
+    const fetcher = vi.fn<typeof fetch>(
+      async () => new Response(body, { headers: { "Content-Type": contentType } }),
+    )
+    const service = await prepare(fetcher)
+    const requests = new RequestQueue({
+      rate: 10,
+      capacity: 10,
+      timeoutMs: 1000,
+      maxRetries: 2,
+      baseRetryDelayMs: 1,
+    })
+    const error: unknown = await requests
+      .enqueue(
+        (signal) => aiTranslate(source, "Korean", provider, prompt, { isBatch: true, signal }),
+        Date.now(),
+        "synthetic-terminal-batch",
+      )
+      .catch((caught: unknown) => caught)
+    expect({ error, inferenceRequests: fetcher.mock.calls.length }).toMatchObject({
+      error: { code, isRetryable: false },
+      inferenceRequests: 1,
+    })
+    expect(await service.session()).toMatchObject({ state: "plan-enabled" })
+
+    fetcher.mockImplementation(
+      async () =>
+        new Response(
+          'data: {"type":"response.output_text.delta","delta":"explicit retry"}\n\ndata: {"type":"response.completed","response":{"status":"completed"}}\n\n',
+          { headers: { "Content-Type": "text/event-stream" } },
+        ),
+    )
+    expect(
+      await requests.enqueue(
+        (signal) => aiTranslate(source, "Korean", provider, prompt, { isBatch: true, signal }),
+        Date.now(),
+        "synthetic-explicit-retry",
+      ),
+    ).toBe("explicit retry")
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  },
+)
+
 it("carries subtitle batch text through host translation, the real SDK adapter and the Responses transport", async () => {
   const fetcher = vi.fn<typeof fetch>(async (input, options) => {
     expect(fetchUrl(input)).toBe(`${RESOURCE}/responses`)

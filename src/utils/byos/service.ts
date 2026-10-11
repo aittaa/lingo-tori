@@ -921,9 +921,12 @@ export function createByosService(
           signal: AbortSignal.any([streamController.signal, ...(signal ? [signal] : [])]),
         })
         const streamFailure: (code: string) => never = (code) => {
-          throw new ByosBridgeError(code, response.status, {
-            requestId: response.headers.get("x-request-id"),
-          })
+          throw Object.assign(
+            new ByosBridgeError(code, response.status, {
+              requestId: response.headers.get("x-request-id"),
+            }),
+            { isRetryable: false },
+          )
         }
         const mediaType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase()
         if (mediaType !== "text/event-stream") {
@@ -1022,9 +1025,10 @@ export function createByosService(
           if (refused) streamFailure("inference_refused")
           return { text }
         } catch (error) {
-          // Once a valid refusal arrives, even a later stream failure must not
-          // replay the same refused request. Preserve its original safe error.
-          if (refused && error instanceof Error) Object.assign(error, { isRetryable: false })
+          // This inference already received a successful HTTP response. A failed
+          // or interrupted stream may have consumed usage; never replay it
+          // automatically. Preserve the error and allow a fresh explicit request.
+          if (error instanceof Error) Object.assign(error, { isRetryable: false })
           throw error
         } finally {
           await reader.cancel().catch(() => {})
