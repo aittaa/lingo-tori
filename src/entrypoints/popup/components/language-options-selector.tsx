@@ -127,10 +127,7 @@ export default function LanguageOptionsSelector() {
           ariaLabel={i18n.t("popup.sourceLang")}
         />
         <ComboboxContent className="w-72 rounded-lg shadow-md">
-          <ComboboxInput
-            showTrigger={false}
-            placeholder={i18n.t("translationHub.searchLanguages")}
-          />
+          <ComboboxInput showTrigger={false} placeholder={i18n.t("languageSearch.placeholder")} />
           <ComboboxList>
             {(item: LanguageItem) => (
               <ComboboxItem key={item.value} value={item}>
@@ -139,7 +136,7 @@ export default function LanguageOptionsSelector() {
               </ComboboxItem>
             )}
           </ComboboxList>
-          <ComboboxEmpty>{i18n.t("translationHub.noLanguagesFound")}</ComboboxEmpty>
+          <ComboboxEmpty>{i18n.t("languageSearch.noResults")}</ComboboxEmpty>
         </ComboboxContent>
       </Combobox>
       <Icon icon="tabler:arrow-right" className="h-4 w-4 text-muted-foreground" />
@@ -156,10 +153,7 @@ export default function LanguageOptionsSelector() {
           ariaLabel={i18n.t("popup.targetLang")}
         />
         <ComboboxContent className="w-72 rounded-lg shadow-md">
-          <ComboboxInput
-            showTrigger={false}
-            placeholder={i18n.t("translationHub.searchLanguages")}
-          />
+          <ComboboxInput showTrigger={false} placeholder={i18n.t("languageSearch.placeholder")} />
           <ComboboxList>
             {(item: LanguageItem<LangCodeISO6393>) => (
               <ComboboxItem key={item.value} value={item}>
@@ -167,7 +161,7 @@ export default function LanguageOptionsSelector() {
               </ComboboxItem>
             )}
           </ComboboxList>
-          <ComboboxEmpty>{i18n.t("translationHub.noLanguagesFound")}</ComboboxEmpty>
+          <ComboboxEmpty>{i18n.t("languageSearch.noResults")}</ComboboxEmpty>
         </ComboboxContent>
       </Combobox>
     </div>

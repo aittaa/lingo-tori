@@ -77,12 +77,22 @@ describe("shortcut bindings", () => {
       "translation-mode-shortcut",
       "selection-translation-shortcut",
       "subtitles-toggle-shortcut",
-      "translation-hub-shortcut",
       getActionShortcutId("default-dictionary"),
       getActionShortcutId("default-sentence-analysis"),
       getActionShortcutId("custom-1"),
     ])
     expect(bindings.at(-1)?.shortcut).toBe("")
+  })
+
+  it("does not reserve an inert Hub shortcut for retained translation actions", () => {
+    const config = structuredClone(DEFAULT_CONFIG)
+    config.translationHub.shortcut = config.pageTranslation.page.shortcut
+
+    expect(
+      getShortcutBindings(config)
+        .filter((binding) => binding.shortcut === config.translationHub.shortcut)
+        .map((binding) => binding.id),
+    ).toEqual(["page-translation-shortcut"])
   })
 })
 

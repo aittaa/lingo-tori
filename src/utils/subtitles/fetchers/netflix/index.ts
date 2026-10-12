@@ -42,9 +42,11 @@ export class NetflixSubtitlesFetcher implements SubtitlesFetcher {
   private sourceLanguage = ""
   // What the latest load found, even one that ended without subtitles.
   private lastLoad: { movieId: number | null; trackId: string | null } | null = null
+  private confirmedTrack: { movieId: number | null; trackId: string | null } | null = null
   private loadsInFlight = 0
 
   async fetch(): Promise<SubtitlesFragment[]> {
+    this.confirmedTrack = null
     let response: NetflixSubtitlesResponse | null
     this.loadsInFlight++
     try {
@@ -54,6 +56,7 @@ export class NetflixSubtitlesFetcher implements SubtitlesFetcher {
     }
 
     const found = { movieId: response?.movieId ?? null, trackId: response?.trackId ?? null }
+    this.confirmedTrack = response?.translatable ? found : null
     if (
       this.subtitles.length > 0 &&
       found.movieId === this.lastLoad?.movieId &&
@@ -92,6 +95,16 @@ export class NetflixSubtitlesFetcher implements SubtitlesFetcher {
     return this.sourceLanguage
   }
 
+  getCachedSubtitles(): SubtitlesFragment[] | null {
+    return this.loadsInFlight === 0 &&
+      this.subtitles.length > 0 &&
+      this.confirmedTrack !== null &&
+      this.confirmedTrack.movieId === this.lastLoad?.movieId &&
+      this.confirmedTrack.trackId === this.lastLoad?.trackId
+      ? this.subtitles
+      : null
+  }
+
   isPreSegmented(): boolean {
     return true
   }
@@ -102,6 +115,8 @@ export class NetflixSubtitlesFetcher implements SubtitlesFetcher {
 
   // Netflix's track poll asks this every second, so only a change on the page should start a load.
   async shouldUseSameTrack(): Promise<boolean> {
+    // Backoff can be true without confirming that cached text is publishable.
+    this.confirmedTrack = null
     // Starting another load now would only throw away the one still running.
     if (this.loadsInFlight > 0) {
       return true
@@ -111,6 +126,9 @@ export class NetflixSubtitlesFetcher implements SubtitlesFetcher {
       return false
     }
     const response = await requestNetflixSubtitles("state")
+    this.confirmedTrack = response?.translatable
+      ? { movieId: response.movieId, trackId: response.trackId }
+      : null
     if (!response) {
       return true
     }
@@ -130,5 +148,6 @@ export class NetflixSubtitlesFetcher implements SubtitlesFetcher {
     this.subtitles = []
     this.sourceLanguage = ""
     this.lastLoad = null
+    this.confirmedTrack = null
   }
 }

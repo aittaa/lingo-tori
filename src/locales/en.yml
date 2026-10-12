@@ -39,8 +39,6 @@ popup:
       translationOnly:
         current: Currently translation only
         action: Click to switch to bilingual
-  hub:
-    tooltip: Translate text with multiple models simultaneously
   aiSmartContext: AI Smart Context
   aiSmartContextDescription: Uses webpage context to improve translation quality. Requires LLM translation provider.
   more:
@@ -85,8 +83,6 @@ options:
     features: Features
     translation: Translation
     product: Product
-  tools:
-    translationHub: Translation Hub
   apiUsage:
     title: API Usage
     description: Reported tokens and observed requests by date, model and feature on this device.
@@ -459,9 +455,6 @@ options:
     nodeTranslation:
       title: Paragraph translation
       description: Hover or long-press a paragraph to translate just that one.
-    translationHub:
-      title: Translation Hub
-      description: Open the Translation Hub in a new tab.
     actions:
       title: "AI actions"
       description: "Run an AI action on the text you selected. Custom actions have no key until you set one here."
@@ -1313,6 +1306,8 @@ noAPIKeyConfig:
 languageDetection:
   llmFailed: LLM language detection failed, fell back to basic detection
 translation:
+  failed: Translation Failed
+  failedFallback: Translation failed
   sameLanguage: Source and target languages must be different
   autoModeSameLanguage: Detected language '$1' is the same as target language
   extensionContextInvalidated: The extension was updated. Refresh this page and try again.
@@ -1415,25 +1410,9 @@ hotkey:
   shift: Shift
   backtick: Backtick
   clickAndHold: Click and hold
-translationHub:
-  searchLanguages: Search languages...
-  noLanguagesFound: No languages found
-  exchangeLanguages: Exchange languages
-  title: Multi-API Text Translation
-  noServicesSelected: No Translation Services Selected
-  noServicesDescription: Select translation services above to see translation cards here.
-  inputPlaceholder: Enter text to translate...
-  translate: Translate
-  copiedToClipboard: Translation copied to clipboard!
-  copyTranslation: Copy translation
-  expandCard: Expand card
-  collapseCard: Collapse card
-  expandAllCards: Expand all
-  collapseAllCards: Collapse all
-  deleteCard: Delete card
-  translationFailed: Translation Failed
-  translationFailedFallback: Translation failed
-  retryTranslation: Retry translation
+languageSearch:
+  placeholder: Search languages...
+  noResults: No languages found
 languages:
   eng: English
   cmn: Simplified Chinese

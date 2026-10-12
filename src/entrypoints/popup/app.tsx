@@ -12,7 +12,6 @@ import ProvidersField from "./components/providers-field"
 import { SiteControlToggle } from "./components/site-control-toggle"
 import TranslateButton from "./components/translate-button"
 import TranslatePromptSelector from "./components/translate-prompt-selector"
-import { TranslationHubButton } from "./components/translation-hub-button"
 import TranslationModeSelector from "./components/translation-mode-selector"
 
 function App() {
@@ -20,17 +19,11 @@ function App() {
     <>
       <div className="relative">
         <div className="flex flex-col gap-4 bg-background px-6 pt-5 pb-4">
-          {/* gap-2 + a non-shrinking icon rail is what bounds the account menu:
-              whatever is left of the 320px popup is its width, and a long display
-              name ellipses inside that instead of pushing the icons off. */}
           <div className="flex items-center justify-between gap-2">
             <span className="inline-flex items-center gap-2 font-semibold">
               <img src={lingotoriLogo} alt="" className="size-7" />
               LingoTori
             </span>
-            <div className="flex shrink-0 items-center">
-              <TranslationHubButton />
-            </div>
           </div>
           <LanguageOptionsSelector />
           <ProvidersField />

@@ -6,12 +6,12 @@ import {
   isBuiltInActionId,
 } from "@/utils/constants/custom-action"
 import { FEATURE_KEYS, FEATURE_PROVIDER_DEFS } from "@/utils/constants/feature-providers"
+import { DEFAULT_TRANSLATION_HUB_SHORTCUT_KEY } from "@/utils/constants/legacy-config"
 import {
   MAX_SELECTION_OVERLAY_OPACITY,
   MIN_SELECTION_OVERLAY_OPACITY,
 } from "@/utils/constants/selection"
 import { MIN_SIDE_CONTENT_WIDTH } from "@/utils/constants/side"
-import { DEFAULT_TRANSLATION_HUB_SHORTCUT_KEY } from "@/utils/constants/translation-hub"
 import {
   doesProviderSupportsCapability,
   getProviderIdsForCapability,
@@ -91,7 +91,9 @@ const sideContentSchema = z.object({
   width: z.number().min(MIN_SIDE_CONTENT_WIDTH),
 })
 
-// Translation Hub schema. `.default()` mirrors `uiLanguageSchema`: it lets a
+// Inert legacy Hub preferences: keep these fields when config is read, saved or exported.
+// Removing the schema would strip saved values from every later config write.
+// `.default()` mirrors `uiLanguageSchema`: it lets a
 // config stored before this field existed still parse in UI contexts that load
 // ahead of the background migration, instead of falling back to DEFAULT_CONFIG
 // and writing that over the user's settings.

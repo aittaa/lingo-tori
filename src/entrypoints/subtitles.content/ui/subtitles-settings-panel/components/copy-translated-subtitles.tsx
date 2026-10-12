@@ -1,31 +1,31 @@
-import { IconDownload, IconLanguage, IconLoader2 } from "@tabler/icons-react"
+import { IconCopy, IconLanguage, IconLoader2 } from "@tabler/icons-react"
 import { cva } from "class-variance-authority"
 import { Button } from "@/components/ui/base-ui/button"
-import { i18n } from "@/utils/i18n"
 import { cn } from "@/utils/styles/utils"
-import { DOWNLOAD_TRANSLATED_SUBTITLES_MESSAGE_TONE } from "./download-translated-subtitles.constants"
+import { subtitleCopyMessage } from "../../../subtitle-copy-messages"
+import { COPY_TRANSLATED_SUBTITLES_MESSAGE_TONE } from "./copy-translated-subtitles.constants"
 import { SubtitlesSettingsItem } from "./subtitles-settings-item"
-import { useDownloadTranslatedSubtitles } from "./use-download-translated-subtitles"
+import { useCopyTranslatedSubtitles } from "./use-copy-translated-subtitles"
 
-const downloadTranslatedSubtitlesMessageVariants = cva(
+const copyTranslatedSubtitlesMessageVariants = cva(
   "text-xs leading-4 drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]",
   {
     variants: {
       tone: {
-        [DOWNLOAD_TRANSLATED_SUBTITLES_MESSAGE_TONE.Muted]: "text-muted-foreground",
-        [DOWNLOAD_TRANSLATED_SUBTITLES_MESSAGE_TONE.Success]: "text-success",
+        [COPY_TRANSLATED_SUBTITLES_MESSAGE_TONE.Muted]: "text-muted-foreground",
+        [COPY_TRANSLATED_SUBTITLES_MESSAGE_TONE.Success]: "text-success",
       },
     },
     defaultVariants: {
-      tone: DOWNLOAD_TRANSLATED_SUBTITLES_MESSAGE_TONE.Muted,
+      tone: COPY_TRANSLATED_SUBTITLES_MESSAGE_TONE.Muted,
     },
   },
 )
 
-export function DownloadTranslatedSubtitles() {
-  const { message, messageTone, progress, isRunning, download } = useDownloadTranslatedSubtitles()
-  const buttonId = "read-frog-download-translated-subtitles"
-  const title = i18n.t("subtitles.actions.downloadTranslated")
+export function CopyTranslatedSubtitles() {
+  const { message, messageTone, progress, isRunning, copy, retry } = useCopyTranslatedSubtitles()
+  const buttonId = "read-frog-copy-translated-subtitles"
+  const title = subtitleCopyMessage("copyTranslated")
 
   return (
     <SubtitlesSettingsItem
@@ -36,7 +36,7 @@ export function DownloadTranslatedSubtitles() {
           {message && (
             <span
               className={cn(
-                downloadTranslatedSubtitlesMessageVariants({ tone: messageTone }),
+                copyTranslatedSubtitlesMessageVariants({ tone: messageTone }),
                 isRunning && "shimmer",
               )}
               aria-live="polite"
@@ -60,13 +60,14 @@ export function DownloadTranslatedSubtitles() {
         type="button"
         variant="ghost-secondary"
         size="icon-sm"
-        onClick={download}
+        onClick={copy}
+        aria-label={retry ? subtitleCopyMessage("copyRetry") : title}
         disabled={isRunning}
       >
         {isRunning ? (
           <IconLoader2 className="size-3.5 animate-spin" />
         ) : (
-          <IconDownload className="size-3.5" />
+          <IconCopy className="size-3.5" />
         )}
       </Button>
     </SubtitlesSettingsItem>

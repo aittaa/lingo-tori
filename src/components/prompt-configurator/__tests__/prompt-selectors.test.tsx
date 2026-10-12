@@ -5,25 +5,12 @@ import type { Config } from "@/types/config/config"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import TranslatePromptSelector from "@/entrypoints/popup/components/translate-prompt-selector"
-import { PromptSelector as TranslationHubPromptSelector } from "@/entrypoints/translation-hub/components/prompt-selector"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 
-const {
-  hubAtom,
-  providerRefAtom,
-  selectedProvidersAtom,
-  setHubMock,
-  setTranslateMock,
-  testState,
-  translateAtom,
-} = vi.hoisted(() => ({
-  hubAtom: {},
+const { providerRefAtom, setTranslateMock, testState, translateAtom } = vi.hoisted(() => ({
   providerRefAtom: {},
-  selectedProvidersAtom: {},
   setTranslateMock: vi.fn<(value: Partial<Config["pageTranslation"]>) => Promise<void>>(),
-  setHubMock: vi.fn<(value: Partial<Config["translationHub"]>) => Promise<void>>(),
   testState: {
-    translationHub: null as Config["translationHub"] | null,
     pageTranslation: null as Config["pageTranslation"] | null,
     pageTranslationProviderRef: null as
       | { kind: "local"; config: { provider: string } }
@@ -35,28 +22,22 @@ const {
 
 vi.mock("jotai", () => ({
   useAtom: (atom: object) => {
-    if (atom === hubAtom && testState.translationHub) return [testState.translationHub, setHubMock]
     if (atom !== translateAtom || !testState.pageTranslation) throw new Error("Unexpected atom")
     return [testState.pageTranslation, setTranslateMock]
   },
   useAtomValue: (atom: object) => {
     if (atom === providerRefAtom) return testState.pageTranslationProviderRef
-    if (atom === selectedProvidersAtom) return [testState.pageTranslationProviderRef]
     if (atom === translateAtom) return testState.pageTranslation
     throw new Error("Unexpected atom")
   },
 }))
 
 vi.mock("@/utils/atoms/config", () => ({
-  configFieldsAtomMap: { pageTranslation: translateAtom, translationHub: hubAtom },
+  configFieldsAtomMap: { pageTranslation: translateAtom },
 }))
 
 vi.mock("@/utils/atoms/provider", () => ({
   featureProviderRefAtom: () => providerRefAtom,
-}))
-
-vi.mock("@/entrypoints/translation-hub/atoms", () => ({
-  selectedProvidersAtom,
 }))
 
 vi.mock("@/types/config/provider", async (importOriginal) => ({
@@ -132,15 +113,12 @@ function createTranslateConfig(): Config["pageTranslation"] {
 describe("translation prompt selectors", () => {
   beforeEach(() => {
     testState.pageTranslation = createTranslateConfig()
-    testState.translationHub = { ...DEFAULT_CONFIG.translationHub, promptId: "default" }
     testState.pageTranslationProviderRef = {
       kind: "local",
       config: { provider: "mock-llm" },
     }
     setTranslateMock.mockReset()
     setTranslateMock.mockResolvedValue()
-    setHubMock.mockReset()
-    setHubMock.mockResolvedValue()
   })
 
   it("lists both built-ins before custom prompts in the popup and stores precision directly", () => {
@@ -183,34 +161,5 @@ describe("translation prompt selectors", () => {
     render(<TranslatePromptSelector />)
 
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument()
-  })
-
-  it("shows the selected built-in and uses the same order in Translation Hub", () => {
-    testState.translationHub!.promptId = "precision-rewrite"
-    testState.pageTranslationProviderRef = { kind: "local", config: { provider: "mock-llm" } }
-    render(<TranslationHubPromptSelector />)
-
-    expect(screen.getByRole("combobox")).toHaveTextContent("Deep polish")
-    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
-      "Default",
-      "Deep polish",
-      "Custom",
-    ])
-    fireEvent.click(screen.getByRole("option", { name: "Custom" }))
-    expect(setHubMock).toHaveBeenCalledWith({ promptId: "custom" })
-    expect(setTranslateMock).not.toHaveBeenCalled()
-  })
-
-  it("falls back to the default Hub prompt when a custom prompt was deleted", () => {
-    testState.translationHub!.promptId = "missing"
-    render(<TranslationHubPromptSelector />)
-    expect(screen.getByRole("combobox")).toHaveTextContent("Default")
-  })
-
-  it("uses the page prompt until an older config finishes migration", () => {
-    testState.translationHub!.promptId = null
-    testState.pageTranslation!.customPromptsConfig.promptId = "precision-rewrite"
-    render(<TranslationHubPromptSelector />)
-    expect(screen.getByRole("combobox")).toHaveTextContent("Deep polish")
   })
 })

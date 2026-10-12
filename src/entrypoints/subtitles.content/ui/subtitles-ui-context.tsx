@@ -17,8 +17,8 @@ interface SubtitlesUIContextValue {
   hasSubtitlesAvailable: () => Promise<boolean>
   ensureSourceTrackPublished: () => Promise<void>
   seekTo: (seconds: number) => void
-  downloadSourceSubtitles: () => Promise<void>
-  downloadTranslatedSubtitles: () => Promise<void>
+  copySourceSubtitles: () => Promise<void>
+  copyTranslatedSubtitles: () => Promise<void>
   controlsConfig?: ControlsConfig
   embedded?: boolean
   openBelow?: boolean
@@ -54,8 +54,8 @@ export function SubtitlesProviders({
       hasSubtitlesAvailable: adapter.hasSubtitlesAvailable,
       ensureSourceTrackPublished: adapter.ensureSourceTrackPublished,
       seekTo: adapter.seekTo,
-      downloadSourceSubtitles: adapter.downloadSourceSubtitles,
-      downloadTranslatedSubtitles: adapter.downloadTranslatedSubtitles,
+      copySourceSubtitles: adapter.copySourceSubtitles,
+      copyTranslatedSubtitles: adapter.copyTranslatedSubtitles,
       controlsConfig: adapter.getControlsConfig(),
       embedded: adapter.embedded,
       openBelow,

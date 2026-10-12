@@ -2,6 +2,8 @@
 
 An independent GPLv3 browser extension for page, selected-text and existing video-caption translation, dictionary meanings and sentence explanations. The interface supports **English, Korean and Japanese**; translation languages remain broader, including Chinese.
 
+The standalone Translation Hub / Multi-API Text Translation screen has been removed. Multiple provider configurations and per-feature assignments remain supported. Previously saved Hub preferences are retained as inactive compatibility data; see the [removal scope and validation plan](docs/translation-hub-removal.md).
+
 ## Use your own provider
 
 The core uses **BYOK** (bring your own API key). Open **API Providers**, add a provider or compatible endpoint, then explicitly assign it to each feature. Gemini and Azure are supported alongside other model APIs. New installs have no provider, and requests can incur your provider's charges. See the [BYOK setup guide](docs/byok.md).

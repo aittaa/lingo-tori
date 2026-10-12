@@ -8,7 +8,6 @@ export const ANALYTICS_FEATURE = {
   SELECTION_TRANSLATION: "selection_translation",
   CUSTOM_AI_ACTION: "custom_ai_action",
   INPUT_TRANSLATION: "input_translation",
-  TRANSLATION_HUB: "translation_hub",
   VIDEO_SUBTITLES: "video_subtitles",
   TEXT_TO_SPEECH: "text_to_speech",
   NOTE_SUGGESTION: "note_suggestion",
@@ -29,7 +28,6 @@ export const ANALYTICS_SURFACE = {
   TOUCH_GESTURE: "touch_gesture",
   SELECTION_TOOLBAR: "selection_toolbar",
   INPUT_TRANSLATION: "input_translation",
-  TRANSLATION_HUB: "translation_hub",
   VIDEO_SUBTITLES: "video_subtitles",
   VIDEO_SUBTITLES_AUTO: "video_subtitles_auto",
   PAGE_TRANSLATION: "page_translation",
@@ -95,14 +93,8 @@ export interface SurfaceByFeature {
   selection_translation: "selection_toolbar" | "context_menu" | "shortcut"
   custom_ai_action: "selection_toolbar" | "context_menu" | "shortcut"
   input_translation: "input_translation"
-  translation_hub: "translation_hub"
   video_subtitles: "video_subtitles" | "video_subtitles_auto" | "shortcut"
-  text_to_speech:
-    | "selection_toolbar"
-    | "context_menu"
-    | "shortcut"
-    | "tts_settings"
-    | "translation_hub"
+  text_to_speech: "selection_toolbar" | "context_menu" | "shortcut" | "tts_settings"
   note_suggestion: "selection_toolbar"
   note_save: "selection_toolbar"
   glossary: "page_translation" | "video_subtitles" | "selection_toolbar" | "input_translation"
@@ -123,7 +115,6 @@ export interface ObservedByFeature {
   selection_translation: { char_count: number; target_language: LangCodeISO6393 }
   custom_ai_action: { action_id: string; action_name?: string }
   input_translation: { char_count: number; target_language: LangCodeISO6393 }
-  translation_hub: { char_count: number; target_language: LangCodeISO6393 }
   video_subtitles: { target_language: LangCodeISO6393 }
   text_to_speech: unknown
   note_suggestion:
