@@ -2,7 +2,7 @@
 
 ## Audit scope and evidence
 
-The baseline audit examined extension-owned integration code at `ca8da8241883c9aff5862d15d045845a746c9a6b`. Restricted package implementations were not inspected, copied, or reverse-engineered. This document describes findings and proposed changes; it does not certify completed removal or legal clearance.
+The baseline audit examined extension-owned integration code at `ca8da8241883c9aff5862d15d045845a746c9a6b` (2026-10-11 UTC). Restricted package implementations were not inspected, copied, or reverse-engineered. Baseline findings and removal requirements below are historical; the retained runtime and service boundary describe main `d1bba610634c7000dd930743f39948274e743271` as of 2026-10-12 UTC. This document does not certify completed removal or legal clearance.
 
 Preserve the existing GPLv3 license and upstream attribution. Fork identity, branding, and runtime service ownership change; legal attribution remains. Package implementation reuse requires a clear compatible license and provenance.
 
@@ -38,7 +38,7 @@ Historical example fixtures v103-v110 were scrubbed by parsing TypeScript and re
 
 ## Retained execution path
 
-`src/components/custom-action/use-custom-action-execution.ts` prepares selection/context prompts and invokes the background structured-object stream. `src/entrypoints/background/background-stream.ts` contains both hosted and local generation paths. Preserve independently usable GPL BYOK execution, validation, cancellation, and streaming behavior while removing hosted branches, tiers, quotas, contract schemas, and service errors.
+`src/components/custom-action/use-custom-action-execution.ts` prepares selection/context prompts and invokes the background structured-object stream. `src/entrypoints/background/background-stream.ts` now resolves locally configured providers; the baseline's original hosted generation branch is removed. BYOK execution, validation, cancellation and streaming remain. Experimental BYOS has its own background account runtime and invocation path.
 
 The new result display accepts a local schema and a result/status object. Render escaped React text nodes with explicit handling of strings, numbers, missing values, and partial output. Do not interpret returned HTML, Liquid templates, or speech markup.
 
@@ -58,9 +58,13 @@ Remove original authentication clients, oRPC service clients, payment/quota UI, 
 
 The original upstream ebook bridge remains removed. Do not expose arbitrary fetch, keys, or privileged extension actions to page messages.
 
-The companion and browser-only account runtime are excluded. Old experimental provider rows remain storage-only compatibility data; capability resolution cannot select or execute them, and their selected IDs do not invalidate unrelated BYOK settings. No user records or browser databases are deleted.
+The core-only snapshot at `628a67e61a46303c54b2250b1a85d461a46d143d` (2026-10-12 UTC) excluded both the companion and browser-only account runtime and kept experimental provider rows inert. [PR58](https://github.com/aittaa/lingo-tori/pull/58), merged at `462a5a50d6812ce5ae91204d94a04a914528b101`, subsequently included the experimental browser-only ChatGPT account runtime, authentication and callback routing. Enabled account providers can execute requests with an authenticated session, saved model and explicit feature assignment. The companion remains excluded; BYOK settings, existing ON/OFF states and assignments are preserved without a deactivation migration.
+
+The browser-only design is not established as officially supported. See [BYOS limitations](byos.md) and [revision-scoped validation evidence](validation.md); Firefox sign-in remains unverified. Subtitle plain-text copying ([PR17](https://github.com/aittaa/lingo-tori/pull/17)) and removal of Translation Hub / multi-API text translation ([PR59](https://github.com/aittaa/lingo-tori/pull/59)) are also merged. Hub configuration and glossary/user records remain preserved; removing its UI and dedicated execution path does not remove multiple BYOK providers or per-feature assignments.
 
 ## Migration and build risks
+
+These baseline audit findings at `ca8da8241883c9aff5862d15d045845a746c9a6b` are retained as historical review criteria, not claims that every listed path remains in current main:
 
 - Config schema failures can cause fallback-to-default behavior and overwrite synchronized settings. Explicitly test older configs containing removed providers, layouts, TTS, writing, and service connections.
 - `AppDB` derives its database name from `APP_NAME`; rebranding can open a different empty database. Use a stable identifier or explicit migration/import.
@@ -69,4 +73,4 @@ The companion and browser-only account runtime are excluded. Old experimental pr
 - Preserve Gemini/Azure BYOK independently from removing Google/Microsoft translation services.
 - Build/source archives, lockfiles, aliases, fixtures, and generated artifacts require a final restricted-dependency/provenance check.
 
-Keep upstream automation disabled until replacement CI is intentionally reviewed. Remote repository controls are coordinated by the owner; documentation alone cannot enforce them.
+Replacement manual CI has since run for one pinned candidate; see the [validation record](validation.md) for its policy/candidate SHAs and limits. This does not authorize further CI runs or changes to remote controls, which remain coordinated by the owner.
