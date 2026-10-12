@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { createStore, Provider } from "jotai"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Dialog } from "@/components/ui/base-ui/dialog"
@@ -61,11 +61,7 @@ vi.mock("@/utils/atoms/config", async () => {
 vi.mock("../providers-config", async () => {
   const { useState } = await import("react")
   return {
-    ProvidersConfig: function MockProvidersConfig({
-      onSelectChatGPT,
-    }: {
-      onSelectChatGPT?: () => void
-    }) {
+    ProvidersConfig: function MockProvidersConfig() {
       const [open, setOpen] = useState(false)
       return (
         <section aria-label="API providers">
@@ -78,7 +74,7 @@ vi.mock("../providers-config", async () => {
             Add provider
           </button>
           <Dialog open={open} onOpenChange={setOpen}>
-            <AddProviderDialog onClose={() => setOpen(false)} onSelectChatGPT={onSelectChatGPT} />
+            <AddProviderDialog onClose={() => setOpen(false)} />
           </Dialog>
         </section>
       )
@@ -441,43 +437,87 @@ it("returns to sign-in when the background no longer has the pending login", asy
   expect(mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosAuth")).toHaveLength(1)
 })
 
-it("the Add provider ChatGPT option uses the same gesture workflow and closes without a setup step", async () => {
-  const store = renderSettings(),
-    initial = store.get(configAtom)
+it("Add provider omits ChatGPT but keeps OpenAI and the dedicated sign-in card", async () => {
+  const store = renderSettings()
+  const initial = store.get(configAtom)
   await waitForSignedOut()
   fireEvent.click(screen.getByRole("button", { name: "Add provider" }))
-  const choice = await screen.findByRole("button", { name: "ChatGPT" })
-  fireEvent.click(choice)
-  expect(mocks.permission).toHaveBeenCalledOnce()
-  await waitFor(() =>
-    expect(screen.getByText("Complete sign-in in the opened tab.")).toBeInTheDocument(),
-  )
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-  expect(mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosAuth")).toHaveLength(1)
+  const dialog = await screen.findByRole("dialog")
+  expect(within(dialog).queryByRole("button", { name: "ChatGPT" })).not.toBeInTheDocument()
+  expect(within(dialog).getByRole("button", { name: "OpenAI" })).toBeEnabled()
+  expect(mocks.permission).not.toHaveBeenCalled()
+  expectAuthCount(0)
   expect(store.get(configAtom)).toBe(initial)
+  fireEvent.keyDown(dialog, { key: "Escape" })
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  expect(screen.getByRole("button", { name: "Sign in with ChatGPT" })).toBeEnabled()
   expect(screen.getByLabelText("BYOK API key")).toHaveValue("keep-my-key")
 })
-it("selecting ChatGPT while already connected focuses its model without duplicate authentication", async () => {
-  mockConnected()
-  renderSettings()
-  await waitFor(() => expect(screen.getByLabelText("Model")).toHaveValue("synthetic-model"))
+it("adds OpenAI through Add provider without replacing the stored ChatGPT provider", async () => {
+  const store = renderSettings()
+  const initial = store.get(configAtom)
+  await waitForSignedOut()
   fireEvent.click(screen.getByRole("button", { name: "Add provider" }))
-  fireEvent.click(await screen.findByRole("button", { name: "ChatGPT" }))
+  const dialog = await screen.findByRole("dialog")
+  fireEvent.click(within(dialog).getByRole("button", { name: "OpenAI" }))
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
-  await waitFor(() => expect(screen.getByLabelText("Model")).toHaveFocus())
+  expect(store.get(configAtom).providersConfig).toEqual([
+    ...initial.providersConfig,
+    expect.objectContaining({ provider: "openai" }),
+  ])
+  expect(store.get(configAtom).selectionToolbar).toEqual(initial.selectionToolbar)
+  expect(screen.getByRole("button", { name: "Sign in with ChatGPT" })).toBeEnabled()
+  expect(screen.getByLabelText("BYOK API key")).toHaveValue("keep-my-key")
   expect(mocks.permission).not.toHaveBeenCalled()
   expectAuthCount(0)
 })
-it("Firefox Add provider selection never requests undeclared callback permission", async () => {
+it("opening Add provider preserves a connected account, model and saved assignments", async () => {
+  mockConnected()
+  const store = renderSettings()
+  const saved = store.get(configAtom)
+  act(() =>
+    store.set(configAtom, {
+      ...saved,
+      selectionToolbar: {
+        ...saved.selectionToolbar,
+        builtInActions: {
+          ...saved.selectionToolbar.builtInActions,
+          dictionary: {
+            ...saved.selectionToolbar.builtInActions.dictionary,
+            providerId: "historical-byos",
+          },
+        },
+      },
+    }),
+  )
+  await waitFor(() => expect(screen.getByLabelText("Model")).toHaveValue("synthetic-model"))
+  const initial = store.get(configAtom)
+  fireEvent.click(screen.getByRole("button", { name: "Add provider" }))
+  const dialog = await screen.findByRole("dialog")
+  expect(within(dialog).queryByRole("button", { name: "ChatGPT" })).not.toBeInTheDocument()
+  expect(within(dialog).getByRole("button", { name: "OpenAI" })).toBeEnabled()
+  fireEvent.keyDown(dialog, { key: "Escape" })
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  expect(screen.getByLabelText("Model")).toHaveValue("synthetic-model")
+  expect(screen.getByRole("button", { name: "ChatGPT account options" })).toBeEnabled()
+  expect(store.get(configAtom)).toBe(initial)
+  expect(mocks.permission).not.toHaveBeenCalled()
+  expectAuthCount(0)
+})
+it("Firefox Add provider has no ChatGPT choice or callback permission request", async () => {
   mocks.chromium = false
-  renderSettings()
+  const store = renderSettings()
+  const initial = store.get(configAtom)
   await waitFor(() => expect(screen.getByText("Connect your account")).toBeInTheDocument())
   fireEvent.click(screen.getByRole("button", { name: "Add provider" }))
-  fireEvent.click(await screen.findByRole("button", { name: "ChatGPT" }))
+  const dialog = await screen.findByRole("dialog")
+  expect(within(dialog).queryByRole("button", { name: "ChatGPT" })).not.toBeInTheDocument()
+  expect(within(dialog).getByRole("button", { name: "OpenAI" })).toBeEnabled()
+  expect(store.get(configAtom)).toBe(initial)
   expect(mocks.permission).not.toHaveBeenCalled()
   expectAuthCount(0)
 })
-it("reselecting ChatGPT during a pending grant cannot duplicate authentication", async () => {
+it("opening Add provider during a pending grant leaves the dedicated sign-in cancellable", async () => {
   let release!: (value: boolean) => void
   mocks.permission.mockReturnValueOnce(
     new Promise((resolve) => {
@@ -488,8 +528,10 @@ it("reselecting ChatGPT during a pending grant cannot duplicate authentication",
   await waitForSignedOut()
   fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
   fireEvent.click(screen.getByRole("button", { name: "Add provider" }))
-  fireEvent.click(await screen.findByRole("button", { name: "ChatGPT" }))
+  const dialog = await screen.findByRole("dialog")
+  expect(within(dialog).queryByRole("button", { name: "ChatGPT" })).not.toBeInTheDocument()
   expect(mocks.permission).toHaveBeenCalledOnce()
+  fireEvent.keyDown(dialog, { key: "Escape" })
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
   await waitForSignedOut()
