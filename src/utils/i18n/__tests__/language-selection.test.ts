@@ -1,5 +1,6 @@
 import type { Config } from "@/types/config/config"
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
+import { fakeBrowser } from "wxt/testing/fake-browser"
 import { configSchema } from "@/types/config/config"
 import { getUiLocale, i18n, initI18n, setUiLanguage } from "../index"
 import { resolveUiLocale } from "../locale-map"
@@ -33,19 +34,12 @@ vi.mock("@/locales/tr.yml", () => loadCatalogue("tr"))
 vi.mock("@/locales/vi.yml", () => loadCatalogue("vi"))
 vi.mock("@/locales/zh-CN.yml", () => loadCatalogue("zh-CN"))
 vi.mock("@/locales/zh-TW.yml", () => loadCatalogue("zh-TW"))
-vi.mock("#imports", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("#imports")>()
-  return {
-    ...actual,
-    browser: {
-      ...actual.browser,
-      i18n: { ...actual.browser.i18n, getUILanguage: browserLanguage },
-    },
-  }
-})
-
+const originalBrowserLanguage = fakeBrowser.i18n.getUILanguage
 let defaultConfig: Config
 beforeAll(async () => {
+  // WXT rewrites #imports to browser imports before Vitest applies mocks.
+  // Install the language stub on its actual fake-browser instance.
+  fakeBrowser.i18n.getUILanguage = browserLanguage
   await initI18n("en")
   defaultConfig = (await import("@/utils/constants/config")).DEFAULT_CONFIG
 })
@@ -53,6 +47,10 @@ beforeAll(async () => {
 afterEach(async () => {
   browserLanguage.mockReset().mockReturnValue("en-US")
   await initI18n("en")
+})
+
+afterAll(() => {
+  fakeBrowser.i18n.getUILanguage = originalBrowserLanguage
 })
 
 describe("restored interface language selection", () => {

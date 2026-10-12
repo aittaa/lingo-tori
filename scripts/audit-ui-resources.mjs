@@ -102,7 +102,11 @@ for (const locale of locales.filter((language) => language !== "en")) {
   for (const key of Object.keys(current[locale])) {
     if (key in reference && signature(current[locale][key]) !== signature(reference[key])) {
       placeholderDifferences.push(`${locale}:${key}`)
-      if (restored || signature(previous[locale][key]) === signature(previous.en[key]))
+      if (
+        restored ||
+        !(key in previous[locale]) ||
+        signature(previous[locale][key]) === signature(previous.en[key])
+      )
         newPlaceholderDifferences.push(`${locale}:${key}`)
     }
   }
