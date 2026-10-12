@@ -31,6 +31,86 @@ const prompt = async (_language: string, input: string) => ({
 
 beforeEach(() => mocks.getModel.mockReset())
 
+it.each([
+  { route: "accepted BYOS", fetchCalls: 1, byokAttempts: 0, nonretryable: true },
+  { route: "pre-admission BYOS", fetchCalls: 3, byokAttempts: 0, nonretryable: false },
+  { route: "BYOK", fetchCalls: 0, byokAttempts: 3, nonretryable: false },
+])(
+  "keeps the intended outer timeout policy for $route",
+  async ({ route, fetchCalls, byokAttempts, nonretryable }) => {
+    const hang = (signal?: AbortSignal) =>
+      new Promise<never>((_, reject) => {
+        signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Synthetic aborted operation", "AbortError")),
+          { once: true },
+        )
+      })
+    const fetcher = vi.fn<typeof fetch>(async (_url, options) => {
+      if (route !== "accepted BYOS") return hang(options?.signal ?? undefined)
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              new Uint8Array(
+                Buffer.from('data: {"type":"response.output_text.delta","delta":"partial"}\n\n'),
+              ),
+            )
+            options?.signal?.addEventListener(
+              "abort",
+              () => controller.error(new DOMException("Synthetic stream abort", "AbortError")),
+              { once: true },
+            )
+          },
+        }),
+        { headers: { "Content-Type": "text/event-stream" } },
+      )
+    })
+    const service = await prepare(fetcher)
+    let byokCalls = 0
+    if (route === "BYOK")
+      mocks.getModel.mockResolvedValue(
+        createByosModel("synthetic-video-model", async (_payload, signal) => {
+          byokCalls++
+          return hang(signal)
+        }),
+      )
+    const requests = new RequestQueue({
+      rate: 100,
+      capacity: 10,
+      timeoutMs: 40,
+      maxRetries: 2,
+      baseRetryDelayMs: 1,
+    })
+    const selected: LLMProviderConfig =
+      route === "BYOK"
+        ? {
+            id: provider.id,
+            name: provider.name,
+            enabled: true,
+            provider: "openai",
+            model: {
+              model: "gpt-5-mini",
+              isCustomModel: true,
+              customModel: "synthetic-video-model",
+            },
+          }
+        : provider
+    const error: unknown = await requests
+      .enqueue(
+        (signal) => aiTranslate(source, "Korean", selected, prompt, { signal }),
+        Date.now(),
+        `synthetic-timeout-${route}`,
+      )
+      .catch((caught: unknown) => caught)
+    expect(getRequestErrorMeta(error).kind).toBe("timeout")
+    expect(fetcher).toHaveBeenCalledTimes(fetchCalls)
+    expect(byokCalls).toBe(byokAttempts)
+    expect(getRequestErrorMeta(error).isRetryable === false).toBe(nonretryable)
+    expect(await service.session()).toMatchObject({ state: "plan-enabled" })
+  },
+)
+
 async function prepare(fetcher: typeof fetch) {
   const vault = memoryVault()
   await vault.update((record) => {

@@ -994,6 +994,14 @@ export function createByosService(
       const input = invokeSchema.parse(payload)
       const streamController = new AbortController()
       controllers.add(streamController)
+      let accepted = false
+      const markAcceptedAbort = () => {
+        // The outer queue's timeout rejects before aborting. Mark its shared
+        // reason synchronously, before the SDK/reader rejection unwinds.
+        if (accepted && signal?.reason instanceof Error)
+          Object.assign(signal.reason, { isRetryable: false })
+      }
+      signal?.addEventListener("abort", markAcceptedAbort, { once: true })
       try {
         const { response, generation } = await authenticated(`${RESOURCE}/responses`, {
           method: "POST",
@@ -1007,6 +1015,8 @@ export function createByosService(
           }),
           signal: AbortSignal.any([streamController.signal, ...(signal ? [signal] : [])]),
         })
+        accepted = true
+        markAcceptedAbort()
         const streamFailure: (code: string) => never = (code) => {
           throw Object.assign(
             new ByosBridgeError(code, response.status, {
@@ -1122,6 +1132,7 @@ export function createByosService(
           reader.releaseLock()
         }
       } finally {
+        signal?.removeEventListener("abort", markAcceptedAbort)
         controllers.delete(streamController)
       }
     },
