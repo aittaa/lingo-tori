@@ -889,10 +889,21 @@ export function createByosService(
         })
       }
     },
-    async cancelAuth(attemptId: string) {
+    async cancelAuth(
+      attemptId: string,
+      expectedAttempt?: Pick<PendingAuth, "state" | "generation">,
+    ) {
       authAttemptIdSchema.parse(attemptId)
       await initialize()
       const pending = await vault.update((record) => {
+        // Internal events carry the snapshot they observed, including when a
+        // caller has reused a control ID for a different OAuth transaction.
+        if (
+          expectedAttempt &&
+          (record.generation !== expectedAttempt.generation ||
+            record.pending?.state !== expectedAttempt.state)
+        )
+          return undefined
         // A replacement can be starting before its pending record is written.
         // An older settings page must not invalidate that newer local intent.
         if (startingAttemptId && startingAttemptId !== attemptId) return undefined
@@ -916,18 +927,16 @@ export function createByosService(
       await transport.cleanup(pending.tabId)
     },
     async cancel(tabId?: number) {
-      if (tabId === undefined) intent++
       await initialize()
-      const record = await vault.read()
-      if (tabId !== undefined && record.pending?.tabId !== tabId) return
-      if (tabId !== undefined) intent++
-      await clearPending(true)
-      abortAll()
+      const { pending } = await vault.read()
+      if (!pending?.attemptId || (tabId !== undefined && pending.tabId !== tabId)) return
+      await this.cancelAuth(pending.attemptId, pending)
     },
     async expire() {
       await initialize()
-      const record = await vault.read()
-      if (record.pending && record.pending.expires <= now()) await this.cancel()
+      const { pending } = await vault.read()
+      if (pending?.attemptId && pending.expires <= now())
+        await this.cancelAuth(pending.attemptId, pending)
     },
     async models(): Promise<ByosModels> {
       const { response, generation } = await authenticated(`${RESOURCE}/models`)

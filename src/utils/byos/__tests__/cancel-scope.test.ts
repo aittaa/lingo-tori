@@ -2,6 +2,99 @@ import { expect, it, vi } from "vitest"
 import { createByosService } from "../service"
 import { callbackUrl, credentials, memoryVault, mockTransport } from "./auth-fixtures"
 
+it.each([
+  { route: "tab-close", reuseId: false },
+  { route: "expiry", reuseId: false },
+  { route: "tab-close", reuseId: true },
+  { route: "expiry", reuseId: true },
+])(
+  "preserves T2 after a stale internal $route (reused ID: $reuseId)",
+  async ({ route, reuseId }) => {
+    let now = Date.now()
+    const vault = memoryVault(),
+      transport = mockTransport(),
+      fetcher = vi.fn<typeof fetch>()
+    const service = createByosService(
+      vault,
+      transport,
+      "extension",
+      callbackUrl,
+      fetcher,
+      () => now,
+    )
+    vi.mocked(transport.createTab).mockResolvedValueOnce(42).mockResolvedValueOnce(43)
+    const firstId = crypto.randomUUID(),
+      secondId = reuseId ? firstId : crypto.randomUUID()
+    await service.authStart(firstId)
+    const first = (await vault.read()).pending!
+    if (route === "expiry") now = first.expires + 1
+    const read = vault.read.bind(vault)
+    let observed!: () => void,
+      release!: () => void,
+      armed = true
+    const reached = new Promise<void>((resolve) => {
+      observed = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vault.read = async () => {
+      const snapshot = await read()
+      if (armed) {
+        armed = false
+        observed()
+        await gate
+      }
+      return snapshot
+    }
+    const cancellation = route === "tab-close" ? service.cancel(first.tabId) : service.expire()
+    await reached
+    await service.authStart(secondId)
+    const before = await vault.read()
+    expect(before.pending?.state).not.toBe(first.state)
+    expect(before.pending?.tabId).toBe(43)
+    expect(before.pending!.expires).toBeGreaterThan(now)
+    const cleanupCalls = vi.mocked(transport.cleanup).mock.calls.length
+    release()
+    await cancellation
+    expect(await vault.read()).toEqual(before)
+    expect(transport.cleanup).toHaveBeenCalledTimes(cleanupCalls)
+    expect(fetcher).not.toHaveBeenCalled()
+  },
+)
+
+it.each(["tab-close", "expiry"])(
+  "still cancels the matching internal %s attempt",
+  async (route) => {
+    let now = Date.now()
+    const vault = memoryVault(),
+      transport = mockTransport(),
+      fetcher = vi.fn<typeof fetch>()
+    const prior = credentials()
+    await vault.update((record) => {
+      record.credentials = prior
+    })
+    const service = createByosService(
+      vault,
+      transport,
+      "extension",
+      callbackUrl,
+      fetcher,
+      () => now,
+    )
+    await service.authStart()
+    const pending = (await vault.read()).pending!
+    if (route === "expiry") now = pending.expires + 1
+    await (route === "tab-close" ? service.cancel(pending.tabId) : service.expire())
+    const after = await vault.read()
+    expect(after.pending).toBeUndefined()
+    expect(after.generation).toBe(pending.generation + 1)
+    expect(after.credentials).toEqual(prior)
+    expect(transport.cleanup).toHaveBeenLastCalledWith(pending.tabId)
+    expect(fetcher).not.toHaveBeenCalled()
+  },
+)
+
 it("preserves a newer sign-in when stale settings cancel the older attempt", async () => {
   const vault = memoryVault(),
     transport = mockTransport(),
