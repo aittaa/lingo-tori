@@ -1,5 +1,7 @@
 import type { PendingAuth } from "./vault"
 import { browser } from "wxt/browser"
+import { isByosExtensionProtocol, isByosExtensionUrl } from "./browser"
+import { hasByosCallbackPermission } from "./permissions"
 import { ByosBridgeError } from "./service"
 
 export const AUTH_RULE_ID = 1749225500
@@ -37,7 +39,8 @@ export function buildCallbackRule(tabId: number, callbackUrl: string, redirectUr
   if (
     !Number.isSafeInteger(tabId) ||
     tabId < 0 ||
-    callback.protocol !== "chrome-extension:" ||
+    !isByosExtensionProtocol(callback.protocol) ||
+    !callback.hostname ||
     callback.pathname !== "/byos-callback.html" ||
     callback.search ||
     callback.hash ||
@@ -112,12 +115,7 @@ export function createAuthTransport(): AuthTransport {
     pendingRuleChanges++
     try {
       const dnr = api()
-      if (
-        dnr &&
-        (await browser.permissions.contains({
-          permissions: ["declarativeNetRequestWithHostAccess"],
-        }))
-      )
+      if (dnr && (await hasByosCallbackPermission()))
         await bounded(updateRules(dnr, { removeRuleIds: [AUTH_RULE_ID] }))
     } finally {
       pendingRuleChanges--
@@ -125,13 +123,12 @@ export function createAuthTransport(): AuthTransport {
   }
   return {
     async available() {
-      // The experimental transport is Chromium-only until separately verified.
+      const dnr = api()
       return (
-        browser.runtime.getURL("/").startsWith("chrome-extension://") &&
-        !!api() &&
-        (await browser.permissions.contains({
-          permissions: ["declarativeNetRequestWithHostAccess"],
-        })) &&
+        isByosExtensionUrl(browser.runtime.getURL("/")) &&
+        typeof dnr?.updateSessionRules === "function" &&
+        typeof dnr?.getSessionRules === "function" &&
+        (await hasByosCallbackPermission()) &&
         !uncertainInstall &&
         pendingRuleChanges === 0
       )
@@ -203,7 +200,7 @@ export function createAuthTransport(): AuthTransport {
         return false
       }
       // The committed URL can be blank, an external identity provider, or an
-      // in-progress callback when the worker wakes. It does not authenticate
+      // in-progress callback when the background wakes. It does not authenticate
       // the transaction; the owned tab/rule and callback state do that.
       const dnr = api()
       if (!dnr) return false
@@ -216,7 +213,7 @@ export function createAuthTransport(): AuthTransport {
       const rule = rules.find((candidate) => candidate.id === AUTH_RULE_ID)
       if (!rule && browser.webNavigation?.onErrorOccurred) {
         // The trusted navigation-error relay can still receive this exact
-        // pending tab's loopback return if Chrome lost the session rule.
+        // pending tab's loopback return if the browser lost the session rule.
         await browser.alarms.create(AUTH_ALARM, { when: pending.expires })
         return true
       }

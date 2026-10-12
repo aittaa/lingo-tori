@@ -19,6 +19,7 @@ export default defineConfig({
       "contextMenus",
       "scripting",
       "webNavigation",
+      ...(browser === "firefox" ? ["declarativeNetRequestWithHostAccess"] : []),
       ...(browser !== "firefox" ? ["sidePanel"] : []),
     ],
     host_permissions: ["*://*/*"],
@@ -30,14 +31,10 @@ export default defineConfig({
         resources: ["assets/*.png", "assets/*.svg", "assets/*.webp"],
         matches: ["*://*/*", "file:///*"],
       },
-      ...(browser !== "firefox"
-        ? [
-            {
-              resources: ["byos-callback.html"],
-              matches: ["http://127.0.0.1/*", "https://auth.openai.com/*"],
-            },
-          ]
-        : []),
+      {
+        resources: ["byos-callback.html"],
+        matches: ["http://127.0.0.1/*", "https://auth.openai.com/*"],
+      },
     ],
     ...(browser === "firefox" && {
       content_security_policy: {

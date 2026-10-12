@@ -1,6 +1,7 @@
 import type { AuthTransport } from "./transport"
 import type { AuthVault, Credentials, PendingAuth, VaultRecord } from "./vault"
 import { z } from "zod"
+import { isByosConnectionRefused } from "./browser"
 import {
   abortable,
   ByosBridgeError,
@@ -677,7 +678,6 @@ export function createByosService(
     }): Promise<boolean> {
       const ownIntent = intent
       if (
-        details.error !== "net::ERR_CONNECTION_REFUSED" ||
         details.frameId !== 0 ||
         !Number.isSafeInteger(details.tabId) ||
         details.tabId < 0 ||
@@ -693,8 +693,9 @@ export function createByosService(
         return false
       }
       if (
-        destination.protocol !== "chrome-extension:" ||
-        destination.hostname !== extensionId ||
+        !isByosConnectionRefused(details.error, destination.protocol) ||
+        !destination.hostname ||
+        (destination.protocol === "chrome-extension:" && destination.hostname !== extensionId) ||
         !!destination.port ||
         destination.pathname !== "/byos-callback.html" ||
         destination.search ||

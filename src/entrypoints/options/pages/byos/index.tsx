@@ -13,7 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/base-ui/dropdown-menu"
 import { configAtom, writeConfigAtom } from "@/utils/atoms/config"
+import { isByosExtensionUrl } from "@/utils/byos/browser"
 import { sendByosMessage } from "@/utils/byos/messages"
+import { requestByosCallbackPermission } from "@/utils/byos/permissions"
 import { getUiLocale } from "@/utils/i18n"
 import { cn } from "@/utils/styles/utils"
 import { reconcileModelSelection } from "./model-selection"
@@ -36,7 +38,7 @@ const copy = {
     limit: "Usage limit reached",
     expired: "Sign-in expired",
     unavailable: "Connection unavailable",
-    chromium: "ChatGPT sign-in is available in Chromium browsers.",
+    browser: "ChatGPT sign-in is available in Firefox and Chromium browsers.",
     denied: "Sign-in permission was not granted.",
     failed: "Could not connect. Try again.",
     ended: "Sign-in did not finish. Try again.",
@@ -73,7 +75,7 @@ const copy = {
     limit: "사용량 한도 도달",
     expired: "로그인 만료",
     unavailable: "연결할 수 없음",
-    chromium: "ChatGPT 로그인은 Chromium 브라우저에서 사용할 수 있습니다.",
+    browser: "ChatGPT 로그인은 Firefox와 Chromium 브라우저에서 사용할 수 있습니다.",
     denied: "로그인 권한이 허용되지 않았습니다.",
     failed: "연결하지 못했습니다. 다시 시도하세요.",
     ended: "로그인이 완료되지 않았습니다. 다시 시도하세요.",
@@ -111,7 +113,7 @@ const copy = {
     limit: "使用量の上限に到達",
     expired: "ログイン期限切れ",
     unavailable: "接続できません",
-    chromium: "ChatGPT ログインは Chromium ブラウザーで利用できます。",
+    browser: "ChatGPT ログインは Firefox と Chromium ブラウザーで利用できます。",
     denied: "ログイン権限が許可されませんでした。",
     failed: "接続できませんでした。再試行してください。",
     ended: "ログインが完了しませんでした。再試行してください。",
@@ -183,8 +185,8 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     authAttemptRef = useRef<string | undefined>(undefined),
     busyRef = useRef(true),
     pendingRef = useRef<"permission" | "starting" | "tab" | null>(null)
-  const chromium =
-    browser.runtime.getURL("/").startsWith("chrome-extension://") &&
+  const supportedBrowser =
+    isByosExtensionUrl(browser.runtime.getURL("/")) &&
     typeof browser.permissions.request === "function"
   const setWorking = useCallback((working: boolean) => {
     busyRef.current = working
@@ -298,9 +300,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     let permission: Promise<boolean>
     // Request directly in the explicit button gesture, before awaiting anything.
     try {
-      permission = browser.permissions.request({
-        permissions: ["declarativeNetRequestWithHostAccess"],
-      })
+      permission = requestByosCallbackPermission()
     } catch (error) {
       setAttempt(null)
       setWorking(false)
@@ -407,8 +407,8 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       if (session.account && modelRef.current) modelRef.current.focus()
       else cardRef.current?.focus()
     }
-    if (!chromium) {
-      setNotice(t.chromium)
+    if (!supportedBrowser) {
+      setNotice(t.browser)
       focusCard()
       return
     }
@@ -503,7 +503,9 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
                 <Button
                   variant="accent"
                   className="h-10 px-4 transition-colors motion-reduce:transition-none"
-                  disabled={busy || (!chromium && session.state !== "temporarily-unavailable")}
+                  disabled={
+                    busy || (!supportedBrowser && session.state !== "temporarily-unavailable")
+                  }
                   onClick={selectChatGPT}
                 >
                   {session.state === "temporarily-unavailable"
@@ -584,8 +586,8 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
           <p className="mt-2.5 text-[13px] leading-5 text-muted-foreground">{t.assigning}</p>
         </div>
       )}
-      {!chromium && !connected && (
-        <p className="mt-3 text-[13px] text-muted-foreground">{t.chromium}</p>
+      {!supportedBrowser && !connected && (
+        <p className="mt-3 text-[13px] text-muted-foreground">{t.browser}</p>
       )}
       {notice && (
         <p role="status" className="mt-3 text-[13px] leading-5 text-muted-foreground">

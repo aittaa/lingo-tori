@@ -3,6 +3,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { AUTH_RULE_ID, buildCallbackRule, createAuthTransport } from "../transport"
 const mocks = vi.hoisted(() => ({
   dnrAvailable: true,
+  protocol: "chrome-extension:",
+  host: "extension",
+  installedPermission: true,
   navigationRecovery: false,
   update:
     vi.fn<
@@ -19,7 +22,12 @@ const mocks = vi.hoisted(() => ({
 }))
 vi.mock("wxt/browser", () => ({
   browser: {
-    runtime: { getURL: (path: string) => `chrome-extension://extension${path}` },
+    runtime: {
+      getURL: (path: string) => `${mocks.protocol}//${mocks.host}${path}`,
+      getManifest: () => ({
+        permissions: mocks.installedPermission ? ["declarativeNetRequestWithHostAccess"] : [],
+      }),
+    },
     get declarativeNetRequest() {
       return mocks.dnrAvailable
         ? { updateSessionRules: mocks.update, getSessionRules: mocks.rules }
@@ -36,6 +44,9 @@ vi.mock("wxt/browser", () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.dnrAvailable = true
+  mocks.protocol = "chrome-extension:"
+  mocks.host = "extension"
+  mocks.installedPermission = true
   mocks.navigationRecovery = false
   mocks.contains.mockResolvedValue(true)
   mocks.update.mockResolvedValue(undefined)
@@ -264,4 +275,75 @@ it("retains a pending callback with a missing rule only when navigation recovery
   mocks.navigationRecovery = true
   mocks.contains.mockResolvedValue(false)
   expect(await createAuthTransport().reconcile(pending)).toBe(false)
+})
+
+it("installs and reconciles Firefox routing with its runtime UUID and declared capability", async () => {
+  mocks.protocol = "moz-extension:"
+  mocks.host = "a702f145-d458-4acf-9101-6549d0c2babc"
+  const transport = createAuthTransport()
+  mocks.installedPermission = false
+  expect(await transport.available()).toBe(false)
+  expect(mocks.contains).not.toHaveBeenCalled()
+  mocks.installedPermission = true
+  const pending = {
+    state: "synthetic",
+    nonce: "synthetic",
+    verifier: "synthetic",
+    redirectUri: "http://127.0.0.1:51000/auth/callback",
+    tabId: 42,
+    expires: Date.now() + 300000,
+    generation: 1,
+  }
+  await transport.install(pending)
+  const rule = mocks.update.mock.calls[0]![0].addRules![0]!
+  expect(rule).toMatchObject({
+    action: {
+      redirect: {
+        transform: {
+          scheme: "moz-extension",
+          host: mocks.host,
+          path: "/byos-callback.html",
+        },
+      },
+    },
+    condition: { tabIds: [42], resourceTypes: ["main_frame"], requestMethods: ["get"] },
+  })
+  expect(rule.action.redirect?.transform?.query).toBeUndefined()
+  mocks.get.mockResolvedValue({ id: 42, url: "https://auth.openai.com/api/accounts/authorize" })
+  mocks.rules.mockResolvedValue([
+    buildCallbackRule(42, `moz-extension://${mocks.host}/byos-callback.html`, pending.redirectUri),
+  ])
+  expect(await transport.reconcile(pending)).toBe(true)
+  await transport.cleanup(42)
+  expect(mocks.update).toHaveBeenLastCalledWith({ removeRuleIds: [AUTH_RULE_ID] })
+  expect(mocks.remove).toHaveBeenCalledWith(42)
+})
+
+it("fails closed on missing Firefox capability or foreign runtime protocols", async () => {
+  mocks.protocol = "moz-extension:"
+  const transport = createAuthTransport()
+  expect(await transport.available()).toBe(true)
+  mocks.installedPermission = false
+  await expect(
+    transport.install({
+      state: "synthetic",
+      nonce: "synthetic",
+      verifier: "synthetic",
+      redirectUri: "http://127.0.0.1:51000/auth/callback",
+      tabId: 42,
+      expires: Date.now() + 300000,
+      generation: 1,
+    }),
+  ).rejects.toThrow("callback_permission_required")
+  expect(mocks.update).not.toHaveBeenCalled()
+  mocks.installedPermission = true
+  mocks.protocol = "https:"
+  expect(await transport.available()).toBe(false)
+  expect(() =>
+    buildCallbackRule(
+      42,
+      "https://foreign.example/byos-callback.html",
+      "http://127.0.0.1:51000/auth/callback",
+    ),
+  ).toThrow("invalid_callback_route")
 })
