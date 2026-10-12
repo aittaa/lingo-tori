@@ -194,7 +194,7 @@ export const PROVIDER_ITEMS: Record<
   }
 > = {
   byos: {
-    logo: () => customProviderLogo,
+    logo: getLobeIconsCDNUrlFn("openai"),
     name: "ChatGPT",
     website: "",
   },

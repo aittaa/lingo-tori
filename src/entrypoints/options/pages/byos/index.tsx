@@ -56,8 +56,10 @@ const copy = {
     signedOut: "Signed out",
     assigning: "Choose where to use this model in Feature providers.",
     details: "Connection details",
-    detailText:
-      "Credentials stay in this browser. ChatGPT account permissions and usage limits apply.",
+    detailText: "Credentials stay in this browser.",
+    usageText:
+      "Requests made through your ChatGPT connection count toward your ChatGPT Work/Codex usage limits. In ChatGPT settings, you can check usage and, where available, set weekly limits per app.",
+    usageLink: "Manage usage and limits",
   },
   ko: {
     signIn: "ChatGPT로 로그인",
@@ -94,8 +96,10 @@ const copy = {
     signedOut: "로그아웃됨",
     assigning: "기능별 제공자에서 이 모델을 사용할 기능을 선택하세요.",
     details: "연결 정보",
-    detailText:
-      "인증 정보는 이 브라우저에 저장됩니다. ChatGPT 계정 권한과 사용량 한도가 적용됩니다.",
+    detailText: "인증 정보는 이 브라우저에 저장됩니다.",
+    usageText:
+      "ChatGPT 연결로 실행한 요청은 ChatGPT Work/Codex 사용량 한도에 포함됩니다. ChatGPT 설정에서 사용량을 확인하고, 지원되는 경우 앱별 주간 사용량 한도를 설정할 수 있습니다.",
+    usageLink: "사용량 및 한도 관리",
   },
   ja: {
     signIn: "ChatGPT でログイン",
@@ -132,8 +136,10 @@ const copy = {
     signedOut: "ログアウト済み",
     assigning: "機能別プロバイダーで、このモデルを使う機能を選んでください。",
     details: "接続情報",
-    detailText:
-      "認証情報はこのブラウザーに保存されます。ChatGPT アカウントの権限と使用量の上限が適用されます。",
+    detailText: "認証情報はこのブラウザーに保存されます。",
+    usageText:
+      "ChatGPT 接続を通じたリクエストは ChatGPT Work/Codex の使用量上限に含まれます。ChatGPT の設定で使用量を確認でき、対応している場合はアプリごとの週間上限を設定できます。",
+    usageLink: "使用量と上限を管理",
   },
 }
 async function boundedMessage<T>(operation: Promise<T>): Promise<T> {
@@ -595,12 +601,26 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         </p>
       )}
       {connected && !pending && (
-        <details className="mt-4 text-[13px] text-muted-foreground">
-          <summary className="w-fit cursor-pointer rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <div
+          role="group"
+          aria-labelledby="chatgpt-connection-details-title"
+          className="mt-4 border-t border-border pt-4 text-[13px] text-muted-foreground"
+        >
+          <h3 id="chatgpt-connection-details-title" className="font-medium text-foreground">
             {t.details}
-          </summary>
+          </h3>
           <p className="mt-2 max-w-prose leading-5">{t.detailText}</p>
-        </details>
+          <p className="mt-2 max-w-prose leading-5">{t.usageText}</p>
+          <a
+            href="https://chatgpt.com/settings/usage"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex w-fit items-center gap-1 rounded-sm text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t.usageLink}
+            <IconExternalLink aria-hidden="true" className="size-3.5" />
+          </a>
+        </div>
       )}
     </section>
   )
