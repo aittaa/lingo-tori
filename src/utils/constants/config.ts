@@ -14,6 +14,7 @@ import {
   createSentenceAnalysisDefinition,
 } from "./custom-action-templates"
 import { DEFAULT_GLOSSARY_CONFIG } from "./glossary"
+import { DEFAULT_TRANSLATION_HUB_SHORTCUT_KEY } from "./legacy-config"
 import {
   DEFAULT_SUBTITLE_TRANSLATE_PROMPTS_CONFIG,
   DEFAULT_TRANSLATE_PROMPTS_CONFIG,
@@ -44,7 +45,6 @@ import {
   DEFAULT_SELECTION_TRANSLATION_SHORTCUT_KEY,
   DEFAULT_TRANSLATION_MODE_SHORTCUT_KEY,
 } from "./translate"
-import { DEFAULT_TRANSLATION_HUB_SHORTCUT_KEY } from "./translation-hub"
 import { TRANSLATION_NODE_STYLE_ON_INSTALLED } from "./translation-node-style"
 
 export const CONFIG_STORAGE_KEY = "config"

@@ -42,11 +42,6 @@ export function getShortcutBindings(config: Config): ShortcutBinding[] {
       title: i18n.t("options.shortcuts.subtitlesToggle.title"),
       shortcut: config.videoSubtitles.toggleShortcut,
     },
-    {
-      id: "translation-hub-shortcut",
-      title: i18n.t("options.shortcuts.translationHub.title"),
-      shortcut: config.translationHub.shortcut,
-    },
     ...getSelectionToolbarActions(config.selectionToolbar).map((action) => ({
       id: getActionShortcutId(action.id),
       title: action.name,

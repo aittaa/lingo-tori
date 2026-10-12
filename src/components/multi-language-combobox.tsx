@@ -57,7 +57,7 @@ export function MultiLanguageCombobox({
         <Icon icon="tabler:chevron-down" className="size-4 text-muted-foreground" />
       </ComboboxPrimitive.Trigger>
       <ComboboxContent align="end" className="w-fit">
-        <ComboboxInput showTrigger={false} placeholder={i18n.t("translationHub.searchLanguages")} />
+        <ComboboxInput showTrigger={false} placeholder={i18n.t("languageSearch.placeholder")} />
         <ComboboxList>
           {(item: LanguageItem<LangCodeISO6393>) => (
             <ComboboxItem key={item.value} value={item}>
@@ -65,7 +65,7 @@ export function MultiLanguageCombobox({
             </ComboboxItem>
           )}
         </ComboboxList>
-        <ComboboxEmpty>{i18n.t("translationHub.noLanguagesFound")}</ComboboxEmpty>
+        <ComboboxEmpty>{i18n.t("languageSearch.noResults")}</ComboboxEmpty>
       </ComboboxContent>
     </Combobox>
   )

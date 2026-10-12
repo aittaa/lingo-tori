@@ -45,7 +45,7 @@ describe("isGlossaryActiveForUrl", () => {
 
   /**
    * Where there is no page — the background resolving a prompt it was not
-   * handed terms for, or an extension page like the Translation Hub — a
+   * handed terms for, or an extension page — a
    * site-scoped glossary must not leak in.
    */
   it("lets only unscoped glossaries through when there is no URL", () => {

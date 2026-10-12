@@ -110,6 +110,7 @@ export function initXcomSubtitles(ctx: ContentScriptContext) {
     const videoId = getCurrentXcomVideoId()
     if (videoId === lastVideoId && videoContainer === lastVideoContainer) {
       syncEntryPoint()
+      void adapter.handleSourceTrackChanged()
       return
     }
 

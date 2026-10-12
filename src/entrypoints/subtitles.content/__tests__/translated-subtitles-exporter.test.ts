@@ -1,18 +1,15 @@
 import type { Config } from "@/types/config/config"
 import type { SubtitlesFragment } from "@/utils/subtitles/types"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
-import {
-  subtitlesStore,
-  TranslatedDownloadPhase,
-  translatedSubtitlesDownloadStatusAtom,
-} from "../atoms"
-import { TranslatedSubtitlesDownloader } from "../translated-subtitles-downloader"
+import { subtitlesStore, SubtitleCopyPhase, translatedSubtitlesCopyStatusAtom } from "../atoms"
+import { TranslatedSubtitlesExporter } from "../translated-subtitles-exporter"
 
 const mocks = vi.hoisted(() => ({
   aiSegmentBlock: vi.fn<(...args: any[]) => any>(),
-  downloadSubtitlesAsSrt: vi.fn<(...args: any[]) => any>(),
+  buildSubtitlesCopyText: vi.fn<(...args: any[]) => any>().mockReturnValue("prepared script"),
+  copySubtitlesText: vi.fn<(...args: any[]) => any>(),
   fetchSubtitlesSummary: vi.fn<(...args: any[]) => any>(),
   getLocalConfig: vi.fn<(...args: any[]) => any>(),
   resolveSubtitlesProviderRef: vi.fn<(...args: any[]) => any>(),
@@ -33,7 +30,10 @@ vi.mock("@/utils/subtitles/processor/translator", () => ({
   fetchSubtitlesSummary: mocks.fetchSubtitlesSummary,
   translateSubtitles: mocks.translateSubtitles,
 }))
-vi.mock("@/utils/subtitles/srt", () => ({ downloadSubtitlesAsSrt: mocks.downloadSubtitlesAsSrt }))
+vi.mock("@/utils/subtitles/srt", () => ({
+  buildSubtitlesCopyText: mocks.buildSubtitlesCopyText,
+  copySubtitlesText: mocks.copySubtitlesText,
+}))
 
 function createConfig({
   aiSegmentation = false,
@@ -51,7 +51,7 @@ function createConfig({
   }
 }
 
-function createDownloader(fragments: SubtitlesFragment[], preSegmented = true) {
+function createExporter(fragments: SubtitlesFragment[], preSegmented = true) {
   const fetcher = {
     fetch: vi.fn<(...args: any[]) => any>().mockResolvedValue(fragments),
     cleanup: vi.fn<(...args: any[]) => any>(),
@@ -61,7 +61,7 @@ function createDownloader(fragments: SubtitlesFragment[], preSegmented = true) {
     isPreSegmented: () => preSegmented,
   }
   return {
-    downloader: new TranslatedSubtitlesDownloader(() => fetcher, {
+    exporter: new TranslatedSubtitlesExporter(() => fetcher, {
       selectors: {
         video: "video",
         playerContainer: ".player",
@@ -88,16 +88,18 @@ function translated(fragments: SubtitlesFragment[]) {
 }
 
 function status() {
-  return subtitlesStore.get(translatedSubtitlesDownloadStatusAtom)
+  return subtitlesStore.get(translatedSubtitlesCopyStatusAtom)
 }
 
-describe("translatedSubtitlesDownloader", () => {
+describe("translatedSubtitlesExporter", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useRealTimers()
     vi.stubGlobal("document", { title: "Test video" })
-    subtitlesStore.set(translatedSubtitlesDownloadStatusAtom, {
-      phase: TranslatedDownloadPhase.Idle,
+    subtitlesStore.set(translatedSubtitlesCopyStatusAtom, {
+      phase: SubtitleCopyPhase.Idle,
       progress: null,
     })
     mocks.getLocalConfig.mockResolvedValue(createConfig())
@@ -113,20 +115,42 @@ describe("translatedSubtitlesDownloader", () => {
     )
   })
 
-  it("uses one config snapshot while reporting batch progress and downloading the full SRT", async () => {
+  it("copies only translated dialogue while preserving numbers, time expressions and repeated cues", async () => {
+    const { buildSubtitlesCopyText } =
+      await vi.importActual<typeof import("@/utils/subtitles/srt")>("@/utils/subtitles/srt")
+    mocks.buildSubtitlesCopyText.mockImplementationOnce(buildSubtitlesCopyText)
+    const fragments = lines(3)
+    const translations = ["12:30，带2张票。", "再说一遍。", "再说一遍。"]
+    mocks.translateSubtitles.mockResolvedValueOnce(
+      fragments.map((fragment, index) => ({ ...fragment, translation: translations[index] })),
+    )
+    const { exporter } = createExporter(fragments)
+
+    await exporter.copy()
+    expect(mocks.copySubtitlesText).not.toHaveBeenCalled()
+    expect(status().phase).toBe(SubtitleCopyPhase.Ready)
+    await exporter.copy()
+
+    expect(mocks.copySubtitlesText).toHaveBeenCalledWith("12:30，带2张票。\n再说一遍。\n再说一遍。")
+    expect(mocks.translateSubtitles).toHaveBeenCalledTimes(1)
+    exporter.dispose()
+  })
+
+  it("uses one config snapshot while reporting batch progress and preparing the full subtitle text without writing the clipboard", async () => {
     const config = createConfig()
     const fragments = lines(6)
-    const { downloader } = createDownloader(fragments)
+    const { exporter } = createExporter(fragments)
     const statuses: Array<ReturnType<typeof status>> = []
     mocks.getLocalConfig.mockResolvedValue(config)
-    const unsubscribe = subtitlesStore.sub(translatedSubtitlesDownloadStatusAtom, () =>
+    const unsubscribe = subtitlesStore.sub(translatedSubtitlesCopyStatusAtom, () =>
       statuses.push(status()),
     )
 
-    await downloader.download()
+    await exporter.copy()
     unsubscribe()
 
     expect(mocks.getLocalConfig).toHaveBeenCalledTimes(1)
+    expect(mocks.copySubtitlesText).not.toHaveBeenCalled()
     // The summary reuses the export's narrowed session ref instead of
     // re-resolving one of its own.
     expect(mocks.fetchSubtitlesSummary).toHaveBeenCalledWith(expect.any(Object), config, {
@@ -147,26 +171,22 @@ describe("translatedSubtitlesDownloader", () => {
     )
     expect(statuses).toEqual(
       expect.arrayContaining([
-        { phase: TranslatedDownloadPhase.Checking, progress: null },
-        { phase: TranslatedDownloadPhase.Preparing, progress: 0 },
-        { phase: TranslatedDownloadPhase.Translating, progress: 83 },
-        { phase: TranslatedDownloadPhase.Translating, progress: 100 },
-        { phase: TranslatedDownloadPhase.Complete, progress: null },
+        { phase: SubtitleCopyPhase.Checking, progress: null },
+        { phase: SubtitleCopyPhase.Preparing, progress: 0 },
+        { phase: SubtitleCopyPhase.Translating, progress: 83 },
+        { phase: SubtitleCopyPhase.Translating, progress: 100 },
+        { phase: SubtitleCopyPhase.Ready, progress: null },
       ]),
     )
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subtitles: translated(fragments).map(({ translation, ...fragment }) => ({
-          ...fragment,
-          text: translation,
-        })),
-        videoId: "video-id",
-        suffix: "translated",
-      }),
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith(
+      translated(fragments).map(({ translation, ...fragment }) => ({
+        ...fragment,
+        text: translation,
+      })),
     )
   })
 
-  it("translates exported SRT batches with a bounded two-batch window", async () => {
+  it("translates exported subtitle batches with a bounded two-batch window", async () => {
     const fragments = lines(15)
     const resolvers: Array<(value: SubtitlesFragment[]) => void> = []
     let activeBatches = 0
@@ -180,9 +200,9 @@ describe("translatedSubtitlesDownloader", () => {
       activeBatches -= 1
       return translatedBatch
     })
-    const { downloader } = createDownloader(fragments)
+    const { exporter } = createExporter(fragments)
 
-    const download = downloader.download()
+    const preparation = exporter.copy()
     await vi.waitFor(() => expect(mocks.translateSubtitles).toHaveBeenCalledTimes(2))
 
     expect(maxActiveBatches).toBe(2)
@@ -213,15 +233,13 @@ describe("translatedSubtitlesDownloader", () => {
     )
 
     resolvers[2]!(translated(fragments.slice(10)))
-    await download
+    await preparation
 
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subtitles: translated(fragments).map(({ translation, ...fragment }) => ({
-          ...fragment,
-          text: translation,
-        })),
-      }),
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith(
+      translated(fragments).map(({ translation, ...fragment }) => ({
+        ...fragment,
+        text: translation,
+      })),
     )
   })
 
@@ -236,19 +254,19 @@ describe("translatedSubtitlesDownloader", () => {
             finishSlowBatch = resolve
           }),
       )
-    const { downloader } = createDownloader(fragments)
+    const { exporter } = createExporter(fragments)
 
-    const download = downloader.download()
+    const preparation = exporter.copy()
     await vi.waitFor(() => expect(mocks.translateSubtitles).toHaveBeenCalledTimes(2))
-    await download
+    await preparation
 
-    expect(mocks.downloadSubtitlesAsSrt).not.toHaveBeenCalled()
+    expect(mocks.buildSubtitlesCopyText).not.toHaveBeenCalled()
     expect(mocks.toastAdd).toHaveBeenCalledWith({ type: "error", title: "Batch failed" })
-    expect(status()).toEqual({ phase: TranslatedDownloadPhase.Idle, progress: null })
+    expect(status()).toEqual({ phase: SubtitleCopyPhase.Idle, progress: null })
 
     finishSlowBatch(translated(fragments.slice(5)))
     await vi.waitFor(() =>
-      expect(status()).toEqual({ phase: TranslatedDownloadPhase.Idle, progress: null }),
+      expect(status()).toEqual({ phase: SubtitleCopyPhase.Idle, progress: null }),
     )
   })
 
@@ -263,24 +281,24 @@ describe("translatedSubtitlesDownloader", () => {
     const fragments = lines(5)
     mocks.translateSubtitles.mockResolvedValue(resultFor(fragments))
 
-    await createDownloader(fragments).downloader.download()
+    await createExporter(fragments).exporter.copy()
 
-    expect(mocks.downloadSubtitlesAsSrt).not.toHaveBeenCalled()
+    expect(mocks.buildSubtitlesCopyText).not.toHaveBeenCalled()
     expect(mocks.toastAdd).toHaveBeenCalledWith({
       type: "error",
       title: "subtitles.errors.translatedExportIncomplete",
     })
-    expect(status()).toEqual({ phase: TranslatedDownloadPhase.Idle, progress: null })
+    expect(status()).toEqual({ phase: SubtitleCopyPhase.Idle, progress: null })
   })
 
   it("rejects same-language export before showing the preparing state", async () => {
     mocks.getLocalConfig.mockResolvedValue(createConfig({ targetCode: "eng" }))
     const statuses: Array<ReturnType<typeof status>> = []
-    const unsubscribe = subtitlesStore.sub(translatedSubtitlesDownloadStatusAtom, () =>
+    const unsubscribe = subtitlesStore.sub(translatedSubtitlesCopyStatusAtom, () =>
       statuses.push(status()),
     )
 
-    await createDownloader(lines(1)).downloader.download()
+    await createExporter(lines(1)).exporter.copy()
     unsubscribe()
 
     expect(mocks.translateSubtitles).not.toHaveBeenCalled()
@@ -289,12 +307,12 @@ describe("translatedSubtitlesDownloader", () => {
       title: "subtitles.errors.translatedExportSameLanguage",
     })
     expect(statuses).toEqual([
-      { phase: TranslatedDownloadPhase.Checking, progress: null },
-      { phase: TranslatedDownloadPhase.Idle, progress: null },
+      { phase: SubtitleCopyPhase.Checking, progress: null },
+      { phase: SubtitleCopyPhase.Idle, progress: null },
     ])
   })
 
-  it("prevents concurrent duplicate downloads", async () => {
+  it("prevents concurrent duplicate preparations", async () => {
     let finish!: () => void
     mocks.translateSubtitles.mockImplementation(async (fragments: SubtitlesFragment[]) => {
       await new Promise<void>((resolve) => {
@@ -302,19 +320,19 @@ describe("translatedSubtitlesDownloader", () => {
       })
       return translated(fragments)
     })
-    const { downloader, fetcher } = createDownloader(lines(1))
+    const { exporter, fetcher } = createExporter(lines(1))
 
-    const first = downloader.download()
+    const first = exporter.copy()
     await vi.waitFor(() => expect(mocks.translateSubtitles).toHaveBeenCalled())
-    const second = downloader.download()
+    const second = exporter.copy()
     finish()
     await Promise.all([first, second])
 
     expect(fetcher.fetch).toHaveBeenCalledTimes(1)
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalledTimes(1)
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledTimes(1)
   })
 
-  it("invalidates an in-flight export on dispose and allows a new download", async () => {
+  it("invalidates an in-flight export on dispose and allows a new preparation", async () => {
     const fragments = lines(10)
     const finishOldTranslations: Array<(value: SubtitlesFragment[]) => void> = []
     mocks.translateSubtitles.mockImplementation(async (batch: SubtitlesFragment[]) => {
@@ -325,42 +343,40 @@ describe("translatedSubtitlesDownloader", () => {
       }
       return translated(batch)
     })
-    const { downloader, fetcher } = createDownloader(fragments)
+    const { exporter, fetcher } = createExporter(fragments)
 
-    const oldDownload = downloader.download()
+    const oldPreparation = exporter.copy()
     await vi.waitFor(() => expect(mocks.translateSubtitles).toHaveBeenCalledTimes(2))
-    downloader.dispose()
-    const newDownload = downloader.download()
+    exporter.dispose()
+    const newPreparation = exporter.copy()
     await vi.waitFor(() => expect(mocks.translateSubtitles).toHaveBeenCalledTimes(4))
-    await newDownload
+    await newPreparation
     finishOldTranslations[0]!(translated(fragments.slice(0, 5)))
     finishOldTranslations[1]!(translated(fragments.slice(5)))
-    await oldDownload
+    await oldPreparation
 
     expect(fetcher.fetch).toHaveBeenCalledTimes(2)
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalledTimes(1)
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledTimes(1)
     expect(mocks.toastAdd).not.toHaveBeenCalled()
-    expect(status().phase).toBe(TranslatedDownloadPhase.Complete)
+    expect(status().phase).toBe(SubtitleCopyPhase.Ready)
   })
 
   it("falls back to optimized source timing when AI segmentation fails", async () => {
     mocks.getLocalConfig.mockResolvedValue(createConfig({ aiSegmentation: true }))
     mocks.aiSegmentBlock.mockRejectedValue(new Error("Segmentation failed"))
 
-    await createDownloader(
+    await createExporter(
       [
         { text: "Hello.", start: 0, end: 1000 },
         { text: "World.", start: 1000, end: 2000 },
       ],
       false,
-    ).downloader.download()
+    ).exporter.copy()
 
     expect(mocks.aiSegmentBlock).toHaveBeenCalledTimes(1)
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subtitles: [{ text: "zh:Hello. World.", start: 0, end: 2000 }],
-      }),
-    )
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
+      { text: "zh:Hello. World.", start: 0, end: 2000 },
+    ])
   })
 
   it("never sends a translate-only provider on a doomed segmentation prompt", async () => {
@@ -373,28 +389,26 @@ describe("translatedSubtitlesDownloader", () => {
       config: DEFAULT_PROVIDER_CONFIG.deeplx,
     })
 
-    await createDownloader(
+    await createExporter(
       [
         { text: "Hello.", start: 0, end: 1000 },
         { text: "World.", start: 1000, end: 2000 },
       ],
       false,
-    ).downloader.download()
+    ).exporter.copy()
 
     expect(mocks.aiSegmentBlock).not.toHaveBeenCalled()
-    // The summary is a generation too: the downloader hands it a null session
+    // The summary is a generation too: the exporter hands it a null session
     // ref rather than letting it re-resolve the unpromptable provider.
     expect(mocks.fetchSubtitlesSummary).toHaveBeenCalledWith(
       expect.any(Object),
       expect.any(Object),
       null,
     )
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subtitles: [{ text: "zh:Hello. World.", start: 0, end: 2000 }],
-      }),
-    )
-    expect(status().phase).toBe(TranslatedDownloadPhase.Complete)
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
+      { text: "zh:Hello. World.", start: 0, end: 2000 },
+    ])
+    expect(status().phase).toBe(SubtitleCopyPhase.Ready)
   })
 
   it("retries unsafe AI segmentation with smaller chunks before falling back", async () => {
@@ -418,20 +432,16 @@ describe("translatedSubtitlesDownloader", () => {
       .mockResolvedValueOnce(retryFirst)
       .mockResolvedValueOnce(retrySecond)
 
-    await createDownloader(source, false).downloader.download()
+    await createExporter(source, false).exporter.copy()
 
     expect(mocks.aiSegmentBlock).toHaveBeenCalledTimes(3)
     expect(mocks.aiSegmentBlock).toHaveBeenNthCalledWith(1, source, expect.any(Object))
     expect(mocks.aiSegmentBlock).toHaveBeenNthCalledWith(2, [source[0]], expect.any(Object))
     expect(mocks.aiSegmentBlock).toHaveBeenNthCalledWith(3, [source[1]], expect.any(Object))
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subtitles: [
-          { text: "zh:Retried first half.", start: 0, end: 29000 },
-          { text: "zh:Retried second half.", start: 30000, end: 59000 },
-        ],
-      }),
-    )
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
+      { text: "zh:Retried first half.", start: 0, end: 29000 },
+      { text: "zh:Retried second half.", start: 30000, end: 59000 },
+    ])
   })
 
   it("falls back to optimized source timing when AI segmentation creates overlapping export cues", async () => {
@@ -443,22 +453,18 @@ describe("translatedSubtitlesDownloader", () => {
       { text: questionText, start: 500, end: 3420 },
     ])
 
-    await createDownloader(
+    await createExporter(
       [
         { text: "Hello.", start: 0, end: 500 },
         { text: questionText, start: 500, end: 3420 },
       ],
       false,
-    ).downloader.download()
+    ).exporter.copy()
 
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subtitles: [
-          { text: "zh:Hello.", start: 0, end: 500 },
-          { text: `zh:${questionText}`, start: 500, end: 3420 },
-        ],
-      }),
-    )
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
+      { text: "zh:Hello.", start: 0, end: 500 },
+      { text: `zh:${questionText}`, start: 500, end: 3420 },
+    ])
   })
 
   it("falls back when optimization hides a raw collapsed AI segment", async () => {
@@ -468,20 +474,18 @@ describe("translatedSubtitlesDownloader", () => {
       { text: "OK.", start: 501, end: 1000 },
     ])
 
-    await createDownloader(
+    await createExporter(
       [
         { text: "Hi.", start: 0, end: 500 },
         { text: "OK.", start: 500, end: 1000 },
       ],
       false,
-    ).downloader.download()
+    ).exporter.copy()
 
     expect(mocks.aiSegmentBlock).toHaveBeenCalledTimes(1)
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subtitles: [{ text: "zh:Hi. OK.", start: 0, end: 1000 }],
-      }),
-    )
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
+      { text: "zh:Hi. OK.", start: 0, end: 1000 },
+    ])
   })
 
   it("falls back to optimized source timing when AI segmentation collapses a cue to a boundary", async () => {
@@ -493,45 +497,66 @@ describe("translatedSubtitlesDownloader", () => {
       { text: followUpText, start: 501, end: 3500 },
     ])
 
-    await createDownloader(
+    await createExporter(
       [
         { text: "Hi.", start: 0, end: 500 },
         { text: followUpText, start: 500, end: 3500 },
       ],
       false,
-    ).downloader.download()
+    ).exporter.copy()
 
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subtitles: [
-          { text: "zh:Hi.", start: 0, end: 500 },
-          { text: `zh:${followUpText}`, start: 500, end: 3500 },
-        ],
-      }),
-    )
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
+      { text: "zh:Hi.", start: 0, end: 500 },
+      { text: `zh:${followUpText}`, start: 500, end: 3500 },
+    ])
   })
 
   it("continues without a summary when summary generation fails", async () => {
     mocks.fetchSubtitlesSummary.mockRejectedValue(new Error("Summary failed"))
-    await createDownloader(lines(1)).downloader.download()
+    await createExporter(lines(1)).exporter.copy()
 
     expect(mocks.translateSubtitles).toHaveBeenCalledWith(
       expect.any(Array),
       expect.objectContaining({ summary: null }),
       expect.any(Object),
     )
-    expect(mocks.downloadSubtitlesAsSrt).toHaveBeenCalled()
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalled()
   })
 
   it("clears completion state when disposed", async () => {
     vi.useFakeTimers()
-    const { downloader } = createDownloader(lines(1))
+    const { exporter } = createExporter(lines(1))
 
-    await downloader.download()
-    expect(status().phase).toBe(TranslatedDownloadPhase.Complete)
-    downloader.dispose()
+    await exporter.copy()
+    expect(status().phase).toBe(SubtitleCopyPhase.Ready)
+    exporter.dispose()
     await vi.runAllTimersAsync()
 
-    expect(status()).toEqual({ phase: TranslatedDownloadPhase.Idle, progress: null })
+    expect(status()).toEqual({ phase: SubtitleCopyPhase.Idle, progress: null })
+  })
+  it("does not write after asynchronous translation, then retries copy without new provider calls", async () => {
+    const { exporter } = createExporter(lines(1))
+    await exporter.copy()
+    expect(mocks.copySubtitlesText).not.toHaveBeenCalled()
+    expect(status().phase).toBe(SubtitleCopyPhase.Ready)
+    mocks.copySubtitlesText.mockRejectedValueOnce(new DOMException("Denied", "NotAllowedError"))
+    await exporter.copy()
+    expect(status().phase).toBe(SubtitleCopyPhase.CopyFailed)
+    const retry = exporter.copy()
+    // The API is invoked before returning control to the caller, preserving the click.
+    expect(mocks.copySubtitlesText).toHaveBeenCalledTimes(2)
+    await retry
+    expect(status().phase).toBe(SubtitleCopyPhase.Complete)
+    expect(mocks.translateSubtitles).toHaveBeenCalledTimes(1)
+    expect(mocks.getLocalConfig).toHaveBeenCalledTimes(1)
+    exporter.dispose()
+  })
+
+  it("rejects an empty source track without preparing clipboard data", async () => {
+    await createExporter([]).exporter.copy()
+    expect(mocks.translateSubtitles).not.toHaveBeenCalled()
+    expect(mocks.buildSubtitlesCopyText).not.toHaveBeenCalled()
+    expect(mocks.copySubtitlesText).not.toHaveBeenCalled()
+    expect(status().phase).toBe(SubtitleCopyPhase.Idle)
   })
 })
