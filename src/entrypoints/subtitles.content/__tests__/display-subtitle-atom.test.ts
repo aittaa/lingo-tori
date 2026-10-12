@@ -157,7 +157,9 @@ describe("displaySubtitleAtom", () => {
 
     it("shows no loading and never passes the original off as the translation in translation-only mode", () => {
       showOriginalOnly("translationOnly")
-      // Without a refusal a cue still waiting for its translation is "loading", as before.
+      // An idle scheduler with no translated cue shows nothing in translation-only mode: the cue is
+      // filtered out. While the scheduler reports loading, that is shown, as before.
+      subtitlesStore.set(subtitlesStateAtom, { state: "loading" })
       expect(subtitlesStore.get(subtitlesShowStateAtom)).toBe("loading")
 
       subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, true)

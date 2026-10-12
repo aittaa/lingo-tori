@@ -523,7 +523,8 @@ describe("universalVideoAdapter", () => {
     // test instead of this one.
     mocks.resolveSubtitlesProviderRef.mockReturnValueOnce(new Promise(() => {}))
 
-    void (adapter as any).processTranslatedSubtitles()
+    // A config is passed so the provider resolve runs here and consumes the value queued above.
+    void (adapter as any).processTranslatedSubtitles({ videoSubtitles: { aiSegmentation: false } })
     await Promise.resolve()
     await Promise.resolve()
 
@@ -741,6 +742,8 @@ describe("universalVideoAdapter", () => {
 
     beforeEach(() => {
       subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, false)
+      // A value queued with mockReturnValueOnce survives clearAllMocks; start each test without one.
+      mocks.resolveSubtitlesProviderRef.mockReset()
     })
 
     afterEach(() => {
@@ -894,6 +897,48 @@ describe("universalVideoAdapter", () => {
       expect(scheduler.supplementSubtitles).not.toHaveBeenCalled()
       expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(true)
       expect(mocks.showSubtitlesErrorToast).not.toHaveBeenCalled()
+    })
+
+    it("lowers the refusal flag before its first await, so a second trigger finds it down", async () => {
+      mocks.getLocalConfig.mockResolvedValue(
+        configWith({ providerId: "unconfigured", displayMode: "originalOnly" }),
+      )
+      const { adapter } = createAdapter(FRAGMENTS)
+      attachScheduler(adapter, true)
+      subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, true)
+
+      const start = (adapter as any).startTranslation()
+
+      // Synchronously: nothing has been awaited yet, not even the config read.
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(false)
+      await start
+    })
+
+    it("starts one coordinator over cues a source-only start left untranslated", async () => {
+      const startSpy = stubCoordinatorStart()
+      mocks.getLocalConfig.mockResolvedValue(
+        configWith({ providerId: "unconfigured", displayMode: "originalOnly" }),
+      )
+      const { adapter } = createAdapter(FRAGMENTS)
+      attachScheduler(adapter, true)
+      await (adapter as any).startTranslation()
+      expect(
+        subtitlesStore.get(sourceTrackAtom).every((cue) => cue.translation === undefined),
+      ).toBe(true)
+
+      // The reader leaves original-only with a provider chosen: the same start runs again.
+      mocks.getLocalConfig.mockResolvedValue(configWith({ displayMode: "bilingual" }))
+      await (adapter as any).startTranslation()
+
+      expect(startSpy).toHaveBeenCalledOnce()
+      expect((adapter as any).translationCoordinator).not.toBeNull()
+      // What the coordinator works through: every cue still waiting for its translation.
+      const eligible = (adapter as any).sessionProcessedFragments
+      expect(eligible.length).toBeGreaterThan(0)
+      expect(eligible.every((cue: { translation?: string }) => cue.translation === undefined)).toBe(
+        true,
+      )
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(false)
     })
 
     it("still translates in original-only mode when a provider is chosen", async () => {
