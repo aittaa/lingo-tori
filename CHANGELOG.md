@@ -1,3 +1,15 @@
+# @lingotori/extension
+
+## 0.0.1
+
+chore(release): establish the independent LingoTori version baseline without a prerelease suffix.
+
+This baseline includes the source and pending changes recorded at main `d1bba610634c7000dd930743f39948274e743271`. See the [archived baseline records](docs/releases/0.0.1/README.md) and [installation notes](docs/versioning.md). Publishing and store submission remain separate actions.
+
+## Upstream history
+
+The original Read Frog changelog follows unchanged, preserving release numbers, contributor acknowledgements, and source links. These historical versions are not LingoTori releases.
+
 # @read-frog/extension
 
 ## 1.50.3
