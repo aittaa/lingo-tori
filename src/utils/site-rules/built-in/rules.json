@@ -1516,7 +1516,7 @@
       "https://*.amazon.com/*video*",
       "https://*.amazon.*/*video*"
     ],
-    "description": "应该是有广告会破坏时间轴，所以暂时不加自托管",
+    "description": "광고가 자막 타임라인을 어긋나게 하는 것으로 보여, 당분간 자막을 직접 표시하지 않습니다.",
     "excludeSelectors.add": ["#dv-web-player"]
   },
   {
@@ -1786,7 +1786,7 @@
   {
     "id": "janitorai",
     "matches": "https://janitorai.com",
-    "description": "它的流式的段落无法变更，只能等到结束之后一起翻译",
+    "description": "스트리밍 중인 단락은 수정할 수 없어, 응답이 끝난 뒤 전체를 번역합니다.",
     "excludeSelectors": ["[data-testid=virtuoso-scroller] .css-104fsj *"]
   },
   {
@@ -2424,7 +2424,7 @@
   {
     "id": "cnn",
     "matches": "*.cnn.com",
-    "description": "多视频页面不好处理，暂时不支持",
+    "description": "여러 동영상이 있는 페이지는 처리하기 어려워, 현재 지원하지 않습니다.",
     "excludeSelectors.add": [".ad-slot-header__wrapper", "#pageFooter"]
   },
   {
@@ -2774,7 +2774,7 @@
   {
     "id": "hbomax",
     "matches": ["play.max.com", "play.hbomax.com"],
-    "description": "自托管会导致时间轴对应不上",
+    "description": "자막을 직접 표시하면 타임라인이 맞지 않습니다.",
     "excludeSelectors.add": ["[data-testid='playerContainer']", "[data-testid='CueBoxContainer']"]
   },
   {
@@ -3089,7 +3089,7 @@
   {
     "id": "hulu",
     "matches": ["https://*.hulu.com", "https://*.hulu.*"],
-    "description": "无法自托管，自托管字幕广告后会偏移",
+    "description": "자막을 직접 표시하면 광고 이후 표시 시간이 어긋나므로, 이 방식은 지원하지 않습니다.",
     "excludeSelectors.add": [".PlayerMetadata__subTitle", ".CaptionBox"]
   },
   {
@@ -3322,7 +3322,7 @@
   {
     "id": "tandfonline",
     "matches": "*.tandfonline.com",
-    "description": "该站点服务器对pdf资源做了保护，会严格要求host以及cookie才会响应application/pdf的请求 https://www.tandfonline.com/doi/pdf/10.1111/ajpy.12198",
+    "description": "이 사이트는 PDF 리소스를 보호하며, application/pdf 요청에 응답하려면 올바른 Host 헤더와 쿠키가 필요합니다. https://www.tandfonline.com/doi/pdf/10.1111/ajpy.12198",
     "forceInlineStyleSelectors.add": ["span.off-screen"]
   },
   {
@@ -3635,7 +3635,7 @@
   {
     "id": "balthild",
     "matches": "balthild.github.io",
-    "description": "暂时单独给他处理公式",
+    "description": "이 사이트의 수식은 당분간 별도로 처리합니다.",
     "injectedCss": ".read-frog-translated-content-wrapper [aria-hidden=true] {display:none;}"
   },
   {
@@ -3844,7 +3844,7 @@
   {
     "id": "nexusmods",
     "matches": "www.nexusmods.com",
-    "description": "适合仅译文模式翻译",
+    "description": "번역문만 표시하는 모드에 적합합니다.",
     "excludeMatches": ["https://www.nexusmods.com/games/*"],
     "injectedCss.add": [
       "[class*='line-clamp-'] {-webkit-line-clamp: unset!important; max-height: unset!important;}"
@@ -4200,7 +4200,7 @@
   {
     "id": "toneking",
     "matches": "www.toneking.com",
-    "description": "解决莫名奇妙的ul li text-wrap: pretty 卡顿问题",
+    "description": "ul li의 text-wrap: pretty로 인한 버벅임을 해결합니다.",
     "injectedCss.add": ["ul li {text-wrap:unset!important;}"]
   },
   {
@@ -4337,7 +4337,7 @@
   {
     "id": "dynamic-repets",
     "matches": "khovar.tj",
-    "description": "1.25.3 在这种情况下会导致脏段落重新翻译",
+    "description": "1.25.3에서는 이 경우 변경된 단락이 다시 번역됩니다.",
     "excludeSelectors.add": [".slide_container [style*='position: absolute']"]
   },
   {
@@ -4377,7 +4377,7 @@
   {
     "id": "fix-header",
     "matches": ["societyforpsychotherapy.org", "cbtm.manifestlao.com", "notefolio.net"],
-    "description": "给部分网页开后门翻译 header标签",
+    "description": "일부 웹페이지에서 header 태그도 번역하도록 예외를 적용합니다.",
     "excludeSelectors.add": [".site-header"],
     "excludeSelectors.remove": [".notranslate", "[translate=no]"],
     "forceBlockNodeSelectors.add": [".btn"],
@@ -4569,7 +4569,7 @@
   },
   {
     "id": "alibaba-sourcing-rfq",
-    "description": "Alibaba's RFQ portal renders the buyer's hand-written request body in <pre class=\"value\"> (the Details / 详细描述 field). PRE is hard-blocked by default for authored code, so the entire request body was dropped from the walk while every field around it translated. This host serves sourcing pages only, no code",
+    "description": "Alibaba의 RFQ 포털은 구매자가 직접 작성한 요청 내용을 <pre class=\"value\">에 표시합니다(상세 설명 필드). PRE는 작성된 코드를 보호하기 위해 기본적으로 탐색 대상에서 제외되므로, 주변 필드는 번역되어도 요청 내용 전체는 누락되었습니다. 이 호스트는 소싱 페이지만 제공하며 코드는 제공하지 않습니다.",
     "matches": "sourcing.alibaba.com",
     "dontWalkTags.remove": ["PRE"]
   },
