@@ -109,7 +109,7 @@ function useRequestedProvider() {
   ])
 }
 
-export function ProvidersConfig({ onSelectChatGPT }: { onSelectChatGPT?: () => void }) {
+export function ProvidersConfig() {
   const selectedProviderId = useAtomValue(selectedProviderIdAtom)
   useRequestedProvider()
   const editor = <ProviderConfigForm key={selectedProviderId} />
@@ -122,15 +122,12 @@ export function ProvidersConfig({ onSelectChatGPT }: { onSelectChatGPT?: () => v
       description={i18n.t("options.apiProviders.description")}
       titleClassName="text-base leading-6 font-medium"
     >
-      <EntityEditorLayout
-        list={<ProviderCardList onSelectChatGPT={onSelectChatGPT} />}
-        editor={editor}
-      />
+      <EntityEditorLayout list={<ProviderCardList />} editor={editor} />
     </ConfigItem>
   )
 }
 
-function ProviderCardList({ onSelectChatGPT }: { onSelectChatGPT?: () => void }) {
+function ProviderCardList() {
   const [providersConfig, setProvidersConfig] = useAtom(configFieldsAtomMap.providersConfig)
   const apiProvidersConfig = getAPIProvidersConfig(providersConfig)
   const [selectedProviderId, setSelectedProviderId] = useAtom(selectedProviderIdAtom)
@@ -189,10 +186,7 @@ function ProviderCardList({ onSelectChatGPT }: { onSelectChatGPT?: () => void })
             <span className="text-sm">{i18n.t("options.apiProviders.addProvider")}</span>
           </div>
         </DialogTrigger>
-        <AddProviderDialog
-          onClose={() => setIsAddDialogOpen(false)}
-          onSelectChatGPT={onSelectChatGPT}
-        />
+        <AddProviderDialog onClose={() => setIsAddDialogOpen(false)} />
       </Dialog>
       <EntityListRail>
         <SortableList
