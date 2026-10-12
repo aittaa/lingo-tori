@@ -177,6 +177,7 @@ async function translateWithTextStream({
 
   const translatedText = await streamBackgroundText(
     {
+      usageFeature: "selectionTranslation",
       providerKind: "local",
       providerId,
       instructions: systemPrompt,
@@ -218,6 +219,7 @@ async function translateWithStandardProvider({
     enableAIContentAware: translateRequest.enableAIContentAware,
     glossaryEnabled: translateRequest.glossaryEnabled,
     extraHashTags: ["selectionTranslation"],
+    usageFeature: "selectionTranslation",
     webPageContext,
   })
 

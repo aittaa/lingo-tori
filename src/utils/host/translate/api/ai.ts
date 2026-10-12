@@ -1,7 +1,9 @@
 import type { LLMProviderConfig } from "@/types/config/provider"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import type { TranslatePromptOptions, TranslatePromptResult } from "@/utils/prompts/translate"
 import { generateText } from "ai"
+import { createApiUsageReporter } from "@/utils/api-usage-tracking"
 import { extractAISDKErrorMessage } from "@/utils/error/extract-message"
 import { getLanguageModelForConfig } from "@/utils/providers/model"
 import { resolveModelId } from "@/utils/providers/model-id"
@@ -23,6 +25,7 @@ export async function aiTranslate<TContext>(
   providerConfig: LLMProviderConfig,
   promptResolver: PromptResolver<TContext>,
   options?: {
+    usageFeature?: ApiUsageFeature
     isBatch?: boolean
     context?: TContext
     signal?: AbortSignal
@@ -40,7 +43,7 @@ export async function aiTranslate<TContext>(
   } = providerConfig
   const reasoning = getTopLevelReasoning(providerConfig)
   const modelName = resolveModelId(providerModel)
-  const model = getLanguageModelForConfig(providerConfig)
+  const model = getLanguageModelForConfig(providerConfig, options?.usageFeature)
 
   const providerOptions = getProviderOptionsWithOverride(
     modelName ?? "",
@@ -50,8 +53,9 @@ export async function aiTranslate<TContext>(
   )
   const { systemPrompt, prompt } = await promptResolver(targetLangName, text, options)
 
+  const reporter = createApiUsageReporter(model, options?.usageFeature)
   try {
-    const { text: translatedText } = await generateText({
+    const { text: translatedText, usage } = await generateText({
       model,
       instructions: systemPrompt,
       prompt,
@@ -62,6 +66,7 @@ export async function aiTranslate<TContext>(
       maxRetries: 0, // Disable SDK built-in retries, let RequestQueue/BatchQueue handle it
     })
 
+    reporter.observe(usage)
     const [, finalTranslation = translatedText] = translatedText.match(THINK_TAG_RE) || []
 
     return finalTranslation
@@ -74,5 +79,7 @@ export async function aiTranslate<TContext>(
     }
 
     throw attachRequestErrorMeta(new Error(message), meta)
+  } finally {
+    reporter.finish()
   }
 }

@@ -8,6 +8,7 @@ import type { Config } from "@/types/config/config"
 import type { TranslationTextFormat } from "@/types/config/translate"
 import type { ProviderRequestRouting } from "@/types/hosted-request"
 import type { ProxyRequest, ProxyResponse } from "@/types/proxy-fetch"
+import type { ApiUsageSnapshot, ApiUsageFeature } from "@/utils/api-usage"
 import type { GlossarySnapshot } from "@/utils/glossary/active-matcher"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import type { PromptableProviderRef, SerializableProviderRef } from "@/utils/providers/provider-ref"
@@ -28,6 +29,7 @@ interface ProtocolMap {
           | "requires-extension-user-action"
       }
   >
+  getApiUsage: () => ApiUsageSnapshot
   // config
   getInitialConfig: () => Config | null
   // glossary — the terms live in IndexedDB, which a content script cannot open,
@@ -81,6 +83,7 @@ interface ProtocolMap {
   // request
   enqueueTranslateRequest: (
     data: ProviderRequestRouting & {
+      usageFeature?: ApiUsageFeature
       text: string
       langConfig: Config["language"]
       scheduleAt: number

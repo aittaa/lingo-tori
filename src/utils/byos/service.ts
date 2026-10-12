@@ -1,6 +1,8 @@
 import type { AuthTransport } from "./transport"
 import type { AuthVault, Credentials, PendingAuth, VaultRecord } from "./vault"
+import type { ReportedTokens } from "@/utils/api-usage-tokens"
 import { z } from "zod"
+import { readResponsesTokens } from "@/utils/api-usage-tokens"
 import { isByosConnectionRefused } from "./browser"
 import {
   abortable,
@@ -26,6 +28,10 @@ export const invokeSchema = z.strictObject({
   text: z.string().min(1).max(50000),
   instructions: z.string().max(30000).optional(),
 })
+export interface ByosInvocationResult {
+  text: string
+  usage?: ReportedTokens
+}
 export type ByosInvocation = z.infer<typeof invokeSchema>
 export const authAttemptIdSchema = z.uuid()
 export const sessionSchema = z.object({
@@ -217,6 +223,7 @@ export function createByosService(
     options: RequestInit = {},
     timeoutMs = 60000,
     revoking = false,
+    onDispatch?: () => void,
   ) {
     if (signingOut && !revoking) fail("session_changed")
     const parsed = new URL(url)
@@ -235,6 +242,13 @@ export function createByosService(
       ...(options.signal ? [options.signal] : []),
     ])
     try {
+      if (!signal.aborted) {
+        try {
+          onDispatch?.()
+        } catch {
+          /* Metering cannot affect BYOS admission or streaming. */
+        }
+      }
       return await abortable(
         fetcher(parsed.href, {
           ...options,
@@ -443,13 +457,13 @@ export function createByosService(
       version: record.tokenVersion,
     }
   }
-  async function authenticated(url: string, options: RequestInit = {}) {
+  async function authenticated(url: string, options: RequestInit = {}, onDispatch?: () => void) {
     let active = await access()
     const send = async () => {
       await ensureGeneration(active.generation)
       const headers = new Headers(options.headers)
       headers.set("Authorization", `Bearer ${active.token}`)
-      return request(url, { ...options, headers })
+      return request(url, { ...options, headers }, 60000, false, onDispatch)
     }
     let response = await send()
     await ensureGeneration(active.generation)
@@ -1003,7 +1017,11 @@ export function createByosService(
       })
       return signingOut
     },
-    async invoke(payload: ByosInvocation, signal?: AbortSignal): Promise<{ text: string }> {
+    async invoke(
+      payload: ByosInvocation,
+      signal?: AbortSignal,
+      onDispatch?: () => void,
+    ): Promise<ByosInvocationResult> {
       signal?.throwIfAborted()
       const input = invokeSchema.parse(payload)
       const streamController = new AbortController()
@@ -1017,18 +1035,22 @@ export function createByosService(
       }
       signal?.addEventListener("abort", markAcceptedAbort, { once: true })
       try {
-        const { response, generation } = await authenticated(`${RESOURCE}/responses`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: input.model,
-            instructions: input.instructions ?? "Translate the supplied text accurately.",
-            input: [{ role: "user", content: input.text }],
-            store: false,
-            stream: true,
-          }),
-          signal: AbortSignal.any([streamController.signal, ...(signal ? [signal] : [])]),
-        })
+        const { response, generation } = await authenticated(
+          `${RESOURCE}/responses`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: input.model,
+              instructions: input.instructions ?? "Translate the supplied text accurately.",
+              input: [{ role: "user", content: input.text }],
+              store: false,
+              stream: true,
+            }),
+            signal: AbortSignal.any([streamController.signal, ...(signal ? [signal] : [])]),
+          },
+          onDispatch,
+        )
         accepted = true
         markAcceptedAbort()
         const streamFailure: (code: string) => never = (code) => {
@@ -1051,6 +1073,7 @@ export function createByosService(
         if (!response.body) streamFailure("invalid_stream_body")
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
+        let reportedUsage: ReportedTokens | undefined
         let buffer = "",
           text = "",
           bytes = 0,
@@ -1072,7 +1095,7 @@ export function createByosService(
             code?: string
             param?: string
             request_id?: string
-            response?: { status?: string; error?: unknown }
+            response?: { status?: string; error?: unknown; usage?: unknown }
           }
           try {
             event = JSON.parse(data)
@@ -1105,6 +1128,7 @@ export function createByosService(
           }
           if (event.type === "response.completed") {
             if (event.response?.status !== "completed") fail("inference_incomplete")
+            reportedUsage = readResponsesTokens(event.response?.usage)
             completed = true
           }
         }
@@ -1138,7 +1162,7 @@ export function createByosService(
           await ensureGeneration(generation)
           signal?.throwIfAborted()
           if (refused) streamFailure("inference_refused")
-          return { text }
+          return { text, ...(reportedUsage ? { usage: reportedUsage } : {}) }
         } catch (error) {
           // This inference already received a successful HTTP response. A failed
           // or interrupted stream may have consumed usage; never replay it

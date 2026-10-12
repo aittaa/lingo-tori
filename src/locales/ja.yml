@@ -83,6 +83,98 @@ options:
     features: 機能
     translation: 翻訳
     product: 製品
+  apiUsage:
+    title: "使用量"
+    description: "機能別のトークンとリクエスト数"
+    refresh: 更新
+    loading: 使用量を読み込み中…
+    unavailable: "使用量を読み込めません。更新してください。"
+    incomplete: "一部の使用量が欠けている可能性があります。"
+    empty: "使用量はまだ記録されていません。"
+    since: 集計開始
+    total: "合計"
+    feature: 機能
+    api: "その他のサービス"
+    byos: "ChatGPT"
+    semantics: "リクエスト数には再試行を含みます。キャッシュされた翻訳はリクエストを送りません。"
+    exclusions: 認証、トークン更新、モデル一覧、接続確認、字幕ダウンロードは除外します。共用・以前のリクエストには機能が混在するバッチや機能ラベルのないリクエストが含まれます。
+    privacy: ローカル数値集計、記録日付、固定プロバイダー種類、安全な公開モデル名または別名だけを保存します。テキスト・URL・任意のユーザー名・キー・トークン・認証情報は保存しません。履歴は自動削除せず、リセット・エクスポートは提供しません。
+    limitations: "使用量はこの端末だけに保存します。過去の記録は復元せず、実行の中断によって欠ける場合があります。"
+    billing: "トークンはサービスが報告した値で、一部欠ける場合があります。—は未報告、割合は報告値を基準にします。費用と残りの上限は表示しません。"
+    history:
+      range7: "7日"
+      range30: "30日"
+      rangeCustom: "期間を選択"
+      share: "割合"
+      noShare: "割合なし（合計が0）"
+      details: "詳細"
+      noUsage: "この期間の使用量は記録されていません。"
+      connection: "接続"
+      partialShare: "報告値のみ"
+      about: "数値について"
+      views: "使用量の表示"
+      viewHistory: "日別使用量"
+      viewLifetime: "全期間のリクエスト"
+      lifetimeNote: "既存の累計リクエストを保持します。以前の回数には日付・モデル・トークン履歴がなく、日別表示へ逆算しません。"
+      byosPriority: "すべてのモデルを表示します。"
+      from: "開始日"
+      to: "終了日"
+      metric: "指標"
+      metrics:
+        inputTokens: "入力トークン"
+        outputTokens: "出力トークン"
+        requests: "リクエスト数"
+      period: "期間"
+      started: "日付・モデル記録の開始 (現地時間)"
+      dateRule: "リクエストは送信日、トークンは結果の受信日で記録します。記録時の端末の現地日付を維持します。"
+      empty: "使用量はまだ記録されていません。"
+      legend: "モデル"
+      visibleTotals: "棒と期間合計には表示中のモデルだけを含めます。非表示モデルは合計からも除外し、トークン合計は報告値だけを含めます。"
+      chartTitle: "日付・モデル別使用量"
+      chartDescription: "日別使用量です。日付やモデルを選択して詳細を表示できます。"
+      dateAxis: "横軸 — この端末に記録したローカル日付"
+      privateModel: "カスタムモデル"
+      selectDetails: "機能詳細を選択"
+      beforeHistory: "以前の履歴なし"
+      noReports: "観測した報告なし"
+      invalidRange: "開始日が終了日より後にならない有効な期間を選んでください。"
+      noVisible: "使用量を見るモデルを選択してください。"
+      olderUnknown: "以前の記録は不明です。記録初日は一部のみの場合があります。"
+      previous: "前の日付"
+      next: "次の日付"
+      pageNote: "グラフは1ページ最大31日を表示し、期間合計は選択した全期間を含めます。"
+      periodDetails: "機能別使用量"
+      clearSelection: "全期間"
+      detailsTitle: "機能別使用量"
+      tableCaption: "入力・出力はプロバイダー報告トークンの合計です。リクエストは実際の fetch 送信試行です。カバレッジは入力報告数/終了した生成結果数、出力報告数/終了した生成結果数の順です。"
+      requests: "リクエスト数"
+      coverage: "入力・出力カバレッジ"
+      unreported: "未集計"
+      partial: "一部"
+      coverageNote: "カバレッジは失敗・キャンセルを含む終了したローカル生成結果を基準とします。全 HTTP 試行のカバレッジではありません。1回の生成で複数の再試行や内部リクエストを送信し、そのトークンが不明な場合があります。"
+      tokenNote: "SDK 正規化入力の合計には報告されたキャッシュ入力が含まれ、再加算しません。出力には推論トークンが含まれる場合があります。欠落フィールド・未対応プロバイダー・usage のないエラーは未集計とし、トークン推定・費用・サブスクリプション残枠は計算しません。"
+      identityNote: "プロバイダー種類・送信方式・ローカル設定別名で同名モデルを区別します。安全な公開モデル名だけを表示し、任意のプロバイダー名・カスタム URL・非公開モデル名は保存しません。日付履歴は自動削除しません。"
+    chart:
+      title: 機能別リクエスト数
+      description: "機能別の実際のリクエスト数"
+      period: 累計の集計期間 (現地時間)
+      axis: リクエスト送信試行 (回)
+      legend: "サービス"
+      byosLegend: "ChatGPT"
+    features:
+      pageTranslation: ページ翻訳 (タイトルを含む)
+      selectionTranslation: 選択テキストの翻訳
+      subtitlesTranslation: 動画字幕の翻訳
+      dictionary: 辞書
+      sentenceAnalysis: 文の解説
+      customAction: カスタム AI アクション
+      noteSuggestion: 読書・ノートの提案
+      pageContext: ページ文脈の要約
+      subtitlesContext: 字幕文脈の要約
+      videoSummary: 動画の要約
+      subtitlesSegmentation: AI 字幕分割
+      languageDetection: AI 言語検出
+      sharedRequests: 共用・以前のリクエスト
   apiProviders:
     title: APIプロバイダー
     pageDescription: LingoTori が呼び出す AI サービスを接続し、各機能で使うものを選びます。

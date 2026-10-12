@@ -4,6 +4,7 @@ export const ROUTE_DEFS = [
   { path: "/preference" },
   { path: "/shortcuts" },
   { path: "/api-providers" },
+  { path: "/api-usage" },
   { path: "/custom-actions" },
   { path: "/page-translation" },
   { path: "/video-subtitles" },

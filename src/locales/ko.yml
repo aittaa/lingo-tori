@@ -83,6 +83,98 @@ options:
     features: 기능
     translation: 번역
     product: 제품
+  apiUsage:
+    title: "사용량"
+    description: "기능별 토큰과 요청 수"
+    refresh: 새로고침
+    loading: 사용량 불러오는 중…
+    unavailable: "사용량을 불러올 수 없습니다. 새로고침해 주세요."
+    incomplete: "일부 사용량이 누락됐을 수 있습니다."
+    empty: "아직 기록된 사용량이 없습니다."
+    since: 집계 시작
+    total: "합계"
+    feature: 기능
+    api: "다른 서비스"
+    byos: "ChatGPT"
+    semantics: "요청 수에는 재시도가 포함됩니다. 캐시된 번역은 요청을 보내지 않습니다."
+    exclusions: 인증, 토큰 갱신, 모델 목록, 연결 확인, 자막 다운로드는 제외합니다. 공용·이전 요청에는 기능이 섞인 배치나 기능 표시가 없는 요청이 포함됩니다.
+    privacy: 로컬 숫자 집계, 기록된 날짜, 고정 제공자 종류, 안전한 공개 모델명 또는 별칭만 저장합니다. 텍스트·URL·임의 사용자 이름·키·토큰·자격 증명은 저장하지 않습니다. 이력을 자동 삭제하지 않으며 초기화·내보내기는 제공하지 않습니다.
+    limitations: "사용량은 이 기기에만 저장됩니다. 이전 기록은 복원하지 않으며 실행 중단으로 누락이 생길 수 있습니다."
+    billing: "토큰은 서비스가 보고한 값이며 일부 누락될 수 있습니다. —는 미보고, 비중은 보고된 값 기준입니다. 비용과 잔여 한도는 제공되지 않습니다."
+    history:
+      range7: "7일"
+      range30: "30일"
+      rangeCustom: "직접 선택"
+      share: "비중"
+      noShare: "비중 없음 (합계가 0)"
+      details: "상세"
+      noUsage: "이 기간에 기록된 사용량이 없습니다."
+      connection: "연결"
+      partialShare: "보고된 값 기준"
+      about: "수치 안내"
+      views: "사용량 보기"
+      viewHistory: "일별 사용량"
+      viewLifetime: "전체 요청 수"
+      lifetimeNote: "기존 누적 요청 집계를 유지합니다. 이전 횟수에는 날짜·모델·토큰 이력이 없으며 날짜별 화면으로 역산하지 않습니다."
+      byosPriority: "모든 모델을 표시합니다."
+      from: "시작 날짜"
+      to: "종료 날짜"
+      metric: "지표"
+      metrics:
+        inputTokens: "입력 토큰"
+        outputTokens: "출력 토큰"
+        requests: "요청 수"
+      period: "기간"
+      started: "날짜·모델별 기록 시작 (현지 시간)"
+      dateRule: "요청은 전송한 날짜, 토큰은 결과를 받은 날짜로 기록합니다. 기록 당시 기기의 현지 날짜를 유지합니다."
+      empty: "아직 기록된 사용량이 없습니다."
+      legend: "모델"
+      visibleTotals: "막대와 기간 합계는 표시한 모델만 포함합니다. 모델을 숨기면 합계에서도 제외하며 토큰 합계에는 보고된 값만 포함합니다."
+      chartTitle: "날짜·모델별 사용량"
+      chartDescription: "날짜별 사용량입니다. 날짜나 모델을 선택하면 상세 내용을 볼 수 있습니다."
+      dateAxis: "가로축 — 이 기기에 기록된 로컬 날짜"
+      privateModel: "사용자 지정 모델"
+      selectDetails: "기능 상세 선택"
+      beforeHistory: "이전 이력 없음"
+      noReports: "관측된 보고 없음"
+      invalidRange: "시작 날짜가 종료 날짜보다 늦지 않은 유효한 기간을 선택하세요."
+      noVisible: "사용량을 볼 모델을 선택하세요."
+      olderUnknown: "이전 기록은 알 수 없습니다. 기록 첫날은 일부만 포함될 수 있습니다."
+      previous: "이전 날짜"
+      next: "다음 날짜"
+      pageNote: "그래프는 페이지당 최대 31일을 표시하고 기간 합계는 선택한 전체 기간을 포함합니다."
+      periodDetails: "기능별 사용량"
+      clearSelection: "전체 기간"
+      detailsTitle: "기능별 사용량"
+      tableCaption: "입력·출력 값은 제공자가 보고한 토큰의 합계입니다. 요청은 실제 fetch 전송 시도입니다. 커버리지는 입력 보고 수/종료된 생성 결과 수, 출력 보고 수/종료된 생성 결과 수 순입니다."
+      requests: "요청 수"
+      coverage: "입력·출력 커버리지"
+      unreported: "미집계"
+      partial: "일부"
+      coverageNote: "커버리지는 실패·취소를 포함해 종료된 로컬 생성 결과를 기준으로 합니다. 모든 HTTP 시도의 커버리지는 아닙니다. 생성 한 번이 재시도·제공자 하위 요청을 여러 번 전송할 수 있으며 그 토큰은 미지원일 수 있습니다."
+      tokenNote: "SDK가 정규화한 입력 합계에 보고된 캐시 입력이 포함되므로 다시 더하지 않습니다. 출력에는 추론 토큰이 포함될 수 있습니다. 누락 필드·미지원 제공자·usage 없는 오류는 미집계로 두며 토큰 추정·비용·구독 할당량을 계산하지 않습니다."
+      identityNote: "제공자 종류·전송 방식·로컬 설정 별칭으로 같은 모델 이름을 구분합니다. 안전한 공개 모델명만 표시하고 임의 제공자 이름·사용자 URL·비공개 모델명은 저장하지 않습니다. 날짜 이력은 자동 삭제하지 않습니다."
+    chart:
+      title: 기능별 요청량
+      description: "기능별 실제 요청 수"
+      period: 누적 집계 기간 (현지 시간)
+      axis: 실제 요청 전송 시도 (회)
+      legend: "서비스"
+      byosLegend: "ChatGPT"
+    features:
+      pageTranslation: 페이지 번역 (제목 포함)
+      selectionTranslation: 선택한 텍스트 번역
+      subtitlesTranslation: 영상 자막 번역
+      dictionary: 사전
+      sentenceAnalysis: 문장 해설
+      customAction: 사용자 정의 AI 액션
+      noteSuggestion: 읽기·노트 제안
+      pageContext: 페이지 문맥 요약
+      subtitlesContext: 자막 문맥 요약
+      videoSummary: 영상 요약
+      subtitlesSegmentation: AI 자막 분할
+      languageDetection: AI 언어 감지
+      sharedRequests: 공용·이전 요청
   apiProviders:
     title: API 제공업체
     pageDescription: LingoTori가 호출하는 AI 서비스를 연결하고, 각 기능에 사용할 서비스를 선택하세요.

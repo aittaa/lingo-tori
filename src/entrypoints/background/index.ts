@@ -9,6 +9,7 @@ import { logger } from "@/utils/logger"
 import { onMessage } from "@/utils/message"
 import { openOptionsPage } from "@/utils/navigation"
 import { runAiSegmentSubtitles } from "./ai-segmentation"
+import { setupApiUsage } from "./api-usage"
 import { dispatchBackgroundStreamPort } from "./background-stream"
 import { initializeActionIcons, registerActionIconListeners } from "./browser-action-icon"
 import { setupByos } from "./byos"
@@ -94,6 +95,7 @@ export default defineBackground({
 
     // Synchronous: all translation and summary handlers register in the first turn of
     // the SW so wake-triggering messages are never dropped during init.
+    setupApiUsage()
     setupPageTranslationHandlers()
     setupSubtitlesTranslationHandlers()
     setupVideoSummaryHandlers()

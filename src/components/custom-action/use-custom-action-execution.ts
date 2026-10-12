@@ -10,8 +10,10 @@ import type {
 import type { Config } from "@/types/config/config"
 import type { AISDKReasoning } from "@/types/config/provider"
 import type { SelectionToolbarCustomAction } from "@/types/config/selection-toolbar"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { CachedWebPageContext } from "@/utils/host/translate/webpage-context"
 import type { CustomActionProviderRef } from "@/utils/providers/provider-registry"
+import { BUILT_IN_ACTION_KEYS, isBuiltInActionId } from "@/utils/constants/custom-action"
 
 export interface SelectionToolbarCustomActionRequestSlice {
   language: Config["language"]
@@ -74,6 +76,7 @@ interface CustomActionExecutionRequest {
   }
   key: string
   payload: {
+    usageFeature?: ApiUsageFeature
     outputSchema: Array<{
       name: string
       type: SelectionToolbarCustomAction["outputSchema"][number]["type"]
@@ -297,6 +300,7 @@ function buildCustomActionExecutionRequest({
       temperature,
     }),
     payload: {
+      usageFeature: isBuiltInActionId(action.id) ? BUILT_IN_ACTION_KEYS[action.id] : "customAction",
       providerId: provider.id,
       instructions: systemPrompt,
       prompt,

@@ -136,6 +136,39 @@ describe("background-stream", () => {
     },
   )
 
+  it.each(["future-feature", null, { unexpected: "metadata" }, 123])(
+    "ignores an unknown telemetry label without rejecting a valid inference (%j)",
+    async (usageFeature) => {
+      streamTextMock.mockReturnValue({
+        stream: (async function* () {
+          yield { type: "text-delta", text: "valid output" }
+          yield { type: "finish", finishReason: "stop" }
+        })(),
+      })
+      const { handleStreamTextPort } = await import("../background-stream")
+      const mockPort = createMockPort("stream-text")
+      handleStreamTextPort(mockPort.port as never)
+      await mockPort.emitMessage({
+        type: "start",
+        streamRequestId: "future-label",
+        payload: {
+          providerKind: "local",
+          providerId: "openai-default",
+          prompt: "valid request",
+          usageFeature,
+        },
+      })
+      expect(getModelByIdMock).toHaveBeenCalledWith("openai-default", "sharedRequests")
+      expect(mockPort.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "done",
+          data: { output: "valid output", thinking: { status: "complete", text: "" } },
+        }),
+      )
+      expect(streamTextMock.mock.calls[0]?.[0]).not.toHaveProperty("usageFeature")
+    },
+  )
+
   it("streams structured object output from background", async () => {
     getModelByIdMock.mockResolvedValue("mock-model")
     streamTextMock.mockReturnValue({
@@ -170,7 +203,7 @@ describe("background-stream", () => {
       },
     )
 
-    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default")
+    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default", "sharedRequests")
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "mock-model",
@@ -336,7 +369,7 @@ describe("background-stream", () => {
       },
     })
 
-    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default")
+    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default", "sharedRequests")
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         instructions: "Be concise",
@@ -401,6 +434,7 @@ describe("background-stream", () => {
       type: "start",
       streamRequestId: "summary-snapshot",
       payload: {
+        usageFeature: "videoSummary",
         providerKind: "local",
         providerId: providerConfig.id,
         providerConfig,
@@ -412,7 +446,7 @@ describe("background-stream", () => {
     })
 
     expect(getModelByIdMock).not.toHaveBeenCalled()
-    expect(getLanguageModelForConfigMock).toHaveBeenCalledWith(providerConfig)
+    expect(getLanguageModelForConfigMock).toHaveBeenCalledWith(providerConfig, "videoSummary")
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "snapshot-model",
@@ -420,6 +454,7 @@ describe("background-stream", () => {
         reasoning: "low",
       }),
     )
+    expect(streamTextMock.mock.calls[0]?.[0]).not.toHaveProperty("usageFeature")
     expect(streamTextMock.mock.calls[0]![0]).not.toHaveProperty("providerConfig")
     expect(mockPort.postMessage).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -706,7 +741,7 @@ describe("background-stream", () => {
       prompt: "Selection context",
     })
 
-    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default")
+    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default", "noteSuggestion")
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "mock-model",

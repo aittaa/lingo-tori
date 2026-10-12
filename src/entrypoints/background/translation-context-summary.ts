@@ -1,4 +1,5 @@
 import type { ProviderRequestRouting } from "@/types/hosted-request"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { PromptableProviderRef } from "@/utils/providers/provider-ref"
 import type { RequestQueue } from "@/utils/request/request-queue"
 import { generateArticleSummary } from "@/utils/content/summary"
@@ -18,6 +19,7 @@ export async function getOrGenerateTranslationContextSummary(
     title: string
     textContent: string
     cacheKeyParts: string[]
+    usageFeature: ApiUsageFeature
     requestQueue: RequestQueue
   },
 ): Promise<string | null> {
@@ -47,7 +49,8 @@ export async function getOrGenerateTranslationContextSummary(
       { providerRef },
       {
         signal,
-        generate: (payload, runOptions) => generateTextForProviderRef(payload, runOptions),
+        generate: (payload, runOptions) =>
+          generateTextForProviderRef(payload, { ...runOptions, usageFeature: args.usageFeature }),
       },
     )
     if (!summary) {
