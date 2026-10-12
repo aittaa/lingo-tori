@@ -1,4 +1,5 @@
 import type { createOpenAI } from "@ai-sdk/openai"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import { z } from "zod"
 import { invokeByos } from "./invoke"
 import { ByosBridgeError } from "./service"
@@ -14,7 +15,11 @@ const usage = {
   },
   outputTokens: { total: undefined, text: undefined, reasoning: undefined },
 }
-export function createByosModel(modelId: string, invoke: Invoker = invokeByos): Model {
+export function createByosModel(
+  modelId: string,
+  invoke: Invoker = invokeByos,
+  usageFeature?: ApiUsageFeature,
+): Model {
   if (!modelId.trim()) throw new ByosBridgeError("model_required")
   async function generate(options: CallOptions) {
     options.abortSignal?.throwIfAborted()
@@ -57,6 +62,7 @@ export function createByosModel(modelId: string, invoke: Invoker = invokeByos): 
         instructions: instructions.join("\n\n"),
       },
       options.abortSignal,
+      usageFeature,
     )
     options.abortSignal?.throwIfAborted()
     if (options.responseFormat?.type === "json") {

@@ -1,6 +1,8 @@
 import type { LangCodeISO6391 } from "@/lib/languages"
 import type { ProviderConfig } from "@/types/config/provider"
 import type { TranslationTextFormat } from "@/types/config/translate"
+import type { ApiUsageFeature } from "@/utils/api-usage"
+import { withApiUsage } from "@/utils/api-usage-tracking"
 
 type DeepLProviderConfig = Extract<ProviderConfig, { provider: "deepl" }>
 
@@ -14,7 +16,11 @@ export async function deeplTranslate(
   fromLang: LangCodeISO6391 | "auto",
   toLang: LangCodeISO6391,
   providerConfig: DeepLProviderConfig,
-  options?: { textFormat?: TranslationTextFormat; signal?: AbortSignal },
+  options?: {
+    usageFeature?: ApiUsageFeature
+    textFormat?: TranslationTextFormat
+    signal?: AbortSignal
+  },
 ): Promise<string> {
   const [translatedText] = await requestDeepLTranslations(
     [sourceText],
@@ -36,7 +42,11 @@ async function requestDeepLTranslations(
   fromLang: LangCodeISO6391 | "auto",
   toLang: LangCodeISO6391,
   providerConfig: DeepLProviderConfig,
-  options?: { textFormat?: TranslationTextFormat; signal?: AbortSignal },
+  options?: {
+    usageFeature?: ApiUsageFeature
+    textFormat?: TranslationTextFormat
+    signal?: AbortSignal
+  },
 ): Promise<string[]> {
   const apiKey = providerConfig.apiKey?.trim()
   if (!apiKey) {
@@ -54,7 +64,13 @@ async function requestDeepLTranslations(
     ...(options?.textFormat === "html" ? { tag_handling: "html" } : {}),
   })
 
-  const fetchResponse = await fetchDirect(url, apiKey, requestBody, options?.signal)
+  const fetchResponse = await fetchDirect(
+    url,
+    apiKey,
+    requestBody,
+    options?.signal,
+    options?.usageFeature,
+  )
 
   return await parseDeepLResponse(fetchResponse, sourceTexts.length)
 }
@@ -64,8 +80,9 @@ async function fetchDirect(
   apiKey: string,
   body: string,
   signal?: AbortSignal,
+  usageFeature?: ApiUsageFeature,
 ): Promise<Response> {
-  const resp = await fetch(url, {
+  const resp = await (usageFeature ? withApiUsage(usageFeature) : fetch)(url, {
     method: "POST",
     headers: {
       Authorization: `DeepL-Auth-Key ${apiKey}`,

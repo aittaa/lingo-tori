@@ -170,7 +170,7 @@ describe("background-stream", () => {
       },
     )
 
-    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default")
+    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default", "sharedRequests")
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "mock-model",
@@ -336,7 +336,7 @@ describe("background-stream", () => {
       },
     })
 
-    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default")
+    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default", "sharedRequests")
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         instructions: "Be concise",
@@ -412,7 +412,10 @@ describe("background-stream", () => {
     })
 
     expect(getModelByIdMock).not.toHaveBeenCalled()
-    expect(getLanguageModelForConfigMock).toHaveBeenCalledWith(providerConfig)
+    expect(getLanguageModelForConfigMock).toHaveBeenCalledWith(
+      providerConfig,
+      "selectionTranslation",
+    )
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "snapshot-model",
@@ -706,7 +709,7 @@ describe("background-stream", () => {
       prompt: "Selection context",
     })
 
-    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default")
+    expect(getModelByIdMock).toHaveBeenCalledWith("openai-default", "noteSuggestion")
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "mock-model",

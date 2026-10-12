@@ -3,6 +3,7 @@ import type { Config } from "@/types/config/config"
 import type { TranslateProviderConfig } from "@/types/config/provider"
 import type { TranslationTextFormat } from "@/types/config/translate"
 import type { WebPagePromptContext } from "@/types/content"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import type { SerializableProviderRef } from "@/utils/providers/provider-ref"
 import type { ResolvedProviderRef } from "@/utils/providers/provider-registry"
@@ -161,6 +162,7 @@ export async function resolvePageProviderRef<T extends TranslateProviderConfig>(
 }
 
 export interface TranslateTextOptions {
+  usageFeature?: ApiUsageFeature
   text: string
   langConfig: {
     sourceCode: LangCodeISO6393 | "auto"
@@ -197,6 +199,7 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
     providerConfig,
     enableAIContentAware = false,
     extraHashTags = [],
+    usageFeature = "pageTranslation",
     webPageContext,
     textFormat = "plain",
     preserveLineBreaks = false,
@@ -279,6 +282,7 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
 
   const result = await sendMessage("enqueueTranslateRequest", {
     text: preparedText,
+    usageFeature,
     langConfig,
     providerRef,
     scheduleAt: Date.now(),

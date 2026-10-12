@@ -51,6 +51,7 @@ export function setupSubtitlesTranslationHandlers(): void {
 
     if (shouldUseBatchQueue(providerRef)) {
       const data = {
+        usageFeature: "subtitlesTranslation" as const,
         text,
         langConfig,
         provider: providerRef,
@@ -67,6 +68,7 @@ export function setupSubtitlesTranslationHandlers(): void {
       const localConfig = getLocalProviderConfig(providerRef)
       const thunk = (signal?: AbortSignal) =>
         executeTranslate(text, langConfig, localConfig, getSubtitlesTranslatePrompt, {
+          usageFeature: "subtitlesTranslation",
           signal,
           glossaryTerms,
         })
@@ -103,6 +105,7 @@ export function setupSubtitlesTranslationHandlers(): void {
       // transcript identifies it, and including a title that players mutate
       // would miss the cache on every re-render.
       cacheKeyParts: [Sha256Hex(cleanText(subtitlesContext))],
+      usageFeature: "subtitlesContext",
       requestQueue,
     })
   })

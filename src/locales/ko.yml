@@ -87,6 +87,38 @@ options:
     product: 제품
   tools:
     translationHub: 번역 허브
+  apiUsage:
+    title: API 사용량
+    description: 이 기기에서 기능별로 전송을 시도한 요청의 누적 횟수입니다.
+    refresh: 새로고침
+    loading: 사용량 불러오는 중…
+    unavailable: 사용량을 불러올 수 없습니다. 새로고침해 다시 시도하세요. 기존 집계는 유지됩니다.
+    incomplete: 이번 백그라운드 실행 중 일부 집계를 저장하지 못했습니다. 누적 횟수가 불완전할 수 있습니다.
+    empty: 아직 기록된 요청이 없습니다. 이 버전부터 집계하며 이전 사용 내역은 알 수 없습니다.
+    since: 집계 시작
+    total: 총 전송 시도
+    feature: 기능
+    api: API / 로컬 엔드포인트
+    byos: ChatGPT 구독 (BYOS)
+    semantics: fetch 전송 시도마다 1회로 세며 재시도와 전송 후 실패·취소된 요청도 포함합니다. 배치는 텍스트 수와 관계없이 요청 1회입니다. 캐시 적중과 전송 전 취소는 세지 않습니다. 서버 수신이나 결과 성공을 확인하는 수치는 아닙니다.
+    exclusions: 인증, 토큰 갱신, 모델 목록, 연결 확인, 자막 다운로드는 제외합니다. 공용·이전 요청에는 기능이 섞인 배치나 기능 표시가 없는 요청이 포함됩니다. 번역 허브는 제외합니다.
+    privacy: 고정된 기능별 횟수와 첫 집계 날짜만 로컬에 저장합니다. 이 페이지는 텍스트, URL, 제공자 이름, 키, 토큰을 저장하지 않습니다. 기간 제한 없이 재시작 후에도 누적 합계를 유지하며 초기화·내보내기는 제공하지 않습니다.
+    limitations: 요청을 지연시키지 않고 백그라운드에서 집계를 저장합니다. 백그라운드가 갑자기 종료되거나 저장에 실패하면 전송한 요청 일부가 저장되지 않을 수 있습니다. 로컬 활동 집계이며 청구 내역은 아닙니다.
+    billing: 토큰 사용량과 비용은 여기서 알 수 없습니다. BYOS 요청은 별도로 표시하며 API 청구나 남은 구독 할당량을 나타내지 않습니다.
+    features:
+      pageTranslation: 페이지 번역 (제목 포함)
+      selectionTranslation: 선택한 텍스트 번역
+      subtitlesTranslation: 영상 자막 번역
+      dictionary: 사전
+      sentenceAnalysis: 문장 해설
+      customAction: 사용자 정의 AI 액션
+      noteSuggestion: 읽기·노트 제안
+      pageContext: 페이지 문맥 요약
+      subtitlesContext: 자막 문맥 요약
+      videoSummary: 영상 요약
+      subtitlesSegmentation: AI 자막 분할
+      languageDetection: AI 언어 감지
+      sharedRequests: 공용·이전 요청
   apiProviders:
     title: API 제공업체
     pageDescription: LingoTori가 호출하는 AI 서비스를 연결하고, 각 기능에 사용할 서비스를 선택하세요.

@@ -19,6 +19,7 @@ import type {
   ThinkingSnapshot,
 } from "@/types/background-stream"
 import type { TranslateProviderConfig } from "@/types/config/provider"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { ErrorAction } from "@/utils/error-action"
 import { generateText, Output, parsePartialJson, streamText } from "ai"
 import { z } from "zod"
@@ -27,6 +28,7 @@ import { isLLMProviderConfig, llmProviderConfigItemSchema } from "@/types/config
 import { selectionToolbarCustomActionOutputTypeSchema } from "@/types/config/selection-toolbar"
 import { createStructuredObjectSchema } from "@/utils/ai/structured-object-schema"
 import { classifyFailureReason } from "@/utils/analytics-failure-reason"
+import { apiUsageFeatureSchema } from "@/utils/api-usage"
 import { extractAISDKErrorMessage } from "@/utils/error/extract-message"
 import { logger } from "@/utils/logger"
 import { noteSuggestionEnvelopeSchema } from "@/utils/note-suggestion/types"
@@ -58,7 +60,9 @@ const streamPortStartEnvelopeSchema = z.object({
   payload: z.unknown(),
 })
 
-const baseStreamPayloadSchema = z.object({ providerId: z.string().trim().min(1) }).loose()
+const baseStreamPayloadSchema = z
+  .object({ providerId: z.string().trim().min(1), usageFeature: apiUsageFeatureSchema.optional() })
+  .loose()
 
 const streamTextPayloadSchema = baseStreamPayloadSchema
   .extend({
@@ -75,6 +79,7 @@ const structuredObjectFieldSchema = z.object({
 const structuredObjectPayloadSchema = z
   .object({
     providerId: z.string().trim().min(1),
+    usageFeature: apiUsageFeatureSchema.optional(),
     outputSchema: z.array(structuredObjectFieldSchema).min(1),
   })
   .loose()
@@ -515,13 +520,14 @@ async function createLocalTextPartStream(
     providerKind: _providerKind,
     providerId,
     providerConfig,
+    usageFeature = "sharedRequests",
     ...streamTextParams
   } = serializablePayload
   const { signal, onError } = options
 
   const model = providerConfig
-    ? getLanguageModelForConfig(providerConfig)
-    : await getModelById(providerId)
+    ? getLanguageModelForConfig(providerConfig, usageFeature)
+    : await getModelById(providerId, usageFeature)
   const result = streamText({
     ...(streamTextParams as Parameters<typeof streamText>[0]),
     ...(providerConfig ? buildLocalGenerateTextParams(providerConfig) : {}),
@@ -537,7 +543,7 @@ async function createLocalTextPartStream(
 
 export async function generateTextForProviderRef(
   payload: BackgroundGenerateTextPayload,
-  options: { signal?: AbortSignal } = {},
+  options: { signal?: AbortSignal; usageFeature?: ApiUsageFeature } = {},
 ): Promise<string> {
   const { providerRef, instructions, prompt, maxRetries } = payload
   const { signal } = options
@@ -563,7 +569,7 @@ export async function generateTextForProviderRef(
   // pair a model from the current row with reasoning/temperature/providerOptions
   // computed from the snapshot the caller captured — and would fail outright
   // for a row deleted from another tab while the config was already in hand.
-  const model = getLanguageModelForConfig(providerRef.config)
+  const model = getLanguageModelForConfig(providerRef.config, options.usageFeature)
   const { text } = await generateText({
     model,
     instructions,
@@ -603,10 +609,15 @@ async function createLocalStructuredObjectPartStream<TOutput extends Record<stri
   objectSchema: z.ZodType<TOutput>,
   options: StreamRuntimeOptions<BackgroundStructuredObjectStreamSnapshot> = {},
 ): Promise<AsyncIterable<unknown>> {
-  const { providerId, outputSchema: _outputSchema, ...streamParams } = serializablePayload
+  const {
+    providerId,
+    outputSchema: _outputSchema,
+    usageFeature = "sharedRequests",
+    ...streamParams
+  } = serializablePayload
   const { signal, onError } = options
 
-  const model = await getModelById(providerId)
+  const model = await getModelById(providerId, usageFeature)
   const result = streamText({
     ...(streamParams as Parameters<typeof streamText>[0]),
     model,
@@ -665,7 +676,7 @@ export async function runNoteSuggestionStreamInBackground(
   }
 
   const partStream = await createLocalStructuredObjectPartStream(
-    serializablePayload,
+    { ...serializablePayload, usageFeature: "noteSuggestion" },
     noteSuggestionEnvelopeSchema,
     { signal, onError },
   )

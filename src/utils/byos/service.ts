@@ -216,6 +216,7 @@ export function createByosService(
     options: RequestInit = {},
     timeoutMs = 60000,
     revoking = false,
+    onDispatch?: () => void,
   ) {
     if (signingOut && !revoking) fail("session_changed")
     const parsed = new URL(url)
@@ -234,6 +235,13 @@ export function createByosService(
       ...(options.signal ? [options.signal] : []),
     ])
     try {
+      if (!signal.aborted) {
+        try {
+          onDispatch?.()
+        } catch {
+          /* Metering cannot affect BYOS admission or streaming. */
+        }
+      }
       return await abortable(
         fetcher(parsed.href, {
           ...options,
@@ -442,13 +450,13 @@ export function createByosService(
       version: record.tokenVersion,
     }
   }
-  async function authenticated(url: string, options: RequestInit = {}) {
+  async function authenticated(url: string, options: RequestInit = {}, onDispatch?: () => void) {
     let active = await access()
     const send = async () => {
       await ensureGeneration(active.generation)
       const headers = new Headers(options.headers)
       headers.set("Authorization", `Bearer ${active.token}`)
-      return request(url, { ...options, headers })
+      return request(url, { ...options, headers }, 60000, false, onDispatch)
     }
     let response = await send()
     await ensureGeneration(active.generation)
@@ -1002,7 +1010,11 @@ export function createByosService(
       })
       return signingOut
     },
-    async invoke(payload: ByosInvocation, signal?: AbortSignal): Promise<{ text: string }> {
+    async invoke(
+      payload: ByosInvocation,
+      signal?: AbortSignal,
+      onDispatch?: () => void,
+    ): Promise<{ text: string }> {
       signal?.throwIfAborted()
       const input = invokeSchema.parse(payload)
       const streamController = new AbortController()
@@ -1016,18 +1028,22 @@ export function createByosService(
       }
       signal?.addEventListener("abort", markAcceptedAbort, { once: true })
       try {
-        const { response, generation } = await authenticated(`${RESOURCE}/responses`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: input.model,
-            instructions: input.instructions ?? "Translate the supplied text accurately.",
-            input: [{ role: "user", content: input.text }],
-            store: false,
-            stream: true,
-          }),
-          signal: AbortSignal.any([streamController.signal, ...(signal ? [signal] : [])]),
-        })
+        const { response, generation } = await authenticated(
+          `${RESOURCE}/responses`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: input.model,
+              instructions: input.instructions ?? "Translate the supplied text accurately.",
+              input: [{ role: "user", content: input.text }],
+              store: false,
+              stream: true,
+            }),
+            signal: AbortSignal.any([streamController.signal, ...(signal ? [signal] : [])]),
+          },
+          onDispatch,
+        )
         accepted = true
         markAcceptedAbort()
         const streamFailure: (code: string) => never = (code) => {

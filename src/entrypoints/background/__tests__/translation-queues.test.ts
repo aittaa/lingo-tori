@@ -156,6 +156,54 @@ describe("translation queue helpers", () => {
     })
   })
 
+  it("attributes one homogeneous batch without counting each member", async () => {
+    const { executeBatchTranslation } = await import("../translation-queues")
+    const member = (text: string) => ({
+      provider: localProviderRef(llmProvider),
+      usageFeature: "pageTranslation" as const,
+      text,
+      langConfig: DEFAULT_CONFIG.language,
+      hash: text,
+      scheduleAt: 0,
+    })
+    await executeBatchTranslation([member("one"), member("two")], async () => ({
+      systemPrompt: "Translate",
+      prompt: "source",
+    }))
+    expect(executeTranslateMock).toHaveBeenCalledTimes(1)
+    expect(executeTranslateMock.mock.calls[0]?.[4]).toMatchObject({
+      isBatch: true,
+      usageFeature: "pageTranslation",
+    })
+  })
+
+  it("keeps mixed batches intact and assigns their single dispatch to shared requests", async () => {
+    const { executeBatchTranslation, getQueuedTranslationRouting } =
+      await import("../translation-queues")
+    const member = {
+      provider: localProviderRef(llmProvider),
+      text: "one",
+      langConfig: DEFAULT_CONFIG.language,
+      hash: "one",
+      scheduleAt: 0,
+    }
+    await executeBatchTranslation(
+      [
+        { ...member, usageFeature: "pageTranslation" },
+        { ...member, text: "two", hash: "two", usageFeature: "selectionTranslation" },
+      ],
+      async () => ({ systemPrompt: "Translate", prompt: "source" }),
+    )
+    expect(executeTranslateMock).toHaveBeenCalledTimes(1)
+    expect(executeTranslateMock.mock.calls[0]?.[4]).toMatchObject({
+      isBatch: true,
+      usageFeature: "sharedRequests",
+    })
+    expect(
+      getQueuedTranslationRouting({ providerRef: localProviderRef(llmProvider) }).usageFeature,
+    ).toBe("sharedRequests")
+  })
+
   it("routes only llm providers through the batch queue", async () => {
     const { shouldUseBatchQueue } = await import("../translation-queues")
 

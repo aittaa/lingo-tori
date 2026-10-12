@@ -1,6 +1,8 @@
 import type { Config } from "@/types/config/config"
 import { browser } from "wxt/browser"
 import { storage } from "#imports"
+import { apiUsageFeatureSchema } from "@/utils/api-usage"
+import { recordApiUsageAttempt } from "@/utils/api-usage-tracking"
 import { createByosJobRegistry } from "@/utils/byos/cancellation"
 import { installByosBackgroundInvoker } from "@/utils/byos/invoke"
 import { onByosMessage } from "@/utils/byos/messages"
@@ -41,7 +43,11 @@ export function setupByos() {
   })
   const privatePage = (sender: { id?: string; url?: string }) =>
     assertByosSender(sender, browser.runtime.id, browser.runtime.getURL("/options.html"))
-  const invoke: Parameters<typeof installByosBackgroundInvoker>[0] = async (payload, signal) => {
+  const invoke: Parameters<typeof installByosBackgroundInvoker>[0] = async (
+    payload,
+    signal,
+    usageFeature,
+  ) => {
     const request = invokeSchema.parse(payload)
     const config = await storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`)
     if (
@@ -53,7 +59,12 @@ export function setupByos() {
       )
     )
       throw new Error("Enable and select a BYOS model in Settings first")
-    return service.invoke(request, signal)
+    const feature = apiUsageFeatureSchema.safeParse(usageFeature).data
+    return service.invoke(
+      request,
+      signal,
+      feature ? () => recordApiUsageAttempt(feature, "byos") : undefined,
+    )
   }
   installByosBackgroundInvoker(invoke)
   onByosMessage("lingotoriByosStatus", ({ sender }) => {
@@ -84,6 +95,8 @@ export function setupByos() {
   const jobs = createByosJobRegistry(browser.runtime.id)
   onByosMessage("lingotoriByosCancel", ({ sender, data }) => jobs.cancel(sender, data))
   onByosMessage("lingotoriByosInvoke", ({ sender, data }) =>
-    jobs.invoke(sender, data.requestId, (signal) => invoke(data.payload, signal)),
+    jobs.invoke(sender, data.requestId, (signal) =>
+      invoke(data.payload, signal, data.usageFeature),
+    ),
   )
 }

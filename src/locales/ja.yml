@@ -87,6 +87,38 @@ options:
     product: 製品
   tools:
     translationHub: 翻訳ハブ
+  apiUsage:
+    title: API 使用量
+    description: この端末で機能ごとに送信を試みたリクエストの累計です。
+    refresh: 更新
+    loading: 使用量を読み込み中…
+    unavailable: 使用量を読み込めません。更新して再試行してください。既存の集計は保持されます。
+    incomplete: 今回のバックグラウンド実行中に一部の集計を保存できませんでした。累計が不完全な可能性があります。
+    empty: まだリクエストは記録されていません。このバージョンから集計し、以前の利用履歴は不明です。
+    since: 集計開始
+    total: 送信試行の合計
+    feature: 機能
+    api: API / ローカルエンドポイント
+    byos: ChatGPT サブスクリプション (BYOS)
+    semantics: fetch の送信試行ごとに1回と数え、再試行と送信後に失敗・キャンセルされたリクエストも含みます。バッチはテキスト数に関係なく1回です。キャッシュのヒットと送信前のキャンセルは数えません。サーバーの受信や結果の成功を確認する数値ではありません。
+    exclusions: 認証、トークン更新、モデル一覧、接続確認、字幕ダウンロードは除外します。共用・以前のリクエストには機能が混在するバッチや機能ラベルのないリクエストが含まれます。翻訳ハブは除外します。
+    privacy: 固定の機能別回数と最初の集計日だけをローカルに保存します。このページはテキスト、URL、プロバイダー名、キー、トークンを保存しません。期間制限なく再起動後も累計を保持し、リセット・エクスポートは提供しません。
+    limitations: リクエストを遅らせずバックグラウンドで集計を保存します。突然の終了や保存エラーにより送信した一部の試行が保存されない場合があります。ローカルの活動集計であり、請求記録ではありません。
+    billing: トークン使用量と費用はここでは不明です。BYOS の試行は別に表示し、API 請求やサブスクリプションの残り枠を表しません。
+    features:
+      pageTranslation: ページ翻訳 (タイトルを含む)
+      selectionTranslation: 選択テキストの翻訳
+      subtitlesTranslation: 動画字幕の翻訳
+      dictionary: 辞書
+      sentenceAnalysis: 文の解説
+      customAction: カスタム AI アクション
+      noteSuggestion: 読書・ノートの提案
+      pageContext: ページ文脈の要約
+      subtitlesContext: 字幕文脈の要約
+      videoSummary: 動画の要約
+      subtitlesSegmentation: AI 字幕分割
+      languageDetection: AI 言語検出
+      sharedRequests: 共用・以前のリクエスト
   apiProviders:
     title: APIプロバイダー
     pageDescription: LingoTori が呼び出す AI サービスを接続し、各機能で使うものを選びます。

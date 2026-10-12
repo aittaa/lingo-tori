@@ -74,13 +74,16 @@ export async function runAiSegmentSubtitles(data: AiSegmentSubtitlesData): Promi
   const { systemPrompt, prompt } = getSubtitlesSegmentationPrompt(jsonContent)
 
   try {
-    const segmentedVtt = await generateTextForProviderRef({
-      providerRef,
-      // Its own route, not videoSubtitles: segmentation emits a whole WebVTT
-      // block and needs the wider output budget that route reserves.
-      instructions: systemPrompt,
-      prompt,
-    })
+    const segmentedVtt = await generateTextForProviderRef(
+      {
+        providerRef,
+        // Its own route, not videoSubtitles: segmentation emits a whole WebVTT
+        // block and needs the wider output budget that route reserves.
+        instructions: systemPrompt,
+        prompt,
+      },
+      { usageFeature: "subtitlesSegmentation" },
+    )
 
     const result = cleanVttResponse(segmentedVtt)
 

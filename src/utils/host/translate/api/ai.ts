@@ -1,4 +1,5 @@
 import type { LLMProviderConfig } from "@/types/config/provider"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import type { TranslatePromptOptions, TranslatePromptResult } from "@/utils/prompts/translate"
 import { generateText } from "ai"
@@ -23,6 +24,7 @@ export async function aiTranslate<TContext>(
   providerConfig: LLMProviderConfig,
   promptResolver: PromptResolver<TContext>,
   options?: {
+    usageFeature?: ApiUsageFeature
     isBatch?: boolean
     context?: TContext
     signal?: AbortSignal
@@ -40,7 +42,7 @@ export async function aiTranslate<TContext>(
   } = providerConfig
   const reasoning = getTopLevelReasoning(providerConfig)
   const modelName = resolveModelId(providerModel)
-  const model = getLanguageModelForConfig(providerConfig)
+  const model = getLanguageModelForConfig(providerConfig, options?.usageFeature)
 
   const providerOptions = getProviderOptionsWithOverride(
     modelName ?? "",

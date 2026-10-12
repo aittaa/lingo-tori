@@ -3,10 +3,12 @@ import type { Browser } from "#imports"
 import type { AnalyticsFailureReason } from "@/types/analytics"
 import type { AISDKReasoning, LLMProviderConfig } from "@/types/config/provider"
 import type { SelectionToolbarCustomActionOutputType } from "@/types/config/selection-toolbar"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { ErrorAction } from "@/utils/error-action"
 import type { NoteSuggestionEnvelope } from "@/utils/note-suggestion/types"
 
 interface BaseBackgroundStreamSerializablePayload {
+  usageFeature?: ApiUsageFeature
   providerId: string
   instructions?: string
   prompt?: string

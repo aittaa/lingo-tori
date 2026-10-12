@@ -87,6 +87,38 @@ options:
     product: Product
   tools:
     translationHub: Translation Hub
+  apiUsage:
+    title: API Usage
+    description: Cumulative outbound request attempts by feature on this device.
+    refresh: Refresh
+    loading: Loading usage…
+    unavailable: Usage is unavailable. Refresh to try again; existing counters are preserved.
+    incomplete: Some counters could not be saved in this worker session. Totals may be incomplete.
+    empty: No recorded requests yet. Counting starts with this version; earlier activity is unavailable.
+    since: Counting since
+    total: Total attempts
+    feature: Feature
+    api: API / local endpoint
+    byos: ChatGPT subscription (BYOS)
+    semantics: Each fetch dispatch is one attempt, including retries and requests that later fail or are cancelled. A batch is one request, regardless of text count. Cache hits and cancellation before dispatch do not count. Counts do not confirm server acceptance or successful output.
+    exclusions: Authentication, token refresh, model lists, connection checks and subtitle downloads are excluded. Shared / older requests cover mixed batches or callers without a feature label. Translation Hub is excluded.
+    privacy: Only fixed feature counters and the first counting date are saved locally. No text, URLs, provider names, keys or tokens are stored by this page. Totals persist across restarts without a history limit; reset and export are not provided.
+    limitations: Storage writes happen in the background without delaying requests. Abrupt worker termination or storage failure can leave a dispatched attempt unsaved. This is a local activity counter, not a billing record.
+    billing: Token usage and cost are unavailable here. BYOS attempts are shown separately and do not represent API billing or remaining subscription quota.
+    features:
+      pageTranslation: Page translation (including titles)
+      selectionTranslation: Selected-text translation
+      subtitlesTranslation: Video subtitle translation
+      dictionary: Dictionary
+      sentenceAnalysis: Sentence explanation
+      customAction: Custom AI actions
+      noteSuggestion: Reading / note suggestions
+      pageContext: Page context summary
+      subtitlesContext: Subtitle context summary
+      videoSummary: Video summary
+      subtitlesSegmentation: AI subtitle segmentation
+      languageDetection: AI language detection
+      sharedRequests: Shared / older requests
   apiProviders:
     title: API Providers
     pageDescription: Connect the AI services LingoTori calls, then choose which one runs each feature.

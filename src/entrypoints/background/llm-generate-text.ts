@@ -12,7 +12,7 @@ export async function runGenerateTextInBackground(
   if (payload.providerRef?.kind !== "local" || !payload.providerRef.config) {
     throw new Error("A configured local provider is required")
   }
-  return { text: await generateTextForProviderRef(payload) }
+  return { text: await generateTextForProviderRef(payload, { usageFeature: "languageDetection" }) }
 }
 
 export function setupLLMGenerateTextMessageHandlers() {
