@@ -752,7 +752,7 @@ export function SelectionTranslationProvider({ children }: { children: ReactNode
           finalFocus={false}
         >
           <SelectionPopover.Header className="border-b">
-            <SelectionToolbarTitleContent title="Translation" icon="ri:translate" />
+            <SelectionToolbarTitleContent title="Translation" icon="tabler:language" />
             <div className="flex items-center gap-1">
               <TargetLanguageSelector />
               <SelectionPopover.Pin />
