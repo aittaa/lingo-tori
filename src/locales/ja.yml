@@ -39,8 +39,6 @@ popup:
       translationOnly:
         current: 現在は翻訳のみ
         action: クリックしてバイリンガルへ切り替え
-  hub:
-    tooltip: 複数の翻訳モデルで同時にテキストを翻訳
   aiSmartContext: AI スマートコンテキスト
   aiSmartContextDescription: ウェブページのコンテキストを使用して翻訳品質を向上させます。LLM翻訳プロバイダーが必要です。
   more:
@@ -85,8 +83,6 @@ options:
     features: 機能
     translation: 翻訳
     product: 製品
-  tools:
-    translationHub: 翻訳ハブ
   apiProviders:
     title: APIプロバイダー
     pageDescription: LingoTori が呼び出す AI サービスを接続し、各機能で使うものを選びます。
@@ -377,9 +373,6 @@ options:
     nodeTranslation:
       title: 段落翻訳
       description: 段落にホバーまたは長押しすると、その段落だけ翻訳します。
-    translationHub:
-      title: 翻訳ハブ
-      description: 翻訳ハブを新しいタブで開きます。
     actions:
       title: "AI アクション"
       description: "選択したテキストに AI アクションを実行します。カスタムアクションには最初はショートカットがないので、ここで設定してください。"
@@ -1178,6 +1171,8 @@ noAPIKeyConfig:
 languageDetection:
   llmFailed: LLM言語検出に失敗しました。基本検出にフォールバックしました
 translation:
+  failed: 翻訳に失敗しました
+  failedFallback: 翻訳に失敗しました
   sameLanguage: ソース言語とターゲット言語は異なる必要があります
   autoModeSameLanguage: 検出された言語 '$1' はターゲット言語と同じです
   extensionContextInvalidated: 拡張機能が更新されました。このページを再読み込みしてからもう一度お試しください。
@@ -1280,25 +1275,9 @@ hotkey:
   shift: Shift
   backtick: バッククォート
   clickAndHold: クリックして長押し
-translationHub:
-  searchLanguages: 言語を検索...
-  noLanguagesFound: 言語が見つかりません
-  exchangeLanguages: 言語を入れ替える
-  title: マルチAPI テキスト翻訳
-  noServicesSelected: 翻訳サービスが選択されていません
-  noServicesDescription: 上から翻訳サービスを選択して、翻訳カードを表示してください。
-  inputPlaceholder: 翻訳するテキストを入力...
-  translate: 翻訳
-  copiedToClipboard: 翻訳をクリップボードにコピーしました！
-  copyTranslation: 翻訳をコピー
-  expandCard: カードを展開
-  collapseCard: カードを折りたたむ
-  expandAllCards: すべて展開
-  collapseAllCards: すべて折りたたむ
-  deleteCard: カードを削除
-  translationFailed: 翻訳に失敗しました
-  translationFailedFallback: 翻訳に失敗しました
-  retryTranslation: 翻訳を再試行
+languageSearch:
+  placeholder: 言語を検索...
+  noResults: 言語が見つかりません
 languages:
   eng: 英語
   cmn: 簡体字中国語

@@ -25,13 +25,13 @@ export function isAbortError(error: unknown) {
 
 function getErrorTitle(kind: SelectionToolbarErrorKind) {
   return kind === "translate"
-    ? i18n.t("translationHub.translationFailed")
+    ? i18n.t("translation.failed")
     : i18n.t("options.selectionToolbar.errors.customActionFailed")
 }
 
 function getErrorFallbackDescription(kind: SelectionToolbarErrorKind) {
   return kind === "translate"
-    ? i18n.t("translationHub.translationFailedFallback")
+    ? i18n.t("translation.failedFallback")
     : i18n.t("options.selectionToolbar.errors.customActionFailedFallback")
 }
 

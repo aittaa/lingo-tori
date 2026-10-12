@@ -1,6 +1,5 @@
 import { Icon } from "@iconify/react"
 import { Link, useLocation } from "react-router"
-import { browser } from "#imports"
 import {
   Collapsible,
   CollapsibleContent,
@@ -17,14 +16,12 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/base-ui/sidebar"
-import { TRANSLATION_HUB_PAGE_PATH } from "@/utils/constants/translation-hub"
 import { i18n } from "@/utils/i18n"
 
 const OVERLAY_TOOLS_PATHS = ["/floating-button", "/selection-toolbar", "/context-menu"] as const
 /**
- * The three places a translation happens. Grouped because they are one feature
- * seen in three surfaces — a page, a video, a text box — and listing them flat
- * put three of the eight top-level entries on the same subject.
+ * Page and video translation settings share a group. Selected-text translation
+ * is configured under the selection toolbar.
  *
  * `startsWith`, because two of them own detail pages (`/page-translation/prompts`
  * and the rest), and the group has to stay lit while one is open.
@@ -65,8 +62,7 @@ export function FeaturesNav() {
                   />
                 }
               >
-                {/* Page translation's own icon stands for the group: it is the
-                    feature the other two are variations of. */}
+                {/* Page translation's icon also represents the subtitle settings. */}
                 <Icon icon="ri:translate" />
                 <span>{i18n.t("options.sidebar.translation")}</span>
                 <Icon
@@ -145,21 +141,6 @@ export function FeaturesNav() {
             </SidebarMenuItem>
           </Collapsible>
 
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={
-                <a
-                  href={browser.runtime.getURL(TRANSLATION_HUB_PAGE_PATH)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                />
-              }
-              tooltip={i18n.t("options.tools.translationHub")}
-            >
-              <Icon icon="tabler:language-hiragana" />
-              <span>{i18n.t("options.tools.translationHub")}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <Collapsible defaultOpen={isAdvancedActive} className="group/collapsible">
             <SidebarMenuItem>
               <CollapsibleTrigger
