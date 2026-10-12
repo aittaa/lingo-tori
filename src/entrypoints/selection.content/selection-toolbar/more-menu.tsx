@@ -18,10 +18,10 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { Icon } from "@iconify/react"
-import { RiTranslate } from "@remixicon/react"
 import {
   IconDotsVertical,
   IconGripVertical,
+  IconLanguage,
   IconPin,
   IconPinnedFilled,
   IconPlus,
@@ -291,7 +291,7 @@ function MoreMenuItemIcon({ item }: { item: SelectionToolbarItem }) {
     return <Icon icon={item.action.icon} strokeWidth={0.8} className={className} />
   }
   if (item.id === "translate") {
-    return <RiTranslate className={className} />
+    return <IconLanguage className={className} />
   }
   return null
 }

@@ -1,4 +1,4 @@
-import { RiTranslate } from "@remixicon/react"
+import { IconLanguage } from "@tabler/icons-react"
 import { useAtomValue } from "jotai"
 import { SelectionPopover } from "@/components/ui/selection-popover"
 import { SelectionToolbarTooltip } from "@/components/ui/selection-popover/selection-tooltip"
@@ -30,7 +30,7 @@ export function TranslateButton() {
         />
       }
     >
-      <RiTranslate className="size-4.5" />
+      <IconLanguage className="size-4.5" />
     </SelectionToolbarTooltip>
   )
 }

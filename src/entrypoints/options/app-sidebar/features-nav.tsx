@@ -63,7 +63,7 @@ export function FeaturesNav() {
                 }
               >
                 {/* Page translation's icon also represents the subtitle settings. */}
-                <Icon icon="ri:translate" />
+                <Icon icon="tabler:language" />
                 <span>{i18n.t("options.sidebar.translation")}</span>
                 <Icon
                   icon="tabler:chevron-right"

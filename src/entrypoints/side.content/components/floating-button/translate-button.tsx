@@ -1,6 +1,5 @@
 import type { FloatingButtonSide } from "@/types/config/floating-button"
-import { RiTranslate } from "@remixicon/react"
-import { IconCheck } from "@tabler/icons-react"
+import { IconCheck, IconLanguage } from "@tabler/icons-react"
 import { useAtomValue } from "jotai"
 import { i18n } from "@/utils/i18n"
 import { sendMessage } from "@/utils/message"
@@ -22,7 +21,7 @@ export default function TranslateButton({
 
   return (
     <HiddenButton
-      icon={<RiTranslate className="h-5 w-5" />}
+      icon={<IconLanguage className="h-5 w-5" />}
       label={i18n.t("options.floatingButton.tooltips.togglePageTranslation")}
       className={className}
       side={side}
