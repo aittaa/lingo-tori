@@ -84,11 +84,11 @@ export function LanguageCombobox<T extends string = LangCodeISO6393 | "auto">({
       >
         {/* `ComboboxValue` renders no element of its own, so both children below land
             directly in the trigger's flex row. */}
-        <ComboboxValue placeholder={placeholder ?? i18n.t("translationHub.searchLanguages")}>
+        <ComboboxValue placeholder={placeholder ?? i18n.t("languageSearch.placeholder")}>
           {(item: LanguageItem<T> | null) => (
             <>
               <span className="min-w-0 flex-1 truncate text-left">
-                {item?.label ?? placeholder ?? i18n.t("translationHub.searchLanguages")}
+                {item?.label ?? placeholder ?? i18n.t("languageSearch.placeholder")}
               </span>
               {/* The auto row is named after a real language, so without the badge the
                   trigger reads exactly like that language pinned by hand. */}
@@ -100,7 +100,7 @@ export function LanguageCombobox<T extends string = LangCodeISO6393 | "auto">({
       <ComboboxContent>
         <ComboboxInput
           showTrigger={false}
-          placeholder={placeholder ?? i18n.t("translationHub.searchLanguages")}
+          placeholder={placeholder ?? i18n.t("languageSearch.placeholder")}
         />
         <ComboboxList>
           {(item: LanguageItem<T>) => (
@@ -112,7 +112,7 @@ export function LanguageCombobox<T extends string = LangCodeISO6393 | "auto">({
             </ComboboxItem>
           )}
         </ComboboxList>
-        <ComboboxEmpty>{i18n.t("translationHub.noLanguagesFound")}</ComboboxEmpty>
+        <ComboboxEmpty>{i18n.t("languageSearch.noResults")}</ComboboxEmpty>
       </ComboboxContent>
     </Combobox>
   )

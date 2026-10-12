@@ -39,6 +39,16 @@ async function catchRejection(promise: Promise<unknown>): Promise<unknown> {
 }
 
 describe("createSelectionToolbarRuntimeError", () => {
+  it("keeps selected-text translation failures available after removing the Hub locale keys", () => {
+    expect(
+      createSelectionToolbarRuntimeError("translate", new Error("Unexpected error occurred")),
+    ).toEqual({
+      title: "translation.failed",
+      description: "translation.failedFallback",
+      action: undefined,
+    })
+  })
+
   it("keeps the call to action the background attached to a stream failure", async () => {
     connectPortFailingWith({ message: "Quota used up", action: UPGRADE })
 
