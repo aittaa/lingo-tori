@@ -34,7 +34,12 @@ describe("API usage settings", () => {
       name: "options.apiUsage.features.dictionary 12 3 15",
     })
     expect(within(row).getByRole("rowheader")).toBeInTheDocument()
-    expect(screen.getByText("options.apiUsage.billing")).toBeInTheDocument()
+    expect(screen.getByRole("region", { name: "options.apiUsage.history.about" })).toBeVisible()
+    expect(
+      screen.getByRole("heading", { name: "options.apiUsage.history.about", level: 2 }),
+    ).toBeVisible()
+    for (const key of ["semantics", "billing", "history.dateRule", "limitations"])
+      expect(screen.getByText(`options.apiUsage.${key}`)).toBeVisible()
     expect(screen.queryByText("Translation Hub")).not.toBeInTheDocument()
     const updated = structuredClone(usage)
     updated.counts.dictionary.api = 13

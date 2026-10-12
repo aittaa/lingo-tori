@@ -160,17 +160,18 @@ export function ApiUsagePage() {
           </div>
         )}
       </section>
-      <details className="text-xs text-muted-foreground">
-        <summary className="w-fit cursor-pointer rounded py-2 focus-visible:outline-2 focus-visible:outline-ring">
-          {i18n.t("options.apiUsage.history.about")}
-        </summary>
+      <section
+        className="text-xs text-muted-foreground"
+        aria-label={i18n.t("options.apiUsage.history.about")}
+      >
+        <h2 className="py-2 font-medium">{i18n.t("options.apiUsage.history.about")}</h2>
         <div className="mt-2 max-w-2xl space-y-2 leading-relaxed">
           <p>{i18n.t("options.apiUsage.semantics")}</p>
           <p>{i18n.t("options.apiUsage.billing")}</p>
           <p>{i18n.t("options.apiUsage.history.dateRule")}</p>
           <p>{i18n.t("options.apiUsage.limitations")}</p>
         </div>
-      </details>
+      </section>
     </PageLayout>
   )
 }
