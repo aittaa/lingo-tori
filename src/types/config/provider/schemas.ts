@@ -65,7 +65,6 @@ const topLevelReasoningConfigSchema = {
   reasoning: z.enum(AI_SDK_REASONING_VALUES).optional(),
 }
 
-// Storage compatibility only: this row has no selectable or executable capability.
 const byosProviderConfigSchema = baseAPIProviderConfigSchema.extend({
   provider: z.literal("byos"),
   apiKey: z.never().optional(),
@@ -207,7 +206,10 @@ const apiLLMProviderConfigSchemaList = [
   }),
 ] as const
 
-const llmProviderConfigSchemaList = apiLLMProviderConfigSchemaList
+const llmProviderConfigSchemaList = [
+  byosProviderConfigSchema,
+  ...apiLLMProviderConfigSchemaList,
+] as const
 
 const apiProviderConfigSchemaList = [
   ...apiLLMProviderConfigSchemaList,

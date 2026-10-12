@@ -11,6 +11,7 @@ import { openOptionsPage } from "@/utils/navigation"
 import { runAiSegmentSubtitles } from "./ai-segmentation"
 import { dispatchBackgroundStreamPort } from "./background-stream"
 import { initializeActionIcons, registerActionIconListeners } from "./browser-action-icon"
+import { setupByos } from "./byos"
 import { ensureInitializedConfig, isFreshInstalledConfig } from "./config"
 import { setUpConfigBackup } from "./config-backup"
 import { initializeContextMenu, registerContextMenuListeners } from "./context-menu"
@@ -112,6 +113,7 @@ export default defineBackground({
     proxyFetch()
 
     setupGlossaryMessageHandlers()
+    setupByos()
 
     setupLLMGenerateTextMessageHandlers()
 

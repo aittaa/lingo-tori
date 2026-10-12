@@ -17,7 +17,7 @@ Compare learning provenance against original upstream `ca8da8241883c9aff5862d15d
 
 Study navigation is removed. Future learning/backend development is backlog issue #7, not active product implementation. Source removal does not authorize deleting user databases, exported vocabulary or browser profile data.
 
-The companion, server setup, pairing UI and browser-only account integration are excluded from this BYOK core snapshot. Persisted experimental provider rows and selected IDs remain inert so unrelated settings are preserved. They are not selectable or executable, and they never fall back automatically to a paid provider.
+The companion, server setup and pairing UI remain excluded. This candidate includes reviewed browser-only BYOS alongside BYOK. Preserve existing BYOS ON/OFF, model and assignments without a deactivation migration: enabled rows are selectable for supported features, disabled rows remain unavailable for execution, and actual requests require authenticated account access. No automatic paid fallback runs.
 
 ## Excluded commercial integrations
 

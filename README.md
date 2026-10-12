@@ -8,7 +8,7 @@ The core uses **BYOK** (bring your own API key). Open **API Providers**, add a p
 
 Original reading suggestions remain. Voice playback, writing/input assistance, hosted accounts and backup, cloud transcription, vocabulary/SRS and companion services are outside this core. Subtitles require captions supplied by the video platform; supported platform adapters currently cover YouTube, X and Netflix. Site behavior can change, and this draft core still requires the [merge validation gate](docs/validation.md).
 
-[Experimental browser-only BYOS](docs/experimental-byos.md) is separate draft work. It is not available in this core, and stored experimental provider records remain inert. No automatic paid fallback runs.
+[Experimental browser-only BYOS](docs/experimental-byos.md) adds **Sign in with ChatGPT** inside API Providers for Chromium. Existing ON/OFF, model and feature assignments are preserved; actual requests require authenticated account access. BYOK remains independent, and no automatic paid fallback runs. This integrated source candidate requires its own validation and review; earlier live evidence does not verify the combined build.
 
 ## Development
 

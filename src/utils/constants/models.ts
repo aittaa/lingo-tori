@@ -12,7 +12,6 @@ interface OpenAIGPT5ReasoningEffortPolicy {
 // Reviewed against provider catalogs and AI SDK docs on 2026-09-26.
 // Keep existing IDs: persisted provider configs validate against these enums.
 export const LLM_PROVIDER_MODELS = {
-  // Storage-only compatibility; excluded from executable provider capabilities.
   byos: ["use-custom-model"],
   openai: [
     "gpt-6-luna",

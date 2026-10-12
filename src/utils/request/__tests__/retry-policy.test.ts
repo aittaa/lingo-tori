@@ -72,6 +72,16 @@ describe("request retry policy", () => {
     })
   })
 
+  it("preserves an explicit request-only 401 classification through attached metadata", () => {
+    const error = Object.assign(errorWithStatus(401), { failQueue: false })
+    const forwarded = attachRequestErrorMeta(error, getRequestErrorMeta(error))
+    expect(getRequestErrorMeta(forwarded)).toMatchObject({ statusCode: 401, failQueue: false })
+    expect(defaultRequestRetryPolicy.decide(forwarded, retryContext)).toEqual({
+      action: "fail",
+      failQueue: false,
+    })
+  })
+
   it("drains the queue on access-denied metadata without classifying it as a rate limit", () => {
     const error = attachRequestErrorMeta(new Error("upgrade required"), {
       kind: "access-denied",
