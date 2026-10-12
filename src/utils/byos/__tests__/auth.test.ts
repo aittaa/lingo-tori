@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { ISSUER, RESOURCE, SCOPES, TOKEN_URL, validateIdToken } from "../oidc"
-import { assertByosSender, createByosService } from "../service"
+import { assertByosSender, ByosBridgeError, createByosService } from "../service"
 import { buildCallbackRule, callbackRegex } from "../transport"
 import {
   callbackUrl,
@@ -93,6 +93,48 @@ describe("experimental browser-only sign-in", () => {
       "plan_permission_required",
     )
     expect(fetcher).toHaveBeenCalledTimes(3)
+  })
+  it.each([
+    ["install", "callback_rule_timeout_remove"],
+    ["install", "synthetic_cleanup_failed"],
+    ["navigate", "callback_rule_timeout_remove"],
+    ["navigate", "synthetic_cleanup_failed"],
+  ] as const)(
+    "preserves the original %s error when cleanup rejects with %s",
+    async (stage, code) => {
+      const vault = memoryVault(),
+        transport = mockTransport(),
+        fetcher = vi.fn<typeof fetch>()
+      const primaryError = new ByosBridgeError(
+        stage === "install" ? "callback_rule_timeout_install" : "synthetic_navigation_failed",
+      )
+      vi.mocked(transport[stage]).mockRejectedValueOnce(primaryError)
+      vi.mocked(transport.cleanup)
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new ByosBridgeError(code))
+      const service = createByosService(vault, transport, "extension", callbackUrl, fetcher)
+
+      await expect(service.authStart()).rejects.toBe(primaryError)
+      expect(transport.cleanup).toHaveBeenLastCalledWith(42)
+      expect((await vault.read()).pending).toBeUndefined()
+      expect(fetcher).not.toHaveBeenCalled()
+      expect(transport.navigate).toHaveBeenCalledTimes(stage === "install" ? 0 : 1)
+    },
+  )
+  it("reports a rule-removal timeout before opening the sign-in tab", async () => {
+    const vault = memoryVault(),
+      transport = mockTransport(),
+      fetcher = vi.fn<typeof fetch>()
+    const timeout = new ByosBridgeError("callback_rule_timeout_remove")
+    vi.mocked(transport.cleanup).mockRejectedValueOnce(timeout)
+    const service = createByosService(vault, transport, "extension", callbackUrl, fetcher)
+
+    await expect(service.authStart()).rejects.toBe(timeout)
+    expect(transport.createTab).not.toHaveBeenCalled()
+    expect(transport.install).not.toHaveBeenCalled()
+    expect(transport.navigate).not.toHaveBeenCalled()
+    expect((await vault.read()).pending).toBeUndefined()
+    expect(fetcher).not.toHaveBeenCalled()
   })
   it("logout blocks a late token exchange from restoring credentials", async () => {
     const { service, query, vault, fetcher } = await signedFixture()

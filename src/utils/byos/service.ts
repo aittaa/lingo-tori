@@ -676,7 +676,9 @@ export function createByosService(
               current.generation++
             }
           })
-          await transport.cleanup(tabId)
+          // Pending auth is already invalidated. Preserve the original failure
+          // while the transport continues gating any unsettled rule mutation.
+          await transport.cleanup(tabId).catch(() => {})
           throw error
         }
       } finally {
