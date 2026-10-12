@@ -1,6 +1,6 @@
 {
   "name": "@lingotori/extension",
-  "version": "1.50.3",
+  "version": "0.0.1",
   "private": true,
   "description": "Bilingual reading and dictionary explanations with user-configured AI providers",
   "type": "module",

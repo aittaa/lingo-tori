@@ -24,6 +24,8 @@ pnpm dev
 
 Build Chromium with `pnpm build` or Firefox MV3 with `pnpm build:firefox`. Load `.output/chrome-mv3` through Chromium's extension developer tools. In Firefox, load the manifest from `.output/firefox-mv3` as a temporary add-on through `about:debugging`. Follow [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md); run tests only immediately before merging, with `SKIP_FREE_API=true`, and obtain explicit user confirmation immediately before the merge.
 
+The independent version baseline is **0.0.1**, without a prerelease suffix. See the [version and installation notes](docs/versioning.md) for package names, build receipts, and replacing an earlier temporary `1.50.3` installation without deleting its data.
+
 [Project documentation](docs/index.md) includes scope, limitations, licensing and [measured footprint evidence](docs/metrics/README.md). Builds and static checks do not establish live-provider or browser-runtime performance.
 
 ## Attribution and license
