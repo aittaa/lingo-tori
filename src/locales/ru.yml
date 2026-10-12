@@ -1,0 +1,1314 @@
+# Retained Read Frog UI strings from 55bcef1e684fb4e70f4dce3063e7bd3066f46891.
+# Changed LingoTori copy and canonical model prompts use the English fallback.
+# See docs/ui-locale-restoration.md and docs/ui-locale-coverage.json.
+name: LingoTori
+dataTypes:
+  string: Текст
+  number: Число
+contextMenu:
+  translate: Перевести
+  translateSelection: Перевести "%s"
+  showOriginal: Показать оригинал
+sidePanel:
+  firefoxUserActionHelpText: Как открыть боковую панель Firefox
+  firefoxUserActionHelpUrl: https://support.mozilla.org/ru/kb/ispolzovanije-bokovoi-paneli-dostup-instrumenty-i-vertikalnyje-vkladki
+popup:
+  theme: Тема
+  autoLang: Авто
+  sourceLang: Исходный
+  targetLang: Целевой
+  providers:
+    title: Providers
+    description: Choose which provider to use for each feature
+    open: Open provider settings
+  translate: Перевести
+  showOriginal: Показать оригинал
+  enabledFloatingButton: Включить плавающую кнопку
+  enabledSelectionToolbar: Включить панель выделения
+  alwaysTranslate: Всегда переводить этот сайт
+  addToWhitelist: Включить расширение на этом сайте
+  addToBlacklist: Отключить расширение на этом сайте
+  options: Настройки
+  hover: Наведение
+  translateParagraph: для перевода абзаца
+  translationModeToggle:
+    tooltip:
+      bilingual:
+        current: "Текущий режим: двуязычный"
+        action: Нажмите, чтобы переключиться на только перевод
+      translationOnly:
+        current: "Текущий режим: только перевод"
+        action: Нажмите, чтобы переключиться на двуязычный
+  aiSmartContext: Умный контекст ИИ
+  aiSmartContextDescription: Использует контекст веб-страницы для улучшения качества перевода. Требуется LLM-провайдер перевода.
+  more:
+    title: Ещё
+    bugReport: Сообщить об ошибке
+errorRecovery:
+  title: Что-то пошло не так
+  description: Активирован режим восстановления. Вы можете экспортировать текущие настройки как резервную копию, затем сбросить настройки и попробовать снова.
+  backupTitle: Сначала сделайте резервную копию текущих настроек (рекомендуется)
+  exportWithApiKeys: Экспортировать с API-ключами
+  exportWithoutApiKeys: Экспортировать без API-ключей
+  recoveryTitle: Варианты восстановления
+  refreshPage: Обновить страницу
+  resetAction: Сбросить к настройкам по умолчанию
+  resetSuccess: Восстановление завершено. Настройки были сброшены
+  resetFailed: Восстановление не удалось. Не удалось сбросить настройки
+  errorDetails: Подробности ошибки
+  resetDialog:
+    title: Сбросить настройки?
+    description: Текущие настройки будут заменены значениями по умолчанию.
+    confirm: Сбросить
+    cancel: Отмена
+options:
+  autosave:
+    invalid: Исправьте отмеченные поля перед выходом.
+    failed: Не удалось сохранить изменения. Введённые данные сохранены в редакторе.
+    deleted: Этот элемент удалён на другой странице. Несохранённые изменения оставлены в редакторе.
+    retry: Повторить
+    leaveTitle: Изменения не сохранены
+    leaveDescription: Продолжите редактирование, чтобы исправить проблему, или отмените несохранённые изменения.
+    keepEditing: Продолжить редактирование
+    discard: Отменить несохранённые изменения
+  batchSavings:
+    savedCost: Сэкономлено примерно $1% расходов на API
+  commandPalette:
+    placeholder: Поиск настроек...
+    noResults: Настройки не найдены
+    open: Поиск настроек
+  sidebar:
+    toggle: Переключить боковую панель
+    settings: Настройки
+    features: Функции
+    translation: Перевод
+    product: Продукт
+  apiProviders:
+    title: API-провайдеры
+    addProvider: Добавить провайдера
+    builtInProvider: Встроенный провайдер
+    badges:
+      featureCount: $1 функций
+    dialog:
+      title: Добавить нового провайдера
+      groups:
+        builtInProviders:
+          title: Встроенные LLM-провайдеры
+          description: Встроенные провайдеры больших языковых моделей, не требуют заполнения большинства настроек, таких как Base URL
+        compatibleProviders:
+          title: Совместимые API-провайдеры
+          description: Для API, совместимых с Chat Completions, используйте Пользовательский Chat Complete, а для API Open Responses — Пользовательский Responses.
+        pureTranslationProviders:
+          title: Чистые провайдеры перевода
+          description: Провайдеры, ориентированные на функции перевода без возможностей больших языковых моделей
+    form:
+      fields:
+        name: Название
+        description: Описание
+        apiKey: API-ключ
+        baseURL: Base URL
+        url: URL
+        optional: Необязательно
+      duplicate: Дублировать
+      delete: Удалить
+      deleteDialog:
+        title: Удалить провайдера?
+        confirm: Удалить
+        cancel: Отмена
+      atLeastOneLLMProvider: Требуется как минимум один LLM-провайдер перевода.
+      featureWouldLoseProvider: "Невозможно удалить: у функции «$1» не останется ни одного работающего провайдера."
+      duplicateProviderName: Дублирующееся имя провайдера "$1"
+      defaultProvider:
+        translate: Установить как провайдер перевода по умолчанию
+      models:
+        translate:
+          title: Модель перевода
+          customTitle: Пользовательская модель перевода
+          placeholder: Выберите модель
+        fetchModels: Получить доступные модели
+        fetchError: Не удалось получить модели
+        clickToRetry: Нажмите для повтора
+        noModels: Нет доступных моделей
+        selectModel: Выбрать модель
+        apiKeyRequired: Сначала добавьте API ключ
+        searchModels: Поиск моделей...
+        noModelsFound: Модели не найдены
+        label: Модель
+        enterCustomModel: Введите название пользовательской модели
+      advancedOptions: Расширенные настройки
+      providerSettingLabels:
+        region: Регион
+        apiMode: Режим API
+        resourceName: Имя ресурса Azure (необязательно)
+        apiVersion: Версия API
+      providerSettingOptionLabels:
+        responses: Responses API
+        chatCompletions: Chat Completions
+      temperature: Температура
+      temperatureHint: Контролирует случайность ответов. Низкие значения (0) более детерминированы, высокие — более креативны. Диапазон зависит от провайдера. Оставьте пустым для использования значения по умолчанию.
+      reasoning:
+        title: Reasoning
+      headers: Заголовки
+      headersHint: Пользовательские HTTP-заголовки для создания клиента AI-провайдера. Оставьте пустым для значений провайдера по умолчанию; используйте {}, чтобы отключить их.
+      providerOptions: Параметры провайдера
+      providerOptionsHint: Специфические параметры провайдера для нестандартных функций API, таких как режим размышления/рассуждения. Подробнее см. документацию Vercel AI SDK или официальную документацию вашего провайдера.
+      providerOptionsDocsLink: Документация провайдера
+      providerOptionsRecommendationTrigger: Показать рекомендуемые параметры провайдера
+      providerOptionsRecommendationTitle: Обнаружены рекомендуемые параметры провайдера
+      providerOptionsRecommendationDescription: Проверьте рекомендованную конфигурацию и примените её вручную.
+      providerOptionsRecommendationApply: Применить
+      providerOptionsRecommendationApplied: Применено
+      invalidJson: Неверный формат JSON
+    providers:
+      name:
+        customChatComplete: Пользовательский Chat Complete
+        customResponses: Пользовательский Responses
+      description:
+        azure: Модели OpenAI в Azure через ваши развертывания
+        openaiCompatible: Подключение к пользовательской конечной точке, совместимой с OpenAI Chat Completions API
+        openResponses: Подключение к пользовательской конечной точке, совместимой с Open Responses API
+        deeplx: Неофициальный DeepL API
+        deepl: Официальный DeepL API
+    apiKey:
+      showAPIKey: Показать API-ключ
+      getAPIKey: Получить API-ключ
+    howToConfigure: Как настроить?
+    testConnection:
+      button: Проверить соединение
+      testing: Тестирование...
+      success: Успешно
+      failed: Ошибка
+      slow: Медленно (рекомендуется настроить режим рассуждения)
+    featureProviders:
+      title: Провайдеры функций
+      description: Выберите провайдера для каждой функции
+      chooseProvider: Выбрать провайдера
+      features:
+        pageTranslation: Перевод страницы
+        selectionTranslation: Перевод выделения
+        videoSubtitles: Субтитры видео
+        noteSuggestion: Подсказки для заметок
+      descriptions:
+        pageTranslation: Переводит страницу целиком — в двуязычном режиме или с заменой оригинала.
+        selectionTranslation: Переводит выделенный текст через панель выделения.
+        videoSubtitles: Переводит субтитры, которые появляются в видеоплеере.
+    languageDetection:
+      title: Определение языка
+      mode:
+        basic: Базовый
+        llm: LLM
+      provider:
+        label: Провайдер определения
+        placeholder: Выберите провайдера
+      status:
+        noProviders: Сначала настройте LLM-провайдер
+        basicRecommend: Рекомендуется включить LLM
+        llmEnabled: LLM-определение включено
+    aiContentAware:
+      title: Умный контекстный перевод ИИ
+      description: Передавайте ИИ контекст страницы или видео, чтобы перевод был точнее
+      enable: Включить
+      enableDescription: Перед переводом ИИ читает краткое содержание страницы или видео, чтобы подобрать подходящие формулировки. Работает для всех функций перевода на LLM-провайдере. Первый запрос выполняется дольше, а расходы на API растут.
+      llmProviderConfigured: LLM-провайдер выбран для $1
+      llmProviderNotConfigured: LLM-провайдер не выбран для $1
+  patterns:
+    duplicate: Этот шаблон уже в списке
+    gluedWildcard: «*» должна заменять часть адреса целиком, например *.example.com или example.*
+  preference:
+    title: Предпочтения
+    appearanceAndLanguage:
+      title: Оформление и язык
+      theme:
+        title: Тема
+        system: Системная
+        light: Светлая
+        dark: Тёмная
+      interfaceLanguage:
+        title: Язык интерфейса
+        description: Выберите язык интерфейса расширения независимо от языка браузера.
+        auto: Авто (как в браузере)
+    translationLanguage:
+      title: Языки перевода
+      sourceCode:
+        title: Исходный язык
+        description: Язык оригинала страниц. При автоопределении язык берётся с самой страницы.
+        auto: Автоопределение
+      targetCode:
+        title: Язык перевода
+        description: Язык, на который переводятся страницы.
+    extensionActivation:
+      title: Активация расширения
+      manageSites: Управление сайтами
+      mode:
+        title: Режим активации
+        description: Используйте режим чёрного списка для отключения расширения на определённых сайтах или режим белого списка для ограничения работы только указанными сайтами.
+        blacklist: Отключить только на указанных сайтах
+        whitelist: Работать только на указанных сайтах
+      patterns:
+        enterUrlPattern: Введите шаблон URL (например, example.com)
+        urlPattern: Шаблон URL
+    config:
+      title: Конфигурация
+      manualSync:
+        title: Ручная синхронизация конфигурации
+        description: Импорт и экспорт настроек вручную — вместе с глоссариями
+        import: Импорт
+        export: Экспорт
+        importSuccess: Конфигурация успешно импортирована
+        exportSuccess: Конфигурация успешно экспортирована
+        exportGlossaryFailed: Настройки экспортированы, но глоссарии не удалось прочитать, и они не попали в файл.
+        importError: Ошибка импорта
+        glossaryImported: "Импортировано терминов: $1. Прежние глоссарии заменены."
+        glossaryUndo: Отменить
+        glossaryUndone: Глоссарии восстановлены в состояние до импорта
+        glossaryUndoUnavailable: Отмена больше недоступна — глоссарии успели измениться.
+        glossaryMalformed: Глоссарии из этого файла не удалось прочитать. Ничего не изменено.
+        glossaryCapExceeded: В этом файле на $1 строк глоссария больше лимита в $2. Ничего не изменено.
+        exportOptions:
+          title: Выберите параметры экспорта
+          description: Пожалуйста, выберите, включать ли API-ключи в экспортируемую конфигурацию. Включение API-ключей может привести к утечке конфиденциальной информации, поэтому рекомендуется использовать только в безопасных средах.
+          includeAPIKeys: Включить API-ключи
+          excludeAPIKeys: Исключить API-ключи
+          cancel: Отмена
+      viewConfig:
+        open: Открыть конфигурацию
+        title: Конфигурация
+        description: Посмотреть текущую конфигурацию в виде JSON
+      backup:
+        title: Резервное копирование конфигурации
+        description: Автоматические резервные копии создаются каждый час при изменении конфигурации. Вы можете восстановить предыдущие конфигурации здесь. (Максимум $1 резервных копий)
+        loading: Загрузка резервных копий...
+        backupNow: Создать резервную копию сейчас
+        backupSuccess: Резервная копия успешно создана
+        restoreSuccess: Конфигурация успешно восстановлена
+        empty:
+          title: Резервные копии пока недоступны
+          description: Резервные копии создаются автоматически каждый час при изменении конфигурации.
+        item:
+          extensionVersion: "Версия расширения:"
+          schemaVersion: "Версия схемы:"
+          restore: Восстановить
+          export: Экспорт
+          delete: Удалить
+        restore:
+          title: Восстановить резервную копию конфигурации?
+          description: Ваша текущая конфигурация будет автоматически сохранена, если она отличается от последней резервной копии. Самая старая резервная копия может быть удалена, если количество резервных копий превысит лимит.
+          cancel: Отмена
+          confirm: Восстановить
+        delete:
+          title: Удалить резервную копию?
+          description: Вы уверены, что хотите удалить эту резервную копию? Это действие нельзя отменить.
+          cancel: Отмена
+          confirm: Удалить
+      reset:
+        title: Сбросить конфигурацию
+        description: Сбросить все настройки к значениям по умолчанию. Глоссарии не затрагиваются.
+        dialog:
+          title: Сбросить конфигурацию
+          trigger: Сбросить конфигурацию
+          confirm: Подтвердить
+          cancel: Отмена
+          description: Эта операция удалит все ваши пользовательские настройки и вернёт значения по умолчанию. Глоссарии сохранятся — удалить их можно на странице глоссариев. Пожалуйста, подтвердите.
+    userExperience:
+      title: Пользовательский опыт
+      beta:
+        title: Бета-функции
+        description: Включить экспериментальные функции, которые могут быть нестабильны
+  shortcuts:
+    title: Горячие клавиши
+    setShortcut: Настроить горячую клавишу
+    pageTranslation:
+      title: Перевод страницы
+      description: Перевести всю страницу.
+    translationMode:
+      title: Режим перевода
+      description: Переключение между двуязычным режимом и только переводом.
+    selectionTranslation:
+      title: Перевод выделения
+      description: Перевести выделенный текст.
+    subtitlesToggle:
+      title: Перевод субтитров
+      description: Включает или выключает переведённые субтитры видео.
+    nodeTranslation:
+      title: Перевод абзаца
+      description: Наведите курсор на абзац или нажмите и удерживайте его, чтобы перевести только его.
+    actions:
+      title: AI-действия
+      description: Запустить AI-действие для выделенного текста. У пользовательских действий нет сочетания клавиш, пока вы не зададите его здесь.
+    turnedOff: Функция выключена, поэтому сочетание ничего не делает, пока вы её снова не включите.
+    clash: То же сочетание, что у «$1». Измените одно из них.
+    taken: $1 уже используется для «$2».
+  overlayTools:
+    title: Инструменты наложения
+  floatingButton:
+    title: Плавающая кнопка
+    pageDescription: Выберите сторону плавающей кнопки, действие по клику и сайты, где её скрывать.
+    demoImageAlt: Демо плавающей кнопки
+    enable:
+      title: Включить плавающую кнопку
+    display:
+      title: Отображение
+      side:
+        title: Сторона кнопки
+        description: Выберите, с какой стороны страницы закреплять плавающую кнопку
+        left: Слева
+        right: Справа
+      disabledSites:
+        title: Отключённые сайты
+        description: Настройте веб-сайты, где плавающая кнопка должна быть отключена
+        enterUrlPattern: Введите URL-шаблон
+        urlPattern: URL-шаблон
+    clickAction:
+      title: Действие по клику
+      description: Выберите действие при нажатии на плавающую кнопку
+      panel: Открыть боковую панель
+      translate: Переключить перевод страницы
+    closeMenu:
+      disableForSite: Отключить для этого сайта
+      disableGlobally: Отключить глобально
+    tooltips:
+      togglePageTranslation: Переключить перевод страницы
+      floatingButtonOptions: Настройки плавающей кнопки
+      lockPosition: Закрепить положение
+      unlockPosition: Открепить положение
+      settings: Настройки
+      feedback: Отправить отзыв
+  selectionToolbar:
+    title: Панель выделения
+    pageDescription: Укажите, какие действия появляются при выделении текста и где показывать панель.
+    demoImageAlt: Демо панели выделения
+    enable:
+      title: Включить панель выделения
+    actions:
+      title: Действия
+      translate:
+        title: Перевод
+        description: Показывать кнопку перевода на панели
+      noteSuggestion:
+        title: Подсказки для заметок
+        action: Действие
+        actionDescription: Действие, которое формирует предложение
+        provider: Провайдер
+        providerDescription: ИИ-провайдер, который формирует предложение
+    display:
+      title: Отображение
+      opacity:
+        title: Прозрачность
+        description: Настройте прозрачность панели выделения и раскрытого окна, которое открывается из неё
+      disabledSites:
+        title: Отключённые сайты
+        description: Настройте веб-сайты, где панель выделения должна быть отключена
+        enterUrlPattern: Введите URL-шаблон
+        urlPattern: URL-шаблон
+    closeMenu:
+      disableForSite: Отключить для этого сайта
+      disableGlobally: Отключить глобально
+    errors:
+      customActionFailed: Не удалось выполнить пользовательское действие
+      customActionFailedFallback: Запрос пользовательского действия не удался
+      actionUnavailable: Выбранное действие недоступно
+      missingSelection: Нет выделенного текста
+      providerDisabled: Выбранный провайдер отключен
+      providerUnavailable: Выбранный провайдер недоступен
+    customActions:
+      title: Пользовательские AI-действия
+      description: Добавляйте собственные структурированные AI-действия для выделенного текста
+      configTitle: Настройка действий
+      builtIn: Встроенное
+      add: Добавить AI-действие
+      edit: Редактировать AI-действие
+      empty: Пока нет пользовательских AI-действий
+      noEnabledLlmProvider: Включите хотя бы одного LLM-провайдера перед созданием пользовательских AI-действий
+      tabs:
+        config: Настройка
+        hasErrors: Есть ошибки
+        connected: Подключено
+        needsAttention: Требует внимания
+      form:
+        name: Название
+        customize: Настроить
+        customizeTooltip: Промпты встроенной команды нельзя изменять. Нажмите эту кнопку, чтобы создать редактируемую копию и изменить промпты.
+        aiConfigHelper:
+          trigger: Настроить с помощью ИИ
+          title: Настроить с помощью ИИ
+          description: Скопируйте промпт ниже и вставьте его в свой ИИ-чат (ChatGPT, Claude, DeepSeek, Kimi…). Сначала он спросит, что вы хотите, а затем подскажет, что указать в каждой настройке. Промпт содержит текущие настройки этой команды, но не ключи API.
+          copy: Скопировать промпт
+          copyFailed: Не удалось скопировать промпт. Попробуйте ещё раз.
+        icon: Иконка
+        iconField:
+          chooseAriaLabel: Выбрать иконку
+          chooseTitle: Выберите иконку
+          inputPlaceholder: Введите имя иконки
+          helpAriaLabel: Справка по иконкам
+          helpTitle: Не нашли нужную иконку?
+          helpStepBrowsePrefix: Посмотреть иконки на
+          helpStepBrowseSuffix: ""
+          helpStepCopyPrefix: "Скопируйте имя иконки, например "
+          helpStepCopySuffix: ", и вставьте его в поле."
+        provider: Провайдер (требуется поддержка структурированного вывода)
+        selectProvider: Выберите провайдера
+        systemPrompt: Системный промпт
+        prompt: Промпт
+        outputSchema: Схема вывода
+        addField: Добавить поле
+        fieldName: Имя поля
+        fieldType: Тип поля
+        fieldDescription: Описание
+        fieldDescriptionPlaceholder: Опишите, что должно содержать это поле...
+        actions: Действия
+        cancel: Отмена
+        save: Сохранить
+        defaultFieldName: результат
+        fieldNamePlaceholder: имя_поля
+        autoFieldPrefix: поле
+        addFieldDialog:
+          title: Добавить поле вывода
+        editFieldDialog:
+          title: Редактировать поле вывода
+          save: Сохранить
+        deleteFieldDialog:
+          title: Удалить поле вывода?
+          description: Это поле вывода будет удалено.
+          confirm: Удалить
+          cancel: Отмена
+        tokens:
+          selection: Содержимое выделенного текста
+          paragraphs: Текст абзацев, пересекающихся с выделением, объединённый пустыми строками; при отправке в пользовательские AI-действия обрезается до первых 2000 символов
+          targetLanguage: Целевой язык пользователя
+          webTitle: Заголовок веб-страницы
+          webUrl: Полный URL текущей страницы
+          webContent: Содержимое веб-страницы, извлечённое с текущей страницы и сокращённое до первых 2000 символов
+        delete: Удалить
+        deleteDialog:
+          title: Удалить пользовательское действие?
+          description: Это действие нельзя отменить.
+          confirm: Удалить
+          cancel: Отмена
+      templates:
+        dictionary:
+          name: Словарь
+          description: Поиск слов с определениями, транскрипцией и переводом абзацев
+          fieldTerm: Слово
+          fieldTermDescription: Базовая (словарная) форма выбранного слова.
+          fieldPhonetic: Транскрипция
+          fieldPhoneticDescription: Стандартная транскрипция для языка слова (например, IPA для английского, пиньинь для китайского, ромадзи для японского).
+          fieldPartOfSpeech: Часть речи
+          fieldPartOfSpeechDescription: Грамматическая категория (например, noun, verb, adjective).
+          fieldSentence: Предложение
+          fieldSentenceDescription: Полное предложение из абзацев выше, содержащее выбранное слово. Не включайте соседние предложения.
+          fieldSentenceTerm: Форма в предложении
+          fieldSentenceTermDescription: 'Где выбранное слово стоит в Предложении: JSON-массив, сериализованный в строку, по одному элементу {"text": строка} на каждую часть слова, каждый точно цитирует Предложение (например, [{"text":"blossoms"}]).'
+          fieldDefinition: Значение
+          fieldDefinitionDescription: Одно краткое определение для значения в контексте.
+          fieldSentenceTranslation: Перевод предложения
+          fieldSentenceTranslationDescription: Перевод только Предложения.
+          fieldMemoryTips: Как запомнить
+          fieldMemoryTipsDescription: "Способы запомнить слово: не больше 3 подсказок, по одной на строку, каждая начинается с названия приёма и двоеточия (например, Состав слова: …); пустая строка, если ничего действительно не помогает."
+          fieldDifficulty: Сложность
+          fieldDifficultyDescription: "Оценка уровня сложности CEFR: A1, A2, B1, B2, C1 или C2."
+        sentenceAnalysis:
+          name: Разбор предложения
+          description: "Размечает длинное предложение, как учитель: основа, все придаточные и трудные места"
+          fieldAnnotations: Разметка
+          fieldTranslation: Перевод
+          roles:
+            subject: Подлежащее
+            predicate: Сказуемое
+            object: Дополнение
+            complement: Предикатив
+            attributive: Определение
+            adverbial: Обстоятельство
+            appositive: Приложение
+            connector: Союз
+          clauses:
+            subject: Придаточное подлежащее
+            object: Дополнительное придаточное
+            complement: Предикативное придаточное
+            attributive: Определительное придаточное
+            adverbial: Обстоятельственное придаточное
+            appositive: Придаточное-приложение
+            clause: Придаточное
+          adverbialClauses:
+            time: Придаточное времени
+            place: Придаточное места
+            cause: Придаточное причины
+            condition: Придаточное условия
+            concession: Уступительное придаточное
+            purpose: Придаточное цели
+            result: Придаточное следствия
+            manner: Придаточное образа действия
+            comparison: Сравнительное придаточное
+          forms:
+            infinitive: Инфинитив
+            gerund: Герундий
+            presentParticiple: Причастие I
+            pastParticiple: Причастие II
+          senses:
+            time: Время
+            place: Место
+            cause: Причина
+            condition: Условие
+            concession: Уступка
+            purpose: Цель
+            result: Следствие
+            manner: Способ
+            comparison: Сравнение
+          obstacles:
+            inversion: Инверсия
+            fronting: Вынос вперёд
+            ellipsis: Эллипсис
+            passive: Пассив
+            subjunctive: Сослагательное
+            parenthesis: Вставка
+            dummyIt: Формальное it
+            postponedSubject: Реальное подлежащее
+            cleft: Выделение
+            comparison: Сравнение
+            negation: Отрицание
+            split: Разрыв
+            idiom: Идиома
+          restoreLabel: "Прямой порядок:"
+          hardLabel: Сложно
+          trunkLabel: Только основа
+          slashesLabel: Паузы
+        blank:
+          prompt: |-
+            ## Ввод
+            Выделение: {{selection}}
+            Абзацы: {{paragraphs}}
+            Целевой язык: {{targetLanguage}}
+      errors:
+        nameRequired: Название обязательно
+        duplicateName: Дублирующееся имя действия "$1"
+        invalidIcon: Неверная строка иконки Iconify
+        providerRequired: Выберите включённого LLM-провайдера
+        outputSchemaRequired: Добавьте хотя бы одно поле вывода
+        fieldKeyRequired: Имя поля обязательно
+        duplicateFieldKey: Имена полей должны быть уникальными
+  advanced:
+    title: Дополнительно
+    pageDescription: Мощные настройки, которые нужны не каждый день.
+    glossary:
+      title: Глоссарий
+      pageDescription: Задайте важным для вас словам постоянный перевод и выберите, где применяется каждый список.
+      untitled: Глоссарий без названия
+      noGlossaries: Глоссариев пока нет.
+      enable:
+        title: Включить
+        description: Передаёт совпавшие термины модели LLM, чтобы она переводила их так, как нужно вам. Глоссарий передаётся внутри промпта, поэтому он применяется только к функциям, работающим через LLM-провайдер.
+      library:
+        title: Ваши глоссарии
+        description: У каждого глоссария свои термины и свой список сайтов, поэтому рабочий набор терминов не будет применяться ко всему подряд.
+        button: Добавить глоссарий
+        capReached: "Максимальное количество глоссариев: $1."
+        termUsage: Использовано $1 из $2 терминов суммарно по всем глоссариям
+      summary:
+        terms: "Терминов: $1"
+        termsOne: "Терминов: 1"
+        allSites: Все сайты
+        sites: "Сайтов: $1"
+        sitesOne: "Сайтов: 1"
+      editor:
+        docsLink: Как это работает?
+        sections:
+          terms: Термины
+          maintenance: Резервное копирование и удаление
+        details:
+          title: Название и описание
+          descriptionPlaceholder: Описание (необязательно)
+        enable:
+          title: Включить
+          description: Отключённый глоссарий сохраняет свои термины, но не передаёт ни одного из них.
+        sites:
+          title: Сайты
+          description: Ограничьте применение этого глоссария определёнными сайтами. example.com — только этот адрес; *.example.com добавляет поддомены; example.com/docs/* сужает до части сайта.
+          allSites: Оставьте список пустым — глоссарий будет применяться везде.
+          header: Сайт
+        delete:
+          title: Удалить этот глоссарий
+          description: Удаляет глоссарий и все термины в нём. Сначала экспортируйте его, если термины могут понадобиться, — удаление нельзя отменить.
+          dialog:
+            trigger: Удалить
+            title: Удалить этот глоссарий?
+            description: "Глоссарий и все термины в нём будут удалены безвозвратно. Всего терминов: $1. Это действие нельзя отменить."
+            confirm: Удалить
+            cancel: Отмена
+      addTerm:
+        title: Добавить термин
+        description: Задайте термину нужный перевод или оставьте перевод пустым, чтобы сохранить оригинал.
+      list:
+        title: Ваши термины
+        description: Вместе с абзацем отправляются только термины, встретившиеся в нём.
+      importExport:
+        title: Импорт и экспорт
+        description: "Термины — это CSV со столбцами source, target, targetLanguage и caseSensitive: тот же файл, который создаёт экспорт."
+      sourcePlaceholder: Термин
+      targetPlaceholder: Перевод (оставьте пустым, чтобы сохранить оригинал)
+      caseSensitive: Учитывать регистр
+      add: Добавить
+      searchPlaceholder: Поиск терминов
+      columnEnabled: Включено
+      columnSource: Термин
+      columnTarget: Перевод
+      columnTargetLanguage: Язык перевода
+      allLanguages: Все языки
+      toggleTerm: Использовать $1
+      editTerm: Изменить $1
+      keepOriginal: Оставить оригинал
+      delete: Удалить
+      save: Сохранить
+      cancel: Отмена
+      loading: Загрузка...
+      empty: Терминов пока нет. Добавьте термин выше или импортируйте CSV-файл.
+      noMatches: Нет терминов, соответствующих запросу.
+      previous: Назад
+      next: Вперёд
+      pageOf: $1 / $2
+      addError:
+        emptySource: Сначала введите термин.
+        tooLong: Этот термин слишком длинный.
+        capReached: "Достигнут общий лимит терминов для всех ваших глоссариев: $1."
+        duplicate: Этот термин уже есть в глоссарии.
+      import: Импорт
+      export: Экспорт
+      importModeMerge: Добавить к списку
+      importModeReplace: Заменить список
+      importEmpty: В этом файле не найдено терминов.
+      importOverflow: Этот импорт превысит лимит на $1 терминов. Ничего не изменено.
+      importSuccess: "Импортировано новых терминов: $1, обновлено: $2."
+      importSkipped: "Пропущено неверных строк: $1, дубликатов: $2."
+      importNoValidRows: Ни одну из этих строк не удалось импортировать. Ничего не изменено.
+      importReplaceConfirm:
+        title: Заменить весь список?
+        description: Все термины в этом глоссарии ($1) будут удалены — на всех целевых языках, а не только на выбранном — и заменены содержимым этого файла. Отменить это действие нельзя.
+        confirm: Заменить
+        cancel: Отмена
+      deleteAll:
+        title: Удалить все термины
+        description: Очистить глоссарий. Сначала экспортируйте его, если термины могут понадобиться, — удаление нельзя отменить.
+        deleting: Удаление...
+        dialog:
+          title: Удалить все термины
+          trigger: Удалить все
+          confirm: Подтвердить
+          cancel: Отмена
+          description: "Все термины будут удалены безвозвратно. Всего: $1. Это действие нельзя отменить."
+  contextMenu:
+    title: Контекстное меню
+    demoImageAlt: Демо контекстного меню
+    enable:
+      title: Включить перевод в контекстном меню
+      description: Добавить опцию перевода в контекстное меню браузера для быстрого перевода страницы и выделенного текста
+  translation:
+    title: Перевод страниц
+    pageDescription: Настройте перевод страниц — режим, охват, промпты и лимиты запросов.
+    preference:
+      title: Основное
+      translationMode:
+        title: Режим перевода
+        description: "Выберите способ отображения переведённого текста: двуязычный или только перевод."
+        mode:
+          bilingual: Двуязычный
+          translationOnly: Только перевод
+        switched: "Режим перевода: $1"
+        providerNotSupported: $1 не поддерживает режим «только перевод». Чтобы включить его, переключитесь на другого провайдера.
+      translateRange:
+        title: Охват перевода
+        description: Выберите, переводить только основное содержимое или всё содержимое на странице.
+        range:
+          main: Основное содержимое
+          all: Всё содержимое
+      translateTitle:
+        title: Переводить заголовок вкладки
+        description: Переводит и заголовок страницы, который показан на вкладке браузера. Отключите, чтобы сохранить исходный заголовок.
+    hoverTranslation:
+      title: Перевод при наведении
+      enable:
+        title: Включить
+        description: Наведите курсор на абзац или нажмите и удерживайте его, чтобы перевести только его.
+      forceRetranslation:
+        title: Всегда переводить заново
+        description: Перевод при наведении пропускает кэш — он переводит заново, даже если текст уже есть в кэше, и заменяет сохранённый результат.
+    translationStyle:
+      title: Стиль отображения перевода
+      description: Установите любой стиль для отличия результатов перевода от оригинального текста
+      useCustomStyle: Использовать пользовательский CSS-стиль
+      useCustomStyleDescription: Поддерживает любой CSS, включая шрифты, анимации и стили для конкретных языков
+      presetStyle: Предустановленный стиль
+      cssEditor: CSS-редактор
+      cssEditorDescription: Напишите собственный CSS и посмотрите, как выглядит переведённый текст.
+      preview: Предпросмотр
+      stylePreviewLanguage: Язык
+      stylePreviewDirection: Направление
+      stylePreviewTranslatedText: Переведённый текст
+      style:
+        default: Нет
+        blur: Эффект размытия
+        blockquote: Цитата
+        weakened: Ослабленный
+        dashedLine: Пунктирная линия
+        border: Граница
+        textColor: Цвет текста
+        background: Фон
+      customCSS:
+        editor:
+          placeholder: |
+            /* Пример: Пользовательский стиль с цветом и фоном */
+            [data-read-frog-custom-translation-style='custom'] {
+              color: #414535;
+              background-color: light-dark(#F2E3BC, #C19875);
+              padding: 2px 4px;
+              border-radius: 4px;
+            }
+          docsLink: Как настроить?
+          saveButton: Сохранить
+          savedButton: Сохранено
+          validation:
+            validating: Проверка...
+            valid: CSS корректен
+            syntaxError: CSS содержит синтаксические ошибки
+            tooLong: CSS слишком длинный
+            saved: Все изменения сохранены
+    personalizedPrompts:
+      title: Пользовательские промпты страниц
+      description: Настройка различных типов промптов позволяет вам самостоятельно изменять тип промпта во время перевода. Промпт — это текст, который пользователь отправляет LLM.
+      managePrompts: Управление промптами
+      variableReference: Справочник переменных
+      addPrompt: Добавить промпт
+      default: По умолчанию
+      builtIn: Встроенный
+      copyAndCustomize: Скопировать и настроить
+      copyName: Копия $1
+      builtInPrompts:
+        default:
+          description: Сбалансированный и надёжный перевод повседневных материалов
+        precisionRewrite:
+          name: Перевод с редактурой
+          description: Более естественный и разговорный перевод; расход токенов немного выше
+      importSuccess: Импорт успешен
+      import: Импорт
+      export: Экспорт
+      current: используется
+      editPrompt:
+        title: Редактировать промпт
+        name: Название
+        systemPrompt: Системный промпт
+        prompt: Промпт
+        promptCellInput:
+          input: Текстовое содержимое для перевода
+          targetLanguage: Целевой язык
+          webTitle: Заголовок веб-страницы
+          webDescription: Описание веб-страницы из метаданных
+          webContent: Содержимое веб-страницы (обрезается до первых 2000 символов)
+          webSummary: Резюме веб-страницы (требуется умный контекст ИИ)
+        save: Сохранить изменения
+        close: Отмена
+      deletePrompt:
+        title: Удалить промпт
+        description: Подтвердить удаление промпта
+        confirm: Подтвердить
+        cancel: Отмена
+      exportPrompt:
+        exportSelected: Экспортировать выбранные
+        cancel: Отмена
+    translationControl:
+      title: Управление переводом
+      description: Что переводится само, что не переводится никогда и что пропускается
+      manageControls: Управление правилами
+      autoTranslateWebsite:
+        title: Автоперевод по веб-сайту
+        description: Сайты, которые начинают переводиться сразу при открытии
+        urlPattern: URL-шаблон
+        enterUrlPattern: Введите URL-шаблон
+      neverAutoTranslateWebsite:
+        title: Никогда не переводить по веб-сайту
+        description: Сайты, которые никогда не переводятся сами, даже если совпадает языковое правило
+        urlPattern: URL-шаблон
+        enterUrlPattern: Введите URL-шаблон
+      autoTranslateLanguages:
+        title: Автоперевод по языку
+        description: Автоматически переводить содержимое страницы при обнаружении определённых языков
+        selectLanguages: Выберите языки
+      skipLanguages:
+        title: Автопропуск по языку
+        description: Автоматически пропускать перевод абзацев при обнаружении указанных языков
+        targetLanguageSkipDescription: Пропускать абзацы, которые уже на целевом языке, не отправляя запрос
+        selectLanguages: Выберите языки
+      smallParagraphFilter:
+        title: Фильтр коротких текстов
+        description: Эти глобальные значения по умолчанию позволяют пропускать перевод текстовых узлов, в которых меньше символов или слов, чем задано порогами. Подходящие правила сайта могут переопределить их (0 = отключено)
+        minCharacters:
+          description: "Минимум символов: текст короче не переводится. Укажите 0, чтобы переводить всё"
+        minWords:
+          description: "Минимум слов: текст с меньшим числом слов не переводится"
+        error: Значение должно быть от $1 до $2
+    translationQueue:
+      title: Очередь перевода
+      description: Как быстро уходят запросы, сколько текста несёт каждый и насколько далеко впереди читателя они идут
+      manageQueue: Управление очередью
+      requestQueueConfig:
+        title: Скорость перевода
+        capacity:
+          description: "Максимум запросов в пике: сколько уходит одновременно"
+        rate:
+          description: "Запросов в секунду: ровный темп после пика. Дробные значения работают: 0.25 — один запрос каждые 4 секунды"
+      batchQueueConfig:
+        title: Пакетный перевод
+        description: Настройте лимиты символов и максимальное количество абзацев для пакетного перевода (действует только для LLM-перевода)
+        maxCharactersPerBatch:
+          description: "Максимум символов: сколько текста уходит в один запрос к ИИ"
+        maxItemsPerBatch:
+          description: "Максимум абзацев: сколько абзацев объединяются в один запрос. Сервисы без ИИ не учитывают оба значения"
+      preloadConfig:
+        title: Диапазон предварительного перевода
+        description: Управляйте количеством контента ниже области просмотра, который будет предварительно переведён для экономии затрат на API
+        margin:
+          description: "Расстояние предзагрузки: на сколько пикселей ниже экрана переводить заранее. Меньше — дешевле"
+        threshold:
+          description: "Порог видимости: какая часть абзаца должна быть на экране, от 0 до 1"
+    cache:
+      title: Кэш
+      clearCache:
+        title: Очистить кэш
+        description: Очистить весь кэш перевода в вашем браузере
+        clearing: Очистка...
+        dialog:
+          title: Очистить кэш
+          trigger: Очистить кэш
+          confirm: Подтвердить
+          cancel: Отмена
+          description: Эта операция очистит весь кэш перевода. Это действие нельзя отменить.
+  siteRules:
+    title: Правила сайтов
+    description: Правила для отдельных сайтов, настраивающие перевод конкретных веб-сайтов.
+    userRules:
+      title: Пользовательские правила
+      description: Определите собственные правила сайтов в виде JSON-массива. Правила применяются к страницам, URL которых совпадает с шаблонами; пользовательские правила имеют приоритет над встроенными.
+      saveButton: Сохранить
+      savedButton: Сохранено
+      validation:
+        validating: Проверка...
+        valid: Правила корректны
+        syntaxError: JSON содержит синтаксические ошибки
+        notArray: Значение верхнего уровня JSON должно быть массивом правил
+        tooLong: Документ с правилами слишком длинный
+        tooMany: Слишком много правил
+        duplicateIds: Повторяющиеся id правил
+        schemaErrors: Некоторые правила некорректны
+        moreErrors: ...и ещё $1 ошибок
+        saved: Все изменения сохранены
+    builtIn:
+      title: Встроенные правила
+      description: Правила сайтов, поставляемые с расширением. Если правило вызывает проблемы на сайте, отключите его переключателем.
+      searchPlaceholder: Поиск по id, описанию или шаблону URL
+      showMore: Показать ещё
+      count: Показано $1 из $2 правил
+  videoSubtitles:
+    title: Видео субтитры
+    pageDescription: Переводите субтитры во время просмотра — с отдельным провайдером, стилем и настройками запросов.
+    preference:
+      title: Основное
+      enable:
+        title: Включить видеосубтитры
+        description: Добавляет кнопку перевода в панель управления плеера на YouTube, X и Netflix.
+      autoStart:
+        title: Переводить сразу при открытии
+        description: Начинать перевод субтитров, как только видео загрузилось, без нажатия кнопки.
+      aiSegmentation:
+        title: Умная сегментация ИИ
+        description: ИИ заново режет субтитры на строки, читающиеся как предложения. Тайминг он задаёт сам, поэтому строки могут расходиться с речью. Нужен LLM-провайдер перевода.
+    style:
+      title: Стиль субтитров
+      description: Режим отображения, положение, шрифты, цвета и фон — всё настраивается по живому предпросмотру
+      customizeStyle: Настроить стиль
+      displayMode:
+        title: Режим отображения
+        bilingual: Двуязычный
+        originalOnly: Только оригинал
+        translationOnly: Только перевод
+      translationPosition:
+        title: Позиция перевода
+        above: Сверху
+        below: Снизу
+      generalSettings: Общие настройки
+      mainSubtitle: Основные субтитры
+      translationSubtitle: Перевод субтитров
+      fontFamily: Шрифт
+      fontScale: Размер шрифта
+      color: Цвет
+      fontWeight: Толщина шрифта
+      backgroundOpacity: Прозрачность фона
+      reset: Сбросить по умолчанию
+      customCSS:
+        title: Пользовательский CSS
+        description: Дополнительный CSS для строк субтитров, поверх шрифтов и цветов выше
+        presetTemplate: Готовый шаблон
+        presetTemplateDescription: Быстро примените готовый шаблон — например, размытие перевода, чтобы скрыть его во время тренировки аудирования
+        presetPlaceholder: Выбрать шаблон
+        presets:
+          blurTranslation: Размыть перевод
+          dashedTranslation: Пунктир под переводом
+          dimOriginal: Приглушить оригинал
+        editor:
+          placeholder: |
+            /* Пример: размыть перевод и показывать его при наведении */
+            .subtitles-translation {
+              filter: blur(6px);
+            }
+
+            .subtitles-translation:hover {
+              filter: none;
+            }
+
+            /* Доступные селекторы: .read-frog-subtitles-box, .subtitles-main, .subtitles-translation */
+          docsLink: Как настроить?
+          saveButton: Сохранить
+          savedButton: Сохранено
+          validation:
+            validating: Проверка...
+            valid: CSS корректен
+            syntaxError: CSS содержит синтаксические ошибки
+            tooLong: CSS слишком длинный
+            saved: Все изменения сохранены
+    customPrompts:
+      title: Пользовательские промпты субтитров
+      description: Шаблоны промптов только для перевода субтитров, отдельно от промптов перевода веб-страниц
+      managePrompts: Управление промптами
+      editPrompt:
+        promptCellInput:
+          input: Текст субтитров для перевода
+          targetLanguage: Целевой язык
+          webTitle: Заголовок веб-страницы
+          webDescription: Описание веб-страницы из метаданных
+          videoSummary: Краткое содержание видео (требуется умный контекст ИИ)
+    subtitlesQueue:
+      title: Очередь субтитров
+      description: Как быстро уходят запросы субтитров и сколько строк несёт каждый
+      manageQueue: Управление очередью
+      requestQueueConfig:
+        title: Скорость перевода
+        capacity:
+          description: "Максимум запросов в пике: сколько уходит одновременно"
+        rate:
+          description: "Запросов в секунду: ровный темп после пика. Дробные значения работают: 0.25 — один запрос каждые 4 секунды"
+      batchQueueConfig:
+        title: Пакетный перевод
+        description: Настройте лимиты символов и максимальное количество строк субтитров для пакетного перевода (действует только для LLM-перевода)
+        maxCharactersPerBatch:
+          description: "Максимум символов: сколько текста уходит в один запрос к ИИ"
+        maxItemsPerBatch:
+          description: "Максимум строк субтитров: сколько строк объединяются в один запрос. Сервисы без ИИ не учитывают оба значения"
+    cache:
+      title: Кэш
+      clearCache:
+        title: Очистить кэш ИИ-сегментации
+        description: "Сохранённые результаты сегментации: уже просмотренное видео не разбивается заново"
+        clearing: Очистка...
+        dialog:
+          title: Очистить кэш ИИ-сегментации
+          trigger: Очистить кэш
+          confirm: Подтвердить
+          cancel: Отмена
+          description: Все кэшированные результаты AI сегментации будут удалены. При следующем воспроизведении видео с включенной AI сегментацией субтитры будут обработаны заново.
+  configMigration:
+    validationError: Ошибка валидации конфигурации
+side:
+  sourceLang: Исходный язык
+  targetLang: Целевой язык
+  fileExport: Экспорт файла
+translateService:
+  title: Сервис перевода
+  description: Только для перевода веб-страницы
+  builtInModels: Built-in Models
+  llmModels: LLM Models
+  normalTranslator: Обычный переводчик
+  selectServices: Выберите сервисы
+  translationProviders: Сервисы перевода
+  configureAPI: Настроить API
+translatePrompt:
+  title: Стиль ИИ-перевода
+  description: Выберите промпт для использования во время перевода. Добавляйте или изменяйте пользовательские промпты на странице настроек.
+languageLevel: Ваш уровень исходного языка
+languageLevels:
+  beginner: Начинающий
+  intermediate: Средний
+  advanced: Продвинутый
+noAPIKeyConfig:
+  warning: Если вы хотите использовать ИИ-модели, сначала установите API-ключ на странице настроек
+  warningWithLink:
+    youMust: Вы должны
+    setTheAPIKey: установить API-ключ
+    firstOnThe: сначала на странице
+    optionsPage: настроек
+    page: ""
+languageDetection:
+  llmFailed: Определение языка через LLM не удалось, выполнен откат к базовому определению
+translation:
+  sameLanguage: Исходный и целевой языки должны различаться
+  autoModeSameLanguage: Обнаруженный язык '$1' совпадает с целевым языком
+  extensionContextInvalidated: Расширение обновлено. Обновите эту страницу и повторите попытку.
+  failed: Ошибка перевода
+  failedFallback: Ошибка перевода
+action:
+  copy: Копировать
+  copied: Скопировано
+  regenerate: Сгенерировать заново
+  viewContextDetails: Контекст
+  customizeCustomAction: Настроить действие $1
+  openCustomActions: Открыть Custom AI Actions
+  contextDetailsTitleLabel: Заголовок
+  contextDetailsParagraphsLabel: Абзацы
+  translation: Перевод
+  moreActions: Другие действия
+  pinToToolbar: Закрепить на панели
+  unpinFromToolbar: Открепить от панели
+  dragToReorder: Перетащите, чтобы изменить порядок
+  addCustomAction: Добавить своё AI-действие
+noteSuggestion:
+  save: Сохранить
+  staleSuggestion: Это предложение устарело
+  toggleLabel: Показывать подсказки для заметок
+thinking:
+  label: Размышление
+  complete: Размышление завершено
+  expand: Развернуть размышление
+  collapse: Свернуть размышление
+shortcutKeySelector:
+  placeholder: Пожалуйста, введите горячую клавишу
+subtitles:
+  sidebar:
+    summary:
+      tab: Сводка ИИ
+      generating: Создаём сводку…
+      failedTitle: Не удалось создать
+      retry: Повторить
+      needsModel: Выберите LLM-модель для субтитров, чтобы получить сводку этого видео.
+      openSettings: Открыть настройки
+    transcript:
+      tab: Субтитры
+      failedTitle: Не удалось загрузить субтитры
+      retry: Повторить
+      emptyTitle: Нет субтитров для показа
+      backToCurrent: К текущему
+  toggle:
+    enabled: Перевод субтитров включён
+    disabled: Перевод субтитров выключен
+  actions:
+    downloadTranslated: Скачать переведённые субтитры
+    downloadTranslatedPreparing: Подготовка субтитров, длинные видео могут занять больше времени
+    downloadTranslatedTranslating: Перевод субтитров
+    downloadTranslatedComplete: Переведённые субтитры скачаны
+    downloadSource: Скачать исходные субтитры
+  state:
+    translating: Перевод…
+    error: Произошла ошибка
+  errors:
+    http429: 429 Слишком много запросов к API YouTube субтитров, пожалуйста, попробуйте снова позже
+    http404: 404 Субтитры YouTube не найдены
+    http403: 403 Доступ к субтитрам YouTube запрещён
+    http500: 500 Произошла ошибка сервера YouTube
+    httpUnknown: Ошибка HTTP $1
+    invalidResponse: Неверный формат ответа субтитров YouTube
+    networkError: Произошла сетевая ошибка при получении субтитров
+    fetchSubTimeout: Истекло время ожидания при получении субтитров
+    buttonNotFound: Кнопка субтитров не найдена
+    noSubtitlesFound: Для этого видео нет субтитров
+    trackFileNotLoaded: Не удалось загрузить субтитры, попробуйте обновить страницу
+    videoNotFound: Видео элемент не найден
+    controlsBarNotFound: Панель управления не найдена
+    aiRateLimited: Слишком много запросов, пожалуйста, повторите позже
+    aiAuthFailed: Ошибка аутентификации API, проверьте ваш API ключ
+    aiServiceUnavailable: Служба перевода временно недоступна
+    aiNoResponse: Служба AI не ответила, отображается оригинальный текст
+    translatedExportFailed: Не удалось создать переведённые субтитры
+    translatedExportIncomplete: Не удалось перевести все строки субтитров
+    translatedExportSameLanguage: Исходный и целевой языки совпадают
+hotkey:
+  control: Ctrl
+  alt: Option
+  shift: Shift
+  backtick: Обратный апостроф
+  clickAndHold: Нажмите и удерживайте
+languages:
+  eng: Английский
+  cmn: Упрощённый китайский
+  cmnHant: Традиционный китайский
+  yue: Кантонский
+  spa: Испанский
+  rus: Русский
+  arb: Арабский
+  ben: Бенгальский
+  hin: Хинди
+  por: Португальский
+  ind: Индонезийский
+  jpn: Японский
+  fra: Французский
+  deu: Немецкий
+  jav: Яванский
+  kor: Корейский
+  tel: Телугу
+  vie: Вьетнамский
+  mar: Маратхи
+  ita: Итальянский
+  tam: Тамильский
+  tur: Турецкий
+  urd: Урду
+  guj: Гуджарати
+  pol: Польский
+  ukr: Украинский
+  kan: Каннада
+  mai: Майтхили
+  mal: Малаялам
+  pes: Персидский
+  mya: Бирманский
+  swh: Суахили
+  sun: Сунданский
+  ron: Румынский
+  pan: Панджаби
+  bho: Бходжпури
+  amh: Амхарский
+  hau: Хауса
+  fuv: Фула
+  bos: Боснийский
+  hrv: Хорватский
+  nld: Нидерландский
+  srp: Сербский
+  tha: Тайский
+  ckb: Центральнокурдский
+  yor: Йоруба
+  uzn: Узбекский
+  zlm: Малайский
+  ibo: Игбо
+  npi: Непальский
+  ceb: Себуано
+  skr: Сараики
+  tgl: Тагальский
+  hun: Венгерский
+  azj: Азербайджанский
+  sin: Сингальский
+  koi: Коми-пермяцкий
+  ell: Греческий
+  ces: Чешский
+  mag: Магахи
+  run: Рунди
+  bel: Белорусский
+  plt: Малагасийский
+  qug: Кечуа Чимборасо
+  mad: Мадурский
+  nya: Чева
+  zyb: Чжуанский
+  pbu: Пушту
+  kin: Киньяруанда
+  zul: Зулу
+  bul: Болгарский
+  swe: Шведский
+  lin: Лингала
+  som: Сомали
+  hms: Цяньдунский мяо
+  hnj: Хмонг
+  ilo: Илоканский
+  kaz: Казахский
+  heb: Иврит
+  nob: Норвежский букмол
+  nno: Норвежский нюнорск
+  afr: Африкаанс
+  sqi: Албанский
+  asm: Ассамский
+  eus: Баскский
+  bre: Бретонский
+  cat: Каталанский
+  cos: Корсиканский
+  cym: Валлийский
+  dan: Датский
+  div: Дивехи
+  epo: Эсперанто
+  ekk: Эстонский
+  fao: Фарерский
+  fij: Фиджийский
+  fin: Финский
+  fry: Западнофризский
+  gla: Шотландский гэльский
+  gle: Ирландский
+  glg: Галисийский
+  grn: Гуарани
+  hat: Гаитянский креольский
+  haw: Гавайский
+  hye: Армянский
+  ido: Идо
+  ina: Интерлингва
+  isl: Исландский
+  kat: Грузинский
+  khm: Кхмерский
+  kir: Киргизский
+  lao: Лаосский
+  lat: Латинский
+  lvs: Латышский
+  lit: Литовский
+  ltz: Люксембургский
+  mkd: Македонский
+  mlt: Мальтийский
+  mon: Монгольский
+  mri: Маори
+  nso: Северный сото
+  oci: Окситанский
+  ori: Ория
+  orm: Оромо
+  prs: Дари
+  san: Санскрит
+  slk: Словацкий
+  slv: Словенский
+  smo: Самоанский
+  sna: Шона
+  snd: Синдхи
+  sot: Южный сото
+  tah: Таитянский
+  tat: Татарский
+  tgk: Таджикский
+  tir: Тигринья
+  ton: Тонганский
+  tsn: Тсвана
+  tuk: Туркменский
+  uig: Уйгурский
+  vol: Волапюк
+  wol: Волоф
+  xho: Коса
+  ydd: Идиш
+  aka: Акан
+  bam: Бамбара
+  bis: Бислама
+  bod: Тибетский
+  che: Чеченский
+  chv: Чувашский
+  dzo: Дзонг-кэ
+  ewe: Эве
+  kab: Кабильский
+  lug: Ганда
+  oss: Осетинский
+  ssw: Свати
+  ven: Венда
+  war: Варай
+  nde: Северный ндебеле
+  nbl: Южный ндебеле
+  pam: Пампанга
+  hil: Хилигайнон
+  bcl: Центральный бикольский
+  min: Минангкабау
+  ace: Ачехский
+  bug: Бугийский
+  ban: Балийский
+  bjn: Банджарский
+  mak: Макассарский
+  sas: Сасакский
+  tet: Тетум
+  cha: Чаморро
+  niu: Ниуэ
+  tvl: Тувалуанский
+  gil: Кирибати
+  mah: Маршалльский
+  pau: Палауский
+  wls: Уоллисский
+  rar: Раротонганский
+  hif: Фиджийский хинди
+languageSearch:
+  placeholder: Поиск языков...
+  noResults: Языки не найдены

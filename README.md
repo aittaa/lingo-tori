@@ -1,6 +1,6 @@
 # LingoTori
 
-An independent GPLv3 browser extension for page, selected-text and existing video-caption translation, dictionary meanings and sentence explanations. The interface supports **English, Korean and Japanese**; translation languages remain broader, including Chinese.
+An independent GPLv3 browser extension for page, selected-text and existing video-caption translation, dictionary meanings and sentence explanations. The interface offers **Azerbaijani, English, Spanish, Japanese, Korean, Russian, Turkish, Vietnamese, Simplified Chinese and Traditional Chinese**, with [documented English fallbacks](docs/ui-locale-restoration.md) for changed or missing copy. Translation languages remain broader, including Chinese.
 
 The standalone Translation Hub / Multi-API Text Translation screen has been removed. Multiple provider configurations and per-feature assignments remain supported. Previously saved Hub preferences are retained as inactive compatibility data; see the [removal scope and validation plan](docs/translation-hub-removal.md).
 
