@@ -127,6 +127,7 @@ options:
         cancel: キャンセル
       atLeastOneLLMProvider: 最低1つのLLM翻訳プロバイダーが必要です。
       featureWouldLoseProvider: "削除できません:「$1」を実行できるプロバイダーがなくなります。"
+      providerInUseCannotDisable: "$2個の機能で使用中のため、「$1」を無効にできません。"
       duplicateProviderName: '重複するプロバイダー名 "$1"'
       defaultProvider:
         translate: デフォルト翻訳プロバイダーに設定
@@ -466,6 +467,11 @@ options:
       description: 選択テキスト向けに独自の構造化 AI アクションを追加
       configTitle: アクション設定
       builtIn: 組み込み
+      badges:
+        new: 新規
+        updated: 更新済み
+        createdFrom: $1から作成
+        updatedFrom: $1から更新
       add: AI アクションを追加
       edit: AI アクションを編集
       empty: カスタム AI アクションはまだありません
@@ -539,6 +545,8 @@ options:
           confirm: 削除
           cancel: キャンセル
       templates:
+        dialogTitle: テンプレートを選択
+        dialogDescription: テンプレートを選んで新しい AI アクションをすばやく作成するか、最初から作成できます。
         dictionary:
           name: "辞書"
           description: "意味・発音・段落の翻訳付きで単語を調べる"
@@ -629,7 +637,9 @@ options:
           name: "構文解析"
           description: "長い文を先生のように書き込み、骨組み・節・つまずきやすい所をひと目で示す"
           fieldAnnotations: "注釈"
+          fieldAnnotationsDescription: '文字列としてシリアライズしたコンパクトな JSON 配列。各要素には "text" と "type"、該当する任意キー（"form", "sense", "head", "obstacle", "restore", "note", "occurrence"）だけを含めます。'
           fieldTranslation: "訳文"
+          fieldTranslationDescription: "選択テキスト全体の {{targetLanguage}} での自然な訳文。"
           roles:
             subject: "主語"
             predicate: "述語動詞"
@@ -691,6 +701,8 @@ options:
           trunkLabel: "骨組みだけ"
           slashesLabel: "スラッシュ"
         blank:
+          name: 空白のアクション
+          description: 空のアクションで最初から作成
           prompt: |-
             ## 入力
             選択テキスト：{{selection}}
