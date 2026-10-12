@@ -56,6 +56,11 @@ describe("retired Hub storage compatibility", () => {
   it("accepts older configs without Hub preferences without resetting retained settings", () => {
     const { translationHub: _legacy, ...older } = savedConfig()
     const parsed = configSchema.parse(older)
-    expect(parsed).toEqual({ ...older, translationHub: DEFAULT_CONFIG.translationHub })
+    // configSchema keeps a missing pre-migration prompt unset so v101-to-v102
+    // can copy the saved page prompt. DEFAULT_CONFIG's prompt is for fresh installs.
+    expect(parsed).toEqual({
+      ...older,
+      translationHub: { ...DEFAULT_CONFIG.translationHub, promptId: null },
+    })
   })
 })
