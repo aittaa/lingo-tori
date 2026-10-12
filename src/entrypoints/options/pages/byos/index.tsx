@@ -187,6 +187,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
   const [pending, setPending] = useState<"permission" | "starting" | "tab" | null>(null)
   const cardRef = useRef<HTMLElement>(null),
     modelRef = useRef<HTMLSelectElement>(null)
+  const initialRegistrationAttempt = useRef(false)
   const generation = useRef(0),
     authAttemptRef = useRef<string | undefined>(undefined),
     busyRef = useRef(true),
@@ -224,6 +225,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         return
       }
       if (next.state === "disconnected") {
+        if (next.authPending === false) initialRegistrationAttempt.current = false
         setModels([])
         setModel("")
         if (next.authPending === false && pendingRef.current === "tab") {
@@ -234,6 +236,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       }
       setAttempt(null)
       if (next.state !== "plan-enabled") {
+        initialRegistrationAttempt.current = false
         setModels([])
         setModel("")
         return
@@ -243,6 +246,16 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         if (epoch(generation) !== owner) return
         setModels(available.models)
         setModel((previous) => reconcileModelSelection(available.models, previous, savedModel))
+        const initialModel = reconcileModelSelection(available.models, "", savedModel)
+        if (initialRegistrationAttempt.current && initialModel) {
+          // Only an explicit first connection can register defaults here; mount refreshes cannot.
+          initialRegistrationAttempt.current = false
+          await writeConfig((current) =>
+            current.providersConfig.length === 0
+              ? buildByosProviderPatch(current, initialModel)
+              : {},
+          )
+        }
       } catch {
         const recovered = await boundedMessage(
           sendByosMessage("lingotoriByosSession", undefined),
@@ -260,7 +273,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         setNotice(t.failed)
       }
     },
-    [savedModel, setAttempt, t],
+    [savedModel, setAttempt, t, writeConfig],
   )
   useEffect(() => {
     const owner = invalidate(generation)
@@ -295,6 +308,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     }
   }, [refresh, setWorking])
   function signIn() {
+    initialRegistrationAttempt.current = config.providersConfig.length === 0
     const owner = invalidate(generation)
     const attemptId = crypto.randomUUID()
     authAttemptRef.current = attemptId
@@ -310,6 +324,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     } catch (error) {
       setAttempt(null)
       setWorking(false)
+      initialRegistrationAttempt.current = false
       setNotice(t[failureKind(error)])
       return
     }
@@ -318,6 +333,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         const granted = await permission
         if (epoch(generation) !== owner) return
         if (!granted) {
+          initialRegistrationAttempt.current = false
           setAttempt(null)
           setNotice(t.denied)
           return
@@ -328,6 +344,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       } catch (error) {
         if (epoch(generation) === owner) {
           invalidate(generation)
+          initialRegistrationAttempt.current = false
           setAttempt(null)
           setWorking(false)
           setNotice(t[failureKind(error)])
@@ -339,6 +356,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     })()
   }
   function cancel() {
+    initialRegistrationAttempt.current = false
     const attemptId = authAttemptRef.current
     if (!attemptId) {
       setNotice(t.background)
@@ -361,6 +379,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       })
   }
   function signOut() {
+    initialRegistrationAttempt.current = false
     const owner = invalidate(generation)
     setAttempt(null)
     setWorking(true)

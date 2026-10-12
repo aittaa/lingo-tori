@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   protocol: "chrome-extension:",
   installedPermission: true,
   dnrAvailable: true,
+  writeFailure: false,
   permission: vi.fn<() => Promise<boolean>>(),
 }))
 
@@ -42,9 +43,14 @@ vi.mock("@/utils/i18n", () => ({
 vi.mock("@/utils/atoms/config", async () => {
   const { atom } = await import("jotai")
   const { DEFAULT_CONFIG: initialConfig } = await import("@/utils/constants/config")
+  const { deepmergeCustom } = await import("deepmerge-ts")
+  const mergeWithArrayOverwrite = deepmergeCustom({
+    mergeArrays: (values) => values[values.length - 1],
+  })
   const testConfigAtom = atom(initialConfig)
   return {
     configAtom: testConfigAtom,
+    mergeWithArrayOverwrite,
     configFieldsAtomMap: {
       providersConfig: atom(
         (get) => get(testConfigAtom).providersConfig,
@@ -56,7 +62,11 @@ vi.mock("@/utils/atoms/config", async () => {
     writeConfigAtom: atom(
       null,
       async (get, set, update: (config: typeof initialConfig) => Partial<typeof initialConfig>) => {
-        set(testConfigAtom, { ...get(testConfigAtom), ...update(get(testConfigAtom)) })
+        if (mocks.writeFailure) throw new Error("Synthetic config persistence failure")
+        set(
+          testConfigAtom,
+          mergeWithArrayOverwrite(get(testConfigAtom), update(get(testConfigAtom))),
+        )
       },
     ),
   }
@@ -98,6 +108,7 @@ beforeEach(() => {
   mocks.locale = "en"
   mocks.protocol = "chrome-extension:"
   mocks.installedPermission = true
+  mocks.writeFailure = false
   mocks.dnrAvailable = true
   mocks.permission.mockReset()
   mocks.permission.mockResolvedValue(true)
@@ -115,7 +126,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function renderSettings() {
+function renderSettings(initialProviders = true) {
   const store = createStore()
   const config = structuredClone(DEFAULT_CONFIG)
   config.providersConfig = [
@@ -126,6 +137,7 @@ function renderSettings() {
       model: { model: "use-custom-model", isCustomModel: true, customModel: "historical-model" },
     },
   ]
+  if (!initialProviders) config.providersConfig = []
   store.set(configAtom, config)
   render(
     <Provider store={store}>
@@ -723,3 +735,139 @@ it.each(["rejected", "timeout"])(
     expect(mocks.permission).not.toHaveBeenCalled()
   },
 )
+
+async function beginFirstConnection() {
+  const store = renderSettings(false)
+  await waitForSignedOut()
+  fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
+  await waitFor(() =>
+    expect(screen.getByText("Complete sign-in in the opened tab.")).toBeInTheDocument(),
+  )
+  return store
+}
+
+describe("first ChatGPT connection defaults", () => {
+  it("persists the discovered model and compatible empty assignments after an explicit connection", async () => {
+    const store = await beginFirstConnection()
+    expect(store.get(configAtom).providersConfig).toEqual([])
+    mockConnected()
+    fireEvent(window, new Event("focus"))
+    await waitFor(() =>
+      expect(store.get(configAtom).pageTranslation.providerId).toBe("lingotori-byos"),
+    )
+    const config = store.get(configAtom)
+    expect(config.providersConfig).toEqual([
+      expect.objectContaining({
+        provider: "byos",
+        model: expect.objectContaining({ customModel: "synthetic-model" }),
+      }),
+    ])
+    expect(config.videoSubtitles.providerId).toBe("lingotori-byos")
+    expect(config.selectionToolbar.features.translate.providerId).toBe("lingotori-byos")
+    expect(config.selectionToolbar.builtInActions.dictionary.providerId).toBe("lingotori-byos")
+    expect(config.selectionToolbar.builtInActions.sentenceAnalysis.providerId).toBe(
+      "lingotori-byos",
+    )
+    expect(config.languageDetection).toEqual(DEFAULT_CONFIG.languageDetection)
+  })
+  it("does not persist an already connected account merely by opening settings", async () => {
+    mockConnected()
+    const store = renderSettings(false)
+    const initial = store.get(configAtom)
+    await waitFor(() => expect(screen.getByLabelText("Model")).toHaveValue("synthetic-model"))
+    expect(store.get(configAtom)).toBe(initial)
+    fireEvent.click(screen.getByRole("button", { name: "Save model" }))
+    await waitFor(() =>
+      expect(store.get(configAtom).pageTranslation.providerId).toBe("lingotori-byos"),
+    )
+  })
+  it("leaves empty assignments alone if another provider registers before discovery completes", async () => {
+    const store = await beginFirstConnection()
+    let release!: (value: unknown) => void
+    const catalog = new Promise((resolve) => {
+      release = resolve
+    })
+    mocks.send.mockImplementation(async (type) =>
+      type === "lingotoriByosSession"
+        ? connected
+        : type === "lingotoriByosModels"
+          ? catalog
+          : undefined,
+    )
+    fireEvent(window, new Event("focus"))
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith("lingotoriByosModels", undefined))
+    act(() =>
+      store.set(configAtom, {
+        ...store.get(configAtom),
+        providersConfig: [structuredClone(DEFAULT_PROVIDER_CONFIG.openai)],
+      }),
+    )
+    const registered = store.get(configAtom)
+    await act(async () => release(availableModels))
+    await waitFor(() => expect(screen.getByLabelText("Model")).toHaveValue("synthetic-model"))
+    expect(store.get(configAtom)).toEqual(registered)
+  })
+  it("does not register after cancellation discards a late catalog", async () => {
+    const store = await beginFirstConnection()
+    let release!: (value: unknown) => void
+    const catalog = new Promise((resolve) => {
+      release = resolve
+    })
+    mocks.send.mockImplementation(async (type) =>
+      type === "lingotoriByosSession"
+        ? connected
+        : type === "lingotoriByosModels"
+          ? catalog
+          : undefined,
+    )
+    fireEvent(window, new Event("focus"))
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith("lingotoriByosModels", undefined))
+    await openAccountMenu()
+    mocks.send.mockImplementation(async (type) =>
+      type === "lingotoriByosSignout" || type === "lingotoriByosSession"
+        ? { state: "disconnected" }
+        : undefined,
+    )
+    fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }))
+    await waitForSignedOut()
+    await act(async () => release(availableModels))
+    expect(store.get(configAtom).providersConfig).toEqual([])
+  })
+  it.each(["empty", "failed"])("does not register with a %s model catalog", async (mode) => {
+    const store = await beginFirstConnection()
+    mocks.send.mockImplementation(async (type) => {
+      if (type === "lingotoriByosSession") return connected
+      if (type === "lingotoriByosModels") {
+        if (mode === "failed") throw new Error("Synthetic catalog unavailable")
+        return { models: [] }
+      }
+      return undefined
+    })
+    fireEvent(window, new Event("focus"))
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith("lingotoriByosModels", undefined))
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: mode === "failed" ? "Try again" : "Save model" }),
+      ).toBeInTheDocument(),
+    )
+    expect(store.get(configAtom).providersConfig).toEqual([])
+  })
+})
+
+it("keeps first-connection assignments unsaved when persistence fails and allows model-save recovery", async () => {
+  const store = await beginFirstConnection()
+  mocks.writeFailure = true
+  mockConnected()
+  fireEvent(window, new Event("focus"))
+  await waitFor(() => expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled())
+  expect(store.get(configAtom).providersConfig).toEqual([])
+  expect(store.get(configAtom).pageTranslation).toEqual(DEFAULT_CONFIG.pageTranslation)
+  mocks.writeFailure = false
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save model" })).toBeEnabled())
+  expect(store.get(configAtom).providersConfig).toEqual([])
+  fireEvent.click(screen.getByRole("button", { name: "Save model" }))
+  await waitFor(() =>
+    expect(store.get(configAtom).pageTranslation.providerId).toBe("lingotori-byos"),
+  )
+})

@@ -1,4 +1,6 @@
 import type { Config } from "@/types/config/config"
+import { mergeWithArrayOverwrite } from "@/utils/atoms/config"
+import { buildFirstProviderDefaultsPatch } from "@/utils/config/first-provider-defaults"
 
 export type ByosTarget = "page" | "selection" | "dictionary"
 
@@ -21,22 +23,25 @@ export function buildByosProviderPatch(
       customModel: model,
     },
   }
+  const defaults = model ? buildFirstProviderDefaultsPatch(current, next) : {}
+  const assigned = mergeWithArrayOverwrite(current, defaults)
   return {
+    ...defaults,
     providersConfig: existing
       ? current.providersConfig.map((p) =>
           p.id === id && p.provider === "byos" ? { ...p, enabled: true, model: next.model } : p,
         )
       : [...current.providersConfig, next],
     ...(target === "page"
-      ? { pageTranslation: { ...current.pageTranslation, providerId: id } }
+      ? { pageTranslation: { ...assigned.pageTranslation, providerId: id } }
       : {}),
     ...(target === "selection"
       ? {
           selectionToolbar: {
-            ...current.selectionToolbar,
+            ...assigned.selectionToolbar,
             features: {
-              ...current.selectionToolbar.features,
-              translate: { ...current.selectionToolbar.features.translate, providerId: id },
+              ...assigned.selectionToolbar.features,
+              translate: { ...assigned.selectionToolbar.features.translate, providerId: id },
             },
           },
         }
@@ -44,15 +49,15 @@ export function buildByosProviderPatch(
     ...(target === "dictionary"
       ? {
           selectionToolbar: {
-            ...current.selectionToolbar,
+            ...assigned.selectionToolbar,
             builtInActions: {
-              ...current.selectionToolbar.builtInActions,
+              ...assigned.selectionToolbar.builtInActions,
               dictionary: {
-                ...current.selectionToolbar.builtInActions.dictionary,
+                ...assigned.selectionToolbar.builtInActions.dictionary,
                 providerId: id,
               },
               sentenceAnalysis: {
-                ...current.selectionToolbar.builtInActions.sentenceAnalysis,
+                ...assigned.selectionToolbar.builtInActions.sentenceAnalysis,
                 providerId: id,
               },
             },
