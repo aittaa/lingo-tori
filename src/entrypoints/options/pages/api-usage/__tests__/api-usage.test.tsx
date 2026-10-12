@@ -31,7 +31,7 @@ describe("API usage settings", () => {
     readUsage.mockResolvedValueOnce({ usage, incomplete: false })
     showPage()
     const row = await screen.findByRole("row", {
-      name: "options.apiUsage.features.dictionary 12 3",
+      name: "options.apiUsage.features.dictionary 12 3 15",
     })
     expect(within(row).getByRole("rowheader")).toBeInTheDocument()
     expect(screen.getByText("options.apiUsage.billing")).toBeInTheDocument()
@@ -41,7 +41,7 @@ describe("API usage settings", () => {
     readUsage.mockResolvedValueOnce({ usage: updated, incomplete: false })
     fireEvent.click(screen.getByRole("button", { name: "options.apiUsage.refresh" }))
     expect(
-      await screen.findByRole("row", { name: "options.apiUsage.features.dictionary 13 3" }),
+      await screen.findByRole("row", { name: "options.apiUsage.features.dictionary 13 3 16" }),
     ).toBeInTheDocument()
   })
 
@@ -51,12 +51,13 @@ describe("API usage settings", () => {
     expect(await screen.findByText("options.apiUsage.unavailable")).toBeInTheDocument()
     expect(screen.queryByRole("table")).not.toBeInTheDocument()
     expect(screen.queryByText("options.apiUsage.empty")).not.toBeInTheDocument()
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument()
   })
 
   it("distinguishes first-use emptiness from incomplete saved counts", async () => {
     readUsage.mockResolvedValue({ usage: emptyApiUsage(), incomplete: true })
     showPage()
-    expect(await screen.findByText("options.apiUsage.empty")).toBeInTheDocument()
+    expect((await screen.findAllByText("options.apiUsage.empty"))[0]).toBeInTheDocument()
     expect(screen.getByText("options.apiUsage.incomplete")).toBeInTheDocument()
     expect(screen.getByRole("table")).toBeInTheDocument()
   })

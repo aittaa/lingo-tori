@@ -1,6 +1,6 @@
 # Feature API usage
 
-Issue #47 adds `/api-usage` to extension settings and settings search. The page uses the existing theme and English, Korean and Japanese locales. It is a local activity counter with a manual refresh button.
+Issue #47 adds `/api-usage` to extension settings and settings search. The page uses the existing theme and English, Korean and Japanese locales. It is a local activity counter with a manual refresh button, an exact-value table and a horizontal stacked bar chart. The chart uses native themed markup with no chart dependency. Its shared axis starts at zero and shows outbound attempts; API and BYOS segments sum to the same per-feature totals as the table. Retries are already part of attempts and cache hits are excluded, so no extra retry/cache series is added. Bars rank features by total and retain every feature, including zero rows. Solid and striped segments, a textual legend and accessible per-feature value labels distinguish transports without relying on color. The cumulative interval is shown from the first counting timestamp through the latest snapshot time in local time; there is no period filter.
 
 ## Counting contract
 

@@ -105,6 +105,13 @@ options:
     privacy: Only fixed feature counters and the first counting date are saved locally. No text, URLs, provider names, keys or tokens are stored by this page. Totals persist across restarts without a history limit; reset and export are not provided.
     limitations: Storage writes happen in the background without delaying requests. Abrupt worker termination or storage failure can leave a dispatched attempt unsaved. This is a local activity counter, not a billing record.
     billing: Token usage and cost are unavailable here. BYOS attempts are shown separately and do not represent API billing or remaining subscription quota.
+    chart:
+      title: Requests by feature
+      description: Bars compare total outbound attempts on a shared scale starting at zero, ordered from highest to lowest. Each bar stacks API and BYOS attempts. Retries are already included in these counts; cache hits are excluded. Exact values are in the table below.
+      period: Cumulative period (local time)
+      axis: Outbound request attempts (count)
+      legend: Request transport legend
+      byosLegend: ChatGPT subscription (BYOS, striped)
     features:
       pageTranslation: Page translation (including titles)
       selectionTranslation: Selected-text translation

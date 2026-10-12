@@ -14,10 +14,12 @@ import { API_USAGE_FEATURES } from "@/utils/api-usage"
 import { i18n } from "@/utils/i18n"
 import { sendMessage } from "@/utils/message"
 import { PageLayout } from "../../components/page-layout"
+import { UsageChart } from "./usage-chart"
 
 export function ApiUsagePage() {
   const {
     data: snapshot,
+    dataUpdatedAt,
     isFetching: loading,
     isError,
     refetch,
@@ -73,6 +75,7 @@ export function ApiUsagePage() {
             <p className="text-sm text-destructive">{i18n.t("options.apiUsage.incomplete")}</p>
           )}
         </div>
+        {usage && <UsageChart usage={usage} locale={locale} snapshotAt={dataUpdatedAt} />}
         {usage && (
           <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
             <Table aria-label={i18n.t("options.apiUsage.title")}>
@@ -84,6 +87,9 @@ export function ApiUsagePage() {
                   </TableHead>
                   <TableHead scope="col" className="text-right">
                     {i18n.t("options.apiUsage.byos")}
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    {i18n.t("options.apiUsage.total")}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -99,6 +105,11 @@ export function ApiUsagePage() {
                     <TableCell className="text-right tabular-nums">
                       {usage.counts[feature].byos.toLocaleString(locale)}
                     </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {(usage.counts[feature].api + usage.counts[feature].byos).toLocaleString(
+                        locale,
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -110,6 +121,9 @@ export function ApiUsagePage() {
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {totals.byos.toLocaleString(locale)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {(totals.api + totals.byos).toLocaleString(locale)}
                   </TableCell>
                 </TableRow>
               </TableFooter>
