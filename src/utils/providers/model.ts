@@ -35,6 +35,7 @@ import {
   isOpenResponsesLLMProviderConfig,
 } from "@/types/config/provider"
 import { compactObject } from "@/types/utils"
+import { createByosModel } from "@/utils/byos/model"
 import { getLLMProvidersConfig, getProviderConfigById } from "../config/helpers"
 import { CONFIG_STORAGE_KEY } from "../constants/config"
 import { getProviderHeadersWithOverride } from "./headers"
@@ -114,6 +115,11 @@ async function getLanguageModelById(providerId: string) {
 export function getLanguageModelForConfig(providerConfig: LLMProviderConfig) {
   if (!providerConfig.enabled) {
     throw new ProviderSetupError("Enable this provider in Settings before using it.")
+  }
+  if (providerConfig.provider === "byos") {
+    const modelId = resolveModelId(providerConfig.model)
+    if (!modelId) throw new ProviderSetupError("Choose a ChatGPT model in Settings.")
+    return createByosModel(modelId)
   }
   // Custom/local endpoints may intentionally authenticate outside an API key.
   if (

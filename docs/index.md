@@ -4,10 +4,10 @@ LingoTori is being developed as an independent GPLv3 fork of Read Frog focused o
 
 ## Status
 
-The baseline is `ca8da8241883c9aff5862d15d045845a746c9a6b`. This core snapshot includes translation, dictionary explanations and BYOK. New non-upstream learning/SRS/web/backend and companion/account runtimes are excluded. Original reading suggestions and necessary independent contracts remain. Existing experimental provider records are retained as inert compatibility data. See [validation](validation.md) for the planned merge gate.
+The baseline is `ca8da8241883c9aff5862d15d045845a746c9a6b`. This candidate combines the independent translation/dictionary/BYOK core with experimental browser-only BYOS. New non-upstream learning/SRS/web/backend, commercial hosted accounts and companion runtimes remain excluded. Original reading suggestions and necessary independent contracts remain. Saved BYOS ON/OFF, model and feature assignments are preserved; execution checks enablement and authenticated access. See [integration preparation](byos-core-integration.md) and [validation](validation.md).
 
 - [BYOK setup](byok.md): configure and explicitly assign your own provider.
-- [Experimental BYOS status](experimental-byos.md): separate draft work unavailable in this core.
+- [Experimental BYOS status](experimental-byos.md): current source, activation policy and historical live-evidence boundaries.
 - [Product requirements](product-requirements.md): retained features, exclusions, and user experience.
 - [Architecture and licensing](architecture-and-licensing.md): dependency findings, independent implementation boundaries, and data ownership.
 - [Implementation plan](implementation-plan.md): reviewable phases, acceptance criteria, and release gates.

@@ -22,11 +22,22 @@ export default defineConfig({
       ...(browser !== "firefox" ? ["sidePanel"] : []),
     ],
     host_permissions: ["*://*/*"],
+    ...(browser !== "firefox" && {
+      optional_permissions: ["declarativeNetRequestWithHostAccess"],
+    }),
     web_accessible_resources: [
       {
         resources: ["assets/*.png", "assets/*.svg", "assets/*.webp"],
         matches: ["*://*/*", "file:///*"],
       },
+      ...(browser !== "firefox"
+        ? [
+            {
+              resources: ["byos-callback.html"],
+              matches: ["http://127.0.0.1/*", "https://auth.openai.com/*"],
+            },
+          ]
+        : []),
     ],
     ...(browser === "firefox" && {
       content_security_policy: {

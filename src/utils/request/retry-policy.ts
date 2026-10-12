@@ -10,6 +10,8 @@ export interface RequestErrorMeta {
   statusCode?: number
   responseHeaders?: Headers | Record<string, string>
   isRetryable?: boolean
+  // A request-scoped BYOS admission denial opts out of shared-queue draining.
+  failQueue?: boolean
   retryAfterMs?: number
   kind?: RequestErrorKind
 }
@@ -58,6 +60,7 @@ interface RetryAwareError {
   responseHeaders?: unknown
   headers?: unknown
   isRetryable?: unknown
+  failQueue?: unknown
   retryAfterMs?: unknown
   kind?: unknown
   message?: unknown
@@ -101,6 +104,7 @@ export function getRequestErrorMeta(error: unknown): RequestErrorMeta {
     normalizeNonNegativeNumber(attachedMeta?.retryAfterMs ?? source?.retryAfterMs) ??
     getRetryAfterMsFromHeaders(responseHeaders)
   const isRetryable = normalizeBoolean(attachedMeta?.isRetryable ?? source?.isRetryable)
+  const failQueue = normalizeBoolean(attachedMeta?.failQueue ?? source?.failQueue)
   const message = typeof source?.message === "string" ? source.message : ""
   const kind =
     normalizeKind(attachedMeta?.kind ?? source?.kind) ??
@@ -111,6 +115,7 @@ export function getRequestErrorMeta(error: unknown): RequestErrorMeta {
     responseHeaders,
     retryAfterMs,
     isRetryable,
+    failQueue,
     kind,
   })
 }
@@ -171,7 +176,7 @@ export const defaultRequestRetryPolicy: RequestRetryPolicy = {
     // wrong or the account cannot use this service — retrying any queued task
     // is pointless, so drain the backlog immediately.
     if (isQueueFatalRequestErrorMeta(meta)) {
-      return { action: "fail", failQueue: true }
+      return { action: "fail", failQueue: meta.failQueue !== false }
     }
 
     // 429: pause the whole queue and re-enqueue this task instead of nuking

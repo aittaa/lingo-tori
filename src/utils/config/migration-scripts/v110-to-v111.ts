@@ -18,7 +18,7 @@ export function migrate(oldConfig: any): any {
         delete provider[key]
       return provider
     })
-  // BYOS rows and their assignments are inert compatibility data, even when disabled.
+  // Preserve BYOS rows, ON/OFF, models and assignments; runtime honors enablement.
   const assignmentIds = new Set(
     next.providersConfig
       .filter((provider: any) => provider.enabled || provider.provider === "byos")

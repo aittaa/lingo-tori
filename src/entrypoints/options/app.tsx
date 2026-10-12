@@ -5,6 +5,8 @@ import { ROUTE_DEFS } from "./app-sidebar/nav-items"
 
 type RoutePath = (typeof ROUTE_DEFS)[number]["path"]
 
+const ByosPage = lazy(() => import("./pages/byos").then((module) => ({ default: module.ByosPage })))
+
 const PreferencePage = lazy(() =>
   import("./pages/preference").then((module) => ({ default: module.PreferencePage })),
 )
@@ -113,6 +115,7 @@ const SubtitlesQueuePage = lazy(() =>
 
 const ROUTE_COMPONENTS: Record<RoutePath, ComponentType> = {
   "/": ApiProvidersPage,
+  "/byos": ByosPage,
   "/preference": PreferencePage,
   "/shortcuts": ShortcutsPage,
   "/api-providers": ApiProvidersPage,

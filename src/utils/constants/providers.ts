@@ -31,7 +31,6 @@ import { i18n } from "@/utils/i18n"
 import { getLobeIconsCDNUrlFn } from "../logo"
 
 export const DEFAULT_LLM_PROVIDER_MODELS: LLMProviderModels = {
-  // Preserved metadata for inert experimental records, not an available provider.
   byos: { model: "use-custom-model", isCustomModel: true, customModel: null },
   openrouter: {
     model: "google/gemma-4-31b-it:free",
@@ -194,7 +193,6 @@ export const PROVIDER_ITEMS: Record<
     apiKeyUrl?: string
   }
 > = {
-  // Storage-only metadata; this provider is absent from API/feature selectors.
   byos: {
     logo: () => customProviderLogo,
     name: "ChatGPT",
@@ -360,7 +358,6 @@ export const PROVIDER_ITEMS: Record<
 }
 
 export const DEFAULT_PROVIDER_CONFIG = {
-  // Compatibility default only; no authentication or model factory exists.
   byos: {
     id: "byos-default",
     name: "ChatGPT",

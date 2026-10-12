@@ -19,7 +19,7 @@ import {
 } from "../providers"
 
 describe("provider constants", () => {
-  it("preserves inert experimental rows without accepting credentials in shared config", () => {
+  it("preserves BYOS rows without accepting credentials in shared config", () => {
     expect(providersConfigSchema.safeParse([DEFAULT_PROVIDER_CONFIG.byos]).success).toBe(true)
     for (const extra of [
       { apiKey: "secret" },
@@ -131,8 +131,11 @@ describe("provider constants", () => {
       [...openAICompatibleTypes, ...openResponsesTypes].sort(),
     )
     expect([...protocolCompatibleTypes].filter((type) => dedicatedTypes.has(type))).toEqual([])
+    // Subscription authentication is separate from API protocol adapters.
+    expect(protocolCompatibleTypes.has("byos")).toBe(false)
+    expect(dedicatedTypes.has("byos")).toBe(false)
     expect([...protocolCompatibleTypes, ...dedicatedTypes].sort()).toEqual(
-      [...LLM_PROVIDER_TYPES].sort(),
+      LLM_PROVIDER_TYPES.filter((type) => type !== "byos").sort(),
     )
     expect(API_PROVIDER_TYPES.slice(0, 5)).toEqual(
       PROTOCOL_COMPATIBLE_LLM_PROVIDER_TYPES.slice(0, 5),

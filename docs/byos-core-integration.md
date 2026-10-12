@@ -1,0 +1,25 @@
+# BYOS integration preparation
+
+Pinned inputs: independent main `18b7995339225eb5a008190ededd81400a89818e` (tree `a6811d5db6f47e5cbffc2762bac83d4f9f546c41`), reviewed BYOS stack through PR57 `a9b3761d880861db695d2aa8f322e923aa4dedd8`, and PR41 `96373d4338da1e91ac50910bcce589452480529f`. PR41 was copied onto PR57 without conflict as local `bc085c2c46fa5b2c9cacbde92085e32f75a91c90` (tree `8c7ddcf398b67919792fc63f55ca93f492bbd3fa`). Initial main `628a67e61a46303c54b2250b1a85d461a46d143d` was assembled, then its approved cleanup delta to `4b8e7a21ccc92d333dd329d1d2905c954100790f` was applied before the full test run. That delta had one import conflict: retain BYOS's React ref while removing the sponsor badge. The subsequent PR49 mascot/theme delta to final main applied without conflict; all 24 incoming files are byte-identical to main. The earlier validated candidate `25df82303b87a0e436bb1065608bdefe4386c174` remains preserved locally.
+
+The owner approved activation policy 1: preserve existing ON/OFF, models and assignments without a separate deactivation migration. Enabled configured BYOS rows can serve supported features; OFF rows stay OFF and retained assignments do not reset unrelated BYOK settings. Model execution still checks enablement and authenticated account access. No authentication keys, account data or provider configuration were created or operated in this preparation.
+
+Resolve the 35 original conflicts by retaining main's cleanup, documentation, EN/KO/JA resources, migration data preservation, API-editor selection fixes and captured-provider model/batch routing. Add only the reviewed BYOS factories, settings/card callbacks, background setup and optional Chromium callback configuration. Update former inert-only test expectations for the approved activation policy, while preserving OFF and BYOK controls. Per-file initial resolutions are recorded locally in `.output/final-integration/conflict-resolutions.json`.
+
+Source assembly and verification are in `/tmp/lingotori-byos-final-integration-20261012`, branch `codex/byos-final-integration-20261012`. Package and lockfile inputs match between pinned main and PR57, so the existing declared-toolchain dependencies can be reused with worktree-local caches; no dependency install or lifecycle hooks are needed. Final checks use Node 26.11.1, installed shims, `SKIP_FREE_API=true` and at most two test workers; browser builds are serial.
+
+```sh
+SKIP_FREE_API=true node_modules/.bin/vitest run --maxWorkers=2 --reporter=dot
+node_modules/.bin/oxlint --threads 2 --type-aware --type-check
+node_modules/.bin/oxfmt --threads 2 --check .
+node_modules/.bin/wxt build
+node_modules/.bin/wxt build -b firefox --mv3
+```
+
+The full offline run executed once: 346 files / 3,543 tests, with 3,540 passes and three failures in two test files. Two failures came from a mock-reset hook accidentally returning a teardown function after switching to main's synchronous snapshot factory; one was the former core-only API taxonomy expectation. Correct only those tests and rerun the two affected files: 27/27 pass. Hash comparison confirms no production source changed after the full run. The full suite was not repeated; initial results plus the affected rerun cover all 3,543 cases. Logs: `full-tests.log`, `affected-tests.log` and `post-test-source-changes.json` under `.output/final-integration/`.
+
+PASS: full type-aware lint/type check, whole-repository formatting (1,463 files), changeset/diff checks, main preservation and content-script boundary audits. Chrome MV3 builds in 6.073 seconds (169 files, 13,985,891 bytes); Firefox MV3 in 5.837 seconds (165 files, 13,984,663 bytes). WXT reports 14.27 MB for each build. The main snapshot pipeline, its regressions, workflow policy, GPL license and attribution remain byte-identical to pinned main. Of 310 main-deleted paths, only the approved BYOS document is restored. BYOS service source is byte-identical to the reviewed PR57 plus PR41 composition. Exact final tree/commit are recorded in local assessment after documentation is finalized. Built extensions: `.output/chrome-mv3/` and `.output/firefox-mv3/`.
+
+The paragraph above records the pre-theme checkpoint. After PR49, run only the four affected palette/popup-animation/provider/BYOS-settings test files: 39/39 pass. Full type-aware lint/type check and formatting (1,467 files) pass on the latest source. The general full suite is not repeated because the extra incoming change is isolated to reviewed branding/theme/UI files. Final rebuilt artifact sizes and exact candidate identity are in the local final assessment.
+
+The parent reported completion of the bounded Pro review through PR57 with the three addressed findings resolved and no new P0–P3 at that input. It excludes PR41 and these integration resolutions. Earlier PR41 live Korean rendering verifies its tested initial flow only; this newly combined source has no live-browser/account/inference verification. No duplicate Pro request, remote main change, PR merge, setting change, CI dispatch, live credentials or unrelated service operations are part of this preparation.

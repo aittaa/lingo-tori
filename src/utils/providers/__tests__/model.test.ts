@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { storage } from "#imports"
 import { FORCED_PROVIDER_HEADERS } from "@/utils/constants/providers"
 
+vi.mock("@/utils/byos/model", () => ({
+  createByosModel: vi.fn<(modelId: string) => { modelId: string; provider: string }>(
+    (modelId: string) => ({ modelId, provider: "byos" }),
+  ),
+}))
+
 // Model construction needs only the stored provider rows, not application defaults.
 vi.mock("@/utils/constants/config", () => ({ CONFIG_STORAGE_KEY: "config" }))
 vi.mock("@/utils/config/helpers", async () => {
@@ -159,6 +165,34 @@ describe("getModelById", () => {
     ollamaLanguageModelMock.mockReturnValue("ollama-model")
     getStorageItemMock = vi.fn<(...args: any[]) => any>()
     ;(storage.getItem as unknown as ReturnType<typeof vi.fn>) = getStorageItemMock
+  })
+
+  it("builds the enabled saved BYOS model from its captured configuration", async () => {
+    const { getLanguageModelForConfig } = await import("../model")
+    expect(
+      getLanguageModelForConfig({
+        id: "saved-byos",
+        name: "ChatGPT",
+        provider: "byos",
+        enabled: true,
+        model: { model: "use-custom-model", isCustomModel: true, customModel: "saved-model" },
+      }),
+    ).toEqual({ modelId: "saved-model", provider: "byos" })
+    expect(getStorageItemMock).not.toHaveBeenCalled()
+  })
+
+  it("keeps an OFF saved BYOS model unavailable for execution", async () => {
+    const { getLanguageModelForConfig } = await import("../model")
+    expect(() =>
+      getLanguageModelForConfig({
+        id: "saved-byos",
+        name: "ChatGPT",
+        provider: "byos",
+        enabled: false,
+        model: { model: "use-custom-model", isCustomModel: true, customModel: "saved-model" },
+      }),
+    ).toThrow("Enable this provider")
+    expect(getStorageItemMock).not.toHaveBeenCalled()
   })
 
   it("rejects an unconfigured key before constructing a remote model", async () => {

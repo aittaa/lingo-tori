@@ -12,11 +12,11 @@ import {
   providersConfigSchema,
 } from "../schemas"
 
-describe("inert experimental provider compatibility", () => {
-  it("preserves the stored row without accepting it for LLM features", () => {
+describe("BYOS provider compatibility", () => {
+  it("preserves the stored row and accepts it for LLM features", () => {
     const provider = DEFAULT_PROVIDER_CONFIG.byos
     expect(providersConfigSchema.parse([provider])).toEqual([provider])
-    expect(llmProviderConfigItemSchema.safeParse(provider).success).toBe(false)
+    expect(llmProviderConfigItemSchema.parse(provider)).toEqual(provider)
   })
 
   it("keeps BYOS out of the API-key editor schema", () => {
@@ -32,7 +32,11 @@ describe("inert experimental provider compatibility", () => {
   })
   it("preserves inactive assignments and unrelated BYOK settings without selecting or invoking the row", () => {
     const config = structuredClone(DEFAULT_CONFIG)
-    const inert = { ...structuredClone(DEFAULT_PROVIDER_CONFIG.byos), id: "legacy-experimental" }
+    const inert = {
+      ...structuredClone(DEFAULT_PROVIDER_CONFIG.byos),
+      id: "legacy-experimental",
+      enabled: false,
+    }
     const byok = {
       ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai),
       apiKey: "synthetic-byok-key",
@@ -55,9 +59,9 @@ describe("inert experimental provider compatibility", () => {
       "customAction",
       "languageDetection",
     ] as const) {
-      expect(getProviderIdsForCapability(capability, preserved.providersConfig)).not.toContain(
-        inert.id,
-      )
+      expect(
+        getProviderIdsForCapability(capability, preserved.providersConfig, { requireEnable: true }),
+      ).not.toContain(inert.id)
       expect(
         resolveProviderRefForCapability(capability, preserved.providersConfig, inert.id),
       ).toBeNull()

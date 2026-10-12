@@ -159,9 +159,9 @@ export const configSchema = z
     glossary: glossaryConfigSchema,
   })
   .superRefine((data, ctx) => {
-    // Preserve old experimental assignments without enabling their provider or
-    // resetting unrelated BYOK settings. Capability resolution still returns null.
-    const isInertExperimentalAssignment = (providerId: string) =>
+    // Preserve saved BYOS assignments, including OFF rows, without resetting
+    // unrelated BYOK settings. Execution still checks enablement and authentication.
+    const isStoredByosAssignment = (providerId: string) =>
       data.providersConfig.some(
         (provider) => provider.id === providerId && provider.provider === "byos",
       )
@@ -171,7 +171,7 @@ export const configSchema = z
 
       if (
         providerId !== "unconfigured" &&
-        !isInertExperimentalAssignment(providerId) &&
+        !isStoredByosAssignment(providerId) &&
         !doesProviderSupportsCapability(featureKey, data.providersConfig, providerId, {
           requireEnable: true,
         })
@@ -202,7 +202,7 @@ export const configSchema = z
         // providersConfig lookup: Built-in AI is never a row in
         // providersConfig, so requiring one there is what used to make a
         // hosted provider fail validation and reset the whole config.
-        !isInertExperimentalAssignment(ldProviderId) &&
+        !isStoredByosAssignment(ldProviderId) &&
         !doesProviderSupportsCapability("languageDetection", data.providersConfig, ldProviderId, {
           requireEnable: true,
         })
@@ -235,7 +235,7 @@ export const configSchema = z
     actionProviderEntries.forEach(({ providerId, path }) => {
       if (
         providerId !== "unconfigured" &&
-        !isInertExperimentalAssignment(providerId) &&
+        !isStoredByosAssignment(providerId) &&
         !doesProviderSupportsCapability("customAction", data.providersConfig, providerId, {
           requireEnable: true,
         })

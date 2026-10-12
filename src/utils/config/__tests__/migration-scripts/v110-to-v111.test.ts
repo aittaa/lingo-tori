@@ -53,7 +53,7 @@ function expectUnconfiguredAssignments(config: ReturnType<typeof configWithAssig
 }
 
 describe("LingoTori migration", () => {
-  it.each([true, false])("preserves all inert BYOS assignments when enabled is %s", (enabled) => {
+  it.each([true, false])("preserves BYOS assignments and honors enabled=%s", (enabled) => {
     const inert = {
       ...structuredClone(DEFAULT_PROVIDER_CONFIG.byos),
       id: "legacy-experimental",
@@ -87,12 +87,14 @@ describe("LingoTori migration", () => {
       "customAction",
       "languageDetection",
     ] as const) {
-      expect(getProviderIdsForCapability(capability, migrated.providersConfig)).not.toContain(
-        inert.id,
-      )
       expect(
-        resolveProviderRefForCapability(capability, migrated.providersConfig, inert.id),
-      ).toBeNull()
+        getProviderIdsForCapability(capability, migrated.providersConfig, {
+          requireEnable: true,
+        }).includes(inert.id),
+      ).toBe(enabled)
+      expect(
+        Boolean(resolveProviderRefForCapability(capability, migrated.providersConfig, inert.id)),
+      ).toBe(enabled)
     }
   })
 

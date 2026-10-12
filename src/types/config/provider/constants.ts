@@ -19,6 +19,7 @@ export {
 
 // translate provider names
 export const TRANSLATE_PROVIDER_TYPES = [
+  "byos",
   "deeplx",
   "deepl",
   "openai",
@@ -59,6 +60,7 @@ export function isTranslateProvider(provider: string): provider is TranslateProv
 }
 
 export const LLM_PROVIDER_TYPES = [
+  "byos",
   "openai",
   "deepseek",
   "google",

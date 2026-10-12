@@ -1,6 +1,6 @@
-# Core validation and merge gate
+# Validation and merge gate
 
-This snapshot contains the independent BYOK core. Account authentication, companion services, callback routing and their experimental verification evidence are excluded.
+The checkpoints below describe the independent BYOK core at pinned main `628a67e61a46303c54b2250b1a85d461a46d143d`. The new combined BYOS candidate has separate [integration validation](byos-core-integration.md); historical core-only results do not validate that tree. Companion services remain excluded, while reviewed browser-only authentication and callback routing are included in the integration candidate.
 
 ## Preparation status
 
