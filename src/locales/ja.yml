@@ -98,7 +98,6 @@ options:
       message: $1 ページでプロバイダーを設定してください
     badges:
       featureCount: $1 件の機能
-      sponsor: スポンサー
     dialog:
       title: 新しいプロバイダーを追加
       groups:

@@ -98,7 +98,6 @@ options:
       message: Please configure a provider on the $1 page
     badges:
       featureCount: $1 features
-      sponsor: Sponsor
     dialog:
       title: Add new provider
       groups:

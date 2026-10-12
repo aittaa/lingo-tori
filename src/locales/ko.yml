@@ -98,7 +98,6 @@ options:
       message: $1 페이지에서 제공자를 설정하세요
     badges:
       featureCount: $1 개 기능
-      sponsor: 스폰서
     dialog:
       title: 새 제공업체 추가
       groups:
