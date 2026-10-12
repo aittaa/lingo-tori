@@ -1,4 +1,5 @@
 import type { APIProviderTypes } from "@/types/config/provider"
+import type { FeatureKey } from "@/utils/constants/feature-providers"
 import { browser } from "#imports"
 
 export interface OpenOptionsPageOptions {
@@ -66,6 +67,29 @@ export function buildProviderTypeConfigRoute(
     [PROVIDER_TYPE_QUERY_PARAM]: providerType,
   })
   return buildProviderConfigRouteFrom(params, options)
+}
+
+const FEATURE_PROVIDER_ROW_ID_PREFIX = "feature-provider-"
+
+/** The `id` on a built-in feature's row in Feature providers, so `?section=` can scroll to it. */
+export function getFeatureProviderRowId(featureKey: FeatureKey): string {
+  return `${FEATURE_PROVIDER_ROW_ID_PREFIX}${featureKey}`
+}
+
+/** The same for a custom action's row; dictionary and sentence analysis are custom actions too. */
+export function getCustomActionProviderRowId(actionId: string): string {
+  return `${FEATURE_PROVIDER_ROW_ID_PREFIX}action-${actionId}`
+}
+
+/** Whether a `?section=` value names one feature's row rather than the Feature providers section. */
+export function isFeatureProviderRowId(sectionId: string): boolean {
+  return sectionId.startsWith(FEATURE_PROVIDER_ROW_ID_PREFIX)
+}
+
+/** Route to Feature providers scrolled to one row — where a "choose a provider" prompt points. */
+export function buildFeatureProviderRoute(rowId: string): `/${string}` {
+  const params = new URLSearchParams({ [SECTION_QUERY_PARAM]: rowId })
+  return `/api-providers?${params.toString()}`
 }
 
 export function getRequestedProviderId(search: string): string | null {

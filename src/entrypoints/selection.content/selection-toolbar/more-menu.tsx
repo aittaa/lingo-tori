@@ -25,16 +25,22 @@ import {
   IconPin,
   IconPinnedFilled,
   IconPlus,
+  IconSettings,
 } from "@tabler/icons-react"
-import { useAtom } from "jotai"
-import { useRef, useState } from "react"
+import { useAtom, useAtomValue } from "jotai"
+import { useId, useRef, useState } from "react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/base-ui/popover"
 import { Separator } from "@/components/ui/base-ui/separator"
 import { SelectionToolbarTooltip } from "@/components/ui/selection-popover/selection-tooltip"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { i18n } from "@/utils/i18n"
 import { sendMessage } from "@/utils/message"
-import { buildAddCustomActionOptionsRoute } from "@/utils/navigation"
+import {
+  buildAddCustomActionOptionsRoute,
+  buildFeatureProviderRoute,
+  getCustomActionProviderRowId,
+  getFeatureProviderRowId,
+} from "@/utils/navigation"
 import {
   getSelectionToolbarItems,
   reorderSelectionToolbarItems,
@@ -43,6 +49,10 @@ import {
 import { cn } from "@/utils/styles/utils"
 import { shadowWrapper } from ".."
 import { SELECTION_CONTENT_OVERLAY_LAYERS } from "../overlay-layers"
+import {
+  selectionToolbarCustomActionRequestAtomFamily,
+  selectionToolbarTranslateRequestAtom,
+} from "./atoms"
 import { DropEvent } from "./close-button"
 import { useSelectionCustomActionPopover } from "./custom-action-button/provider"
 import { useSelectionTranslationPopover } from "./translate-button/provider"
@@ -89,6 +99,11 @@ export function SelectionToolbarMoreMenu() {
     void sendMessage("openOptionsPage", { route: buildAddCustomActionOptionsRoute() })
   }
 
+  const openProviderSettings = (rowId: string) => {
+    changeOpen(false)
+    void sendMessage("openOptionsPage", { route: buildFeatureProviderRoute(rowId) })
+  }
+
   return (
     <Popover
       open={open}
@@ -130,6 +145,7 @@ export function SelectionToolbarMoreMenu() {
           items={items}
 
           onRun={runItem}
+          onOpenProviderSettings={openProviderSettings}
           onPinChange={(item, pinned) => {
             void setSelectionToolbar((current) =>
               setSelectionToolbarItemPinned(current, item.id, pinned),
@@ -159,12 +175,14 @@ function MoreMenuItems({
   items,
 
   onRun,
+  onOpenProviderSettings,
   onPinChange,
   onReorder,
 }: {
   items: SelectionToolbarItem[]
 
   onRun: (item: SelectionToolbarItem) => void
+  onOpenProviderSettings: (rowId: string) => void
   onPinChange: (item: SelectionToolbarItem, pinned: boolean) => void
   onReorder: (orderedIds: string[]) => void
 }) {
@@ -199,6 +217,7 @@ function MoreMenuItems({
               item={item}
 
               onRun={onRun}
+              onOpenProviderSettings={onOpenProviderSettings}
               onPinChange={onPinChange}
             />
           ))}
@@ -212,11 +231,13 @@ function MoreMenuRow({
   item,
 
   onRun,
+  onOpenProviderSettings,
   onPinChange,
 }: {
   item: SelectionToolbarItem
 
   onRun: (item: SelectionToolbarItem) => void
+  onOpenProviderSettings: (rowId: string) => void
   onPinChange: (item: SelectionToolbarItem, pinned: boolean) => void
 }) {
   const {
@@ -229,6 +250,18 @@ function MoreMenuRow({
     isDragging,
   } = useSortable({ id: item.id })
   const pinLabel = i18n.t(item.pinned ? "action.unpinFromToolbar" : "action.pinToToolbar")
+  // Each row runs on its own feature's provider, so only the row without one is held back.
+  const translateRequest = useAtomValue(selectionToolbarTranslateRequestAtom)
+  const actionRequest = useAtomValue(selectionToolbarCustomActionRequestAtomFamily(item.id))
+  const needsProvider = item.kind === "action" || item.id === "translate"
+  const provider = item.kind === "action" ? actionRequest.provider : translateRequest.provider
+  const unavailable = needsProvider && !provider
+  const settingsRowId =
+    item.kind === "action"
+      ? getCustomActionProviderRowId(item.id)
+      : getFeatureProviderRowId("selectionTranslation")
+  const descriptionId = useId()
+  const itemName = getItemName(item)
 
   return (
     <li
@@ -250,14 +283,45 @@ function MoreMenuRow({
       >
         <IconGripVertical className="size-3.5" />
       </button>
-      <button
-        type="button"
-        className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 pr-1 text-left"
-        onClick={() => onRun(item)}
-      >
-        <MoreMenuItemIcon item={item} />
-        <span className="truncate">{getItemName(item)}</span>
-      </button>
+      {unavailable ? (
+        <>
+          <SelectionToolbarTooltip
+            content={i18n.t("providerRequired.message")}
+            render={<span className="flex h-full min-w-0 flex-1 cursor-not-allowed" />}
+          >
+            <button
+              type="button"
+              disabled
+              aria-describedby={descriptionId}
+              className="pointer-events-none flex h-full min-w-0 flex-1 items-center gap-2 pr-1 text-left opacity-50"
+            >
+              <MoreMenuItemIcon item={item} />
+              <span className="truncate">{itemName}</span>
+            </button>
+          </SelectionToolbarTooltip>
+          <span id={descriptionId} className="sr-only">
+            {i18n.t("providerRequired.message")}
+          </span>
+          <button
+            type="button"
+            aria-label={`${itemName}: ${i18n.t("providerRequired.openSettings")}`}
+            aria-describedby={descriptionId}
+            className="mr-0.5 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:text-foreground"
+            onClick={() => onOpenProviderSettings(settingsRowId)}
+          >
+            <IconSettings className="size-3.5" />
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 pr-1 text-left"
+          onClick={() => onRun(item)}
+        >
+          <MoreMenuItemIcon item={item} />
+          <span className="truncate">{itemName}</span>
+        </button>
+      )}
       <SelectionToolbarTooltip
         content={pinLabel}
         render={

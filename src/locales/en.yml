@@ -1313,6 +1313,9 @@ noAPIKeyConfig:
     firstOnThe: first on the
     optionsPage: options
     page: page
+providerRequired:
+  message: Choose a provider
+  openSettings: Open settings
 languageDetection:
   llmFailed: LLM language detection failed, fell back to basic detection
 translation:

@@ -1260,6 +1260,9 @@ noAPIKeyConfig:
     firstOnThe: する必要があります（
     optionsPage: オプションページ
     page: ）
+providerRequired:
+  message: プロバイダーを選択してください
+  openSettings: 設定を開く
 languageDetection:
   llmFailed: LLM言語検出に失敗しました。基本検出にフォールバックしました
 translation:
