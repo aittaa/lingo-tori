@@ -3,11 +3,15 @@ import { browser } from "#imports"
 import {
   buildAddCustomActionOptionsRoute,
   buildCustomActionOptionsRoute,
+  buildFeatureProviderRoute,
   buildProviderConfigRoute,
   buildProviderTypeConfigRoute,
   consumeCustomActionDeepLink,
   CUSTOM_ACTION_ADD_QUERY_PARAM,
+  getCustomActionProviderRowId,
+  getFeatureProviderRowId,
   getRequestedProviderType,
+  isFeatureProviderRowId,
   openOptionsPage,
   shouldHighlightApiKey,
 } from "../navigation"
@@ -45,6 +49,45 @@ describe("navigation", () => {
       active: true,
       url: "chrome-extension://test-extension-id/options.html#/custom-actions?actionId=action-1",
     })
+  })
+})
+
+describe("feature provider routes", () => {
+  it("gives every built-in feature and custom action a row id of its own", () => {
+    expect(getFeatureProviderRowId("pageTranslation")).not.toBe(
+      getFeatureProviderRowId("selectionTranslation"),
+    )
+    expect(getCustomActionProviderRowId("default-dictionary")).not.toBe(
+      getCustomActionProviderRowId("default-sentence-analysis"),
+    )
+    // A custom action can never be mistaken for a built-in feature, whatever it is called.
+    expect(getCustomActionProviderRowId("pageTranslation")).not.toBe(
+      getFeatureProviderRowId("pageTranslation"),
+    )
+  })
+
+  it("routes to Feature providers with that one row named", () => {
+    const route = buildFeatureProviderRoute(getFeatureProviderRowId("selectionTranslation"))
+    const search = new URL(`https://x${route}`).search
+
+    expect(route.startsWith("/api-providers?")).toBe(true)
+    expect(new URLSearchParams(search).get("section")).toBe(
+      getFeatureProviderRowId("selectionTranslation"),
+    )
+  })
+
+  it("keeps ids with spaces or symbols intact through the route", () => {
+    const rowId = getCustomActionProviderRowId("my action & more")
+    const search = new URL(`https://x${buildFeatureProviderRoute(rowId)}`).search
+
+    expect(new URLSearchParams(search).get("section")).toBe(rowId)
+  })
+
+  it("tells one feature's row from the Feature providers section", () => {
+    expect(isFeatureProviderRowId(getFeatureProviderRowId("videoSubtitles"))).toBe(true)
+    expect(isFeatureProviderRowId(getCustomActionProviderRowId("mine"))).toBe(true)
+    expect(isFeatureProviderRowId("feature-providers")).toBe(false)
+    expect(isFeatureProviderRowId("provider-config")).toBe(false)
   })
 })
 

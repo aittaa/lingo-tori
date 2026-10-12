@@ -1260,6 +1260,9 @@ noAPIKeyConfig:
     firstOnThe: 먼저
     optionsPage: 옵션
     page: 페이지에서
+providerRequired:
+  message: 제공자를 선택해 주세요
+  openSettings: 설정 열기
 languageDetection:
   llmFailed: LLM 언어 감지 실패, 기본 감지로 대체되었습니다
 translation:

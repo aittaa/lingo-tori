@@ -2,6 +2,8 @@ import type { ReactNode } from "react"
 import type { ProviderConfig } from "@/types/config/provider"
 import type { SelectionToolbarCustomAction } from "@/types/config/selection-toolbar"
 import type { FeatureKey } from "@/utils/constants/feature-providers"
+import { useEffect } from "react"
+import { useLocation } from "react-router"
 import ProviderSelector from "@/components/llm-providers/provider-selector"
 import { SetApiKeyWarning } from "@/components/llm-providers/set-api-key-warning"
 import {
@@ -14,6 +16,12 @@ import {
   getFeatureLabelI18nKey,
 } from "@/utils/constants/feature-providers"
 import { i18n } from "@/utils/i18n"
+import {
+  getCustomActionProviderRowId,
+  getFeatureProviderRowId,
+  isFeatureProviderRowId,
+} from "@/utils/navigation"
+import { getSectionIdFromSearch } from "../../../command-palette/section-scroll"
 import { ConfigItem } from "../../../components/config-item"
 import { ConfigSection } from "../../../components/config-section"
 import { SELECT_CONTENT_PROPS } from "../../../components/select-content-props"
@@ -74,11 +82,40 @@ function FeatureProviderTitle({
   )
 }
 
+/**
+ * A "choose a provider" link names one feature's row through `?section=`. The scroll lands on
+ * that row; this also puts the keyboard on its selector. Other section links only scroll.
+ */
+function useFocusRequestedSelector() {
+  const { search } = useLocation()
+
+  useEffect(() => {
+    const sectionId = getSectionIdFromSearch(search)
+    if (!sectionId || !isFeatureProviderRowId(sectionId)) return
+
+    const row = document.getElementById(sectionId)
+    const selector = row?.querySelector<HTMLElement>('[role="combobox"]')
+    if (selector && !selector.matches(':disabled, [aria-disabled="true"]')) {
+      selector.focus({ preventScroll: true })
+      return
+    }
+
+    // No compatible providers leaves the native selector disabled. Focus its title
+    // so keyboard users still arrive at the requested setting without opening a picker.
+    const title = row?.querySelector<HTMLElement>("h3")
+    if (title) {
+      title.tabIndex = -1
+      title.focus({ preventScroll: true })
+    }
+  }, [search])
+}
+
 function FeatureProviderItem({ featureKey }: { featureKey: FeatureKey }) {
   const { providers, providerId, providerConfig, setProviderId } = useFeatureProvider(featureKey)
 
   return (
     <ConfigItem
+      id={getFeatureProviderRowId(featureKey)}
       title={
         <FeatureProviderTitle providerConfig={providerConfig}>
           {i18n.t(getFeatureLabelI18nKey(featureKey))}
@@ -103,6 +140,7 @@ function CustomActionProviderItems() {
   return actions.map((action) => (
     <ConfigItem
       key={action.id}
+      id={getCustomActionProviderRowId(action.id)}
       title={
         <FeatureProviderTitle providerConfig={getProviderConfig(action)}>
           {action.name}
@@ -123,6 +161,8 @@ function CustomActionProviderItems() {
 }
 
 export function FeatureProvidersConfig() {
+  useFocusRequestedSelector()
+
   return (
     <ConfigSection
       id="feature-providers"

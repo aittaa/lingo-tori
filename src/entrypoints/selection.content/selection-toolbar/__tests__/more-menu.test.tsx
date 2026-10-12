@@ -6,16 +6,26 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { TooltipProvider } from "@/components/ui/base-ui/tooltip"
 import { configAtom, configFieldsAtomMap } from "@/utils/atoms/config"
+import { storageAdapter } from "@/utils/atoms/storage-adapter"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
+import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { getBuiltInDictionaryAction } from "@/utils/custom-actions"
 import { i18n } from "@/utils/i18n"
 import { DropEvent } from "../close-button"
 import { SelectionToolbarMoreMenu } from "../more-menu"
 
+const PROVIDER_ID = "test-provider"
+
 const mocks = vi.hoisted(() => ({
+  sendMessage: vi.fn<(...args: any[]) => any>(),
   openToolbarTranslation: vi.fn<(anchor: HTMLElement | null) => void>(),
   openToolbarCustomAction: vi.fn<(actionId: string, anchor: HTMLElement | null) => void>(),
   toggleSpeech: vi.fn<() => boolean>(() => true),
+}))
+
+vi.mock("@/utils/message", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/message")>()),
+  sendMessage: mocks.sendMessage,
 }))
 
 vi.mock("../translate-button/provider", () => ({
@@ -51,6 +61,7 @@ beforeAll(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  vi.restoreAllMocks()
   fakeBrowser.reset()
 })
 
@@ -58,6 +69,13 @@ afterEach(() => {
 async function renderMenu(edit?: (config: Config) => void) {
   const store = createStore()
   const config = structuredClone(DEFAULT_CONFIG)
+  // Every feature the menu can run gets a provider; a test then takes one away.
+  config.providersConfig = [
+    { ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai), id: PROVIDER_ID, enabled: true },
+  ]
+  config.selectionToolbar.features.translate.providerId = PROVIDER_ID
+  config.selectionToolbar.builtInActions.dictionary.providerId = PROVIDER_ID
+  config.selectionToolbar.builtInActions.sentenceAnalysis.providerId = PROVIDER_ID
   edit?.(config)
   await fakeBrowser.storage.local.set({ [CONFIG_STORAGE_KEY]: config })
   store.set(configAtom, config)
@@ -154,5 +172,136 @@ describe("SelectionToolbarMoreMenu", () => {
     // Open and closed each time, so the toolbar stays up only while it is open.
     expect(dropdownStates).toEqual([true, false, true, false])
     window.removeEventListener(DropEvent, onDropdown)
+  })
+
+  // The run button is the second one in a row: the drag grip comes first.
+  const runButton = (id: string) => within(row(id)).getAllByRole("button")[1]!
+
+  it("holds back only the row whose own feature has no provider, and leaves pinning alone", async () => {
+    const store = await renderMenu((config) => {
+      config.selectionToolbar.builtInActions.dictionary.providerId = "unconfigured"
+    })
+    await openMenu()
+    const dictionary = getBuiltInDictionaryAction(DEFAULT_CONFIG.selectionToolbar)
+
+    const held = within(row("default-dictionary")).getByRole("button", { name: dictionary.name })
+    expect(held).toBeDisabled()
+    expect(held).toHaveAccessibleDescription("providerRequired.message")
+    fireEvent.click(held)
+    expect(mocks.openToolbarCustomAction).not.toHaveBeenCalled()
+
+    // Translation and sentence analysis run on providers of their own.
+    expect(runButton("translate")).toBeEnabled()
+    expect(runButton("default-sentence-analysis")).toBeEnabled()
+
+    fireEvent.click(pinButton("default-dictionary"))
+    await waitFor(() => {
+      expect(store.get(configFieldsAtomMap.selectionToolbar).unpinned).toContain(
+        "default-dictionary",
+      )
+    })
+  })
+
+  it("holds back the translate row on its own feature, without a provider", async () => {
+    await renderMenu((config) => {
+      config.selectionToolbar.features.translate.providerId = "unconfigured"
+    })
+    await openMenu()
+
+    expect(runButton("translate")).toBeDisabled()
+    expect(runButton("default-dictionary")).toBeEnabled()
+    expect(runButton("default-sentence-analysis")).toBeEnabled()
+    fireEvent.click(runButton("translate"))
+    expect(mocks.openToolbarTranslation).not.toHaveBeenCalled()
+  })
+
+  it("links a held-back row to its own provider setting and closes the menu", async () => {
+    await renderMenu((config) => {
+      config.selectionToolbar.builtInActions.dictionary.providerId = "unconfigured"
+      config.selectionToolbar.features.translate.providerId = "unconfigured"
+    })
+    await openMenu()
+    const dictionary = getBuiltInDictionaryAction(DEFAULT_CONFIG.selectionToolbar)
+
+    const dictionarySettings = within(row("default-dictionary")).getByRole("button", {
+      name: `${dictionary.name}: providerRequired.openSettings`,
+    })
+    expect(dictionarySettings).toHaveAccessibleDescription("providerRequired.message")
+    dictionarySettings.focus()
+    expect(dictionarySettings).toHaveFocus()
+    runButton("default-dictionary").focus()
+    expect(dictionarySettings).toHaveFocus()
+    fireEvent.click(dictionarySettings)
+    expect(mocks.sendMessage).toHaveBeenLastCalledWith("openOptionsPage", {
+      route: "/api-providers?section=feature-provider-action-default-dictionary",
+    })
+
+    // The menu closed on that click, so it opens again from its button.
+    await openMenu()
+    fireEvent.click(
+      within(row("translate")).getByRole("button", {
+        name: `${i18n.t("action.translation")}: providerRequired.openSettings`,
+      }),
+    )
+    expect(mocks.sendMessage).toHaveBeenLastCalledWith("openOptionsPage", {
+      route: "/api-providers?section=feature-provider-selectionTranslation",
+    })
+  })
+
+  it.each([
+    [
+      "deleted",
+      (config: Config) => {
+        config.providersConfig = []
+      },
+    ],
+    [
+      "disabled",
+      (config: Config) => {
+        config.providersConfig[0]!.enabled = false
+      },
+    ],
+  ])("holds back every row when the one provider is %s", async (_case, edit) => {
+    await renderMenu(edit)
+    await openMenu()
+
+    expect(runButton("translate")).toBeDisabled()
+    expect(runButton("default-dictionary")).toBeDisabled()
+    expect(runButton("default-sentence-analysis")).toBeDisabled()
+  })
+
+  it("opens the provider hint on a disabled row's hover wrapper", async () => {
+    await renderMenu((config) => {
+      config.selectionToolbar.features.translate.providerId = "unconfigured"
+    })
+    await openMenu()
+    const wrapper = runButton("translate").closest("[data-slot=tooltip-trigger]")!
+    fireEvent.mouseEnter(wrapper)
+    fireEvent.mouseMove(wrapper, { clientX: 1, clientY: 1 })
+
+    await waitFor(() => {
+      expect(document.querySelector("[data-slot=tooltip-content][data-open]")).toHaveTextContent(
+        "providerRequired.message",
+      )
+    })
+    expect(mocks.openToolbarTranslation).not.toHaveBeenCalled()
+  })
+
+  it("holds back an AI action assigned to a translation-only provider", async () => {
+    await renderMenu((config) => {
+      config.providersConfig = [
+        ...config.providersConfig,
+        { ...structuredClone(DEFAULT_PROVIDER_CONFIG.deepl), enabled: true },
+      ]
+      config.selectionToolbar.builtInActions.dictionary.providerId =
+        DEFAULT_PROVIDER_CONFIG.deepl.id
+      // Simulate the UI's stale assignment directly. The storage schema rejects this
+      // snapshot and otherwise replaces every feature with defaults on mount.
+      vi.spyOn(storageAdapter, "get").mockResolvedValueOnce(config)
+    })
+    await openMenu()
+
+    expect(runButton("default-dictionary")).toBeDisabled()
+    expect(runButton("translate")).toBeEnabled()
   })
 })
