@@ -1,9 +1,16 @@
 /// <reference types="@modyfi/vite-plugin-yaml/modules" />
 import type { Resource } from "i18next"
 import type { SupportedUiLocale } from "./locales"
+import az from "@/locales/az.yml"
 import en from "@/locales/en.yml"
+import es from "@/locales/es.yml"
 import ja from "@/locales/ja.yml"
 import ko from "@/locales/ko.yml"
+import ru from "@/locales/ru.yml"
+import tr from "@/locales/tr.yml"
+import vi from "@/locales/vi.yml"
+import zhCN from "@/locales/zh-CN.yml"
+import zhTW from "@/locales/zh-TW.yml"
 
 export type { SupportedUiLocale } from "./locales"
 export { DEFAULT_UI_LOCALE, SUPPORTED_UI_LOCALES } from "./locales"
@@ -36,7 +43,18 @@ function convertTree(node: LocaleTree): LocaleTree {
   return out
 }
 
-const rawResources: Record<SupportedUiLocale, LocaleTree> = { en, ko, ja }
+const rawResources: Record<SupportedUiLocale, LocaleTree> = {
+  az,
+  en,
+  es,
+  ja,
+  ko,
+  ru,
+  tr,
+  vi,
+  "zh-CN": zhCN,
+  "zh-TW": zhTW,
+}
 
 /**
  * i18next resource bundle: `{ [locale]: { translation: <nested string tree> } }`.

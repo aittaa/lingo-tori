@@ -281,6 +281,18 @@ describe("compact ChatGPT provider card", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: label })).toBeEnabled())
     expect(mocks.permission).not.toHaveBeenCalled()
   })
+  it.each(["az", "es", "ru", "tr", "vi", "zh-CN", "zh-TW"])(
+    "uses English sign-in copy for restored locale %s without starting authentication",
+    async (locale) => {
+      mocks.locale = locale
+      renderSettings()
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Sign in with ChatGPT" })).toBeEnabled(),
+      )
+      expect(mocks.permission).not.toHaveBeenCalled()
+      expectAuthCount(0)
+    },
+  )
   it("places sign-out and usage in account overflow, with one save action and no automatic feature assignment", async () => {
     mockConnected()
     const store = renderSettings(),

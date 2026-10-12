@@ -1,0 +1,1324 @@
+# Retained Read Frog UI strings from 55bcef1e684fb4e70f4dce3063e7bd3066f46891.
+# Changed LingoTori copy and canonical model prompts use the English fallback.
+# See docs/ui-locale-restoration.md and docs/ui-locale-coverage.json.
+name: LingoTori
+dataTypes:
+  string: 文本
+  number: 数字
+contextMenu:
+  translate: 翻译
+  translateSelection: 翻译”%s”
+  showOriginal: 显示原文
+sidePanel:
+  firefoxUserActionHelpText: 查看 Firefox 侧边栏说明
+  firefoxUserActionHelpUrl: https://support.mozilla.org/zh-CN/kb/use-sidebar-access-tools-and-vertical-tabs
+popup:
+  theme: 主题
+  autoLang: 自动检测
+  sourceLang: 来源语言
+  targetLang: 目标语言
+  providers:
+    title: 提供商
+    description: 为每个功能选择使用的提供商
+    open: 打开提供商设置
+  translate: 翻译
+  showOriginal: 显示原文
+  enabledFloatingButton: 启用悬浮按钮
+  enabledSelectionToolbar: 启用选择工具栏
+  alwaysTranslate: 总是翻译这个网站
+  addToWhitelist: 在此网站启用扩展
+  addToBlacklist: 在此网站禁用扩展
+  options: 选项
+  hover: 鼠标悬停
+  translateParagraph: 来翻译段落
+  translationModeToggle:
+    tooltip:
+      bilingual:
+        current: 当前为双语对照
+        action: 点击切换为仅译文
+      translationOnly:
+        current: 当前为仅译文
+        action: 点击切换为双语对照
+  aiSmartContext: AI 智能上下文
+  aiSmartContextDescription: 结合网页上下文提升翻译效果。需要配置 LLM 翻译服务商。
+  more:
+    title: 更多
+    bugReport: 报告问题
+errorRecovery:
+  title: 应用发生异常
+  description: 已进入恢复模式。你可以先导出当前设置作为备份，再重置设置后重试。
+  backupTitle: 先备份当前设置（推荐）
+  exportWithApiKeys: 导出（包含 API Keys）
+  exportWithoutApiKeys: 导出（不包含 API Keys）
+  recoveryTitle: 恢复选项
+  refreshPage: 刷新页面
+  resetAction: 重置为默认设置
+  resetSuccess: 恢复完成，设置已重置
+  resetFailed: 恢复失败，无法重置设置
+  errorDetails: 错误详情
+  resetDialog:
+    title: 确认重置设置？
+    description: 这会用默认设置覆盖当前设置。
+    confirm: 重置
+    cancel: 取消
+options:
+  autosave:
+    invalid: 请修正标出的字段后再离开。
+    failed: 修改保存失败，编辑内容已保留。
+    deleted: 此项目已在其他页面删除，未保存的编辑内容已保留。
+    retry: 重试
+    leaveTitle: 修改尚未保存
+    leaveDescription: 你可以继续编辑并修正问题，或放弃尚未保存的修改。
+    keepEditing: 继续编辑
+    discard: 放弃未保存修改
+  batchSavings:
+    savedCost: 约省 $1% API 费用
+  commandPalette:
+    placeholder: 搜索设置...
+    noResults: 未找到设置
+    open: 搜索设置
+  sidebar:
+    toggle: 切换侧边栏
+    settings: 设置
+    features: 功能
+    translation: 翻译
+    product: 产品
+  apiProviders:
+    title: API 提供商
+    addProvider: 添加提供商
+    builtInProvider: 内置提供商
+    badges:
+      featureCount: $1 个功能
+    dialog:
+      title: 添加新提供商
+      groups:
+        builtInProviders:
+          title: 内置 LLM 提供商
+          description: 内置的大语言模型提供商，无需填写大部分配置比如 Base URL
+        compatibleProviders:
+          title: 兼容 API 提供商
+          description: 兼容 Chat Completions 的 API 使用自定义 Chat Complete，Open Responses API 使用自定义 Responses。
+        pureTranslationProviders:
+          title: 纯翻译提供商
+          description: 专注于翻译功能的提供商，没有大语言模型能力
+    form:
+      fields:
+        name: 名称
+        description: 描述
+        apiKey: API Key
+        baseURL: Base URL
+        url: URL
+        optional: 可选
+      duplicate: 复制
+      delete: 删除
+      deleteDialog:
+        title: 删除提供商？
+        confirm: 删除
+        cancel: 取消
+      atLeastOneLLMProvider: 至少需要一个 LLM 翻译提供商。
+      featureWouldLoseProvider: 无法删除："$1" 将没有任何可以运行它的提供商。
+      providerInUseCannotDisable: 无法禁用 "$1"，它当前正被 $2 个功能使用。
+      duplicateProviderName: 重复的提供商名称 "$1"
+      defaultProvider:
+        translate: 设为默认翻译提供商
+      models:
+        translate:
+          title: 翻译模型
+          customTitle: 自定义翻译模型
+          placeholder: 选择一个模型
+        fetchModels: 获取可用模型
+        fetchError: 获取模型失败
+        clickToRetry: 点击重试
+        noModels: 没有可用的模型
+        selectModel: 选择模型
+        apiKeyRequired: 请先添加 API 密钥
+        searchModels: 搜索模型...
+        noModelsFound: 未找到模型
+        label: 模型
+        enterCustomModel: 输入自定义模型名称
+      advancedOptions: 高级选项
+      providerSettingLabels:
+        region: 区域
+        apiMode: API 模式
+        resourceName: Azure 资源名称（可选）
+        apiVersion: API 版本
+      providerSettingOptionLabels:
+        responses: Responses API
+        chatCompletions: Chat Completions
+      temperature: 温度
+      temperatureHint: 控制响应的随机性。较低的值（0）更确定性，较高的值更具创造性。范围因提供商而异。留空则使用提供商默认值。
+      reasoning:
+        title: 推理
+      headers: 请求头
+      headersHint: 创建 AI 提供商客户端时发送的自定义 HTTP 请求头。留空则使用提供商默认值；填写 {} 可禁用默认值。
+      providerOptions: 提供商选项
+      providerOptionsHint: 用于非标准 API 功能（如思考/推理模式）的提供商特定选项。详情请参阅 Vercel AI SDK 文档或您的提供商官方文档。
+      providerOptionsDocsLink: 查看提供商文档
+      providerOptionsRecommendationTrigger: 查看推荐的提供商选项
+      providerOptionsRecommendationTitle: 检测到推荐的提供商选项
+      providerOptionsRecommendationDescription: 请先检查，再手动应用推荐配置。
+      providerOptionsRecommendationApply: 应用
+      providerOptionsRecommendationApplied: 已应用
+      invalidJson: JSON 格式无效
+    providers:
+      name:
+        customChatComplete: 自定义 Chat Complete
+        customResponses: 自定义 Responses
+      description:
+        azure: 通过 Azure 部署使用 OpenAI 模型
+        openaiCompatible: 连接兼容 OpenAI Chat Completions API 的自定义端点
+        openResponses: 连接兼容 Open Responses API 的自定义端点
+        deeplx: 非官方 DeepL API
+        deepl: 官方 DeepL API
+    apiKey:
+      showAPIKey: 显示 API Key
+      getAPIKey: 获取 API Key
+    howToConfigure: 如何配置?
+    testConnection:
+      button: 测试连接
+      testing: 测试中...
+      success: 成功
+      failed: 失败
+      slow: 缓慢（建议调节思考模式）
+    featureProviders:
+      title: 功能提供商
+      description: 为每个功能选择使用的提供商
+      chooseProvider: 选择提供商
+      features:
+        pageTranslation: 网页翻译
+        selectionTranslation: 划词翻译
+        videoSubtitles: 视频字幕
+        noteSuggestion: 猜你想存
+      descriptions:
+        pageTranslation: 翻译整个网页，双语对照或直接替换原文。
+        selectionTranslation: 通过划词工具栏翻译你选中的文本。
+        videoSubtitles: 翻译视频播放器中随播放出现的字幕。
+    languageDetection:
+      title: 语言检测
+      mode:
+        basic: 基础
+        llm: LLM
+      provider:
+        label: 检测提供商
+        placeholder: 选择提供商
+      status:
+        noProviders: 请先配置 LLM 提供商
+        basicRecommend: 建议启用 LLM
+        llmEnabled: LLM 检测已启用
+    aiContentAware:
+      title: AI 智能上下文翻译
+      description: 把网页或视频的上下文提供给 AI，让翻译更准确
+      enable: 启用
+      enableDescription: AI 翻译前会先读一份网页或视频的摘要，让用词更贴合上下文。对每个使用 LLM 提供商的翻译功能都生效。首次请求会有延迟，并增加 API 费用。
+      llmProviderConfigured: 已为$1选择 LLM 提供商
+      llmProviderNotConfigured: 没有为$1选择 LLM 提供商
+  patterns:
+    duplicate: 该模式已在列表中
+    gluedWildcard: '"*" 必须代表地址中完整的一段，例如 *.example.com 或 example.*'
+  preference:
+    title: 偏好设置
+    appearanceAndLanguage:
+      title: 外观与语言
+      theme:
+        title: 主题
+        system: 跟随系统
+        light: 浅色
+        dark: 深色
+      interfaceLanguage:
+        title: 界面语言
+        description: 选择扩展界面的语言，独立于浏览器语言。
+        auto: 自动（跟随浏览器）
+    translationLanguage:
+      title: 翻译语言
+      sourceCode:
+        title: 源语言
+        description: 网页原文的语言。选择“自动检测”则由陪读蛙从页面本身判断。
+        auto: 自动检测
+      targetCode:
+        title: 目标语言
+        description: 网页译文使用的语言。
+    extensionActivation:
+      title: 扩展激活
+      manageSites: 管理网站
+      mode:
+        title: 激活模式
+        description: 使用黑名单模式可以在特定网站上禁用扩展，或使用白名单模式限制扩展仅在特定网站上运行。
+        blacklist: 仅在列出的站点禁用
+        whitelist: 仅在列出的站点运行
+      patterns:
+        enterUrlPattern: 输入 URL 模式（例如 example.com）
+        urlPattern: URL 模式
+    config:
+      title: 配置
+      manualSync:
+        title: 手动配置同步
+        description: 手动导入导出你的配置，术语库也一并带走
+        import: 导入
+        export: 导出
+        importSuccess: 配置导入成功
+        exportSuccess: 配置导出成功
+        exportGlossaryFailed: 设置已导出，但术语库无法读取，未包含在文件中。
+        importError: 导入失败
+        glossaryImported: 已导入 $1 条术语，替换了原有的术语库。
+        glossaryUndo: 撤销
+        glossaryUndone: 术语库已恢复到导入前的样子
+        glossaryUndoUnavailable: 该撤销已失效 — 之后术语库已发生变化。
+        glossaryMalformed: 那个文件里的术语库无法读取，本次未做任何改动。
+        glossaryCapExceeded: 那个文件的术语库数据比上限 $2 条多出 $1 条，本次未做任何改动。
+        exportOptions:
+          title: 选择导出选项
+          description: 请选择是否在导出的配置中包含 API Keys。包含 API Keys 可能会泄露敏感信息，建议仅在安全环境下使用。
+          includeAPIKeys: 包含 API Keys
+          excludeAPIKeys: 不包含 API Keys
+          cancel: 取消
+      viewConfig:
+        open: 打开配置
+        title: 配置
+        description: 查看当前配置的原始 JSON
+      backup:
+        title: 配置备份
+        description: 如果配置发生变化，每小时会自动创建备份。您可以在这里恢复之前的配置。（最多 $1 个备份）
+        loading: 正在加载备份...
+        backupNow: 立即备份
+        backupSuccess: 备份创建成功
+        restoreSuccess: 配置恢复成功
+        empty:
+          title: 暂无可用备份
+          description: 如果配置发生变化，每小时会自动创建备份。
+        item:
+          extensionVersion: 扩展版本：
+          schemaVersion: 配置版本：
+          restore: 恢复
+          export: 导出
+          delete: 删除
+        restore:
+          title: 恢复配置备份？
+          description: 如果当前配置与最新备份不同，将自动备份您的当前配置。如果备份数量超过限制，最旧的备份可能会被删除。
+          cancel: 取消
+          confirm: 恢复
+        delete:
+          title: 删除备份？
+          description: 您确定要删除此备份吗？此操作无法撤销。
+          cancel: 取消
+          confirm: 删除
+      reset:
+        title: 恢复默认配置
+        description: 将所有配置重置为默认，术语库不受影响
+        dialog:
+          title: 恢复默认配置
+          trigger: 重置配置
+          confirm: 确认
+          cancel: 取消
+          description: 该操作将清空您的所有自定义配置，并将其重置为默认值。术语库会保留 — 如需删除请到术语库页面操作。请确认是否清除。
+    userExperience:
+      title: 使用体验
+      beta:
+        title: Beta 体验
+        description: 开启可能还不稳定的实验性功能
+  shortcuts:
+    title: 快捷键
+    setShortcut: 设置快捷键
+    pageTranslation:
+      title: 网页翻译
+      description: 翻译整个网页。
+    translationMode:
+      title: 翻译模式
+      description: 在双语对照和仅显示翻译之间切换。
+    selectionTranslation:
+      title: 划词翻译
+      description: 翻译选中的文本。
+    subtitlesToggle:
+      title: 字幕翻译
+      description: 打开或关闭视频的翻译字幕。
+    nodeTranslation:
+      title: 段落翻译
+      description: 悬停或长按段落，只翻译这一段。
+    actions:
+      title: AI 指令
+      description: 对选中的文本运行 AI 指令。自定义指令默认没有快捷键，在这里设置即可。
+    turnedOff: 该功能已关闭，重新开启前快捷键不会生效。
+    clash: 与「$1」的快捷键相同，请修改其中一个。
+    taken: $1 已被「$2」使用。
+  overlayTools:
+    title: 悬浮工具
+  floatingButton:
+    title: 悬浮按钮
+    pageDescription: 设置悬浮按钮停在哪一侧、点击后做什么，以及在哪些网站不显示。
+    demoImageAlt: 悬浮按钮演示
+    enable:
+      title: 启用悬浮按钮
+    display:
+      title: 显示
+      side:
+        title: 按钮位置
+        description: 选择悬浮按钮停靠在页面的哪一侧
+        left: 左侧
+        right: 右侧
+      disabledSites:
+        title: 禁用网站
+        description: 配置需要禁用悬浮按钮的网站
+        enterUrlPattern: 输入网址模式
+        urlPattern: 网址模式
+    clickAction:
+      title: 点击行为
+      description: 选择点击悬浮按钮时执行的操作
+      panel: 打开侧边栏
+      translate: 切换页面翻译
+    closeMenu:
+      disableForSite: 当前网站禁用
+      disableGlobally: 全局禁用
+    tooltips:
+      togglePageTranslation: 切换页面翻译
+      floatingButtonOptions: 悬浮按钮选项
+      lockPosition: 锁定位置
+      unlockPosition: 解锁位置
+      settings: 设置
+      feedback: 发送反馈
+  selectionToolbar:
+    title: 选择工具栏
+    pageDescription: 设置选中文本时出现哪些操作，以及工具栏在哪些网站显示。
+    demoImageAlt: 选择工具栏演示
+    enable:
+      title: 启用选择工具栏
+    actions:
+      title: 操作
+      translate:
+        title: 翻译
+        description: 在工具栏中显示翻译按钮
+      noteSuggestion:
+        title: 猜你想存
+        action: 指令
+        actionDescription: 用于生成「猜你想存」的指令
+        provider: 提供商
+        providerDescription: 用于生成「猜你想存」的 AI 提供商
+    display:
+      title: 显示
+      opacity:
+        title: 透明度
+        description: 调整选择工具栏及其展开内容窗的透明度
+      disabledSites:
+        title: 禁用网站
+        description: 配置需要禁用选择工具栏的网站
+        enterUrlPattern: 输入网址模式
+        urlPattern: 网址模式
+    closeMenu:
+      disableForSite: 当前网站禁用
+      disableGlobally: 全局禁用
+    errors:
+      customActionFailed: 自定义操作失败
+      customActionFailedFallback: 自定义操作请求失败
+      actionUnavailable: 所选操作不可用
+      missingSelection: 没有可用的选中文本
+      providerDisabled: 所选提供商已被禁用
+      providerUnavailable: 所选提供商不可用
+    customActions:
+      title: 自定义 AI 指令
+      description: 为划词添加你自己的结构化 AI 操作
+      configTitle: 指令配置
+      builtIn: 内置
+      badges:
+        new: 新增
+        updated: 已更新
+        createdFrom: 创建于 $1
+        updatedFrom: 更新于 $1
+      add: 添加 AI 指令
+      edit: 编辑 AI 指令
+      empty: 暂无自定义 AI 指令
+      noEnabledLlmProvider: 请先启用至少一个 LLM 提供商后再创建自定义 AI 指令
+      tabs:
+        config: 配置
+        hasErrors: 有错误
+        connected: 已连接
+        needsAttention: 需要处理
+      form:
+        name: 名称
+        customize: 定制化
+        customizeTooltip: 内置指令不允许更改提示词，点此按钮来修改指令提示词
+        aiConfigHelper:
+          trigger: 让 AI 帮我配置
+          title: 让 AI 帮我配置
+          description: 复制下面的提示词，发给你常用的 AI 助手（ChatGPT、Claude、DeepSeek、Kimi 等）。它会先问你想做什么，再告诉你每一项怎么填。提示词里带有这个动作当前的配置，但不含 API Key。
+          copy: 复制提示词
+          copyFailed: 复制失败，请重试
+        icon: 图标
+        iconField:
+          chooseAriaLabel: 选择图标
+          chooseTitle: 选择图标
+          inputPlaceholder: 输入图标名称
+          helpAriaLabel: 更多图标帮助
+          helpTitle: 没找到想要的图标？
+          helpStepBrowsePrefix: "在 "
+          helpStepBrowseSuffix: " 浏览图标"
+          helpStepCopyPrefix: 复制图标名称，例如
+          helpStepCopySuffix: ，然后粘贴到输入框中。
+        provider: 提供商（需支持结构化输出）
+        selectProvider: 选择提供商
+        systemPrompt: 系统提示词
+        prompt: 提示词
+        outputSchema: 输出 Schema
+        addField: 添加字段
+        fieldName: 字段名
+        fieldType: 字段类型
+        fieldDescription: 描述
+        fieldDescriptionPlaceholder: 描述此字段应包含的内容...
+        actions: 操作
+        cancel: 取消
+        save: 保存
+        defaultFieldName: 结果
+        fieldNamePlaceholder: 字段名
+        autoFieldPrefix: 字段
+        addFieldDialog:
+          title: 添加输出字段
+        editFieldDialog:
+          title: 编辑输出字段
+          save: 保存
+        deleteFieldDialog:
+          title: 删除输出字段？
+          description: 此输出字段将被移除。
+          confirm: 删除
+          cancel: 取消
+        tokens:
+          selection: 选中的文本内容
+          paragraphs: 与选区相交的段落内容，会以空行拼接，传给自定义 AI 指令时会截断到前 2000 个字符
+          targetLanguage: 用户的目标语言
+          webTitle: 网页标题
+          webUrl: 当前网页的完整 URL
+          webContent: 当前网页提取出的正文内容（截断到前 2000 个字符）
+        delete: 删除
+        deleteDialog:
+          title: 删除自定义 AI 指令？
+          description: 此操作无法撤销。
+          confirm: 删除
+          cancel: 取消
+      templates:
+        dialogTitle: 选择模板
+        dialogDescription: 选择模板快速创建新的 AI 指令，或从空白开始。
+        dictionary:
+          name: 词典
+          description: 查词释义，包含音标、词性和段落翻译
+          fieldTerm: 词条
+          fieldTermDescription: 选中词条的基本/标准词元形式。
+          fieldPhonetic: 音标
+          fieldPhoneticDescription: 该语言的标准音标（如英语用 IPA，中文用拼音，日语用罗马字）。
+          fieldPartOfSpeech: 词性
+          fieldPartOfSpeechDescription: 语法类别（如 noun、verb、adjective）。
+          fieldSentence: 句子
+          fieldSentenceDescription: 提取上方段落中包含选中词语的完整句子，不要包含前后句。
+          fieldSentenceTerm: 句中词形
+          fieldSentenceTermDescription: '选中词语在“句子”中的位置：序列化为字符串的 JSON 数组，词语的每个部分一项 {"text": 字符串}，逐字引用“句子”原文（如 [{"text":"blossoms"}]）。'
+          fieldDefinition: 释义
+          fieldDefinitionDescription: 针对语境含义的一条简洁释义。
+          fieldSentenceTranslation: 句子翻译
+          fieldSentenceTranslationDescription: 只翻译提取出的句子。
+          fieldMemoryTips: 记忆技巧
+          fieldMemoryTipsDescription: 帮助记住词条的方法：最多 3 条，每条一行，以技巧名和冒号开头（如 词根词缀：…）；没有真正有用的就返回空字符串。
+          fieldDifficulty: 难度
+          fieldDifficultyDescription: 预估 CEFR 难度等级：A1、A2、B1、B2、C1 或 C2。
+        sentenceAnalysis:
+          name: 长难句分析
+          description: 像老师一样批注长难句：主干、从句和难点一目了然
+          fieldAnnotations: 标注
+          fieldTranslation: 译文
+          roles:
+            subject: 主语
+            predicate: 谓语
+            object: 宾语
+            complement: 补语
+            attributive: 定语
+            adverbial: 状语
+            appositive: 同位语
+            connector: 连接词
+          clauses:
+            subject: 主语从句
+            object: 宾语从句
+            complement: 表语从句
+            attributive: 定语从句
+            adverbial: 状语从句
+            appositive: 同位语从句
+            clause: 从句
+          adverbialClauses:
+            time: 时间状从
+            place: 地点状从
+            cause: 原因状从
+            condition: 条件状从
+            concession: 让步状从
+            purpose: 目的状从
+            result: 结果状从
+            manner: 方式状从
+            comparison: 比较状从
+          forms:
+            infinitive: 不定式
+            gerund: 动名词
+            presentParticiple: 现在分词
+            pastParticiple: 过去分词
+          senses:
+            time: 时间
+            place: 地点
+            cause: 原因
+            condition: 条件
+            concession: 让步
+            purpose: 目的
+            result: 结果
+            manner: 方式
+            comparison: 比较
+          obstacles:
+            inversion: 倒装
+            fronting: 前置
+            ellipsis: 省略
+            passive: 被动
+            subjunctive: 虚拟
+            parenthesis: 插入
+            dummyIt: 形式主语
+            postponedSubject: 真主语
+            cleft: 强调句
+            comparison: 比较
+            negation: 否定
+            split: 拆分
+            idiom: 习语
+          restoreLabel: 还原：
+          hardLabel: 难点
+          trunkLabel: 只看主干
+          slashesLabel: 断句
+        blank:
+          name: 空白
+          description: 从空白模板开始创建指令
+          prompt: |-
+            ## 输入
+            选中文本：{{selection}}
+            段落内容：{{paragraphs}}
+            目标语言：{{targetLanguage}}
+      errors:
+        nameRequired: 名称不能为空
+        duplicateName: 重复的指令名称 "$1"
+        invalidIcon: Iconify 图标字符串格式无效
+        providerRequired: 请选择一个已启用的 LLM 提供商
+        outputSchemaRequired: 至少需要一个输出字段
+        fieldKeyRequired: 字段名不能为空
+        duplicateFieldKey: 字段名不能重复
+  advanced:
+    title: 高级
+    pageDescription: 不属于日常路径的强大设置。
+    glossary:
+      title: 术语库
+      pageDescription: 给你在意的词固定一个译法，并选择每份术语库在哪些网站生效。
+      untitled: 未命名术语库
+      noGlossaries: 还没有术语库。
+      enable:
+        title: 启用
+        description: 把命中的术语一并发给 LLM，让它按你的写法翻译。术语库是随提示词一起发送的，所以只对运行在 LLM 提供商上的功能生效。
+      library:
+        title: 你的术语库
+        description: 每份术语库都有各自的术语和各自的网站列表，所以为工作准备的一组术语不会跟着你出现在其他所有地方。
+        button: 添加术语库
+        capReached: 最多只能创建 $1 份术语库。
+        termUsage: 所有术语库合计已使用 $1 条术语，上限 $2 条
+      summary:
+        terms: $1 条术语
+        termsOne: 1 条术语
+        allSites: 所有网站
+        sites: $1 个网站
+        sitesOne: 1 个网站
+      editor:
+        docsLink: 如何使用?
+        sections:
+          terms: 术语
+          maintenance: 备份与删除
+        details:
+          title: 名称与描述
+          descriptionPlaceholder: 描述（可选）
+        enable:
+          title: 启用
+          description: 停用后术语仍会保留，但一条都不会发送。
+        sites:
+          title: 网站
+          description: 限定这份术语库只在特定网站生效。example.com 仅匹配这一个地址；*.example.com 还包含子域名；example.com/docs/* 则只覆盖站点的某一部分。
+          allSites: 留空则这份术语库在所有网站生效。
+          header: 网站
+        delete:
+          title: 删除这份术语库
+          description: 删除这份术语库及其中的所有术语。如果以后可能还要用，请先导出——此操作无法撤销。
+          dialog:
+            trigger: 删除
+            title: 删除这份术语库？
+            description: 这份术语库及其中全部 $1 条术语将被永久删除。此操作无法撤销。
+            confirm: 删除
+            cancel: 取消
+      addTerm:
+        title: 添加术语
+        description: 给术语指定你想要的译文；留空则保持原文不变。
+      list:
+        title: 你的术语
+        description: 只有出现在段落中的术语，才会随该段落一起发送。
+      importExport:
+        title: 导入与导出
+        description: 术语是一个 CSV 文件，包含 source、target、targetLanguage、caseSensitive 四列，即导出所生成的格式。
+      sourcePlaceholder: 术语
+      targetPlaceholder: 译文（留空则保持原文）
+      caseSensitive: 区分大小写
+      add: 添加
+      searchPlaceholder: 搜索术语
+      columnEnabled: 启用
+      columnSource: 术语
+      columnTarget: 译文
+      columnTargetLanguage: 目标语言
+      allLanguages: 所有语言
+      toggleTerm: 使用「$1」
+      editTerm: 编辑「$1」
+      keepOriginal: 保持原文
+      delete: 删除
+      save: 保存
+      cancel: 取消
+      loading: 正在加载...
+      empty: 还没有术语。在上方添加，或导入 CSV 文件。
+      noMatches: 没有与搜索匹配的术语。
+      previous: 上一页
+      next: 下一页
+      pageOf: $1 / $2
+      addError:
+        emptySource: 请先输入术语。
+        tooLong: 该术语过长。
+        capReached: 所有术语库的术语总数已达上限 $1 条。
+        duplicate: 该术语已在术语库中。
+      import: 导入
+      export: 导出
+      importModeMerge: 追加到列表
+      importModeReplace: 替换列表
+      importEmpty: 该文件中没有找到术语。
+      importOverflow: 本次导入会超出上限 $1 条术语，未做任何更改。
+      importSuccess: 已导入 $1 条新术语，更新 $2 条。
+      importSkipped: 已跳过 $1 行无效数据和 $2 条重复项。
+      importNoValidRows: 这些行都无法导入，未做任何更改。
+      importReplaceConfirm:
+        title: 替换整个列表？
+        description: 该术语库下的全部 $1 条术语都会被删除——包括所有目标语言，不只是当前选择的那个——然后用该文件的内容替换。此操作无法撤销。
+        confirm: 替换
+        cancel: 取消
+      deleteAll:
+        title: 删除所有术语
+        description: 清空你的术语库。如果以后可能还要用,请先导出——删除后无法恢复。
+        deleting: 删除中...
+        dialog:
+          title: 删除所有术语
+          trigger: 全部删除
+          confirm: 确认
+          cancel: 取消
+          description: 全部 $1 条术语将被永久删除。此操作无法撤销。
+  contextMenu:
+    title: 右键菜单
+    demoImageAlt: 右键菜单演示
+    enable:
+      title: 启用右键翻译
+      description: 在浏览器右键菜单中添加翻译选项，快速翻译页面或所选文本
+  translation:
+    title: 网页翻译
+    pageDescription: 控制页面翻译的方式：模式、范围、提示词和请求限制。
+    preference:
+      title: 基础设置
+      translationMode:
+        title: 翻译模式
+        description: 选择翻译文本的显示方式：双语对照或仅显示翻译
+        mode:
+          bilingual: 双语对照
+          translationOnly: 仅显示翻译
+        switched: 翻译模式：$1
+        providerNotSupported: $1 不支持仅译文模式，若想开启请切换其他提供商。
+      translateRange:
+        title: 翻译范围
+        description: 选择是仅翻译主要内容还是翻译页面上的所有内容。
+        range:
+          main: 主要内容
+          all: 全部内容
+      translateTitle:
+        title: 翻译标签页标题
+        description: 翻译网页时，同时翻译浏览器标签页上的标题。关闭后保留原标题。
+    hoverTranslation:
+      title: 悬停翻译
+      enable:
+        title: 启用
+        description: 悬停或长按段落，只翻译这一段。
+      forceRetranslation:
+        title: 始终重新翻译
+        description: 悬停翻译跳过缓存：即使该文本已有缓存也会重新翻译，并覆盖缓存结果。
+    translationStyle:
+      title: 翻译显示样式
+      description: 设置任何你想要的样式以区分翻译结果和原文
+      useCustomStyle: 使用自定义 CSS 样式
+      useCustomStyleDescription: 支持任意 CSS，包括修改字体、动画、多语言差异化样式
+      presetStyle: 预设样式
+      cssEditor: CSS 编辑器
+      cssEditorDescription: 编写自己的 CSS，并预览翻译文本的显示效果。
+      preview: 预览
+      stylePreviewLanguage: 语言
+      stylePreviewDirection: 方向
+      stylePreviewTranslatedText: 翻译的文本
+      style:
+        default: 无
+        blur: 模糊效果
+        blockquote: 引用
+        weakened: 弱化
+        dashedLine: 虚线
+        border: 边框
+        textColor: 文字颜色
+        background: 背景
+      customCSS:
+        editor:
+          placeholder: |
+            /* 示例：自定义颜色和背景样式 */
+            [data-read-frog-custom-translation-style='custom'] {
+              color: #414535;
+              background-color: light-dark(#F2E3BC, #C19875);
+              padding: 2px 4px;
+              border-radius: 4px;
+            }
+          docsLink: 如何配置?
+          saveButton: 保存
+          savedButton: 已保存
+          validation:
+            validating: 验证中...
+            valid: CSS 有效
+            syntaxError: CSS 存在语法错误
+            tooLong: CSS 过长
+            saved: 所有更改已保存
+    personalizedPrompts:
+      title: 自定义网页提示词
+      description: 自定义不同类型的 Prompt，可以在翻译时自行调整 Prompt 类型。Prompt 表示以用户身份发送给 LLM 的文本。
+      managePrompts: 管理 Prompt
+      variableReference: 变量详解
+      addPrompt: 添加 Prompt
+      default: 通用
+      builtIn: 内置
+      copyAndCustomize: 复制并自定义
+      copyName: $1 副本
+      builtInPrompts:
+        default:
+          description: 适合日常内容的均衡、可靠翻译
+        precisionRewrite:
+          name: 精翻重写
+          description: 翻译更地道，俚语化；略微增加 token 消耗
+      importSuccess: 导入成功
+      import: 导入
+      export: 导出
+      current: 正在使用
+      editPrompt:
+        title: 编辑 Prompt
+        name: 标题
+        systemPrompt: 系统提示词
+        prompt: 提示词
+        promptCellInput:
+          input: 需要翻译的文本内容
+          targetLanguage: 目标语言
+          webTitle: 网页标题
+          webDescription: 页面元信息中的网页描述
+          webContent: 网页正文内容（截断到前 2000 个字符）
+          webSummary: 网页摘要（需启用 AI 智能上下文）
+        save: 保存
+        close: 取消
+      deletePrompt:
+        title: 删除 Prompt
+        description: 确认删除该 Prompt
+        confirm: 确认
+        cancel: 取消
+      exportPrompt:
+        exportSelected: 导出所选
+        cancel: 取消
+    translationControl:
+      title: 翻译控制
+      description: 哪些网页会自动翻译、哪些永不翻译、哪些内容会被跳过
+      manageControls: 管理控制规则
+      autoTranslateWebsite:
+        title: 基于网站自动翻译
+        description: 打开后就开始翻译的网站
+        urlPattern: URL 模式
+        enterUrlPattern: 输入 URL 模式
+      neverAutoTranslateWebsite:
+        title: 基于网站永不自动翻译
+        description: 永不自动翻译的网站，即使命中语言规则
+        urlPattern: URL 模式
+        enterUrlPattern: 输入 URL 模式
+      autoTranslateLanguages:
+        title: 基于语言的自动翻译
+        description: 当检测到指定语言时自动翻译页面内容
+        selectLanguages: 选择语言
+      skipLanguages:
+        title: 基于语言的自动跳过
+        description: 当检测到指定语言时自动跳过段落翻译
+        targetLanguageSkipDescription: 已经是目标语言的段落直接跳过，不发送请求
+        selectLanguages: 选择语言
+      smallParagraphFilter:
+        title: 小段落过滤
+        description: 这些全局默认值会跳过翻译少于指定字符数或词数的文本节点；匹配的站点规则可以覆盖它们（0 = 禁用）
+        minCharacters:
+          description: 最小字符数：比这更短的文本不翻译，设为 0 则全部翻译
+        minWords:
+          description: 最小词数：词数比这更少的文本不翻译
+        error: 数值必须在 $1 到 $2 之间
+    translationQueue:
+      title: 翻译队列
+      description: 请求发出的速度、每个请求承载的文本量，以及提前于阅读位置多远开始翻译
+      manageQueue: 管理队列
+      requestQueueConfig:
+        title: 翻译速率
+        capacity:
+          description: 最大突发请求数：同一时刻最多能发出多少个请求
+        rate:
+          description: 每秒请求数：突发之后的稳定速度。可以填小数，0.25 表示每 4 秒发一个请求
+      batchQueueConfig:
+        title: 批量翻译
+        description: 配置批量翻译时的字符数限制和最大段落数量（仅对大语言模型翻译有效）
+        maxCharactersPerBatch:
+          description: 最大字符数：一次 AI 请求最多带多少文本
+        maxItemsPerBatch:
+          description: 最大段落数：多少个段落合并成一次请求。非 AI 的翻译服务不受这两项影响
+      preloadConfig:
+        title: 预翻译范围
+        description: 控制视口下方多少内容会被预先翻译，以节省 API 费用
+        margin:
+          description: 预翻译距离：屏幕下方多少像素内的内容提前翻译。调小更省 API 费用
+        threshold:
+          description: 可见比例：段落露出多少才开始翻译，取值 0 到 1
+    cache:
+      title: 缓存
+      clearCache:
+        title: 清理缓存
+        description: 清理浏览器中的所有翻译缓存
+        clearing: 清理中...
+        dialog:
+          title: 清理缓存
+          trigger: 清理缓存
+          confirm: 确认
+          cancel: 取消
+          description: 此操作将清理所有翻译缓存。此操作无法撤销。
+  siteRules:
+    title: 站点规则
+    description: 针对特定网站调整翻译行为的规则。
+    userRules:
+      title: 用户规则
+      description: 以 JSON 数组形式编写自己的站点规则。规则会应用于 URL 匹配的页面；用户规则优先于内置规则。
+      saveButton: 保存
+      savedButton: 已保存
+      validation:
+        validating: 验证中...
+        valid: 规则有效
+        syntaxError: JSON 存在语法错误
+        notArray: JSON 顶层必须是规则数组
+        tooLong: 规则文档过长
+        tooMany: 规则数量过多
+        duplicateIds: 规则 id 重复
+        schemaErrors: 部分规则无效
+        moreErrors: ...还有 $1 个错误
+        saved: 所有更改已保存
+    builtIn:
+      title: 内置规则
+      description: 随扩展提供的站点规则。如果某条规则在网站上引起问题，可用开关将其停用。
+      searchPlaceholder: 按 id、描述或网址模式搜索
+      showMore: 显示更多
+      count: 显示 $1 / $2 条规则
+  videoSubtitles:
+    title: 视频字幕
+    pageDescription: 边看边译视频字幕，并单独设置提供商、样式和请求参数。
+    preference:
+      title: 基础设置
+      enable:
+        title: 开启视频字幕
+        description: 在 YouTube、X 和 Netflix 的视频播放器控制栏加上翻译按钮。
+      autoStart:
+        title: 打开视频就翻译
+        description: 视频加载完成后自动开始翻译字幕，不用再点按钮。
+      aiSegmentation:
+        title: AI 智能断句
+        description: 让 AI 把字幕重新切成读起来完整的句子。时间轴也由 AI 判断，可能出现错位。需要配置 LLM 翻译服务。
+    style:
+      title: 字幕样式
+      description: 显示模式、位置、字体、颜色和背景，都对着预览调
+      customizeStyle: 自定义样式
+      displayMode:
+        title: 显示模式
+        bilingual: 双语模式
+        originalOnly: 仅原文
+        translationOnly: 仅译文
+      translationPosition:
+        title: 译文位置
+        above: 上方
+        below: 下方
+      generalSettings: 通用设置
+      mainSubtitle: 主字幕
+      translationSubtitle: 翻译字幕
+      fontFamily: 字体
+      fontScale: 字体大小
+      color: 颜色
+      fontWeight: 字体粗细
+      backgroundOpacity: 背景透明度
+      reset: 重置为默认
+      customCSS:
+        title: 自定义 CSS
+        description: 在上面的字体和颜色之上，为字幕行追加 CSS
+        presetTemplate: 预设模板
+        presetTemplateDescription: 快速应用预设模板，比如暂时遮住译文用于听力训练学习的模糊效果
+        presetPlaceholder: 选择模板
+        presets:
+          blurTranslation: 模糊译文
+          dashedTranslation: 虚线译文
+          dimOriginal: 弱化原文
+        editor:
+          placeholder: |
+            /* 示例：先把译文模糊，鼠标移上去再显示 */
+            .subtitles-translation {
+              filter: blur(6px);
+            }
+
+            .subtitles-translation:hover {
+              filter: none;
+            }
+
+            /* 可用的选择器：.read-frog-subtitles-box、.subtitles-main、.subtitles-translation */
+          docsLink: 如何配置?
+          saveButton: 保存
+          savedButton: 已保存
+          validation:
+            validating: 验证中...
+            valid: CSS 有效
+            syntaxError: CSS 存在语法错误
+            tooLong: CSS 过长
+            saved: 所有更改已保存
+    customPrompts:
+      title: 自定义字幕提示词
+      description: 字幕翻译专用的提示词模板，与网页翻译提示词分开
+      managePrompts: 管理 Prompt
+      editPrompt:
+        promptCellInput:
+          input: 要翻译的字幕文本
+          targetLanguage: 目标语言
+          webTitle: 网页标题
+          webDescription: 页面元信息中的网页描述
+          videoSummary: 视频摘要（需启用 AI 智能上下文）
+    subtitlesQueue:
+      title: 字幕队列
+      description: 字幕请求发出的速度，以及每个请求承载的字幕行数
+      manageQueue: 管理队列
+      requestQueueConfig:
+        title: 翻译速率
+        capacity:
+          description: 最大突发请求数：同一时刻最多能发出多少个请求
+        rate:
+          description: 每秒请求数：突发之后的稳定速度。可以填小数，0.25 表示每 4 秒发一个请求
+      batchQueueConfig:
+        title: 批量翻译
+        description: 配置批量翻译时的字符数限制和最大字幕条数（仅对大语言模型翻译有效）
+        maxCharactersPerBatch:
+          description: 最大字符数：一次 AI 请求最多带多少文本
+        maxItemsPerBatch:
+          description: 最大字幕条数：多少条字幕合并成一次请求。非 AI 的翻译服务不受这两项影响
+    cache:
+      title: 缓存
+      clearCache:
+        title: 清除 AI 断句缓存
+        description: 已保存的断句结果，看过的视频不用重新断句
+        clearing: 清除中...
+        dialog:
+          title: 清除 AI 断句缓存
+          trigger: 清除缓存
+          confirm: 确认
+          cancel: 取消
+          description: 这将删除所有已缓存的 AI 断句结果。下次播放启用 AI 断句的视频时，将重新处理字幕。
+  configMigration:
+    validationError: 配置验证失败
+side:
+  sourceLang: 来源语言
+  targetLang: 目标语言
+  fileExport: 文件导出
+translateService:
+  title: 翻译服务
+  description: 仅用于翻译网页内容
+  builtInModels: 内建模型
+  llmModels: 大语言模型
+  normalTranslator: 普通翻译
+  selectServices: 选择服务
+  translationProviders: 翻译服务
+  configureAPI: 配置 API
+translatePrompt:
+  title: AI 翻译风格
+  description: 选择在翻译时使用的 Prompt，可在选项页新增或修改自定义 Prompt
+languageLevel: 你的来源语言水平
+languageLevels:
+  beginner: 初级
+  intermediate: 中级
+  advanced: 高级
+noAPIKeyConfig:
+  warning: 如果想要使用 AI 模型，请先在选项页设置 API Key
+  warningWithLink:
+    youMust: 您必须先
+    setTheAPIKey: 设置 API Key
+    firstOnThe: 在
+    optionsPage: 选项
+    page: 页
+languageDetection:
+  llmFailed: LLM 语言检测失败，已回退到基础检测
+translation:
+  sameLanguage: 源语言和目标语言必须不同
+  autoModeSameLanguage: 检测到的语言 '$1' 与目标语言相同
+  extensionContextInvalidated: 扩展已更新，请刷新此页面后重试。
+  failed: 翻译失败
+  failedFallback: 翻译失败
+action:
+  copy: 复制
+  copied: 已复制
+  regenerate: 重新生成
+  viewContextDetails: 上下文
+  customizeCustomAction: 定制“$1”动作
+  openCustomActions: 打开 Custom AI Actions
+  contextDetailsTitleLabel: 标题
+  contextDetailsParagraphsLabel: 段落内容
+  translation: 翻译
+  moreActions: 更多操作
+  pinToToolbar: 固定到工具栏
+  unpinFromToolbar: 从工具栏取消固定
+  dragToReorder: 拖动以排序
+  addCustomAction: 添加自定义 AI 指令
+noteSuggestion:
+  save: 保存
+  staleSuggestion: 该建议已过期
+  toggleLabel: 显示猜你想存
+thinking:
+  label: 思考中
+  complete: 思考完成
+  expand: 展开思考
+  collapse: 收起思考
+shortcutKeySelector:
+  placeholder: 请输入快捷键
+subtitles:
+  sidebar:
+    summary:
+      tab: AI 总结
+      generating: 正在生成总结…
+      failedTitle: 生成失败
+      retry: 重试
+      needsModel: 请先为视频字幕选择一个 LLM 模型，才能总结这个视频。
+      openSettings: 去设置
+    transcript:
+      tab: 字幕
+      failedTitle: 字幕加载失败
+      retry: 重试
+      emptyTitle: 没有可显示的字幕
+      backToCurrent: 回到当前
+  toggle:
+    enabled: 字幕翻译已开启
+    disabled: 字幕翻译已关闭
+  actions:
+    downloadTranslated: 下载翻译字幕
+    downloadTranslatedPreparing: 正在准备字幕，长视频可能需要更久
+    downloadTranslatedTranslating: 正在翻译字幕
+    downloadTranslatedComplete: 翻译字幕已下载
+    downloadSource: 下载原字幕
+  state:
+    translating: 翻译中…
+    error: 发生错误
+  errors:
+    http429: 429 youtube 字幕接口请求次数过多，请稍后再试
+    http404: 404 未找到 youtube 字幕
+    http403: 403 youtube 字幕访问被拒绝
+    http500: 500 youtube 服务器错误
+    httpUnknown: HTTP 错误 $1
+    invalidResponse: youtube 字幕响应格式无效
+    networkError: 获取字幕时发生网络错误
+    fetchSubTimeout: 获取字幕超时
+    buttonNotFound: 字幕按钮未找到
+    noSubtitlesFound: 当前视频没有字幕
+    trackFileNotLoaded: 字幕加载失败，请刷新页面后重试
+    videoNotFound: 视频元素未找到
+    controlsBarNotFound: 控制栏未找到
+    aiRateLimited: 请求过于频繁，请稍后再试
+    aiAuthFailed: API 认证失败，请检查您的 API 密钥
+    aiServiceUnavailable: 翻译服务暂时不可用
+    aiNoResponse: AI 服务未响应，使用原文显示
+    translatedExportFailed: 生成翻译字幕失败
+    translatedExportIncomplete: 未能翻译所有字幕行
+    translatedExportSameLanguage: 源语言和目标语言相同
+hotkey:
+  control: Ctrl
+  alt: Option
+  shift: Shift
+  backtick: 反引号
+  clickAndHold: 点击并按住
+languages:
+  eng: 英语
+  cmn: 简体中文
+  cmnHant: 繁体中文
+  yue: 粤语
+  spa: 西班牙语
+  rus: 俄语
+  arb: 阿拉伯语
+  ben: 孟加拉语
+  hin: 印地语
+  por: 葡萄牙语
+  ind: 印度尼西亚语
+  jpn: 日语
+  fra: 法语
+  deu: 德语
+  jav: 爪哇语
+  kor: 韩语
+  tel: 泰卢固语
+  vie: 越南语
+  mar: 马拉地语
+  ita: 意大利语
+  tam: 泰米尔语
+  tur: 土耳其语
+  urd: 乌尔都语
+  guj: 古吉拉特语
+  pol: 波兰语
+  ukr: 乌克兰语
+  kan: 卡纳达语
+  mai: 迈蒂利语
+  mal: 马拉雅拉姆语
+  pes: 波斯语
+  mya: 缅甸语
+  swh: 斯瓦希里语
+  sun: 巽他语
+  ron: 罗马尼亚语
+  pan: 旁遮普语
+  bho: 博杰普尔语
+  amh: 阿姆哈拉语
+  hau: 豪萨语
+  fuv: 富拉语
+  bos: 波斯尼亚语
+  hrv: 克罗地亚语
+  nld: 荷兰语
+  srp: 塞尔维亚语
+  tha: 泰语
+  ckb: 中库尔德语
+  yor: 约鲁巴语
+  uzn: 乌兹别克语
+  zlm: 马来语
+  ibo: 伊博语
+  npi: 尼泊尔语
+  ceb: 宿务语
+  skr: 萨拉基语
+  tgl: 塔加洛语
+  hun: 匈牙利语
+  azj: 阿塞拜疆语
+  sin: 僧伽罗语
+  koi: 科米-彼尔米亚克语
+  ell: 希腊语
+  ces: 捷克语
+  mag: 摩揭陀语
+  run: 基隆迪语
+  bel: 白俄罗斯语
+  plt: 马达加斯加语
+  qug: 钦博拉索高地克丘亚语
+  mad: 马都拉语
+  nya: 齐切瓦语
+  zyb: 壮语
+  pbu: 普什图语
+  kin: 卢旺达语
+  zul: 祖鲁语
+  bul: 保加利亚语
+  swe: 瑞典语
+  lin: 林加拉语
+  som: 索马里语
+  hms: 黔东苗语
+  hnj: 苗语
+  ilo: 伊洛卡诺语
+  kaz: 哈萨克语
+  heb: 希伯来语
+  nob: 挪威语(书面语)
+  nno: 挪威语(新挪威语)
+  afr: 南非荷兰语
+  sqi: 阿尔巴尼亚语
+  asm: 阿萨姆语
+  eus: 巴斯克语
+  bre: 布列塔尼语
+  cat: 加泰罗尼亚语
+  cos: 科西嘉语
+  cym: 威尔士语
+  dan: 丹麦语
+  div: 迪维希语
+  epo: 世界语
+  ekk: 爱沙尼亚语
+  fao: 法罗语
+  fij: 斐济语
+  fin: 芬兰语
+  fry: 西弗里斯兰语
+  gla: 苏格兰盖尔语
+  gle: 爱尔兰语
+  glg: 加利西亚语
+  grn: 瓜拉尼语
+  hat: 海地克里奥尔语
+  haw: 夏威夷语
+  hye: 亚美尼亚语
+  ido: 伊多语
+  ina: 国际语
+  isl: 冰岛语
+  kat: 格鲁吉亚语
+  khm: 高棉语
+  kir: 吉尔吉斯语
+  lao: 老挝语
+  lat: 拉丁语
+  lvs: 拉脱维亚语
+  lit: 立陶宛语
+  ltz: 卢森堡语
+  mkd: 马其顿语
+  mlt: 马耳他语
+  mon: 蒙古语
+  mri: 毛利语
+  nso: 北索托语
+  oci: 奥克语
+  ori: 奥里亚语
+  orm: 奥罗莫语
+  prs: 达里语
+  san: 梵语
+  slk: 斯洛伐克语
+  slv: 斯洛文尼亚语
+  smo: 萨摩亚语
+  sna: 绍纳语
+  snd: 信德语
+  sot: 南索托语
+  tah: 塔希提语
+  tat: 鞑靼语
+  tgk: 塔吉克语
+  tir: 提格里尼亚语
+  ton: 汤加语
+  tsn: 茨瓦纳语
+  tuk: 土库曼语
+  uig: 维吾尔语
+  vol: 沃拉普克语
+  wol: 沃洛夫语
+  xho: 科萨语
+  ydd: 意第绪语
+  aka: 阿肯语
+  bam: 班巴拉语
+  bis: 比斯拉马语
+  bod: 藏语
+  che: 车臣语
+  chv: 楚瓦什语
+  dzo: 宗卡语
+  ewe: 埃维语
+  kab: 卡比尔语
+  lug: 卢干达语
+  oss: 奥塞梯语
+  ssw: 斯威士语
+  ven: 文达语
+  war: 瓦瑞语
+  nde: 北恩德贝莱语
+  nbl: 南恩德贝莱语
+  pam: 邦板牙语
+  hil: 希利盖农语
+  bcl: 中比科尔语
+  min: 米南卡保语
+  ace: 亚齐语
+  bug: 布吉语
+  ban: 巴厘语
+  bjn: 班查尔语
+  mak: 望加锡语
+  sas: 萨萨克语
+  tet: 德顿语
+  cha: 查莫罗语
+  niu: 纽埃语
+  tvl: 图瓦卢语
+  gil: 吉尔伯特语
+  mah: 马绍尔语
+  pau: 帕劳语
+  wls: 瓦利斯语
+  rar: 拉罗汤加语
+  hif: 斐济印地语
+languageSearch:
+  placeholder: 搜索语言...
+  noResults: 未找到语言

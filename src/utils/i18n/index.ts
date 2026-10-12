@@ -18,7 +18,7 @@ import { DEFAULT_UI_LOCALE, resources, SUPPORTED_UI_LOCALES } from "./resources"
  *        │ explicit → passthrough                      │
  *        └───────── initI18n() / setUiLanguage() ──────┘
  *
- * Resources for all 9 locales are bundled, so `init`/`changeLanguage` complete
+ * Resources for all supported locales are bundled, so `init`/`changeLanguage` complete
  * synchronously — the React `<LocaleBoundary>` relies on this to switch without a flash.
  */
 

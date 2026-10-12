@@ -2,9 +2,10 @@
 /** Read-only locale and local documentation-link audit. No network or provider calls. */
 import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { createRequire } from "node:module"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
 
 const require = createRequire(import.meta.url)
 // Use the same YAML parser as the repository's existing Vite YAML plugin.
@@ -29,34 +30,109 @@ function flatten(value, prefix = "") {
   return result
 }
 
-const locales = ["en", "ko", "ja"]
+const locales = readdirSync("src/locales")
+  .filter((file) => file.endsWith(".yml"))
+  .map((file) => file.slice(0, -4))
+  .sort()
+const localeListFile = path.resolve("src/utils/i18n/locales.ts")
+const supportedLocales = existsSync(localeListFile)
+  ? [...(await import(pathToFileURL(localeListFile).href)).SUPPORTED_UI_LOCALES].sort((a, b) =>
+      a.localeCompare(b),
+    )
+  : locales
+const localeListParity = JSON.stringify(locales) === JSON.stringify(supportedLocales)
+const coverage = existsSync("docs/ui-locale-coverage.json")
+  ? JSON.parse(readFileSync("docs/ui-locale-coverage.json", "utf8"))
+  : undefined
 const current = {}
 const previous = {}
 for (const locale of locales) {
   const file = `src/locales/${locale}.yml`
   current[locale] = flatten(load(readFileSync(file, "utf8")))
-  previous[locale] = flatten(load(git("show", `${base}:${file}`)))
+  previous[locale] = git("ls-tree", "--name-only", base, "--", file)
+    ? flatten(load(git("show", `${base}:${file}`)))
+    : {}
+}
+const reference = { ...coverage?.pendingSharedKeys, ...current.en }
+
+// Pin the filtered source snapshot, including approved key moves and branding,
+// without requiring an upstream Git object or fetching anything during the audit.
+const restoredResourceDifferences = []
+const missingSharedKeys = []
+for (const locale of coverage?.restoredLocales ?? []) {
+  const resource = current[locale] ?? {}
+  const digest = createHash("sha256")
+    .update(
+      JSON.stringify({
+        upstreamCommit: coverage.upstreamCommit,
+        locale,
+        entries: Object.keys(resource)
+          .sort()
+          .map((key) => [key, resource[key]]),
+      }),
+    )
+    .digest("hex")
+  if (
+    !/^[a-f0-9]{40}$/.test(coverage.upstreamCommit ?? "") ||
+    digest !== coverage.restoredResourceSha256?.[locale]
+  )
+    restoredResourceDifferences.push(locale)
+  for (const key of Object.keys(coverage.pendingSharedKeys))
+    if (!(key in resource)) missingSharedKeys.push(`${locale}:${key}`)
 }
 
 // Context-menu selection titles use Chrome's %s substitution; it must survive translation.
 const signature = (value) =>
   JSON.stringify((String(value).match(/%s|\$\d+|\{\{[^}]+\}\}/g) ?? []).sort())
-const missing = (resource, reference) => Object.keys(reference).filter((key) => !(key in resource))
+const missing = (resource, comparison) =>
+  Object.keys(comparison).filter((key) => !(key in resource))
 const fallbackKeys = {}
 const newFallbackKeys = {}
 const placeholderDifferences = []
 const newPlaceholderDifferences = []
 const extraKeys = {}
-for (const locale of locales.slice(1)) {
+const undocumentedFallbacks = {}
+const staleFallbacks = {}
+const canonicalPromptDifferences = []
+const restoredRemovedKeys = []
+for (const locale of locales.filter((language) => language !== "en")) {
+  const restored = coverage?.restoredLocales.includes(locale)
+  const documented = restored
+    ? [
+        ...coverage.canonicalModelKeys,
+        ...coverage.dictionaryFallbackKeys,
+        ...coverage.changedEnglishKeys,
+        ...coverage.newEnglishKeys,
+        ...coverage.deferredHubKeys,
+        ...coverage.missingUpstream[locale],
+      ]
+    : []
   fallbackKeys[locale] = missing(current[locale], current.en)
   newFallbackKeys[locale] = fallbackKeys[locale].filter(
-    (key) => !missing(previous[locale], previous.en).includes(key),
+    (key) => !documented.includes(key) && !missing(previous[locale], previous.en).includes(key),
   )
-  extraKeys[locale] = missing(current.en, current[locale])
+  extraKeys[locale] = missing(reference, current[locale])
+  if (restored) {
+    undocumentedFallbacks[locale] = fallbackKeys[locale].filter((key) => !documented.includes(key))
+    staleFallbacks[locale] = documented.filter((key) => key in current[locale])
+    for (const key of Object.keys(current[locale]))
+      if (coverage.deferredHubKeys.includes(key)) restoredRemovedKeys.push(`${locale}:${key}`)
+  }
+  const modelKeys = [
+    ...(coverage?.canonicalModelKeys ?? []),
+    ...(restored ? coverage.dictionaryFallbackKeys : []),
+  ]
+  for (const key of modelKeys)
+    if ((current[locale][key] ?? current.en[key]) !== current.en[key])
+      canonicalPromptDifferences.push(`${locale}:${key}`)
   for (const key of Object.keys(current[locale])) {
-    if (key in current.en && signature(current[locale][key]) !== signature(current.en[key])) {
+    if (key in reference && signature(current[locale][key]) !== signature(reference[key])) {
       placeholderDifferences.push(`${locale}:${key}`)
-      if (signature(previous[locale][key]) === signature(previous.en[key]))
+      if (
+        restored ||
+        !(key in previous[locale]) ||
+        signature(previous[locale][key]) === signature(previous.en[key])
+      )
         newPlaceholderDifferences.push(`${locale}:${key}`)
     }
   }
@@ -88,6 +164,7 @@ const docs = [
   "docs/experimental-byos.md",
   "docs/metrics/README.md",
   "docs/metrics/en-ko-ja-cleanup.md",
+  ...["docs/ui-locale-restoration.md"].filter((file) => existsSync(file)),
 ]
 const brokenLocalLinks = []
 let localLinks = 0
@@ -131,12 +208,20 @@ for (const file of [
 const result = {
   base,
   locales,
+  supportedLocales,
+  localeListParity,
+  restoredResourceDifferences,
+  missingSharedKeys,
   keys: Object.fromEntries(locales.map((locale) => [locale, Object.keys(current[locale]).length])),
   removedKeys: removed.length,
   addedKeys: added,
   fallbackKeys,
   newFallbackKeys,
   extraKeys,
+  undocumentedFallbacks,
+  staleFallbacks,
+  canonicalPromptDifferences,
+  restoredRemovedKeys,
   placeholderDifferences,
   newPlaceholderDifferences,
   removedKeyReferences,
@@ -165,8 +250,15 @@ const result = {
 }
 console.log(JSON.stringify(result, null, 2))
 if (
+  !localeListParity ||
+  restoredResourceDifferences.length ||
+  missingSharedKeys.length ||
   Object.values(newFallbackKeys).some((keys) => keys.length) ||
   Object.values(extraKeys).some((keys) => keys.length) ||
+  Object.values(undocumentedFallbacks).some((keys) => keys.length) ||
+  Object.values(staleFallbacks).some((keys) => keys.length) ||
+  canonicalPromptDifferences.length ||
+  restoredRemovedKeys.length ||
   newPlaceholderDifferences.length ||
   removedKeyReferences.length ||
   brokenLocalLinks.length

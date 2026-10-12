@@ -1,6 +1,6 @@
 # LingoTori
 
-An independent GPLv3 browser extension for page, selected-text and existing video-caption translation, dictionary meanings and sentence explanations. The interface supports **English, Korean and Japanese**; translation languages remain broader, including Chinese.
+An independent GPLv3 browser extension for page, selected-text and existing video-caption translation, dictionary meanings and sentence explanations. The interface offers **Azerbaijani, English, Spanish, Japanese, Korean, Russian, Turkish, Vietnamese, Simplified Chinese and Traditional Chinese**, with [documented English fallbacks](docs/ui-locale-restoration.md) for changed or missing copy. Translation languages remain broader, including Chinese.
 
 The standalone Translation Hub / Multi-API Text Translation screen has been removed. Multiple provider configurations and per-feature assignments remain supported. Previously saved Hub preferences are retained as inactive compatibility data; see the [removal scope and validation plan](docs/translation-hub-removal.md).
 
@@ -23,6 +23,8 @@ pnpm dev
 ```
 
 Build Chromium with `pnpm build` or Firefox MV3 with `pnpm build:firefox`. Load `.output/chrome-mv3` through Chromium's extension developer tools. In Firefox, load the manifest from `.output/firefox-mv3` as a temporary add-on through `about:debugging`. Follow [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md); run tests only immediately before merging, with `SKIP_FREE_API=true`, and obtain explicit user confirmation immediately before the merge.
+
+The independent version baseline is **0.0.1**, without a prerelease suffix. See the [version and installation notes](docs/versioning.md) for package names, build receipts, and replacing an earlier temporary `1.50.3` installation without deleting its data.
 
 [Project documentation](docs/index.md) includes scope, limitations, licensing and [measured footprint evidence](docs/metrics/README.md). Builds and static checks do not establish live-provider or browser-runtime performance.
 
