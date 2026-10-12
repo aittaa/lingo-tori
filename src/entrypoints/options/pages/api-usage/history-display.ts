@@ -65,10 +65,14 @@ export function usageModelLabels(history: ApiUsageHistory): Record<string, strin
   }
   return labels
 }
+const modelColors = ["#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#64748b"]
 export function modelPattern(index: number) {
   return {
-    backgroundColor: `var(--rf-chart-${(index % 5) + 1})`,
-    backgroundImage: `repeating-linear-gradient(${index % 2 === 0 ? 45 : 135}deg, transparent, transparent ${3 + (index % 3)}px, var(--rf-background) ${3 + (index % 3)}px, var(--rf-background) ${4 + (index % 3)}px)`,
+    backgroundColor: modelColors[index % modelColors.length],
+    backgroundImage:
+      index < modelColors.length
+        ? "none"
+        : `repeating-linear-gradient(${Math.floor(index / modelColors.length) % 2 === 0 ? 135 : 45}deg, transparent, transparent 8px, rgba(255,255,255,0.25) 8px, rgba(255,255,255,0.25) 9px)`,
   }
 }
 export function historyMetricValue(metrics: UsageMetrics, metric: HistoryMetric) {

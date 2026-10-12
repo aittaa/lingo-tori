@@ -70,10 +70,10 @@ export function HistoryChart({
       <div className="flex gap-3">
         <div
           aria-hidden="true"
-          className="flex w-14 shrink-0 flex-col justify-between pb-6 text-right text-xs text-muted-foreground tabular-nums"
+          className="relative h-56 w-14 shrink-0 text-right text-xs text-muted-foreground tabular-nums"
         >
-          <span>{format(scaleMaximum)}</span>
-          <span>{format(0)}</span>
+          <span className="absolute top-0 right-0 -translate-y-1/2">{format(scaleMaximum)}</span>
+          <span className="absolute right-0 bottom-0 translate-y-1/2">{format(0)}</span>
         </div>
         <div className="min-w-0 flex-1 overflow-x-auto">
           <div style={{ minWidth: `${days.length * (days.length <= 10 ? 42 : 18)}px` }}>
@@ -166,20 +166,33 @@ export function HistoryChart({
                 })}
               </div>
             </div>
-            <div
-              aria-hidden="true"
-              className="mt-2 grid text-center text-xs text-muted-foreground"
-              style={{ gridTemplateColumns: `repeat(${days.length}, minmax(14px, 1fr))` }}
-            >
-              {days.map((day, index) => (
-                <span key={day}>
-                  {days.length <= 10 ||
-                  (index % 7 === 0 && index < days.length - 3) ||
-                  index === days.length - 1
-                    ? date(day)
-                    : ""}
-                </span>
-              ))}
+            <div aria-hidden="true" className="relative mt-2 h-6 text-xs text-muted-foreground">
+              {days.map((day, index) =>
+                days.length <= 10 ||
+                (index % 7 === 0 && index < days.length - 3) ||
+                index === days.length - 1 ? (
+                  <span
+                    key={day}
+                    className="absolute top-0 whitespace-nowrap"
+                    style={{
+                      left:
+                        index === 0
+                          ? "0%"
+                          : index === days.length - 1
+                            ? "100%"
+                            : `${((index + 0.5) / days.length) * 100}%`,
+                      transform:
+                        index === 0
+                          ? "none"
+                          : index === days.length - 1
+                            ? "translateX(-100%)"
+                            : "translateX(-50%)",
+                    }}
+                  >
+                    {date(day)}
+                  </span>
+                ) : null,
+              )}
             </div>
           </div>
         </div>

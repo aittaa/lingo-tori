@@ -106,6 +106,7 @@ options:
       range30: "30日"
       rangeCustom: "期間を選択"
       share: "割合"
+      noShare: "割合なし（合計が0）"
       details: "詳細"
       noUsage: "この期間の使用量は記録されていません。"
       connection: "接続"

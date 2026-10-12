@@ -106,6 +106,7 @@ options:
       range30: "30일"
       rangeCustom: "직접 선택"
       share: "비중"
+      noShare: "비중 없음 (합계가 0)"
       details: "상세"
       noUsage: "이 기간에 기록된 사용량이 없습니다."
       connection: "연결"

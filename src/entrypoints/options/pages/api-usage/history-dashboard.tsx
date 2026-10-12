@@ -45,6 +45,9 @@ export function HistoryDashboard({
   const [visibility, setVisibility] = useState<Record<string, boolean>>({})
   const [selection, setSelection] = useState<HistorySelection | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const detailMetrics = (["inputTokens", "outputTokens", "requests"] as const).filter(
+    (value) => value !== metric,
+  )
   const tableId = useId()
   const models = historyModels(history)
   const labels = usageModelLabels(history)
@@ -114,7 +117,7 @@ export function HistoryDashboard({
     : i18n.t("options.apiUsage.history.periodDetails")
   const showValue = (metrics: UsageMetrics, valueMetric: HistoryMetric) => {
     const { known, value, partial } = historyMetricValue(metrics, valueMetric)
-    return known ? (
+    return known && usedMetrics(metrics) ? (
       <>
         {number(value)}
         {partial && (
@@ -124,7 +127,9 @@ export function HistoryDashboard({
         )}
       </>
     ) : (
-      <span aria-label={i18n.t("options.apiUsage.history.unreported")}>—</span>
+      <span role="img" aria-label={i18n.t("options.apiUsage.history.unreported")}>
+        —
+      </span>
     )
   }
   const setPreset = (preset: "7" | "30" | "custom") => {
@@ -333,15 +338,17 @@ export function HistoryDashboard({
                           {i18n.t("options.apiUsage.history.clearSelection")}
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        aria-expanded={expanded}
-                        aria-controls={tableId}
-                        onClick={() => setExpanded((value) => !value)}
-                      >
-                        {i18n.t("options.apiUsage.history.details")}
-                      </Button>
+                      {rows.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          aria-expanded={expanded}
+                          aria-controls={tableId}
+                          onClick={() => setExpanded((value) => !value)}
+                        >
+                          {i18n.t("options.apiUsage.history.details")}
+                        </Button>
+                      )}
                     </div>
                   </div>
                   {validSelection && (
@@ -408,19 +415,12 @@ export function HistoryDashboard({
                               </span>
                             )}
                           </TableHead>
-                          {expanded && (
-                            <>
-                              <TableHead scope="col" className="text-right">
-                                {i18n.t("options.apiUsage.history.metrics.inputTokens")}
+                          {expanded &&
+                            detailMetrics.map((value) => (
+                              <TableHead key={value} scope="col" className="text-right">
+                                {i18n.t(`options.apiUsage.history.metrics.${value}`)}
                               </TableHead>
-                              <TableHead scope="col" className="text-right">
-                                {i18n.t("options.apiUsage.history.metrics.outputTokens")}
-                              </TableHead>
-                              <TableHead scope="col" className="text-right">
-                                {i18n.t("options.apiUsage.history.requests")}
-                              </TableHead>
-                            </>
-                          )}
+                            ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -437,7 +437,19 @@ export function HistoryDashboard({
                               </TableCell>
                               <TableCell className="text-right tabular-nums">
                                 {ratio === null ? (
-                                  <span aria-label={i18n.t("options.apiUsage.history.unreported")}>
+                                  <span
+                                    role="img"
+                                    aria-label={i18n.t(
+                                      row.known
+                                        ? "options.apiUsage.history.noShare"
+                                        : "options.apiUsage.history.unreported",
+                                    )}
+                                    title={i18n.t(
+                                      row.known
+                                        ? "options.apiUsage.history.noShare"
+                                        : "options.apiUsage.history.unreported",
+                                    )}
+                                  >
                                     —
                                   </span>
                                 ) : ratio > 0 && ratio < 0.001 ? (
@@ -446,19 +458,12 @@ export function HistoryDashboard({
                                   percent.format(ratio)
                                 )}
                               </TableCell>
-                              {expanded && (
-                                <>
-                                  <TableCell className="text-right tabular-nums">
-                                    {showValue(row.metrics, "inputTokens")}
+                              {expanded &&
+                                detailMetrics.map((value) => (
+                                  <TableCell key={value} className="text-right tabular-nums">
+                                    {showValue(row.metrics, value)}
                                   </TableCell>
-                                  <TableCell className="text-right tabular-nums">
-                                    {showValue(row.metrics, "outputTokens")}
-                                  </TableCell>
-                                  <TableCell className="text-right tabular-nums">
-                                    {number(row.metrics.requests)}
-                                  </TableCell>
-                                </>
-                              )}
+                                ))}
                             </TableRow>
                           )
                         })}

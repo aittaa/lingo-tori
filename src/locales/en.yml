@@ -106,6 +106,7 @@ options:
       range30: "30 days"
       rangeCustom: "Custom"
       share: "Share"
+      noShare: "No share (total is zero)"
       details: "Details"
       noUsage: "No recorded usage in this period."
       connection: "Connection"

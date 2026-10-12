@@ -111,13 +111,7 @@ describe("compact date/model token usage", () => {
     const details = screen.getByRole("button", { name: key("details") })
     fireEvent.click(details)
     expect(details).toHaveAttribute("aria-expanded", "true")
-    expect(cells(dictionary())).toEqual([
-      `20${key("partial")}`,
-      "100%",
-      `20${key("partial")}`,
-      `5${key("partial")}`,
-      "2",
-    ])
+    expect(cells(dictionary())).toEqual([`20${key("partial")}`, "100%", `5${key("partial")}`, "2"])
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "requests" } })
     expect(cells(dictionary()).slice(0, 2)).toEqual(["2", "100%"])
     expect(screen.queryByText(key("partialShare"))).not.toBeInTheDocument()
@@ -168,10 +162,11 @@ describe("compact date/model token usage", () => {
     render(<HistoryDashboard history={history} locale="en" />)
     hideApi()
     expect(cells(dictionary())).toEqual(["—", "—"])
+    expect(within(dictionary()).getAllByRole("img", { name: key("unreported") })).toHaveLength(2)
     fireEvent.keyDown(dateButtons().at(-1)!, { key: " " })
     fireEvent.keyDown(screen.getByRole("button", { name: /ChatGPT.*:/ }), { key: " " })
     fireEvent.click(screen.getByRole("button", { name: key("details") }))
-    expect(cells(dictionary())).toEqual(["—", "—", "—", "—", "3"])
+    expect(cells(dictionary())).toEqual(["—", "—", "—", "3"])
     expect(screen.queryByText(key("empty"))).not.toBeInTheDocument()
   })
 
@@ -186,6 +181,10 @@ describe("compact date/model token usage", () => {
     render(<HistoryDashboard history={history} locale="en" />)
     hideApi()
     expect(cells(dictionary())).toEqual(["0", "—"])
+    expect(within(dictionary()).getByRole("img", { name: key("noShare") })).toBeInTheDocument()
+    expect(
+      within(dictionary()).queryByRole("img", { name: key("unreported") }),
+    ).not.toBeInTheDocument()
     expect(dateButtons().at(-1)).toHaveAccessibleName(/metrics.inputTokens: 0/)
     expect(screen.getByRole("figure").querySelectorAll("[data-model]")).toHaveLength(0)
   })
@@ -237,6 +236,13 @@ describe("compact date/model token usage", () => {
     expect(screen.getByLabelText("options.apiUsage.total")).toHaveTextContent("—")
     expect(screen.getByText(key("noUsage"))).toBeInTheDocument()
     expect(screen.queryByRole("table")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: key("details") })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "requests" } })
+    const dayButton = dateButtons().at(-1)!
+    expect(dayButton).toHaveAccessibleName(new RegExp(key("unreported")))
+    fireEvent.keyDown(dayButton, { key: "Enter" })
+    expect(screen.getByLabelText("options.apiUsage.total")).toHaveTextContent("—")
+    expect(screen.getByLabelText("options.apiUsage.total")).not.toHaveTextContent("0")
   })
 
   it("does not fabricate earlier history and retains first-use and invalid-range states", () => {
@@ -299,6 +305,10 @@ describe("compact date/model token usage", () => {
   })
 
   it("keeps whole-list model labels, colors and patterns stable across hiding and custom ranges", () => {
+    const colors = Array.from({ length: 6 }, (_, index) => modelPattern(index).backgroundColor)
+    expect(new Set(colors).size).toBe(6)
+    expect(modelPattern(6).backgroundColor).toBe(modelPattern(0).backgroundColor)
+    expect(modelPattern(6).backgroundImage).not.toBe(modelPattern(0).backgroundImage)
     const { history, day } = fixture()
     render(<HistoryDashboard history={history} locale="en" />)
     const style = () =>
@@ -313,6 +323,22 @@ describe("compact date/model token usage", () => {
     expect(style().backgroundImage).toBe(original.pattern)
     expect(screen.getByRole("checkbox", { name: /ChatGPT · gpt-6.1-sol/ })).toBeInTheDocument()
   })
+
+  it.each(["inputTokens", "outputTokens", "requests"])(
+    "shows five unique detail columns when the selected metric is %s",
+    (metric) => {
+      render(<HistoryDashboard history={fixture().history} locale="en" />)
+      fireEvent.change(screen.getByRole("combobox"), { target: { value: metric } })
+      fireEvent.click(screen.getByRole("button", { name: key("details") }))
+      const headers = within(table()).getAllByRole("columnheader")
+      expect(headers).toHaveLength(5)
+      for (const value of ["inputTokens", "outputTokens", "requests"])
+        expect(
+          headers.filter((header) => header.textContent === key(`metrics.${value}`)),
+        ).toHaveLength(1)
+      expect(cells(dictionary())).toHaveLength(4)
+    },
+  )
 
   it("uses stable named connection/custom aliases without exposing hashes or transport jargon", () => {
     const { history, day } = fixture()

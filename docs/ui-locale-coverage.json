@@ -163,7 +163,8 @@
     "options.apiUsage.history.noUsage",
     "options.apiUsage.history.connection",
     "options.apiUsage.history.partialShare",
-    "options.apiUsage.history.about"
+    "options.apiUsage.history.about",
+    "options.apiUsage.history.noShare"
   ],
   "deferredHubKeys": [
     "popup.hub.tooltip",
