@@ -111,8 +111,7 @@ it.each([
   },
 )
 
-async function prepare(fetcher: typeof fetch) {
-  const vault = memoryVault()
+async function prepare(fetcher: typeof fetch, vault = memoryVault()) {
   await vault.update((record) => {
     record.credentials = credentials()
   })
@@ -128,6 +127,96 @@ async function prepare(fetcher: typeof fetch) {
   )
   return service
 }
+
+it.each([
+  { route: "BYOS contextual", isolated: true },
+  { route: "BYOK authentication", isolated: false },
+])("preserves the shared queue boundary for $route", async ({ isolated }) => {
+  const fetcher = vi.fn<typeof fetch>(async () =>
+    Response.json({ error: { code: "subscription_sharing_invalid_user" } }, { status: 401 }),
+  )
+  const vault = memoryVault()
+  const service = await prepare(fetcher, vault)
+  const before = await vault.read()
+  const byosModel = createByosModel("synthetic-model", (payload, signal) =>
+    service.invoke(payload, signal),
+  )
+  let byokCalls = 0,
+    byokAborted = false
+  let release!: (value: { text: string }) => void
+  const healthyModel = createByosModel("synthetic-model", async (_payload, signal) => {
+    if (++byokCalls > 1) return { text: "waiting-success" }
+    return new Promise((resolve, reject) => {
+      release = resolve
+      signal?.addEventListener(
+        "abort",
+        () => {
+          byokAborted = true
+          reject(new DOMException("Synthetic BYOK aborted", "AbortError"))
+        },
+        { once: true },
+      )
+    })
+  })
+  const deniedByok = createByosModel("synthetic-model", async () => {
+    throw Object.assign(new Error("Synthetic invalid API key"), {
+      statusCode: 401,
+      isRetryable: false,
+    })
+  })
+  const healthy: LLMProviderConfig = {
+    id: "synthetic-healthy-byok",
+    name: "Synthetic BYOK",
+    enabled: true,
+    provider: "openai",
+    model: { model: "gpt-5-mini", isCustomModel: true, customModel: "synthetic-model" },
+  }
+  const denied: LLMProviderConfig = isolated
+    ? provider
+    : { ...healthy, id: "synthetic-denied-byok" }
+  mocks.getModel.mockImplementation(async (id) =>
+    id === healthy.id ? healthyModel : isolated ? byosModel : deniedByok,
+  )
+  const requests = new RequestQueue({
+    rate: 100,
+    capacity: 2,
+    timeoutMs: 1000,
+    maxRetries: 2,
+    baseRetryDelayMs: 1,
+  })
+  const active = requests.enqueue(
+    (signal) => aiTranslate("Healthy active", "Korean", healthy, prompt, { signal }),
+    Date.now(),
+    "synthetic-healthy-active",
+  )
+  await vi.waitFor(() => expect(byokCalls).toBe(1))
+  const waitingThunk = vi.fn<(signal?: AbortSignal) => Promise<string>>((signal) =>
+    aiTranslate("Healthy waiting", "Korean", healthy, prompt, { signal }),
+  )
+  const waiting = requests.enqueue(waitingThunk, Date.now() + 250, "synthetic-healthy-waiting")
+  const peers = Promise.allSettled([active, waiting])
+  const error: unknown = await requests
+    .enqueue(
+      (signal) => aiTranslate("Denied request", "Korean", denied, prompt, { signal }),
+      Date.now(),
+      "synthetic-denied-request",
+    )
+    .catch((caught: unknown) => caught)
+  expect(getRequestErrorMeta(error).statusCode).toBe(401)
+  expect(getRequestErrorMeta(error).failQueue === false).toBe(isolated)
+  release({ text: "active-success" })
+  const results = await peers
+  expect(results.map((result) => result.status)).toEqual(
+    isolated ? ["fulfilled", "fulfilled"] : ["rejected", "rejected"],
+  )
+  expect(
+    results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])),
+  ).toEqual(isolated ? ["active-success", "waiting-success"] : [])
+  expect(byokAborted).toBe(!isolated)
+  expect(waitingThunk).toHaveBeenCalledTimes(isolated ? 1 : 0)
+  expect(fetcher).toHaveBeenCalledTimes(isolated ? 1 : 0)
+  expect(await vault.read()).toEqual(before)
+})
 
 function refusalFetcher() {
   return vi.fn<typeof fetch>(async () => {

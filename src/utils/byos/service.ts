@@ -454,6 +454,8 @@ export function createByosService(
     await ensureGeneration(active.generation)
     if (!response.ok) {
       const error = await responseError(response, options.signal ?? undefined)
+      if (response.status === 401 && !rejectsAccessToken(error))
+        Object.assign(error, { failQueue: false })
       if (rejectsAccessToken(error))
         await vault.update((record) => {
           if (
@@ -472,6 +474,8 @@ export function createByosService(
         await ensureGeneration(active.generation)
         if (!response.ok) {
           const retryError = await responseError(response, options.signal ?? undefined)
+          if (response.status === 401 && !rejectsAccessToken(retryError))
+            Object.assign(retryError, { failQueue: false })
           if (rejectsAccessToken(retryError))
             await vault.update((record) => {
               if (

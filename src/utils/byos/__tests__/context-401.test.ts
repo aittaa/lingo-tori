@@ -49,7 +49,12 @@ it.each([
       route === "models"
         ? service.models()
         : service.invoke({ model: "synthetic-model", text: "source" }),
-    ).rejects.toMatchObject({ code, status: 401, requestId: "req_synthetic_context_401" })
+    ).rejects.toMatchObject({
+      code,
+      status: 401,
+      requestId: "req_synthetic_context_401",
+      failQueue: false,
+    })
     expect(await vault.read()).toEqual(before)
     expect(await service.session()).toMatchObject({ state: "plan-enabled" })
     expect(await service.models()).toEqual({ models: [] })
@@ -81,6 +86,7 @@ it("does not reject a newly rotated token when the one bounded resend has a cont
   const { service, vault } = await setup(fetcher)
   await expect(service.models()).rejects.toMatchObject({
     code: "subscription_sharing_invalid_user",
+    failQueue: false,
   })
   expect((await vault.read()).accessRejected).toBeUndefined()
   expect((await vault.read()).credentials?.accessToken).toBe("synthetic-new-access")
