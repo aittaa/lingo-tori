@@ -43,7 +43,7 @@ const intentionalFallbackKeys = [
 ]
 
 describe("supported UI catalogues", () => {
-  for (const locale of SUPPORTED_UI_LOCALES.filter((locale) => locale !== "en")) {
+  for (const locale of SUPPORTED_UI_LOCALES.filter((supportedLocale) => supportedLocale !== "en")) {
     it(`${locale} has every non-canonical English key and no extra keys`, () => {
       const keysWithIntentionalFallbacks = new Set([
         ...Object.keys(catalogues[locale]),
@@ -55,7 +55,7 @@ describe("supported UI catalogues", () => {
     it(`${locale} preserves positional, named, and Chrome placeholders`, () => {
       for (const [key, value] of Object.entries(catalogues.en)) {
         if (intentionalFallbackKeys.includes(key)) continue
-        expect(placeholderSignature(catalogues[locale][key] ?? ""), key).toEqual(
+        expect(placeholderSignature(catalogues[locale][key] ?? "")).toEqual(
           placeholderSignature(value),
         )
       }
@@ -64,7 +64,7 @@ describe("supported UI catalogues", () => {
     it(`${locale} preserves the canonical sentence-analysis model instructions`, () => {
       for (const key of intentionalFallbackKeys) {
         const effectivePrompt = catalogues[locale][key] ?? catalogues.en[key]
-        expect(effectivePrompt, key).toBe(catalogues.en[key])
+        expect(effectivePrompt).toBe(catalogues.en[key])
       }
     })
   }
