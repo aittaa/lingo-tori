@@ -70,6 +70,19 @@ describe("local API usage persistence", () => {
 })
 
 describe("outbound fetch observation", () => {
+  it("returns the original translation response even when aggregate storage keeps failing", async () => {
+    const store = memoryStore()
+    store.write.mockRejectedValue(new Error("synthetic persistent storage failure"))
+    const recorder = createApiUsageRecorder(store)
+    installApiUsageObserver(recorder.record)
+    const fetcher = vi.fn<typeof fetch>(async () => new Response("translated result"))
+    const response = await withApiUsage("pageTranslation", fetcher)("https://example.test")
+    expect(await response.text()).toBe("translated result")
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(await recorder.snapshot()).toEqual({ usage: null, incomplete: true })
+    expect(await store.read()).toBeNull()
+  })
+
   it("counts each dispatch including retry, leaves response/body untouched and persists only aggregates", async () => {
     const store = memoryStore()
     const recorder = createApiUsageRecorder(store)

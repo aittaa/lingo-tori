@@ -1,16 +1,32 @@
 import type { CachedWebPageContext } from "@/utils/host/translate/webpage-context"
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from "@testing-library/react"
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react"
 import { createElement } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { ANALYTICS_SURFACE } from "@/types/analytics"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
+import {
+  BUILT_IN_DICTIONARY_ACTION_ID,
+  BUILT_IN_SENTENCE_ANALYSIS_ACTION_ID,
+  isBuiltInActionId,
+  getSelectionToolbarCustomActionTokenCellText,
+} from "@/utils/constants/custom-action"
+import { streamBackgroundStructuredObject } from "@/utils/content-script/background-stream-client"
 import { CUSTOM_ACTION_CONTEXT_CHAR_LIMIT } from "@/utils/custom-action-prompt"
-import { getBuiltInDictionaryAction } from "@/utils/custom-actions"
+import { getBuiltInAction, getBuiltInDictionaryAction } from "@/utils/custom-actions"
 import { resolveProviderRefForCapability } from "@/utils/providers/provider-registry"
 import {
   buildCustomActionExecutionPlan,
   useCustomActionWebPageContext,
+  useCustomActionExecution,
 } from "../use-custom-action-execution"
+
+const { structuredStreamMock } = vi.hoisted(() => ({
+  structuredStreamMock: vi.fn<typeof streamBackgroundStructuredObject>(),
+}))
+vi.mock("@/utils/content-script/background-stream-client", () => ({
+  streamBackgroundStructuredObject: structuredStreamMock,
+}))
 
 const getOrCreateWebPageContextMock = vi.fn<(...args: any[]) => any>()
 
@@ -216,4 +232,60 @@ describe("buildCustomActionExecutionPlan", () => {
     expect(plan.error).toBeNull()
     expect(plan.executionContext?.promptTokens.webUrl).toBe(window.location.href)
   })
+})
+
+describe("retained action feature attribution", () => {
+  beforeEach(() => {
+    structuredStreamMock.mockReset()
+    structuredStreamMock.mockResolvedValue({
+      output: { result: "synthetic result" },
+      thinking: { status: "complete", text: "" },
+    })
+  })
+  it.each([
+    [BUILT_IN_DICTIONARY_ACTION_ID, "dictionary"],
+    [BUILT_IN_SENTENCE_ANALYSIS_ACTION_ID, "sentenceAnalysis"],
+    ["synthetic-custom-action", "customAction"],
+  ] as const)(
+    "tags %s as %s while preserving the captured provider and prompt",
+    async (id, feature) => {
+      const request = createCustomActionRequest()
+      const action = isBuiltInActionId(id)
+        ? getBuiltInAction(DEFAULT_CONFIG.selectionToolbar, id)
+        : { ...request.action, id }
+      const plan = buildCustomActionExecutionPlan(
+        {
+          ...request,
+          action: {
+            ...action,
+            prompt: `Explain ${getSelectionToolbarCustomActionTokenCellText("selection")}`,
+          },
+        },
+        "synthetic selection",
+        "synthetic context",
+        null,
+      )
+      expect(plan.error).toBeNull()
+      expect(plan.executionContext).not.toBeNull()
+      const hook = renderHook(() =>
+        useCustomActionExecution({
+          analyticsSurface: ANALYTICS_SURFACE.SELECTION_TOOLBAR,
+          bodyRef: { current: null },
+          executionContext: plan.executionContext,
+          open: true,
+          popoverSessionKey: 0,
+          rerunNonce: 0,
+        }),
+      )
+      await waitFor(() => expect(hook.result.current.isRunning).toBe(false))
+      expect(structuredStreamMock).toHaveBeenCalledTimes(1)
+      expect(structuredStreamMock.mock.calls[0]?.[0]).toMatchObject({
+        usageFeature: feature,
+        providerId: "test-openai",
+      })
+      expect(structuredStreamMock.mock.calls[0]?.[0].prompt).toContain("synthetic selection")
+      expect(structuredStreamMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(false)
+      hook.unmount()
+    },
+  )
 })

@@ -950,7 +950,12 @@ describe("translation queue helpers", () => {
       DEFAULT_CONFIG.language,
       translationOnlyProvider,
       expect.any(Function),
-      { textFormat: "html", signal: expect.any(AbortSignal) },
+      {
+        textFormat: "html",
+        preserveLineBreaks: undefined,
+        signal: expect.any(AbortSignal),
+        usageFeature: "sharedRequests",
+      },
     )
   })
 

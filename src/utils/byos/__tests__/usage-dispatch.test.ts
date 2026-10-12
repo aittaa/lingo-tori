@@ -57,7 +57,7 @@ describe("BYOS inference dispatch observation", () => {
     )
     await expect(
       service.invoke({ model: "synthetic-model", text: "source" }, undefined, onDispatch),
-    ).rejects.toThrow("authorization_required")
+    ).rejects.toMatchObject({ code: "plan_permission_required" })
     await expect(
       service.invoke({ model: "synthetic-model", text: "source" }, AbortSignal.abort(), onDispatch),
     ).rejects.toMatchObject({ name: "AbortError" })

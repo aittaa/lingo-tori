@@ -401,6 +401,7 @@ describe("background-stream", () => {
       type: "start",
       streamRequestId: "summary-snapshot",
       payload: {
+        usageFeature: "videoSummary",
         providerKind: "local",
         providerId: providerConfig.id,
         providerConfig,
@@ -412,10 +413,7 @@ describe("background-stream", () => {
     })
 
     expect(getModelByIdMock).not.toHaveBeenCalled()
-    expect(getLanguageModelForConfigMock).toHaveBeenCalledWith(
-      providerConfig,
-      "selectionTranslation",
-    )
+    expect(getLanguageModelForConfigMock).toHaveBeenCalledWith(providerConfig, "videoSummary")
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "snapshot-model",
@@ -423,6 +421,7 @@ describe("background-stream", () => {
         reasoning: "low",
       }),
     )
+    expect(streamTextMock.mock.calls[0]?.[0]).not.toHaveProperty("usageFeature")
     expect(streamTextMock.mock.calls[0]![0]).not.toHaveProperty("providerConfig")
     expect(mockPort.postMessage).toHaveBeenLastCalledWith(
       expect.objectContaining({
