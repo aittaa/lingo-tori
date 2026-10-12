@@ -1,0 +1,1312 @@
+# Retained Read Frog UI strings from 55bcef1e684fb4e70f4dce3063e7bd3066f46891.
+# Changed LingoTori copy and canonical model prompts use the English fallback.
+# See docs/ui-locale-restoration.md and docs/ui-locale-coverage.json.
+name: LingoTori
+dataTypes:
+  string: Mətn
+  number: Ədəd
+contextMenu:
+  translate: Tərcümə et
+  translateSelection: '"%s" mətnini tərcümə et'
+  showOriginal: Orijinalı göstər
+sidePanel:
+  firefoxUserActionHelpText: Firefox yan panelini açmağı öyrənin
+  firefoxUserActionHelpUrl: https://support.mozilla.org/en-US/kb/use-sidebar-access-tools-and-vertical-tabs
+popup:
+  theme: Mövzu
+  autoLang: Avtomatik
+  sourceLang: Mənbə
+  targetLang: Hədəf
+  providers:
+    title: Provayderlər
+    description: Hər funksiya üçün istifadə ediləcək provayderi seçin
+    open: Provayder parametrlərini aç
+  translate: Tərcümə et
+  showOriginal: Orijinalı göstər
+  enabledFloatingButton: Üzən düyməni aktiv et
+  enabledSelectionToolbar: Seçim alətlər panelini aktiv et
+  alwaysTranslate: Bu saytı həmişə tərcümə et
+  addToWhitelist: Bu saytda genişlənməni aktiv et
+  addToBlacklist: Bu saytda genişlənməni deaktiv et
+  options: Parametrlər
+  hover: Üzərinə gətir
+  translateParagraph: abzası tərcümə etmək üçün
+  translationModeToggle:
+    tooltip:
+      bilingual:
+        current: Hazırda ikidilli rejimdədir
+        action: Yalnız tərcümə rejiminə keçmək üçün klikləyin
+      translationOnly:
+        current: Hazırda yalnız tərcümə göstərilir
+        action: İkidilli rejimə keçmək üçün klikləyin
+  aiSmartContext: Süni intellektlə ağıllı kontekst
+  aiSmartContextDescription: Tərcümənin keyfiyyətini artırmaq üçün səhifənin kontekstindən istifadə edir. LLM tərcümə provayderi tələb olunur.
+  more:
+    title: Daha çox
+    bugReport: Xəta bildir
+errorRecovery:
+  title: Xəta baş verdi
+  description: Bərpa rejimi aktivdir. Cari parametrlərin ehtiyat nüsxəsini ixrac edə, sonra parametrləri sıfırlayıb yenidən cəhd edə bilərsiniz.
+  backupTitle: Əvvəlcə cari parametrlərin ehtiyat nüsxəsini yaradın (tövsiyə olunur)
+  exportWithApiKeys: API açarları ilə ixrac et
+  exportWithoutApiKeys: API açarları olmadan ixrac et
+  recoveryTitle: Bərpa seçimləri
+  refreshPage: Səhifəni yenilə
+  resetAction: Standart parametrlərə qaytar
+  resetSuccess: Bərpa tamamlandı. Parametrlər sıfırlandı
+  resetFailed: Bərpa alınmadı. Parametrləri sıfırlamaq mümkün olmadı
+  errorDetails: Xəta təfərrüatları
+  resetDialog:
+    title: Parametrlər sıfırlansın?
+    description: Cari parametrlər standart dəyərlərlə əvəz olunacaq.
+    confirm: Sıfırla
+    cancel: Ləğv et
+options:
+  autosave:
+    invalid: Çıxmazdan əvvəl işarələnmiş sahələri düzəldin.
+    failed: Dəyişikliklərinizi yadda saxlamaq mümkün olmadı. Onlar hələ də buradadır.
+    deleted: Bu element başqa yerdə silinib. Yadda saxlanmamış dəyişiklikləriniz qorunub.
+    retry: Yenidən cəhd et
+    leaveTitle: Dəyişikliklər yadda saxlanmayıb
+    leaveDescription: Problemi həll etmək üçün redaktəyə davam edin və ya yadda saxlanmamış dəyişikliklərdən imtina edin.
+    keepEditing: Redaktəyə davam et
+    discard: Saxlanmamış dəyişiklikləri ləğv et
+  batchSavings:
+    savedCost: API xərclərinə təxminən $1% qənaət edilib
+  commandPalette:
+    placeholder: Parametrləri axtar...
+    noResults: Parametr tapılmadı
+    open: Parametrləri axtar
+  sidebar:
+    toggle: Yan paneli aç və ya bağla
+    settings: Parametrlər
+    features: Funksiyalar
+    translation: Tərcümə
+    product: Məhsul
+  apiProviders:
+    title: API provayderləri
+    addProvider: Provayder əlavə et
+    builtInProvider: Daxili provayder
+    badges:
+      featureCount: $1 funksiya
+    dialog:
+      title: Yeni provayder əlavə et
+      groups:
+        builtInProviders:
+          title: Daxili LLM provayderləri
+          description: Daxili böyük dil modeli provayderləri üçün əsas URL kimi əksər parametrləri doldurmağa ehtiyac yoxdur
+        compatibleProviders:
+          title: Uyğun API provayderləri
+          description: Chat Completions ilə uyğun API-lər üçün Fərdi Chat Complete, Open Responses API-ləri üçün isə Fərdi Responses seçimindən istifadə edin.
+        pureTranslationProviders:
+          title: Yalnız tərcümə üçün provayderlər
+          description: Böyük dil modeli imkanları olmadan tərcümə funksiyalarına yönəlmiş provayderlər
+    form:
+      fields:
+        name: Ad
+        description: Təsvir
+        apiKey: API açarı
+        baseURL: Əsas URL
+        url: URL ünvanı
+        optional: İstəyə bağlı
+      duplicate: Surətini yarat
+      delete: Sil
+      deleteDialog:
+        title: Provayder silinsin?
+        confirm: Sil
+        cancel: Ləğv et
+      atLeastOneLLMProvider: Ən azı bir LLM tərcümə provayderi tələb olunur.
+      featureWouldLoseProvider: 'Silmək mümkün deyil: "$1" funksiyasını icra edə bilən provayder qalmayacaq.'
+      providerInUseCannotDisable: '"$1" deaktiv edilə bilməz, çünki hazırda $2 funksiya ondan istifadə edir.'
+      duplicateProviderName: 'Təkrarlanan provayder adı: "$1"'
+      defaultProvider:
+        translate: Standart tərcümə provayderi kimi təyin et
+      models:
+        translate:
+          title: Tərcümə modeli
+          customTitle: Fərdi tərcümə modeli
+          placeholder: Model seçin
+        fetchModels: Mövcud modelləri gətir
+        fetchError: Modelləri gətirmək mümkün olmadı
+        clickToRetry: Yenidən cəhd etmək üçün klikləyin
+        noModels: Mövcud model yoxdur
+        selectModel: Model seçin
+        apiKeyRequired: Əvvəlcə API açarı əlavə edin
+        searchModels: Modelləri axtar...
+        noModelsFound: Model tapılmadı
+        label: Dil modeli
+        enterCustomModel: Fərdi modelin adını daxil edin
+      advancedOptions: Əlavə parametrlər
+      providerSettingLabels:
+        region: Bölgə
+        apiMode: API rejimi
+        resourceName: Azure resursunun adı (istəyə bağlı)
+        apiVersion: API versiyası
+      providerSettingOptionLabels:
+        responses: Responses API
+        chatCompletions: Chat Completions
+      temperature: Temperatur
+      temperatureHint: Cavablardakı təsadüfiliyi idarə edir. Aşağı dəyərlər (0) daha sabit, yüksək dəyərlər isə daha yaradıcı cavablar verir. Aralıq provayderdən asılıdır. Provayderin standart dəyərindən istifadə etmək üçün boş saxlayın.
+      reasoning:
+        title: Mühakimə
+      headers: Başlıqlar
+      headersHint: Süni intellekt provayderi üçün müştəri proqramı yaradılarkən göndərilən fərdi HTTP başlıqları. Provayderin standart dəyərlərindən istifadə etmək üçün boş saxlayın; standart dəyərləri deaktiv etmək üçün {} yazın.
+      providerOptions: Provayder parametrləri
+      providerOptionsHint: Düşünmə və mühakimə rejimi kimi qeyri-standart API funksiyaları üçün provayderə xas parametrlər. Konfiqurasiya təfərrüatları üçün Vercel AI SDK sənədlərinə və ya provayderinizin rəsmi sənədlərinə baxın.
+      providerOptionsDocsLink: Provayder sənədlərinə bax
+      providerOptionsRecommendationTrigger: Tövsiyə edilən provayder parametrlərinə bax
+      providerOptionsRecommendationTitle: Tövsiyə edilən provayder parametrləri aşkarlandı
+      providerOptionsRecommendationDescription: Tövsiyə edilən konfiqurasiyanı nəzərdən keçirin və əl ilə tətbiq edin.
+      providerOptionsRecommendationApply: Tətbiq et
+      providerOptionsRecommendationApplied: Tətbiq edildi
+      invalidJson: Yanlış JSON formatı
+    providers:
+      name:
+        customChatComplete: Fərdi Chat Complete
+        customResponses: Fərdi Responses
+      description:
+        azure: Azure üzərində yerləşdirdiyiniz OpenAI modelləri
+        openaiCompatible: OpenAI Chat Completions API ilə uyğun fərdi xidmət ünvanına qoşulun
+        openResponses: Open Responses API ilə uyğun fərdi xidmət ünvanına qoşulun
+        deeplx: Qeyri-rəsmi DeepL API
+        deepl: Rəsmi DeepL API
+    apiKey:
+      showAPIKey: API açarını göstər
+      getAPIKey: API açarı əldə et
+    howToConfigure: Necə tənzimləməli?
+    testConnection:
+      button: Qoşulmanı yoxla
+      testing: Yoxlanılır...
+      success: Uğurludur
+      failed: Alınmadı
+      slow: Yavaşdır (düşünmə rejimini tənzimləməyə çalışın)
+    featureProviders:
+      title: Funksiya provayderləri
+      description: Hər funksiya üçün istifadə ediləcək provayderi seçin
+      chooseProvider: Provayder seç
+      features:
+        pageTranslation: Səhifə tərcüməsi
+        selectionTranslation: Seçim alətlər panelində tərcümə
+        videoSubtitles: Video subtitrləri
+        noteSuggestion: Qeyd təklifləri
+      descriptions:
+        pageTranslation: Bütün səhifəni ikidilli və ya əvəzetmə rejimində tərcümə edir.
+        selectionTranslation: Seçdiyiniz mətni seçim alətlər paneli vasitəsilə tərcümə edir.
+        videoSubtitles: Subtitrləri video pleyerdə göründükcə tərcümə edir.
+    languageDetection:
+      title: Dilin aşkarlanması
+      mode:
+        basic: Əsas
+        llm: Böyük dil modeli (LLM)
+      provider:
+        label: Dil aşkarlama provayderi
+        placeholder: Provayder seçin
+      status:
+        noProviders: Əvvəlcə LLM provayderini tənzimləyin
+        basicRecommend: LLM ilə aşkarlamanın aktivləşdirilməsi tövsiyə olunur
+        llmEnabled: LLM ilə aşkarlama aktivdir
+    aiContentAware:
+      title: Süni intellektlə kontekstə uyğun tərcümə
+      description: Daha dəqiq tərcümə üçün süni intellektə səhifə və ya video kontekstini təqdim edin
+      enable: Aktiv et
+      enableDescription: İfadələrin kontekstə uyğun olması üçün süni intellekt tərcümədən əvvəl səhifənin və ya videonun xülasəsini oxuyur. LLM provayderi ilə işləyən bütün tərcümə funksiyalarına tətbiq olunur. İlk sorğunu ləngidir və API xərclərini artırır.
+      llmProviderConfigured: $1 üçün LLM provayderi seçilib
+      llmProviderNotConfigured: $1 üçün LLM provayderi seçilməyib
+  patterns:
+    duplicate: Bu şablon artıq siyahıdadır
+    gluedWildcard: '"*" ünvanın bütöv bir hissəsini əvəz etməlidir, məsələn *.example.com və ya example.*'
+  preference:
+    title: Ümumi parametrlər
+    appearanceAndLanguage:
+      title: Görünüş və dil
+      theme:
+        title: Mövzu
+        system: Sistem
+        light: Açıq
+        dark: Tünd
+      interfaceLanguage:
+        title: İnterfeys dili
+        description: Brauzer dilindən asılı olmayaraq genişlənmənin interfeys dilini seçin.
+        auto: Avtomatik (brauzerə uyğun)
+    translationLanguage:
+      title: Tərcümə dilləri
+      sourceCode:
+        title: Mənbə dili
+        description: Səhifələrin tərcümə olunduğu mənbə dili. Avtomatik aşkarlama dili səhifənin özündən müəyyən edir.
+        auto: Avtomatik aşkarlama
+      targetCode:
+        title: Hədəf dili
+        description: Səhifələrin tərcümə edildiyi dil.
+    extensionActivation:
+      title: Genişlənmənin aktivliyi
+      manageSites: Saytları idarə et
+      mode:
+        title: Aktivləşdirmə rejimi
+        description: Genişlənməni müəyyən saytlarda deaktiv etmək üçün qara siyahı, yalnız müəyyən saytlarda işlətmək üçün ağ siyahı rejimindən istifadə edin.
+        blacklist: Yalnız siyahıdakı saytlarda deaktiv et
+        whitelist: Yalnız siyahıdakı saytlarda işlət
+      patterns:
+        enterUrlPattern: URL şablonu daxil edin (məsələn, example.com)
+        urlPattern: URL şablonu
+    config:
+      title: Konfiqurasiya
+      manualSync:
+        title: Konfiqurasiyanın əl ilə sinxronlaşdırılması
+        description: Ayarlarınızı əl ilə idxal və ixrac edin, lüğətləriniz də birlikdə gəlir
+        import: İdxal et
+        export: İxrac et
+        importSuccess: Konfiqurasiya uğurla idxal edildi
+        exportSuccess: Konfiqurasiya uğurla ixrac edildi
+        exportGlossaryFailed: Parametrləriniz ixrac edildi, lakin lüğətləriniz oxuna bilmədi və fayla daxil edilmədi.
+        importError: İdxal alınmadı
+        glossaryImported: $1 termin idxal edildi və əvvəlki lüğətləriniz əvəz olundu.
+        glossaryUndo: Geri al
+        glossaryUndone: Lüğətləriniz idxaldan əvvəlki halına qaytarıldı
+        glossaryUndoUnavailable: Bu geri alma artıq mümkün deyil — lüğətləriniz o vaxtdan bəri dəyişib.
+        glossaryMalformed: Həmin fayldakı lüğətlər oxuna bilmədi. Heç nə dəyişmədi.
+        glossaryCapExceeded: Həmin faylda $2 limitindən $1 çox lüğət sətri var. Heç nə dəyişmədi.
+        exportOptions:
+          title: İxrac seçimlərini təyin edin
+          description: İxrac edilən konfiqurasiyaya API açarlarının daxil edilib-edilməyəcəyini seçin. API açarlarının daxil edilməsi məxfi məlumatların sızmasına səbəb ola bilər, buna görə bunu yalnız təhlükəsiz mühitlərdə etmək tövsiyə olunur.
+          includeAPIKeys: API açarlarını daxil et
+          excludeAPIKeys: API açarlarını çıxar
+          cancel: Ləğv et
+      viewConfig:
+        open: Konfiqurasiyanı aç
+        title: Konfiqurasiya
+        description: Cari konfiqurasiyaya xam JSON formatında baxın
+      backup:
+        title: Konfiqurasiyanın ehtiyat nüsxəsi
+        description: Konfiqurasiya dəyişibsə, hər saat avtomatik ehtiyat nüsxə yaradılır. Əvvəlki konfiqurasiyaları burada bərpa edə bilərsiniz. (Ən çox $1 ehtiyat nüsxə)
+        loading: Ehtiyat nüsxələr yüklənir...
+        backupNow: İndi ehtiyat nüsxə yarat
+        backupSuccess: Ehtiyat nüsxə uğurla yaradıldı
+        restoreSuccess: Konfiqurasiya uğurla bərpa edildi
+        empty:
+          title: Hələ ehtiyat nüsxə yoxdur
+          description: Konfiqurasiya dəyişibsə, hər saat avtomatik ehtiyat nüsxə yaradılır.
+        item:
+          extensionVersion: "Genişlənmənin versiyası:"
+          schemaVersion: "Sxemin versiyası:"
+          restore: Bərpa et
+          export: İxrac et
+          delete: Sil
+        restore:
+          title: Konfiqurasiyanın ehtiyat nüsxəsi bərpa edilsin?
+          description: Cari konfiqurasiya son ehtiyat nüsxədən fərqlənirsə, avtomatik ehtiyat nüsxəsi yaradılacaq. Nüsxələrin sayı həddi aşarsa, ən köhnə nüsxə silinə bilər.
+          cancel: Ləğv et
+          confirm: Bərpa et
+        delete:
+          title: Ehtiyat nüsxə silinsin?
+          description: Bu ehtiyat nüsxəni silmək istədiyinizə əminsiniz? Bu əməliyyatı geri qaytarmaq mümkün deyil.
+          cancel: Ləğv et
+          confirm: Sil
+      reset:
+        title: Konfiqurasiyanın sıfırlanması
+        description: Bütün parametrləri ilkin dəyərlərə sıfırla. Lüğətlərinizə toxunulmur.
+        dialog:
+          title: Konfiqurasiyanın sıfırlanması
+          trigger: Konfiqurasiyanı sıfırla
+          confirm: Təsdiqlə
+          cancel: Ləğv et
+          description: Bu əməliyyat bütün fərdi parametrlərinizi silib ilkin dəyərlərə qaytaracaq. Lüğətləriniz saxlanılır — silmək üçün lüğət səhifəsindən istifadə edin. Zəhmət olmasa təsdiqləyin.
+    userExperience:
+      title: İstifadəçi təcrübəsi
+      beta:
+        title: Beta imkanları
+        description: Hələ qeyri-sabit ola biləcək sınaq funksiyalarını aktiv edin
+  shortcuts:
+    title: Qısayollar
+    setShortcut: Qısayol təyin et
+    pageTranslation:
+      title: Səhifə tərcüməsi
+      description: Bütün səhifəni tərcümə edin.
+    translationMode:
+      title: Tərcümə rejimi
+      description: İkidilli və yalnız tərcümə rejimləri arasında keçid edin.
+    selectionTranslation:
+      title: Seçilmiş mətnin tərcüməsi
+      description: Seçdiyiniz mətni tərcümə edin.
+    subtitlesToggle:
+      title: Subtitr tərcüməsi
+      description: Tərcümə edilmiş video subtitrlərini aktiv və ya deaktiv edin.
+    nodeTranslation:
+      title: Abzas tərcüməsi
+      description: Yalnız bir abzası tərcümə etmək üçün kursoru üzərinə gətirin və ya basıb saxlayın.
+    actions:
+      title: Süni intellekt əməliyyatları
+      description: Seçilmiş mətn üzərində süni intellekt əməliyyatı işə salın. Fərdi əməliyyatların burada təyin edənə qədər qısayolu olmur.
+    turnedOff: Bu funksiya söndürülüb, yenidən yandırana qədər bu qısayol heç nə etmir.
+    clash: “$1” ilə eyni qısayol. Birini dəyişin.
+    taken: $1 artıq “$2” tərəfindən istifadə olunur.
+  overlayTools:
+    title: Səhifəüstü alətlər
+  floatingButton:
+    title: Üzən düymə
+    pageDescription: Üzən düymənin hansı tərəfdə yerləşdiyini, kliklədikdə nə etdiyini və harada gizləndiyini təyin edin.
+    demoImageAlt: Üzən düymə nümunəsi
+    enable:
+      title: Üzən düyməni aktiv et
+    display:
+      title: Görünüş
+      side:
+        title: Düymənin tərəfi
+        description: Üzən düymənin səhifənin hansı tərəfinə bərkidildiyini seçin
+        left: Sol
+        right: Sağ
+      disabledSites:
+        title: Deaktiv olduğu saytlar
+        description: Üzən düymənin deaktiv olacağı saytları təyin edin
+        enterUrlPattern: URL şablonu daxil edin
+        urlPattern: URL şablonu
+    clickAction:
+      title: Klik əməliyyatı
+      description: Üzən düyməyə kliklədikdə icra ediləcək əməliyyatı seçin
+      panel: Yan paneli aç
+      translate: Səhifə tərcüməsini aktiv və ya deaktiv et
+    closeMenu:
+      disableForSite: Bu sayt üçün deaktiv et
+      disableGlobally: Hər yerdə deaktiv et
+    tooltips:
+      togglePageTranslation: Səhifə tərcüməsini aktiv və ya deaktiv et
+      floatingButtonOptions: Üzən düymə parametrləri
+      lockPosition: Mövqeyi kilidlə
+      unlockPosition: Mövqenin kilidini aç
+      settings: Parametrlər
+      feedback: Rəy göndər
+  selectionToolbar:
+    title: Seçim alətlər paneli
+    pageDescription: Mətn seçdikdə hansı əməliyyatların göründüyünü və alətlər panelinin harada açıldığını təyin edin.
+    demoImageAlt: Seçim alətlər paneli nümunəsi
+    enable:
+      title: Seçim alətlər panelini aktiv et
+    actions:
+      title: Əməliyyatlar
+      translate:
+        title: Tərcümə et
+        description: Alətlər panelində tərcümə düyməsini göstərin
+      noteSuggestion:
+        title: Qeyd təklifləri
+        action: Əməliyyat
+        actionDescription: Təklifi yaradan əməliyyat
+        provider: Provayder
+        providerDescription: Təklifi yaradan süni intellekt provayderi
+    display:
+      title: Görünüş
+      opacity:
+        title: Qeyri-şəffaflıq
+        description: Seçim alətlər panelinin və ondan açılan geniş pəncərənin qeyri-şəffaflığını tənzimləyin
+      disabledSites:
+        title: Deaktiv olduğu saytlar
+        description: Seçim alətlər panelinin deaktiv olacağı saytları təyin edin
+        enterUrlPattern: URL şablonu daxil edin
+        urlPattern: URL şablonu
+    closeMenu:
+      disableForSite: Bu sayt üçün deaktiv et
+      disableGlobally: Hər yerdə deaktiv et
+    errors:
+      customActionFailed: Fərdi əməliyyat alınmadı
+      customActionFailedFallback: Fərdi əməliyyat sorğusu alınmadı
+      actionUnavailable: Seçilmiş əməliyyat əlçatan deyil
+      missingSelection: Seçilmiş mətn yoxdur
+      providerDisabled: Seçilmiş provayder deaktivdir
+      providerUnavailable: Seçilmiş provayder əlçatan deyil
+    customActions:
+      title: Fərdi süni intellekt əməliyyatları
+      description: Seçilmiş mətn üçün strukturlaşdırılmış fərdi süni intellekt əməliyyatları əlavə edin
+      configTitle: Əməliyyat konfiqurasiyası
+      builtIn: Daxili
+      add: Süni intellekt əməliyyatı əlavə et
+      edit: Süni intellekt əməliyyatını redaktə et
+      empty: Hələ fərdi süni intellekt əməliyyatı yoxdur
+      noEnabledLlmProvider: Fərdi süni intellekt əməliyyatları yaratmazdan əvvəl ən azı bir LLM provayderini aktiv edin
+      tabs:
+        config: Konfiqurasiya
+        hasErrors: Xətalar var
+        connected: Qoşulub
+        needsAttention: Diqqət tələb edir
+      form:
+        name: Ad
+        customize: Fərdiləşdir
+        customizeTooltip: Daxili təlimatları dəyişmək mümkün deyil. Redaktə edilə bilən surət yaratmaq və təlimatları dəyişmək üçün buraya klikləyin.
+        aiConfigHelper:
+          trigger: Süni intellektlə qur
+          title: Süni intellektlə qur
+          description: Aşağıdakı təlimatı kopyalayıb istifadə etdiyiniz süni intellekt köməkçisinə (ChatGPT, Claude, DeepSeek, Kimi…) yapışdırın. Əvvəlcə nə istədiyinizi soruşacaq, sonra hər ayara nə yazmalı olduğunuzu deyəcək. Təlimatda bu əməliyyatın cari ayarları var, API açarları isə yoxdur.
+          copy: Təlimatı kopyala
+          copyFailed: Təlimatı kopyalamaq mümkün olmadı. Yenidən cəhd edin.
+        icon: İşarə
+        iconField:
+          chooseAriaLabel: İşarə seç
+          chooseTitle: İşarə seçin
+          inputPlaceholder: İşarənin adını daxil edin
+          helpAriaLabel: İşarələr haqqında əlavə kömək
+          helpTitle: İstədiyiniz işarəni tapa bilmirsiniz?
+          helpStepBrowsePrefix: ""
+          helpStepBrowseSuffix: " saytında işarələrə baxın"
+          helpStepCopyPrefix: "Məsələn, "
+          helpStepCopySuffix: " işarəsinin adını köçürüb sahəyə yapışdırın."
+        provider: Provayder (strukturlaşdırılmış nəticə dəstəyi tələb olunur)
+        selectProvider: Provayder seçin
+        systemPrompt: Sistem təlimatı
+        prompt: Təlimat
+        outputSchema: Nəticə sxemi
+        addField: Sahə əlavə et
+        fieldName: Sahənin adı
+        fieldType: Sahənin növü
+        fieldDescription: Təsvir
+        fieldDescriptionPlaceholder: Bu sahədə nəyin olacağını təsvir edin...
+        actions: Əməliyyatlar
+        cancel: Ləğv et
+        save: Yadda saxla
+        defaultFieldName: Nəticə
+        fieldNamePlaceholder: Sahənin adı
+        autoFieldPrefix: Sahə
+        addFieldDialog:
+          title: Nəticə sahəsi əlavə et
+        editFieldDialog:
+          title: Nəticə sahəsini redaktə et
+          save: Yadda saxla
+        deleteFieldDialog:
+          title: Nəticə sahəsi silinsin?
+          description: Bu nəticə sahəsi silinəcək.
+          confirm: Sil
+          cancel: Ləğv et
+        tokens:
+          selection: Seçilmiş mətnin məzmunu
+          paragraphs: Boş sətirlərlə birləşdirilmiş, seçimlə kəsişən abzasların mətni; fərdi süni intellekt əməliyyatlarına göndərilərkən ilk 2000 simvolla məhdudlaşdırılır
+          targetLanguage: İstifadəçinin hədəf dili
+          webTitle: Veb səhifənin başlığı
+          webUrl: Cari səhifənin tam URL-i
+          webContent: Cari səhifədən çıxarılan, ilk 2000 simvolla məhdudlaşdırılmış veb səhifə məzmunu
+        delete: Sil
+        deleteDialog:
+          title: Fərdi əməliyyat silinsin?
+          description: Bu əməliyyatı geri qaytarmaq mümkün deyil.
+          confirm: Sil
+          cancel: Ləğv et
+      templates:
+        dialogTitle: Şablon seçin
+        dialogDescription: Yeni süni intellekt əməliyyatını sürətlə yaratmaq üçün şablon seçin və ya sıfırdan başlayın.
+        dictionary:
+          name: Lüğət
+          description: Sözlərin mənalarını, tələffüzünü və abzas tərcümələrini tapın
+          fieldTerm: Söz
+          fieldTermDescription: Seçilmiş sözün əsas lüğət forması.
+          fieldPhonetic: Tələffüz
+          fieldPhoneticDescription: Sözün dilinə uyğun standart fonetik transkripsiya (məsələn, ingilis dili üçün IPA, mandarin dili üçün pinyin, yapon dili üçün romaji).
+          fieldPartOfSpeech: Nitq hissəsi
+          fieldPartOfSpeechDescription: Qrammatik kateqoriya (məsələn, isim, feil, sifət).
+          fieldSentence: Cümlə
+          fieldSentenceDescription: Yuxarıdakı abzaslarda seçilmiş sözün olduğu tam cümlə. Ətrafdakı cümlələri daxil etməyin.
+          fieldSentenceTerm: Cümlədəki forma
+          fieldSentenceTermDescription: 'Seçilmiş sözün Cümlədə yeri: sətir kimi seriallaşdırılmış JSON massivi, sözün hər hissəsi üçün bir {"text": sətir} elementi, hər biri Cümlədən dəqiq sitat (məs. [{"text":"çiçəklərinin"}]).'
+          fieldDefinition: Tərif
+          fieldDefinitionDescription: Kontekstdəki mənaya uyğun bir qısa tərif.
+          fieldSentenceTranslation: Cümlənin tərcüməsi
+          fieldSentenceTranslationDescription: Yalnız cümlənin tərcüməsi.
+          fieldMemoryTips: Yadda saxlama üsulları
+          fieldMemoryTipsDescription: "Sözü yadda saxlamağın yolları: ən çox 3 məsləhət, hər sətirdə bir, hər biri üsulun adı və iki nöqtə ilə başlayır (məsələn, Söz quruluşu: …); həqiqətən kömək edən heç nə yoxdursa, boş sətir."
+          fieldDifficulty: Çətinlik
+          fieldDifficultyDescription: Təxmini CEFR çətinlik səviyyəsi A1, A2, B1, B2, C1 və ya C2.
+        sentenceAnalysis:
+          name: Cümlə təhlili
+          description: "Uzun cümləni müəllim kimi işarələyir: əsası, hər budaq cümləni və çətin yerləri"
+          fieldAnnotations: Annotasiyalar
+          fieldTranslation: Tərcümə
+          roles:
+            subject: Mübtəda
+            predicate: Xəbər
+            object: Tamamlıq
+            complement: Tamamlayıcı
+            attributive: Təyin
+            adverbial: Zərflik
+            appositive: Əlavə
+            connector: Bağlayıcı
+          clauses:
+            subject: Mübtəda budaq cümləsi
+            object: Tamamlıq budaq cümləsi
+            complement: Xəbər budaq cümləsi
+            attributive: Təyin budaq cümləsi
+            adverbial: Zərflik budaq cümləsi
+            appositive: Əlavə budaq cümləsi
+            clause: Budaq cümlə
+          adverbialClauses:
+            time: Zaman budaq cümləsi
+            place: Yer budaq cümləsi
+            cause: Səbəb budaq cümləsi
+            condition: Şərt budaq cümləsi
+            concession: Güzəşt budaq cümləsi
+            purpose: Məqsəd budaq cümləsi
+            result: Nəticə budaq cümləsi
+            manner: Tərz budaq cümləsi
+            comparison: Müqayisə budaq cümləsi
+          forms:
+            infinitive: Məsdər
+            gerund: Feili isim
+            presentParticiple: "-ing"
+            pastParticiple: V3
+          senses:
+            time: Zaman
+            place: Yer
+            cause: Səbəb
+            condition: Şərt
+            concession: Güzəşt
+            purpose: Məqsəd
+            result: Nəticə
+            manner: Tərz
+            comparison: Müqayisə
+          obstacles:
+            inversion: İnversiya
+            fronting: Önə çəkmə
+            ellipsis: Ellipsis
+            passive: Məchul
+            subjunctive: Arzu şəkli
+            parenthesis: Ara söz
+            dummyIt: Formal it
+            postponedSubject: Həqiqi mübtəda
+            cleft: Vurğu quruluşu
+            comparison: Müqayisə
+            negation: İnkar
+            split: Ayrılma
+            idiom: İdiom
+          restoreLabel: "Düz sıra:"
+          hardLabel: Çətin
+          trunkLabel: Yalnız əsas
+          slashesLabel: Fasilələr
+        blank:
+          name: Boş
+          description: Boş əməliyyatla sıfırdan başlayın
+          prompt: |-
+            ## Giriş
+            Seçim: {{selection}}
+            Abzaslar: {{paragraphs}}
+            Hədəf dili: {{targetLanguage}}
+      errors:
+        nameRequired: Ad tələb olunur
+        duplicateName: 'Təkrarlanan əməliyyat adı: "$1"'
+        invalidIcon: Yanlış Iconify işarə sətri
+        providerRequired: Aktiv LLM provayderi seçin
+        outputSchemaRequired: Ən azı bir nəticə sahəsi əlavə edin
+        fieldKeyRequired: Sahənin adı tələb olunur
+        duplicateFieldKey: Sahə adları unikal olmalıdır
+  advanced:
+    title: Qabaqcıl
+    pageDescription: Gündəlik istifadə üçün olmayan güclü parametrlər.
+    glossary:
+      title: Terminlər lüğəti
+      pageDescription: Sizin üçün vacib olan sözlərə sabit tərcümə təyin edin və hər siyahının harada tətbiq olunacağını seçin.
+      untitled: Adsız lüğət
+      noGlossaries: Hələ lüğət yoxdur.
+      enable:
+        title: Aktiv et
+        description: Uyğun gələn terminləri LLM-ə göndərir ki, onları istədiyiniz kimi tərcümə etsin. Lüğət sorğunun içində göndərilir, ona görə də yalnız LLM provayderi üzərində işləyən funksiyalara tətbiq olunur.
+      library:
+        title: Lüğətləriniz
+        description: Hər lüğətin öz terminləri və öz sayt siyahısı var, ona görə də iş üçün nəzərdə tutulmuş terminlər dəsti sizinlə birlikdə hər yerə keçmir.
+        button: Lüğət əlavə et
+        capReached: Ən çoxu $1 lüğətiniz ola bilər.
+        termUsage: Bütün lüğətlər üzrə $2 termindən $1 istifadə olunub
+      summary:
+        terms: $1 termin
+        termsOne: 1 termin
+        allSites: Bütün saytlar
+        sites: $1 sayt
+        sitesOne: 1 sayt
+      editor:
+        docsLink: Necə işləyir?
+        sections:
+          terms: Terminlər
+          maintenance: Ehtiyat nüsxə və silmə
+        details:
+          title: Ad və təsvir
+          descriptionPlaceholder: Təsvir (istəyə bağlı)
+        enable:
+          title: Aktiv et
+          description: Deaktiv lüğət terminlərini saxlayır, lakin onlardan heç birini göndərmir.
+        sites:
+          title: Saytlar
+          description: Bu lüğəti yalnız müəyyən saytlarla məhdudlaşdırın. example.com yalnız həmin ünvandır; *.example.com alt domenləri əlavə edir; example.com/docs/* saytın bir hissəsinə daraldır.
+          allSites: Bunu boş buraxsanız, lüğət hər yerdə tətbiq olunur.
+          header: Sayt
+        delete:
+          title: Bu lüğəti sil
+          description: Lüğəti və içindəki bütün terminləri silir. Terminlər sonra lazım ola bilərsə, əvvəlcə ixrac edin — bunu geri qaytarmaq mümkün deyil.
+          dialog:
+            trigger: Sil
+            title: Bu lüğət silinsin?
+            description: Lüğət və içindəki bütün $1 termin həmişəlik silinəcək. Bu əməliyyatı geri qaytarmaq mümkün deyil.
+            confirm: Sil
+            cancel: Ləğv et
+      addTerm:
+        title: Termin əlavə et
+        description: Termin üçün istədiyiniz tərcüməni yazın və ya orijinalı saxlamaq üçün tərcüməni boş buraxın.
+      list:
+        title: Terminləriniz
+        description: Yalnız abzasda rast gəlinən terminlər onunla birlikdə göndərilir.
+      importExport:
+        title: İdxal və ixrac
+        description: Terminlər source, target, targetLanguage və caseSensitive sütunlarından ibarət CSV faylıdır — İxrac məhz bunu yazır.
+      sourcePlaceholder: Termin
+      targetPlaceholder: Tərcümə (orijinalı saxlamaq üçün boş buraxın)
+      caseSensitive: Hərf registrini nəzərə al
+      add: Əlavə et
+      searchPlaceholder: Terminləri axtar
+      columnEnabled: Aktiv
+      columnSource: Termin
+      columnTarget: Tərcümə
+      columnTargetLanguage: Hədəf dili
+      allLanguages: Bütün dillər
+      toggleTerm: $1 terminini istifadə et
+      editTerm: $1 terminini redaktə et
+      keepOriginal: Orijinalı saxla
+      delete: Sil
+      save: Yadda saxla
+      cancel: Ləğv et
+      loading: Yüklənir...
+      empty: Hələ termin yoxdur. Yuxarıdan əlavə edin və ya CSV faylı idxal edin.
+      noMatches: Axtarışınıza uyğun termin yoxdur.
+      previous: Əvvəlki
+      next: Növbəti
+      pageOf: $1 / $2
+      addError:
+        emptySource: Əvvəlcə termin daxil edin.
+        tooLong: Bu termin çox uzundur.
+        capReached: Bütün lüğətləriniz birlikdə $1 terminlik limitə çatıb.
+        duplicate: Bu termin artıq lüğətinizdədir.
+      import: İdxal et
+      export: İxrac et
+      importModeMerge: Siyahıya əlavə et
+      importModeReplace: Siyahını əvəz et
+      importEmpty: Bu faylda termin tapılmadı.
+      importOverflow: Bu idxal limiti $1 termin aşacaq. Heç nə dəyişdirilmədi.
+      importSuccess: $1 yeni termin idxal edildi, $2 termin yeniləndi.
+      importSkipped: $1 yanlış sətir və $2 təkrar buraxıldı.
+      importNoValidRows: Bu sətirlərin heç biri idxal edilə bilmədi. Heç nə dəyişdirilmədi.
+      importReplaceConfirm:
+        title: Bütün siyahı əvəz edilsin?
+        description: Bu lüğətdəki $1 terminin hamısı silinəcək — yalnız seçilmiş dil deyil, bütün hədəf dillər — və bu faylın məzmunu ilə əvəz olunacaq. Bu əməliyyat geri qaytarıla bilməz.
+        confirm: Əvəz et
+        cancel: Ləğv et
+      deleteAll:
+        title: Bütün terminləri sil
+        description: Terminlər lüğətinizi boşaldır. Terminlər sonra lazım ola bilərsə, əvvəlcə ixrac edin — silmə geri qaytarıla bilməz.
+        deleting: Silinir...
+        dialog:
+          title: Bütün terminləri sil
+          trigger: Hamısını sil
+          confirm: Təsdiqlə
+          cancel: Ləğv et
+          description: Bütün $1 termin həmişəlik silinəcək. Bu əməliyyatı geri qaytarmaq mümkün deyil.
+  contextMenu:
+    title: Kontekst menyusu
+    demoImageAlt: Kontekst menyusu nümunəsi
+    enable:
+      title: Kontekst menyusunda tərcüməni aktiv et
+      description: Səhifəni və seçilmiş mətni sürətlə tərcümə etmək üçün brauzerin sağ klik menyusuna tərcümə seçimləri əlavə edin
+  translation:
+    title: Səhifə tərcüməsi
+    pageDescription: Səhifə tərcüməsinin rejimini, əhatəsini, təlimatlarını və sorğu hədlərini idarə edin.
+    preference:
+      title: Əsas parametrlər
+      translationMode:
+        title: Tərcümə rejimi
+        description: "Tərcümə edilmiş mətnin necə göstəriləcəyini seçin: ikidilli və ya yalnız tərcümə."
+        mode:
+          bilingual: İkidilli
+          translationOnly: Yalnız tərcümə
+        switched: "Tərcümə rejimi: $1"
+        providerNotSupported: $1 yalnız tərcümə rejimini dəstəkləmir. Onu aktiv etmək üçün başqa provayderə keçin.
+      translateRange:
+        title: Tərcümə əhatəsi
+        description: Səhifənin yalnız əsas məzmununun, yoxsa bütün məzmununun tərcümə ediləcəyini seçin.
+        range:
+          main: Əsas məzmun
+          all: Bütün məzmun
+      translateTitle:
+        title: Vərəq başlığını tərcümə et
+        description: Brauzer vərəqində görünən səhifə başlığını da tərcümə edir. Orijinal başlığı saxlamaq üçün deaktiv edin.
+    hoverTranslation:
+      title: Kursorla tərcümə
+      enable:
+        title: Aktiv et
+        description: Yalnız bir abzası tərcümə etmək üçün kursoru üzərinə gətirin və ya basıb saxlayın.
+      forceRetranslation:
+        title: Həmişə yeni tərcümə istə
+        description: Kursorla tərcümə keşdən istifadə etmir. Mətn artıq keşdə olsa belə yenidən tərcümə edir və keşdəki nəticəni əvəz edir.
+    translationStyle:
+      title: Tərcümənin görünüş üslubu
+      description: Tərcümə nəticələrini orijinal mətndən fərqləndirmək üçün istədiyiniz üslubu təyin edin
+      useCustomStyle: Fərdi CSS üslubundan istifadə et
+      useCustomStyleDescription: Şriftlər, animasiyalar və dilə xas üslublar daxil olmaqla istənilən CSS dəstəklənir
+      presetStyle: Hazır üslub
+      cssEditor: CSS redaktoru
+      cssEditorDescription: Öz CSS kodunuzu yazın və tərcümə edilmiş mətnin görünüşünə önbaxış edin.
+      preview: Önbaxış
+      stylePreviewLanguage: Dil
+      stylePreviewDirection: İstiqamət
+      stylePreviewTranslatedText: Tərcümə edilmiş mətn
+      style:
+        default: Yoxdur
+        blur: Bulanıqlıq effekti
+        blockquote: Sitat bloku
+        weakened: Solğun
+        dashedLine: Qırıq xətt
+        border: Çərçivə
+        textColor: Mətn rəngi
+        background: Fon
+      customCSS:
+        editor:
+          placeholder: |
+            /* Nümunə: rəng və fonla fərdi üslub */
+            [data-read-frog-custom-translation-style='custom'] {
+              color: #414535;
+              background-color: light-dark(#F2E3BC, #C19875);
+              padding: 2px 4px;
+              border-radius: 4px;
+            }
+          docsLink: Necə tənzimləməli?
+          saveButton: Yadda saxla
+          savedButton: Yadda saxlanıldı
+          validation:
+            validating: Yoxlanılır...
+            valid: CSS düzgündür
+            syntaxError: CSS sintaksis xətaları var
+            tooLong: CSS həddindən artıq uzundur
+            saved: Bütün dəyişikliklər yadda saxlanıldı
+    personalizedPrompts:
+      title: Səhifə təlimatlarını fərdiləşdir
+      description: Müxtəlif təlimat növlərini fərdiləşdirməklə tərcümə zamanı istifadə ediləcək təlimatı özünüz seçə bilərsiniz. Təlimat istifadəçinin LLM modelinə göndərdiyi mətndir.
+      managePrompts: Təlimatları idarə et
+      variableReference: Dəyişənlər arayışı
+      addPrompt: Təlimat əlavə et
+      default: Standart
+      builtIn: Daxili
+      copyAndCustomize: Köçür və fərdiləşdir
+      copyName: $1 surəti
+      builtInPrompts:
+        default:
+          description: Gündəlik məzmun üçün tarazlı və etibarlı tərcümə
+        precisionRewrite:
+          name: Səlis yenidən yazma
+          description: Daha təbii və danışıq dilinə uyğun tərcümələr; bir qədər çox token sərf edir
+      importSuccess: Uğurla idxal edildi
+      import: İdxal et
+      export: İxrac et
+      current: istifadədədir
+      editPrompt:
+        title: Təlimatı redaktə et
+        name: Ad
+        systemPrompt: Sistem təlimatı
+        prompt: Təlimat
+        promptCellInput:
+          input: Tərcümə ediləcək mətn
+          targetLanguage: Hədəf dili
+          webTitle: Veb səhifənin başlığı
+          webDescription: Səhifənin metaməlumatlarından götürülmüş təsviri
+          webContent: Veb səhifənin məzmunu (ilk 2000 simvolla məhdudlaşdırılır)
+          webSummary: Veb səhifənin xülasəsi (süni intellektlə ağıllı kontekst tələb olunur)
+        save: Dəyişiklikləri yadda saxla
+        close: Ləğv et
+      deletePrompt:
+        title: Təlimatı sil
+        description: Təlimatın silinməsini təsdiqləyin
+        confirm: Təsdiqlə
+        cancel: Ləğv et
+      exportPrompt:
+        exportSelected: Seçilənləri ixrac et
+        cancel: Ləğv et
+    translationControl:
+      title: Tərcümənin idarə edilməsi
+      description: Nəyin avtomatik tərcümə olunacağını, nəyin heç vaxt avtomatik tərcümə olunmayacağını və nəyin ötürüləcəyini təyin edin
+      manageControls: Tərcümə qaydalarını idarə et
+      autoTranslateWebsite:
+        title: Sayta görə avtomatik tərcümə
+        description: Açılan kimi tərcüməsi başlayan saytlar
+        urlPattern: URL şablonu
+        enterUrlPattern: URL şablonu daxil edin
+      neverAutoTranslateWebsite:
+        title: Sayta görə avtomatik tərcüməni qadağan et
+        description: Dil qaydası uyğun gəlsə belə heç vaxt avtomatik tərcümə edilməyən saytlar
+        urlPattern: URL şablonu
+        enterUrlPattern: URL şablonu daxil edin
+      autoTranslateLanguages:
+        title: Dilə görə avtomatik tərcümə
+        description: Müəyyən dillər aşkarlandıqda səhifə məzmununu avtomatik tərcümə edin
+        selectLanguages: Dilləri seçin
+      skipLanguages:
+        title: Dilə görə avtomatik ötürmə
+        description: Müəyyən dillər aşkarlandıqda abzasın tərcüməsini avtomatik ötürün
+        targetLanguageSkipDescription: Artıq hədəf dilində olan abzasları sorğu göndərmədən ötürün
+        selectLanguages: Dilləri seçin
+      smallParagraphFilter:
+        title: Qısa abzas süzgəci
+        description: Bu ümumi standartlar simvol və ya söz sayı həddən az olan mətn elementlərinin tərcüməsini ötürür. Uyğun sayt qaydaları onları əvəz edə bilər (0 = deaktivdir)
+        minCharacters:
+          description: "Minimum simvol sayı: daha qısa mətn tərcümə edilmir. Hər şeyi tərcümə etmək üçün 0 daxil edin"
+        minWords:
+          description: "Minimum söz sayı: daha az sözü olan mətn tərcümə edilmir"
+        error: Dəyər $1 ilə $2 arasında olmalıdır
+    translationQueue:
+      title: Tərcümə növbəsi
+      description: Sorğuların göndərilmə sürətini, hər sorğudakı mətn miqdarını və oxuduğunuz hissədən nə qədər sonrakı məzmunun əvvəlcədən tərcümə olunacağını təyin edin
+      manageQueue: Növbəni idarə et
+      requestQueueConfig:
+        title: Tərcümə sürəti
+        capacity:
+          description: "Maksimum ani sorğu sayı: eyni anda neçə sorğu göndərilə bilər"
+        rate:
+          description: "Saniyədə sorğu sayı: ani sorğulardan sonrakı sabit sürət. Onluq kəsrlər də qəbul olunur, məsələn, 0.25 hər 4 saniyədə bir sorğu göndərir"
+      batchQueueConfig:
+        title: Toplu tərcümə
+        description: Toplu tərcümə üçün simvol hədlərini və maksimum abzas sayını təyin edin (yalnız LLM tərcüməsinə təsir edir)
+        maxCharactersPerBatch:
+          description: "Maksimum simvol sayı: bir süni intellekt sorğusunun daşıdığı mətn miqdarı"
+        maxItemsPerBatch:
+          description: "Maksimum abzas sayı: bir sorğuda neçə abzas birləşdirilir. Süni intellektdən istifadə etməyən provayderlər hər iki parametrə məhəl qoymur"
+      preloadConfig:
+        title: Öncədən tərcümə əhatəsi
+        description: API xərclərinə qənaət üçün görünən sahənin altındakı məzmunun nə qədərinin öncədən tərcümə ediləcəyini idarə edin
+        margin:
+          description: "Öncədən yükləmə məsafəsi: ekranın aşağı sərhədindən neçə pikselədək məzmunun əvvəlcədən tərcümə olunacağını təyin edin. Kiçik dəyər API xərclərini azaldır"
+        threshold:
+          description: "Görünmə həddi: tərcümənin başlaması üçün abzasın ekranda görünməli olan hissəsini 0 ilə 1 arasında dəyərlə təyin edin"
+    cache:
+      title: Keş
+      clearCache:
+        title: Keşi təmizlə
+        description: Brauzerinizdəki bütün tərcümə keşini təmizləyin
+        clearing: Təmizlənir...
+        dialog:
+          title: Keşin təmizlənməsi
+          trigger: Keşi təmizlə
+          confirm: Təsdiqlə
+          cancel: Ləğv et
+          description: Bu əməliyyat bütün tərcümə keşini siləcək. Bu əməliyyatı geri qaytarmaq mümkün deyil.
+  siteRules:
+    title: Sayt qaydaları
+    description: Müəyyən saytların necə tərcümə edildiyini tənzimləyən sayta xas qaydalar.
+    userRules:
+      title: İstifadəçi qaydaları
+      description: Öz sayt qaydalarınızı JSON massivi kimi təyin edin. Qaydalar URL ünvanı şablonlarına uyğun gələn səhifələrə tətbiq olunur; istifadəçi qaydaları daxili qaydalardan üstündür.
+      saveButton: Yadda saxla
+      savedButton: Yadda saxlanıldı
+      validation:
+        validating: Yoxlanılır...
+        valid: Qaydalar düzgündür
+        syntaxError: JSON sintaksis xətaları var
+        notArray: Ən üst səviyyədəki JSON dəyəri qaydalar massivi olmalıdır
+        tooLong: Qaydalar sənədi həddindən artıq uzundur
+        tooMany: Qaydaların sayı həddindən artıq çoxdur
+        duplicateIds: Təkrarlanan qayda identifikatorları
+        schemaErrors: Bəzi qaydalar yanlışdır
+        moreErrors: ...və daha $1 xəta
+        saved: Bütün dəyişikliklər yadda saxlanıldı
+    builtIn:
+      title: Daxili qaydalar
+      description: Genişlənmə ilə birlikdə gələn sayt qaydaları. Qayda saytda problem yaradırsa, müvafiq açardan istifadə edərək onu deaktiv edin.
+      searchPlaceholder: İdentifikator, təsvir və ya URL şablonuna görə axtar
+      showMore: Daha çox göstər
+      count: $1 qayda göstərilir, cəmi $2 qayda var
+  videoSubtitles:
+    title: Video subtitrləri
+    pageDescription: İzləyərkən subtitrləri ayrıca provayder, üslub və sorğu parametrləri ilə tərcümə edin.
+    preference:
+      title: Əsas parametrlər
+      enable:
+        title: Video subtitrlərini aktiv et
+        description: YouTube, X və Netflix-də video pleyerin idarəetmə panelinə tərcümə düyməsi əlavə edir.
+      autoStart:
+        title: Açılan kimi tərcümə et
+        description: Düyməyə basmadan video yüklənən kimi tərcüməyə başlayın.
+      aiSegmentation:
+        title: Süni intellektlə ağıllı seqmentləşdirmə
+        description: Süni intellekt subtitrləri cümlə kimi oxunan sətirlərə yenidən bölür. Vaxtları da təyin etdiyindən sətirlər sinxrondan çıxa bilər. LLM tərcümə provayderi tələb olunur.
+    style:
+      title: Subtitr üslubu
+      description: Canlı önbaxışla göstərilmə rejimini, mövqeyi, şriftləri, rəngləri və fonu təyin edin
+      customizeStyle: Üslubu fərdiləşdir
+      displayMode:
+        title: Göstərilmə rejimi
+        bilingual: İkidilli
+        originalOnly: Yalnız orijinal
+        translationOnly: Yalnız tərcümə
+      translationPosition:
+        title: Tərcümənin mövqeyi
+        above: Yuxarıda
+        below: Aşağıda
+      generalSettings: Ümumi
+      mainSubtitle: Əsas subtitr
+      translationSubtitle: Tərcümə subtitri
+      fontFamily: Şrift
+      fontScale: Şriftin miqyası
+      color: Rəng
+      fontWeight: Şriftin qalınlığı
+      backgroundOpacity: Fonun qeyri-şəffaflığı
+      reset: Standart dəyərlərə qaytar
+      customCSS:
+        title: Fərdi CSS
+        description: Yuxarıdakı şrift və rənglərə əlavə olaraq subtitr sətirləri üçün CSS
+        presetTemplate: Hazır şablon
+        presetTemplateDescription: Hazır şablon tətbiq edin, məsələn, dinləmə məşqi zamanı tərcüməni gizlətmək üçün bulanıqlaşdırın
+        presetPlaceholder: Şablon seçin
+        presets:
+          blurTranslation: Tərcüməni bulanıqlaşdır
+          dashedTranslation: Qırıq xətli tərcümə
+          dimOriginal: Orijinalı solğunlaşdır
+        editor:
+          placeholder: |
+            /* Nümunə: tərcüməni bulanıqlaşdır və kursor üzərinə gələndə göstər */
+            .subtitles-translation {
+              filter: blur(6px);
+            }
+
+            .subtitles-translation:hover {
+              filter: none;
+            }
+
+            /* İstifadə edə biləcəyiniz selektorlar: .read-frog-subtitles-box, .subtitles-main, .subtitles-translation */
+          docsLink: Necə tənzimləməli?
+          saveButton: Yadda saxla
+          savedButton: Yadda saxlanıldı
+          validation:
+            validating: Yoxlanılır...
+            valid: CSS düzgündür
+            syntaxError: CSS sintaksis xətaları var
+            tooLong: CSS həddindən artıq uzundur
+            saved: Bütün dəyişikliklər yadda saxlanıldı
+    customPrompts:
+      title: Fərdi subtitr təlimatları
+      description: Veb səhifə tərcüməsi təlimatlarından ayrı saxlanılan subtitr tərcüməsi şablonları
+      managePrompts: Təlimatları idarə et
+      editPrompt:
+        promptCellInput:
+          input: Tərcümə ediləcək subtitr mətni
+          targetLanguage: Hədəf dili
+          webTitle: Veb səhifənin başlığı
+          webDescription: Səhifənin metaməlumatlarından götürülmüş təsviri
+          videoSummary: Videonun xülasəsi (süni intellektlə ağıllı kontekst tələb olunur)
+    subtitlesQueue:
+      title: Subtitr növbəsi
+      description: Subtitr sorğularının göndərilmə sürəti və hər sorğudakı sətir sayı
+      manageQueue: Növbəni idarə et
+      requestQueueConfig:
+        title: Tərcümə sürəti
+        capacity:
+          description: "Maksimum ani sorğu sayı: eyni anda neçə sorğu göndərilə bilər"
+        rate:
+          description: "Saniyədə sorğu sayı: ani sorğulardan sonrakı sabit sürət. Onluq kəsrlər də qəbul olunur, məsələn, 0.25 hər 4 saniyədə bir sorğu göndərir"
+      batchQueueConfig:
+        title: Toplu tərcümə
+        description: Toplu tərcümə üçün simvol hədlərini və maksimum subtitr sətri sayını təyin edin (yalnız LLM tərcüməsinə təsir edir)
+        maxCharactersPerBatch:
+          description: "Maksimum simvol sayı: bir süni intellekt sorğusunun daşıdığı mətn miqdarı"
+        maxItemsPerBatch:
+          description: "Maksimum subtitr sətri sayı: bir sorğuda neçə sətir birləşdirilir. Süni intellektdən istifadə etməyən provayderlər hər iki parametrə məhəl qoymur"
+    cache:
+      title: Keş
+      clearCache:
+        title: Süni intellekt seqmentləşdirmə keşini təmizlə
+        description: Əvvəl izlədiyiniz videonun yenidən bölünməməsi üçün saxlanılan seqmentləşdirmə nəticələri
+        clearing: Təmizlənir...
+        dialog:
+          title: Süni intellekt seqmentləşdirmə keşinin təmizlənməsi
+          trigger: Keşi təmizlə
+          confirm: Təsdiqlə
+          cancel: Ləğv et
+          description: Keşdəki bütün süni intellekt seqmentləşdirmə nəticələri silinəcək. Növbəti dəfə süni intellekt seqmentləşdirməsi aktiv halda video açdıqda subtitrlər yenidən işlənəcək.
+  configMigration:
+    validationError: Konfiqurasiyanın yoxlanması alınmadı
+side:
+  sourceLang: Mənbə dili
+  targetLang: Hədəf dili
+  fileExport: Fayl ixracı
+translateService:
+  title: Tərcümə xidməti
+  description: Yalnız veb səhifənin tərcüməsi üçün
+  builtInModels: Daxili modellər
+  llmModels: LLM modelləri
+  normalTranslator: Adi tərcüməçilər
+  selectServices: Xidmətləri seçin
+  translationProviders: Tərcümə provayderləri
+  configureAPI: API-ni tənzimlə
+translatePrompt:
+  title: Süni intellekt tərcüməsinin üslubu
+  description: Tərcümə zamanı istifadə ediləcək təlimatı seçin. Parametrlər səhifəsində fərdi təlimatlar əlavə edin və ya dəyişin.
+languageLevel: Mənbə dili üzrə səviyyəniz
+languageLevels:
+  beginner: Başlanğıc
+  intermediate: Orta
+  advanced: Yüksək
+noAPIKeyConfig:
+  warning: Süni intellekt modellərindən istifadə etmək istəyirsinizsə, əvvəlcə parametrlər səhifəsində API açarını təyin edin
+  warningWithLink:
+    youMust: Əvvəlcə
+    setTheAPIKey: API açarını
+    firstOnThe: təyin etmək üçün
+    optionsPage: parametrlər
+    page: səhifəsinə keçin
+languageDetection:
+  llmFailed: LLM ilə dilin aşkarlanması alınmadı, əsas aşkarlama üsuluna qayıdıldı
+translation:
+  sameLanguage: Mənbə və hədəf dilləri fərqli olmalıdır
+  autoModeSameLanguage: Aşkarlanan '$1' dili hədəf dili ilə eynidir
+  extensionContextInvalidated: Genişlənmə yeniləndi. Bu səhifəni yeniləyib yenidən cəhd edin.
+  failed: Tərcümə alınmadı
+  failedFallback: Tərcümə alınmadı
+action:
+  copy: Köçür
+  copied: Köçürüldü
+  regenerate: Yenidən yarat
+  viewContextDetails: Kontekst
+  customizeCustomAction: $1 əməliyyatını fərdiləşdir
+  openCustomActions: Fərdi süni intellekt əməliyyatlarını aç
+  contextDetailsTitleLabel: Başlıq
+  contextDetailsParagraphsLabel: Abzaslar
+  translation: Tərcümə
+  moreActions: Digər əməliyyatlar
+  pinToToolbar: Alətlər panelinə sabitlə
+  unpinFromToolbar: Alətlər panelindən ayır
+  dragToReorder: Sıralamaq üçün sürükləyin
+  addCustomAction: Fərdi süni intellekt əməliyyatı əlavə et
+noteSuggestion:
+  save: Yadda saxla
+  staleSuggestion: Bu təklif köhnəlib
+  toggleLabel: Qeyd təkliflərini göstər
+thinking:
+  label: Düşünür
+  complete: Düşünmə tamamlandı
+  expand: Düşüncələri genişləndir
+  collapse: Düşüncələri yığ
+shortcutKeySelector:
+  placeholder: Qısayolu daxil edin
+subtitles:
+  sidebar:
+    summary:
+      generating: Xülasə yaradılır…
+      failedTitle: Yaratmaq mümkün olmadı
+      retry: Yenidən cəhd et
+      needsModel: Bu videonun xülasəsini almaq üçün subtitr parametrlərində LLM modeli seçin.
+      openSettings: Parametrləri aç
+  toggle:
+    enabled: Subtitr tərcüməsi aktivdir
+    disabled: Subtitr tərcüməsi deaktivdir
+  actions:
+    downloadTranslated: Tərcümə edilmiş subtitrləri endir
+    downloadTranslatedPreparing: Subtitrlər hazırlanır, uzun videolar bir qədər vaxt apara bilər
+    downloadTranslatedTranslating: Subtitrlər tərcümə edilir
+    downloadTranslatedComplete: Tərcümə edilmiş subtitrlər endirildi
+    downloadSource: Orijinal subtitrləri endir
+  state:
+    translating: Tərcümə edilir…
+    error: Xəta baş verdi
+  errors:
+    http429: 429 YouTube subtitr API-sinə həddindən artıq sorğu göndərilib, daha sonra yenidən cəhd edin
+    http404: 404 YouTube subtitrləri tapılmadı
+    http403: 403 YouTube subtitrlərinə girişə icazə verilmədi
+    http500: 500 YouTube server xətası
+    httpUnknown: HTTP xətası $1
+    invalidResponse: YouTube subtitr cavabının formatı yanlışdır
+    networkError: Subtitrlər gətirilərkən şəbəkə xətası baş verdi
+    fetchSubTimeout: Subtitrlərin gətirilməsi üçün vaxt bitdi
+    buttonNotFound: Subtitr düyməsi tapılmadı
+    noSubtitlesFound: Bu video üçün subtitr yoxdur
+    trackFileNotLoaded: Subtitrləri yükləmək mümkün olmadı, səhifəni yeniləməyə cəhd edin
+    videoNotFound: Video elementi tapılmadı
+    controlsBarNotFound: İdarəetmə paneli tapılmadı
+    aiRateLimited: Həddindən artıq sorğu var, daha sonra yenidən cəhd edin
+    aiAuthFailed: API autentifikasiyası alınmadı, API açarınızı yoxlayın
+    aiServiceUnavailable: Tərcümə xidməti müvəqqəti olaraq əlçatan deyil
+    aiNoResponse: Süni intellekt xidməti cavab vermədi, orijinal mətndən istifadə olunur
+    translatedExportFailed: Tərcümə edilmiş subtitrləri yaratmaq mümkün olmadı
+    translatedExportIncomplete: Bütün subtitr sətirlərini tərcümə etmək mümkün olmadı
+    translatedExportSameLanguage: Mənbə və hədəf dilləri eynidir
+hotkey:
+  control: Ctrl düyməsi
+  alt: Option düyməsi
+  shift: Shift düyməsi
+  backtick: Tərs apostrof
+  clickAndHold: Kliklə və saxla
+languages:
+  eng: İngilis dili
+  cmn: Sadələşdirilmiş çin dili
+  cmnHant: Ənənəvi çin dili
+  yue: Kanton dili
+  spa: İspan dili
+  rus: Rus dili
+  arb: Ərəb dili
+  ben: Benqal dili
+  hin: Hindi dili
+  por: Portuqal dili
+  ind: İndoneziya dili
+  jpn: Yapon dili
+  fra: Fransız dili
+  deu: Alman dili
+  jav: Yava dili
+  kor: Koreya dili
+  tel: Teluqu dili
+  vie: Vyetnam dili
+  mar: Marathi dili
+  ita: İtalyan dili
+  tam: Tamil dili
+  tur: Türk dili
+  urd: Urdu dili
+  guj: Qucarat dili
+  pol: Polyak dili
+  ukr: Ukrayna dili
+  kan: Kannada dili
+  mai: Maythili dili
+  mal: Malayalam dili
+  pes: Fars dili
+  mya: Birma dili
+  swh: Suahili dili
+  sun: Sunda dili
+  ron: Rumın dili
+  pan: Pəncab dili
+  bho: Bhocpuri dili
+  amh: Amhar dili
+  hau: Hausa dili
+  fuv: Fulani dili
+  bos: Bosniya dili
+  hrv: Xorvat dili
+  nld: Niderland dili
+  srp: Serb dili
+  tha: Tay dili
+  ckb: Mərkəzi kürd dili
+  yor: Yoruba dili
+  uzn: Özbək dili
+  zlm: Malay dili
+  ibo: İqbo dili
+  npi: Nepal dili
+  ceb: Sebuano dili
+  skr: Saraiki dili
+  tgl: Taqaloq dili
+  hun: Macar dili
+  azj: Azərbaycan dili
+  sin: Sinhala dili
+  koi: Komi-permyak dili
+  ell: Yunan dili
+  ces: Çex dili
+  mag: Maqahi dili
+  run: Rundi dili
+  bel: Belarus dili
+  plt: Malaqasi dili
+  qug: Çimboraso dağlıq kiçua dili
+  mad: Madura dili
+  nya: Çeva dili
+  zyb: Çjuan dili
+  pbu: Puştu dili
+  kin: Kinyaruanda dili
+  zul: Zulu dili
+  bul: Bolqar dili
+  swe: İsveç dili
+  lin: Linqala dili
+  som: Somali dili
+  hms: Tsyandun myao dili
+  hnj: Hmonq nyua dili
+  ilo: İlokano dili
+  kaz: Qazax dili
+  heb: İvrit dili
+  nob: Norveç bokmol dili
+  nno: Norveç nünorsk dili
+  afr: Afrikaans dili
+  sqi: Alban dili
+  asm: Assam dili
+  eus: Bask dili
+  bre: Breton dili
+  cat: Katalan dili
+  cos: Korsika dili
+  cym: Uels dili
+  dan: Danimarka dili
+  div: Divehi dili
+  epo: Esperanto dili
+  ekk: Eston dili
+  fao: Farer dili
+  fij: Fici dili
+  fin: Fin dili
+  fry: Qərbi friz dili
+  gla: Şotland kelt dili
+  gle: İrland dili
+  glg: Qalisiya dili
+  grn: Quarani dili
+  hat: Haiti kreol dili
+  haw: Havay dili
+  hye: Erməni dili
+  ido: İdo dili
+  ina: İnterlinqva dili
+  isl: İsland dili
+  kat: Gürcü dili
+  khm: Kxmer dili
+  kir: Qırğız dili
+  lao: Laos dili
+  lat: Latın dili
+  lvs: Latış dili
+  lit: Litva dili
+  ltz: Lüksemburq dili
+  mkd: Makedon dili
+  mlt: Malta dili
+  mon: Monqol dili
+  mri: Maori dili
+  nso: Şimali soto dili
+  oci: Oksitan dili
+  ori: Oriya dili
+  orm: Oromo dili
+  prs: Dəri dili
+  san: Sanskrit dili
+  slk: Slovak dili
+  slv: Sloven dili
+  smo: Samoa dili
+  sna: Şona dili
+  snd: Sindhi dili
+  sot: Cənubi soto dili
+  tah: Taiti dili
+  tat: Tatar dili
+  tgk: Tacik dili
+  tir: Tiqrinya dili
+  ton: Tonqa dili
+  tsn: Tsvana dili
+  tuk: Türkmən dili
+  uig: Uyğur dili
+  vol: Volapük dili
+  wol: Volof dili
+  xho: Kosa dili
+  ydd: İdiş dili
+  aka: Akan dili
+  bam: Bambara dili
+  bis: Bislama dili
+  bod: Tibet dili
+  che: Çeçen dili
+  chv: Çuvaş dili
+  dzo: Dzonqxa dili
+  ewe: Eve dili
+  kab: Kabil dili
+  lug: Luqanda dili
+  oss: Osetin dili
+  ssw: Svati dili
+  ven: Venda dili
+  war: Varay dili
+  nde: Şimali ndebele dili
+  nbl: Cənubi ndebele dili
+  pam: Pampanqa dili
+  hil: Hiliqaynon dili
+  bcl: Mərkəzi bikol dili
+  min: Minanqkabau dili
+  ace: Açeh dili
+  bug: Buqi dili
+  ban: Bali dili
+  bjn: Bancar dili
+  mak: Makassar dili
+  sas: Sasak dili
+  tet: Tetum dili
+  cha: Çamorro dili
+  niu: Niue dili
+  tvl: Tuvalu dili
+  gil: Kiribati dili
+  mah: Marşall dili
+  pau: Palau dili
+  wls: Uollis dili
+  rar: Rarotonqa dili
+  hif: Fici hindi dili
+languageSearch:
+  placeholder: Dilləri axtar...
+  noResults: Dil tapılmadı

@@ -34,38 +34,69 @@ const catalogues = Object.fromEntries(
 const placeholderSignature = (value: string) =>
   (value.match(/%s|\$\d+|\{\{[^}]+\}\}/g) ?? []).sort()
 
-// createSentenceAnalysisDefinition in custom-action-templates.ts deliberately
-// keeps tested English model instructions in every UI language. Retain these
-// existing fallbacks until a separate prompt-language decision is made.
-const intentionalFallbackKeys = [
-  "options.selectionToolbar.customActions.templates.sentenceAnalysis.systemPrompt",
-  "options.selectionToolbar.customActions.templates.sentenceAnalysis.prompt",
-]
+// The sentence-analysis system/input prompts stay English. Restored locales also
+// use the current English dictionary template to preserve its Korean example.
+// Restored locales deliberately omit changed/new copy instead of reusing stale
+// upstream wording. Keep the reviewed fallback inventory separate from removed Hub keys.
+const coverage = JSON.parse(
+  readFileSync(new URL("../../../../docs/ui-locale-coverage.json", import.meta.url), "utf8"),
+) as {
+  restoredLocales: string[]
+  canonicalModelKeys: string[]
+  dictionaryFallbackKeys: string[]
+  changedEnglishKeys: string[]
+  newEnglishKeys: string[]
+  deferredHubKeys: string[]
+  pendingSharedKeys: Record<string, string>
+  missingUpstream: Record<string, string[]>
+}
+const reference = { ...coverage.pendingSharedKeys, ...catalogues.en }
 
 describe("supported UI catalogues", () => {
   for (const locale of SUPPORTED_UI_LOCALES.filter((supportedLocale) => supportedLocale !== "en")) {
-    it(`${locale} has every non-canonical English key and no extra keys`, () => {
-      const keysWithIntentionalFallbacks = new Set([
-        ...Object.keys(catalogues[locale]),
-        ...intentionalFallbackKeys,
-      ])
-      expect([...keysWithIntentionalFallbacks].sort()).toEqual(Object.keys(catalogues.en).sort())
+    const restored = coverage.restoredLocales.includes(locale)
+    const intentionalFallbackKeys = restored
+      ? [
+          ...coverage.canonicalModelKeys,
+          ...coverage.dictionaryFallbackKeys,
+          ...coverage.changedEnglishKeys,
+          ...coverage.newEnglishKeys,
+          ...coverage.deferredHubKeys,
+          ...coverage.missingUpstream[locale]!,
+        ]
+      : coverage.canonicalModelKeys
+    const localeReference = restored ? reference : catalogues.en
+
+    it(`${locale} has only documented fallbacks and no unexpected keys`, () => {
+      const missing = Object.keys(localeReference).filter((key) => !(key in catalogues[locale]))
+      expect(missing.filter((key) => !intentionalFallbackKeys.includes(key))).toEqual([])
+      expect(Object.keys(catalogues[locale]).filter((key) => !(key in localeReference))).toEqual([])
+      const unexpectedFallbackEntries = restored
+        ? intentionalFallbackKeys.filter((key) => key in catalogues[locale])
+        : []
+      expect(unexpectedFallbackEntries).toEqual([])
     })
 
     it(`${locale} preserves positional, named, and Chrome placeholders`, () => {
-      for (const [key, value] of Object.entries(catalogues.en)) {
-        if (intentionalFallbackKeys.includes(key)) continue
-        expect(placeholderSignature(catalogues[locale][key] ?? "")).toEqual(
-          placeholderSignature(value),
+      const mismatches = Object.entries(catalogues[locale])
+        .filter(
+          ([key, value]) =>
+            placeholderSignature(value).join() !==
+            placeholderSignature(localeReference[key] ?? "").join(),
         )
-      }
+        .map(([key]) => key)
+      expect(mismatches).toEqual([])
     })
 
-    it(`${locale} preserves the canonical sentence-analysis model instructions`, () => {
-      for (const key of intentionalFallbackKeys) {
-        const effectivePrompt = catalogues[locale][key] ?? catalogues.en[key]
-        expect(effectivePrompt).toBe(catalogues.en[key])
-      }
+    it(`${locale} preserves the canonical model instructions`, () => {
+      const modelKeys = [
+        ...coverage.canonicalModelKeys,
+        ...(restored ? coverage.dictionaryFallbackKeys : []),
+      ]
+      const differences = modelKeys.filter(
+        (key) => (catalogues[locale][key] ?? catalogues.en[key]) !== catalogues.en[key],
+      )
+      expect(differences).toEqual([])
     })
   }
 })

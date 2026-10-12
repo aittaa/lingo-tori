@@ -12,6 +12,7 @@ import {
 } from "@/utils/constants/selection"
 import { MIN_SIDE_CONTENT_WIDTH } from "@/utils/constants/side"
 import { DEFAULT_TRANSLATION_HUB_SHORTCUT_KEY } from "@/utils/constants/translation-hub"
+import { SUPPORTED_UI_LOCALES } from "@/utils/i18n/locales"
 import {
   doesProviderSupportsCapability,
   getProviderIdsForCapability,
@@ -132,11 +133,11 @@ const siteControlSchema = z.object({
 
 // Interface language for the extension UI, independent of the browser language.
 // "auto" follows the browser UI language; explicit values are the supported locales.
-// MUST stay in sync with SUPPORTED_UI_LOCALES in `@/utils/i18n/resources` and `src/locales/`.
+// Share the runtime locale list without importing the translation resources.
 // `.default("auto")` is load-bearing: it lets configs stored before this field existed still
 // parse successfully, avoiding the destructive fallback-to-DEFAULT_CONFIG path in
 // `writeConfigAtom` / `initializeConfig` during the upgrade window.
-const uiLanguageSchema = z.enum(["auto", "en", "ko", "ja"]).default("auto")
+const uiLanguageSchema = z.enum(["auto", ...SUPPORTED_UI_LOCALES]).default("auto")
 export type UiLanguage = z.infer<typeof uiLanguageSchema>
 
 // Complete config schema

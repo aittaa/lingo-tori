@@ -2,7 +2,7 @@
 
 ## Current product goal
 
-Keep a lean, dependable independent translator: usable page/selection/subtitle translation, dictionary meanings and sentence explanations, BYOK onboarding/settings, clear failures and cancellation, and honest installed-extension evidence. Preserve multilingual translation and EN/KO/JA UI. Avoid feature expansion.
+Keep a lean, dependable independent translator: usable page/selection/subtitle translation, dictionary meanings and sentence explanations, BYOK onboarding/settings, clear failures and cancellation, and honest installed-extension evidence. Preserve multilingual translation and the [upstream interface locale set with documented fallbacks](ui-locale-restoration.md); issue #45 supersedes the former EN/KO/JA restriction. Avoid feature expansion.
 
 ## Retained scope
 

@@ -126,4 +126,51 @@ describe("UI resource audit placeholder regression", () => {
     expect(result.status).toBe(1)
     expect(result.report.newPlaceholderDifferences).toEqual([`ko:fixture.${key}`])
   })
+
+  it("discovers a restored locale absent from the base without missing its placeholders", () => {
+    writeFixtureFile(
+      "src/locales/es.yml",
+      readFileSync(path.join(fixtureRoot, "src/locales/en.yml"), "utf8"),
+    )
+    replaceFixtureToken("es", "%s")
+    const result = runAudit()
+    expect(result.report.locales).toEqual(["en", "es", "ja", "ko"])
+    expect(result.status).toBe(1)
+    expect(result.report.newPlaceholderDifferences).toEqual(["es:contextMenu.translateSelection"])
+  })
+
+  it("accepts documented restored fallbacks and rejects an unrecorded missing key", () => {
+    writeFixtureFile(
+      "src/locales/es.yml",
+      JSON.stringify({
+        contextMenu: { translateSelection: 'Traducir "%s"' },
+        fixture: { positional: "$1" },
+      }),
+    )
+    writeFixtureFile(
+      "docs/ui-locale-coverage.json",
+      JSON.stringify({
+        restoredLocales: ["es"],
+        canonicalModelKeys: [],
+        dictionaryFallbackKeys: [],
+        changedEnglishKeys: ["fixture.named"],
+        newEnglishKeys: [],
+        deferredHubKeys: [],
+        pendingSharedKeys: {},
+        missingUpstream: { es: [] },
+      }),
+    )
+    const accepted = runAudit()
+    expect(accepted.status).toBe(0)
+    expect(accepted.report.fallbackKeys.es).toEqual(["fixture.named"])
+    writeFixtureFile(
+      "src/locales/es.yml",
+      JSON.stringify({
+        contextMenu: { translateSelection: 'Traducir "%s"' },
+      }),
+    )
+    const rejected = runAudit()
+    expect(rejected.status).toBe(1)
+    expect(rejected.report.undocumentedFallbacks.es).toEqual(["fixture.positional"])
+  })
 })
