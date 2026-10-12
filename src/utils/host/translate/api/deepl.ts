@@ -2,6 +2,8 @@ import type { LangCodeISO6391 } from "@/lib/languages"
 import type { ProviderConfig } from "@/types/config/provider"
 import type { TranslationTextFormat } from "@/types/config/translate"
 import type { ApiUsageFeature } from "@/utils/api-usage"
+import type { ApiUsageIdentity } from "@/utils/api-usage-identity"
+import { createApiUsageIdentity } from "@/utils/api-usage-identity"
 import { withApiUsage } from "@/utils/api-usage-tracking"
 
 type DeepLProviderConfig = Extract<ProviderConfig, { provider: "deepl" }>
@@ -70,6 +72,7 @@ async function requestDeepLTranslations(
     requestBody,
     options?.signal,
     options?.usageFeature,
+    options?.usageFeature ? createApiUsageIdentity(providerConfig) : undefined,
   )
 
   return await parseDeepLResponse(fetchResponse, sourceTexts.length)
@@ -81,8 +84,9 @@ async function fetchDirect(
   body: string,
   signal?: AbortSignal,
   usageFeature?: ApiUsageFeature,
+  identity?: ApiUsageIdentity,
 ): Promise<Response> {
-  const resp = await (usageFeature ? withApiUsage(usageFeature) : fetch)(url, {
+  const resp = await (usageFeature ? withApiUsage(usageFeature, undefined, identity) : fetch)(url, {
     method: "POST",
     headers: {
       Authorization: `DeepL-Auth-Key ${apiKey}`,

@@ -2,6 +2,7 @@ import type { Config } from "@/types/config/config"
 import { browser } from "wxt/browser"
 import { storage } from "#imports"
 import { apiUsageFeatureSchema } from "@/utils/api-usage"
+import { createApiUsageIdentity } from "@/utils/api-usage-identity"
 import { recordApiUsageAttempt } from "@/utils/api-usage-tracking"
 import { createByosJobRegistry } from "@/utils/byos/cancellation"
 import { installByosBackgroundInvoker } from "@/utils/byos/invoke"
@@ -60,10 +61,17 @@ export function setupByos() {
     )
       throw new Error("Enable and select a BYOS model in Settings first")
     const feature = apiUsageFeatureSchema.safeParse(usageFeature).data
+    const configured = config.providersConfig.find(
+      (provider) =>
+        provider.provider === "byos" &&
+        provider.enabled &&
+        resolveModelId(provider.model) === request.model,
+    )
+    const identity = configured ? createApiUsageIdentity(configured) : undefined
     return service.invoke(
       request,
       signal,
-      feature ? () => recordApiUsageAttempt(feature, "byos") : undefined,
+      feature ? () => recordApiUsageAttempt(feature, "byos", identity) : undefined,
     )
   }
   installByosBackgroundInvoker(invoke)

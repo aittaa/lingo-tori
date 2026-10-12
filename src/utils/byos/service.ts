@@ -1,6 +1,8 @@
 import type { AuthTransport } from "./transport"
 import type { AuthVault, Credentials, PendingAuth, VaultRecord } from "./vault"
+import type { ReportedTokens } from "@/utils/api-usage-tokens"
 import { z } from "zod"
+import { readResponsesTokens } from "@/utils/api-usage-tokens"
 import {
   abortable,
   ByosBridgeError,
@@ -25,6 +27,10 @@ export const invokeSchema = z.strictObject({
   text: z.string().min(1).max(50000),
   instructions: z.string().max(30000).optional(),
 })
+export interface ByosInvocationResult {
+  text: string
+  usage?: ReportedTokens
+}
 export type ByosInvocation = z.infer<typeof invokeSchema>
 export const authAttemptIdSchema = z.uuid()
 export const sessionSchema = z.object({
@@ -1014,7 +1020,7 @@ export function createByosService(
       payload: ByosInvocation,
       signal?: AbortSignal,
       onDispatch?: () => void,
-    ): Promise<{ text: string }> {
+    ): Promise<ByosInvocationResult> {
       signal?.throwIfAborted()
       const input = invokeSchema.parse(payload)
       const streamController = new AbortController()
@@ -1066,6 +1072,7 @@ export function createByosService(
         if (!response.body) streamFailure("invalid_stream_body")
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
+        let reportedUsage: ReportedTokens | undefined
         let buffer = "",
           text = "",
           bytes = 0,
@@ -1087,7 +1094,7 @@ export function createByosService(
             code?: string
             param?: string
             request_id?: string
-            response?: { status?: string; error?: unknown }
+            response?: { status?: string; error?: unknown; usage?: unknown }
           }
           try {
             event = JSON.parse(data)
@@ -1120,6 +1127,7 @@ export function createByosService(
           }
           if (event.type === "response.completed") {
             if (event.response?.status !== "completed") fail("inference_incomplete")
+            reportedUsage = readResponsesTokens(event.response?.usage)
             completed = true
           }
         }
@@ -1153,7 +1161,7 @@ export function createByosService(
           await ensureGeneration(generation)
           signal?.throwIfAborted()
           if (refused) streamFailure("inference_refused")
-          return { text }
+          return { text, ...(reportedUsage ? { usage: reportedUsage } : {}) }
         } catch (error) {
           // This inference already received a successful HTTP response. A failed
           // or interrupted stream may have consumed usage; never replay it

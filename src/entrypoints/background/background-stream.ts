@@ -29,11 +29,17 @@ import { selectionToolbarCustomActionOutputTypeSchema } from "@/types/config/sel
 import { createStructuredObjectSchema } from "@/utils/ai/structured-object-schema"
 import { classifyFailureReason } from "@/utils/analytics-failure-reason"
 import { apiUsageFeatureSchema } from "@/utils/api-usage"
+import { createApiUsageReporter } from "@/utils/api-usage-tracking"
 import { extractAISDKErrorMessage } from "@/utils/error/extract-message"
 import { logger } from "@/utils/logger"
 import { noteSuggestionEnvelopeSchema } from "@/utils/note-suggestion/types"
 import { buildLocalGenerateTextParams } from "@/utils/providers/generate-params"
 import { getLanguageModelForConfig, getModelById } from "@/utils/providers/model"
+
+type MeteredPartStream = {
+  stream: AsyncIterable<unknown>
+  reporter: ReturnType<typeof createApiUsageReporter>
+}
 
 const invalidStreamStartPayloadMessage = "Invalid stream start payload"
 const aiStreamProtocolErrorMessage = "Invalid AI stream response."
@@ -61,7 +67,10 @@ const streamPortStartEnvelopeSchema = z.object({
 })
 
 const baseStreamPayloadSchema = z
-  .object({ providerId: z.string().trim().min(1), usageFeature: apiUsageFeatureSchema.optional() })
+  .object({
+    providerId: z.string().trim().min(1),
+    usageFeature: apiUsageFeatureSchema.catch("sharedRequests").optional(),
+  })
   .loose()
 
 const streamTextPayloadSchema = baseStreamPayloadSchema
@@ -79,7 +88,7 @@ const structuredObjectFieldSchema = z.object({
 const structuredObjectPayloadSchema = z
   .object({
     providerId: z.string().trim().min(1),
-    usageFeature: apiUsageFeatureSchema.optional(),
+    usageFeature: apiUsageFeatureSchema.catch("sharedRequests").optional(),
     outputSchema: z.array(structuredObjectFieldSchema).min(1),
   })
   .loose()
@@ -515,7 +524,7 @@ async function consumeStructuredObjectPartStream<TOutput extends Record<string, 
 async function createLocalTextPartStream(
   serializablePayload: Extract<BackgroundStreamTextSerializablePayload, { providerKind: "local" }>,
   options: StreamRuntimeOptions<BackgroundTextStreamSnapshot> = {},
-): Promise<AsyncIterable<unknown>> {
+): Promise<MeteredPartStream> {
   const {
     providerKind: _providerKind,
     providerId,
@@ -528,17 +537,21 @@ async function createLocalTextPartStream(
   const model = providerConfig
     ? getLanguageModelForConfig(providerConfig, usageFeature)
     : await getModelById(providerId, usageFeature)
+  const reporter = createApiUsageReporter(model, usageFeature)
   const result = streamText({
     ...(streamTextParams as Parameters<typeof streamText>[0]),
     ...(providerConfig ? buildLocalGenerateTextParams(providerConfig) : {}),
     model,
     abortSignal: signal,
+    onFinish: ({ totalUsage }) => {
+      reporter.observe(totalUsage)
+    },
     onError: ({ error }) => {
       onError?.(error)
     },
   })
 
-  return result.stream
+  return { stream: result.stream, reporter }
 }
 
 export async function generateTextForProviderRef(
@@ -570,18 +583,24 @@ export async function generateTextForProviderRef(
   // computed from the snapshot the caller captured — and would fail outright
   // for a row deleted from another tab while the config was already in hand.
   const model = getLanguageModelForConfig(providerRef.config, options.usageFeature)
-  const { text } = await generateText({
-    model,
-    instructions,
-    prompt,
-    // maxRetries: 0 — retries belong to the RequestQueue, which meters them
-    // against the token bucket; ai-sdk's hidden default (2) would issue extra
-    // HTTP attempts invisible to the rate limiter.
-    maxRetries: maxRetries ?? 0,
-    abortSignal: signal,
-    ...buildLocalGenerateTextParams(providerRef.config),
-  })
-  return text.trim()
+  const reporter = createApiUsageReporter(model, options.usageFeature)
+  try {
+    const { text, usage } = await generateText({
+      model,
+      instructions,
+      prompt,
+      // maxRetries: 0 — retries belong to the RequestQueue, which meters them
+      // against the token bucket; ai-sdk's hidden default (2) would issue extra
+      // HTTP attempts invisible to the rate limiter.
+      maxRetries: maxRetries ?? 0,
+      abortSignal: signal,
+      ...buildLocalGenerateTextParams(providerRef.config),
+    })
+    reporter.observe(usage)
+    return text.trim()
+  } finally {
+    reporter.finish()
+  }
 }
 
 export async function runStreamTextInBackground(
@@ -594,12 +613,16 @@ export async function runStreamTextInBackground(
     throw new DOMException("stream aborted", "AbortError")
   }
 
-  const partStream = await createLocalTextPartStream(serializablePayload, options)
+  const { stream: partStream, reporter } = await createLocalTextPartStream(
+    serializablePayload,
+    options,
+  )
 
-  return consumeTextPartStream(partStream, {
-    onChunk,
-    signal,
-  })
+  try {
+    return await consumeTextPartStream(partStream, { onChunk, signal })
+  } finally {
+    reporter.finish()
+  }
 }
 
 async function createLocalStructuredObjectPartStream<TOutput extends Record<string, unknown>>(
@@ -608,7 +631,7 @@ async function createLocalStructuredObjectPartStream<TOutput extends Record<stri
   },
   objectSchema: z.ZodType<TOutput>,
   options: StreamRuntimeOptions<BackgroundStructuredObjectStreamSnapshot> = {},
-): Promise<AsyncIterable<unknown>> {
+): Promise<MeteredPartStream> {
   const {
     providerId,
     outputSchema: _outputSchema,
@@ -618,6 +641,7 @@ async function createLocalStructuredObjectPartStream<TOutput extends Record<stri
   const { signal, onError } = options
 
   const model = await getModelById(providerId, usageFeature)
+  const reporter = createApiUsageReporter(model, usageFeature)
   const result = streamText({
     ...(streamParams as Parameters<typeof streamText>[0]),
     model,
@@ -625,12 +649,15 @@ async function createLocalStructuredObjectPartStream<TOutput extends Record<stri
       schema: objectSchema,
     }),
     abortSignal: signal,
+    onFinish: ({ totalUsage }) => {
+      reporter.observe(totalUsage)
+    },
     onError: ({ error }) => {
       onError?.(error)
     },
   })
 
-  return result.stream
+  return { stream: result.stream, reporter }
 }
 
 export async function runStructuredObjectStreamInBackground(
@@ -644,17 +671,17 @@ export async function runStructuredObjectStreamInBackground(
   }
 
   const objectSchema = createStructuredObjectSchema(serializablePayload.outputSchema)
-  const partStream = await createLocalStructuredObjectPartStream(
+  const { stream: partStream, reporter } = await createLocalStructuredObjectPartStream(
     serializablePayload,
     objectSchema,
     options,
   )
 
-  return consumeStructuredObjectPartStream(partStream, {
-    objectSchema,
-    onChunk,
-    signal,
-  })
+  try {
+    return await consumeStructuredObjectPartStream(partStream, { objectSchema, onChunk, signal })
+  } finally {
+    reporter.finish()
+  }
 }
 
 export async function runNoteSuggestionStreamInBackground(
@@ -675,16 +702,20 @@ export async function runNoteSuggestionStreamInBackground(
     )
   }
 
-  const partStream = await createLocalStructuredObjectPartStream(
+  const { stream: partStream, reporter } = await createLocalStructuredObjectPartStream(
     { ...serializablePayload, usageFeature: "noteSuggestion" },
     noteSuggestionEnvelopeSchema,
     { signal, onError },
   )
 
-  return consumeStructuredObjectPartStream(partStream, {
-    objectSchema: noteSuggestionEnvelopeSchema,
-    signal,
-  })
+  try {
+    return await consumeStructuredObjectPartStream(partStream, {
+      objectSchema: noteSuggestionEnvelopeSchema,
+      signal,
+    })
+  } finally {
+    reporter.finish()
+  }
 }
 
 const parseStreamTextStartMessage =

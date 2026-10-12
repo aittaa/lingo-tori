@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import i18next from "i18next"
+import { useState } from "react"
 import { Button } from "@/components/ui/base-ui/button"
 import {
   Table,
@@ -14,6 +15,7 @@ import { API_USAGE_FEATURES } from "@/utils/api-usage"
 import { i18n } from "@/utils/i18n"
 import { sendMessage } from "@/utils/message"
 import { PageLayout } from "../../components/page-layout"
+import { HistoryDashboard } from "./history-dashboard"
 import { UsageChart } from "./usage-chart"
 
 export function ApiUsagePage() {
@@ -29,6 +31,10 @@ export function ApiUsagePage() {
     retry: false,
     refetchOnWindowFocus: false,
   })
+  const [view, setView] = useState<"history" | "lifetime">("history")
+  const effectiveView = snapshot?.history === undefined ? "lifetime" : view
+  const history = isError ? null : snapshot?.history
+  const currentValue = effectiveView === "history" ? history : isError ? null : snapshot?.usage
   const locale = i18next.resolvedLanguage ?? i18next.language ?? "en"
   const usage = isError ? null : snapshot?.usage
   const totals = API_USAGE_FEATURES.reduce(
@@ -46,11 +52,28 @@ export function ApiUsagePage() {
       innerClassName="space-y-6"
     >
       <section id="api-usage" className="space-y-4" aria-busy={loading}>
+        <div className="flex flex-wrap gap-2" aria-label={i18n.t("options.apiUsage.history.views")}>
+          <Button
+            variant={effectiveView === "history" ? "default" : "outline"}
+            aria-pressed={effectiveView === "history"}
+            onClick={() => setView("history")}
+            disabled={snapshot?.history === undefined}
+          >
+            {i18n.t("options.apiUsage.history.viewHistory")}
+          </Button>
+          <Button
+            variant={effectiveView === "lifetime" ? "default" : "outline"}
+            aria-pressed={effectiveView === "lifetime"}
+            onClick={() => setView("lifetime")}
+          >
+            {i18n.t("options.apiUsage.history.viewLifetime")}
+          </Button>
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            {usage && usage.since !== null
+            {effectiveView === "lifetime" && usage && usage.since !== null
               ? `${i18n.t("options.apiUsage.since")}: ${new Date(usage.since).toLocaleDateString(locale)}`
-              : usage
+              : effectiveView === "lifetime" && usage
                 ? i18n.t("options.apiUsage.empty")
                 : null}
           </p>
@@ -68,15 +91,26 @@ export function ApiUsagePage() {
           {loading && (
             <p className="text-sm text-muted-foreground">{i18n.t("options.apiUsage.loading")}</p>
           )}
-          {!loading && !usage && (
+          {!loading && !currentValue && (
             <p className="text-sm text-destructive">{i18n.t("options.apiUsage.unavailable")}</p>
           )}
-          {usage && snapshot?.incomplete && (
-            <p className="text-sm text-destructive">{i18n.t("options.apiUsage.incomplete")}</p>
-          )}
+          {currentValue &&
+            (effectiveView === "history" ? snapshot?.historyIncomplete : snapshot?.incomplete) && (
+              <p className="text-sm text-destructive">{i18n.t("options.apiUsage.incomplete")}</p>
+            )}
         </div>
-        {usage && <UsageChart usage={usage} locale={locale} snapshotAt={dataUpdatedAt} />}
-        {usage && (
+        {effectiveView === "history" && history && (
+          <HistoryDashboard history={history} locale={locale} />
+        )}
+        {effectiveView === "lifetime" && (
+          <p className="text-sm text-muted-foreground">
+            {i18n.t("options.apiUsage.history.lifetimeNote")}
+          </p>
+        )}
+        {effectiveView === "lifetime" && usage && (
+          <UsageChart usage={usage} locale={locale} snapshotAt={dataUpdatedAt} />
+        )}
+        {effectiveView === "lifetime" && usage && (
           <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
             <Table aria-label={i18n.t("options.apiUsage.title")}>
               <TableHeader>

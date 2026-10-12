@@ -136,6 +136,39 @@ describe("background-stream", () => {
     },
   )
 
+  it.each(["future-feature", null, { unexpected: "metadata" }, 123])(
+    "ignores an unknown telemetry label without rejecting a valid inference (%j)",
+    async (usageFeature) => {
+      streamTextMock.mockReturnValue({
+        stream: (async function* () {
+          yield { type: "text-delta", text: "valid output" }
+          yield { type: "finish", finishReason: "stop" }
+        })(),
+      })
+      const { handleStreamTextPort } = await import("../background-stream")
+      const mockPort = createMockPort("stream-text")
+      handleStreamTextPort(mockPort.port as never)
+      await mockPort.emitMessage({
+        type: "start",
+        streamRequestId: "future-label",
+        payload: {
+          providerKind: "local",
+          providerId: "openai-default",
+          prompt: "valid request",
+          usageFeature,
+        },
+      })
+      expect(getModelByIdMock).toHaveBeenCalledWith("openai-default", "sharedRequests")
+      expect(mockPort.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "done",
+          data: { output: "valid output", thinking: { status: "complete", text: "" } },
+        }),
+      )
+      expect(streamTextMock.mock.calls[0]?.[0]).not.toHaveProperty("usageFeature")
+    },
+  )
+
   it("streams structured object output from background", async () => {
     getModelByIdMock.mockResolvedValue("mock-model")
     streamTextMock.mockReturnValue({

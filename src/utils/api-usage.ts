@@ -1,3 +1,4 @@
+import type { ApiUsageHistory } from "./api-usage-history"
 import { z } from "zod"
 
 export const API_USAGE_FEATURES = [
@@ -29,6 +30,8 @@ export const apiUsageSchema = z.strictObject({
 })
 export type ApiUsage = z.infer<typeof apiUsageSchema>
 export interface ApiUsageSnapshot {
+  history?: ApiUsageHistory | null
+  historyIncomplete?: boolean
   usage: ApiUsage | null
   incomplete: boolean
 }

@@ -1,4 +1,4 @@
-import type { ByosInvocation, ByosModels, ByosSession } from "./service"
+import type { ByosInvocation, ByosInvocationResult, ByosModels, ByosSession } from "./service"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import { defineExtensionMessaging } from "@webext-core/messaging"
 interface ByosProtocol {
@@ -14,7 +14,7 @@ interface ByosProtocol {
     requestId: string
     payload: ByosInvocation
     usageFeature?: ApiUsageFeature
-  }) => { text: string }
+  }) => ByosInvocationResult
 }
 export const { sendMessage: sendByosMessage, onMessage: onByosMessage } =
   defineExtensionMessaging<ByosProtocol>()

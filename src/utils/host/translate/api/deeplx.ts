@@ -2,6 +2,8 @@ import type { LangCodeISO6391 } from "@/lib/languages"
 import type { ProviderConfig } from "@/types/config/provider"
 import type { TranslationTextFormat } from "@/types/config/translate"
 import type { ApiUsageFeature } from "@/utils/api-usage"
+import type { ApiUsageIdentity } from "@/utils/api-usage-identity"
+import { createApiUsageIdentity } from "@/utils/api-usage-identity"
 import { withApiUsage } from "@/utils/api-usage-tracking"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 
@@ -43,7 +45,13 @@ export async function deeplxTranslate(
     ...(options?.textFormat === "html" ? { tag_handling: "html" } : {}),
   })
 
-  const fetchResponse = await fetchDirect(url, requestBody, options?.signal, options?.usageFeature)
+  const fetchResponse = await fetchDirect(
+    url,
+    requestBody,
+    options?.signal,
+    options?.usageFeature,
+    options?.usageFeature ? createApiUsageIdentity(providerConfig) : undefined,
+  )
 
   return parseDeepLXResponse(fetchResponse)
 }
@@ -53,8 +61,9 @@ async function fetchDirect(
   body: string,
   signal?: AbortSignal,
   usageFeature?: ApiUsageFeature,
+  identity?: ApiUsageIdentity,
 ) {
-  const resp = await (usageFeature ? withApiUsage(usageFeature) : fetch)(url, {
+  const resp = await (usageFeature ? withApiUsage(usageFeature, undefined, identity) : fetch)(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body,

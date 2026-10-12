@@ -52,7 +52,7 @@ export function createByosModel(
         )
       }
     }
-    const { text } = await invoke(
+    const result = await invoke(
       {
         model: modelId,
         text:
@@ -64,6 +64,7 @@ export function createByosModel(
       options.abortSignal,
       usageFeature,
     )
+    const { text } = result
     options.abortSignal?.throwIfAborted()
     if (options.responseFormat?.type === "json") {
       try {
@@ -73,7 +74,7 @@ export function createByosModel(
         throw new ByosBridgeError("invalid_structured_output")
       }
     }
-    return text
+    return result
   }
   return {
     specificationVersion: "v4",
@@ -81,17 +82,39 @@ export function createByosModel(
     modelId,
     supportedUrls: {},
     async doGenerate(options) {
-      const text = await generate(options)
+      const { text, usage: reported } = await generate(options)
       return {
         content: [{ type: "text", text }],
         finishReason: { unified: "stop", raw: "completed" },
-        usage,
+        usage: reported
+          ? {
+              inputTokens: {
+                total: reported.inputTokens,
+                noCache: undefined,
+                cacheRead: reported.cachedInputTokens,
+                cacheWrite: reported.cacheWriteInputTokens,
+              },
+              outputTokens: {
+                total: reported.outputTokens,
+                text: undefined,
+                reasoning: reported.reasoningTokens,
+              },
+              raw: {
+                ...(reported.inputTokens !== undefined
+                  ? { input_tokens: reported.inputTokens }
+                  : {}),
+                ...(reported.outputTokens !== undefined
+                  ? { output_tokens: reported.outputTokens }
+                  : {}),
+              },
+            }
+          : usage,
         warnings: [],
       }
     },
     async doStream(options) {
       // Emit a completed result only after the invocation succeeds.
-      const text = await generate(options)
+      const { text, usage: reported } = await generate(options)
       return {
         stream: new ReadableStream({
           start(controller) {
@@ -102,7 +125,29 @@ export function createByosModel(
             controller.enqueue({
               type: "finish",
               finishReason: { unified: "stop", raw: "completed" },
-              usage,
+              usage: reported
+                ? {
+                    inputTokens: {
+                      total: reported.inputTokens,
+                      noCache: undefined,
+                      cacheRead: reported.cachedInputTokens,
+                      cacheWrite: reported.cacheWriteInputTokens,
+                    },
+                    outputTokens: {
+                      total: reported.outputTokens,
+                      text: undefined,
+                      reasoning: reported.reasoningTokens,
+                    },
+                    raw: {
+                      ...(reported.inputTokens !== undefined
+                        ? { input_tokens: reported.inputTokens }
+                        : {}),
+                      ...(reported.outputTokens !== undefined
+                        ? { output_tokens: reported.outputTokens }
+                        : {}),
+                    },
+                  }
+                : usage,
             })
             controller.close()
           },

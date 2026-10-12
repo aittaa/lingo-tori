@@ -1,11 +1,11 @@
-import type { ByosInvocation } from "./service"
+import type { ByosInvocation, ByosInvocationResult } from "./service"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import { sendByosMessage } from "./messages"
 type Invoker = (
   payload: ByosInvocation,
   signal?: AbortSignal,
   usageFeature?: ApiUsageFeature,
-) => Promise<{ text: string }>
+) => Promise<ByosInvocationResult>
 let backgroundInvoker: Invoker | undefined
 export function installByosBackgroundInvoker(invoke: Invoker) {
   backgroundInvoker = invoke

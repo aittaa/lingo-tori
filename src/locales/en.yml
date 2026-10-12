@@ -89,7 +89,7 @@ options:
     translationHub: Translation Hub
   apiUsage:
     title: API Usage
-    description: Cumulative outbound request attempts by feature on this device.
+    description: Reported tokens and observed requests by date, model and feature on this device.
     refresh: Refresh
     loading: Loading usage…
     unavailable: Usage is unavailable. Refresh to try again; existing counters are preserved.
@@ -101,10 +101,53 @@ options:
     api: API / local endpoint
     byos: ChatGPT subscription (BYOS)
     semantics: Each fetch dispatch is one attempt, including retries and requests that later fail or are cancelled. A batch is one request, regardless of text count. Cache hits and cancellation before dispatch do not count. Counts do not confirm server acceptance or successful output.
-    exclusions: Authentication, token refresh, model lists, connection checks and subtitle downloads are excluded. Shared / older requests cover mixed batches or callers without a feature label. Translation Hub is excluded.
-    privacy: Only fixed feature counters and the first counting date are saved locally. No text, URLs, provider names, keys or tokens are stored by this page. Totals persist across restarts without a history limit; reset and export are not provided.
+    exclusions: Authentication, token refresh, model lists, connection checks and subtitle downloads are excluded. Shared / older requests cover mixed batches or callers without a feature label.
+    privacy: Only numeric local aggregates, recorded dates, fixed provider types and safe public model labels or aliases are saved. No text, URLs, user-defined names, keys, tokens or credentials are stored. History persists without automatic deletion; reset and export are not provided.
     limitations: Storage writes happen in the background without delaying requests. Abrupt worker termination or storage failure can leave a dispatched attempt unsaved. This is a local activity counter, not a billing record.
-    billing: Token usage and cost are unavailable here. BYOS attempts are shown separately and do not represent API billing or remaining subscription quota.
+    billing: Only supplied token usage is shown. Costs and remaining subscription quota are unavailable. BYOS is shown separately and does not represent API billing.
+    history:
+      views: "Usage view"
+      viewHistory: "Daily models and tokens"
+      viewLifetime: "All-time requests"
+      lifetimeNote: "This preserves the original cumulative request counters. Earlier counts have no date, model or token history and are never distributed into the daily view."
+      byosPriority: "BYOS models are visible by default. Enable API/local models separately in the legend. Missing BYOS tokens are never replaced by BYOK usage."
+      from: "From date"
+      to: "Through date"
+      metric: "Graph metric"
+      metrics:
+        inputTokens: "Reported input tokens (tokens)"
+        outputTokens: "Reported output tokens (tokens)"
+        requests: "Outbound attempts (count)"
+      period: "Selected local dates"
+      started: "Daily/model recording started (local time)"
+      dateRule: "Requests use the device local date at dispatch. Tokens use the local date when final usage is observed; a request crossing midnight may have these on different dates. Timezone changes affect new events only; saved date labels are not regrouped."
+      empty: "No daily/model history has been recorded yet. Recording starts with new observed activity; earlier cumulative requests cannot be reconstructed. Cache hits do not create requests or token reports."
+      legend: "Model legend — show/hide"
+      visibleTotals: "Bars and period totals include only visible models. Hiding a model excludes it from sums; token sums contain only reported values."
+      chartTitle: "Usage by date and model"
+      chartDescription: "Dates share one zero-based linear axis. Model segments stack reported values; choose a segment with a click, Enter or Space for feature details. Numbered buttons also select zero or unreported segments. Retry attempts are included in requests, while cache hits are excluded. Missing token usage is not zero."
+      dateAxis: "Horizontal axis — calendar date recorded on this device"
+      privateModel: "Private/custom model"
+      selectDetails: "Select feature details"
+      beforeHistory: "Earlier history unavailable"
+      noReports: "No observed reports"
+      invalidRange: "Choose valid dates with the start on or before the end."
+      noVisible: "No models are visible. Select a model in the legend; BYOS is the default view."
+      olderUnknown: "This period includes dates before daily/model recording began. Values cover recorded history only; earlier activity is unknown. The first day also starts at the recording time, not at midnight."
+      previous: "Previous dates"
+      next: "Next dates"
+      pageNote: "Up to 31 dates per graph page; period totals cover the full selected range."
+      periodDetails: "Feature totals for the period and visible models"
+      clearSelection: "Show period totals"
+      detailsTitle: "Feature details for selected dates and models"
+      tableCaption: "Input/output values are provider-reported token sums. Requests are actual fetch attempts. Coverage is input-reported / finished-generation results, then output-reported / finished-generation results."
+      requests: "Outbound attempts"
+      coverage: "Input / output coverage"
+      unreported: "Unreported"
+      partial: "partial"
+      coverageNote: "Coverage describes finished local generation results, including failures and cancellation. It is not coverage of every HTTP attempt: one generation can dispatch multiple retries or provider subrequests, whose token usage may remain unavailable."
+      tokenNote: "SDK-normalized input includes reported cache input; it is not added again. Output may include reasoning. Missing fields, unsupported providers and errors without usage stay unreported. No token estimates, costs or subscription quota are calculated."
+      identityNote: "Provider kind, transport and local configuration aliases keep identical model names separate. Only approved public model labels are shown; arbitrary provider names, custom URLs and private model labels are not saved. Daily history has no automatic deletion."
     chart:
       title: Requests by feature
       description: Bars compare total outbound attempts on a shared scale starting at zero, ordered from highest to lowest. Each bar stacks API and BYOS attempts. Retries are already included in these counts; cache hits are excluded. Exact values are in the table below.
