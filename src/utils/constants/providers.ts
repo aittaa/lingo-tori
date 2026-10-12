@@ -6,7 +6,6 @@ import type {
   LLMProviderTypes,
   ProviderConfig,
   ProvidersConfig,
-  ProviderSponsorConfig,
 } from "@/types/config/provider"
 import type { Theme } from "@/types/config/theme"
 import { camelCase } from "case-anything"
@@ -187,7 +186,6 @@ export const PROVIDER_ITEMS: Record<
     logo: (theme: Theme) => string
     name: string
     website: string
-    sponsor?: ProviderSponsorConfig
     /**
      * Where someone signs up for or copies this provider's key. Only providers that set it get
      * the "Get API key" button next to the API key field — absent means no button, because most
@@ -332,7 +330,7 @@ export const PROVIDER_ITEMS: Record<
   tensdaq: {
     logo: () => tensdaqLogoColor,
     name: "Tensdaq",
-    website: "https://dashboard.x-aio.com/zh/register?ref=c356c1daba9a4641a18e",
+    website: "https://dashboard.x-aio.com/zh/register",
   },
   ollama: {
     logo: getLobeIconsCDNUrlFn("ollama"),
