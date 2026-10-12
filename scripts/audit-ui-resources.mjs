@@ -55,6 +55,32 @@ for (const locale of locales) {
 }
 const reference = { ...coverage?.pendingSharedKeys, ...current.en }
 
+// Pin the filtered source snapshot, including approved key moves and branding,
+// without requiring an upstream Git object or fetching anything during the audit.
+const restoredResourceDifferences = []
+const missingSharedKeys = []
+for (const locale of coverage?.restoredLocales ?? []) {
+  const resource = current[locale] ?? {}
+  const digest = createHash("sha256")
+    .update(
+      JSON.stringify({
+        upstreamCommit: coverage.upstreamCommit,
+        locale,
+        entries: Object.keys(resource)
+          .sort()
+          .map((key) => [key, resource[key]]),
+      }),
+    )
+    .digest("hex")
+  if (
+    !/^[a-f0-9]{40}$/.test(coverage.upstreamCommit ?? "") ||
+    digest !== coverage.restoredResourceSha256?.[locale]
+  )
+    restoredResourceDifferences.push(locale)
+  for (const key of Object.keys(coverage.pendingSharedKeys))
+    if (!(key in resource)) missingSharedKeys.push(`${locale}:${key}`)
+}
+
 // Context-menu selection titles use Chrome's %s substitution; it must survive translation.
 const signature = (value) =>
   JSON.stringify((String(value).match(/%s|\$\d+|\{\{[^}]+\}\}/g) ?? []).sort())
@@ -184,6 +210,8 @@ const result = {
   locales,
   supportedLocales,
   localeListParity,
+  restoredResourceDifferences,
+  missingSharedKeys,
   keys: Object.fromEntries(locales.map((locale) => [locale, Object.keys(current[locale]).length])),
   removedKeys: removed.length,
   addedKeys: added,
@@ -223,6 +251,8 @@ const result = {
 console.log(JSON.stringify(result, null, 2))
 if (
   !localeListParity ||
+  restoredResourceDifferences.length ||
+  missingSharedKeys.length ||
   Object.values(newFallbackKeys).some((keys) => keys.length) ||
   Object.values(extraKeys).some((keys) => keys.length) ||
   Object.values(undocumentedFallbacks).some((keys) => keys.length) ||

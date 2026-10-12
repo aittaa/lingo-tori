@@ -183,5 +183,14 @@
   "dictionaryFallbackKeys": [
     "options.selectionToolbar.customActions.templates.dictionary.systemPrompt",
     "options.selectionToolbar.customActions.templates.dictionary.prompt"
-  ]
+  ],
+  "restoredResourceSha256": {
+    "az": "e46745af519e87085114617d24557f3f8746b8aa1220968526c7f41ac06260be",
+    "es": "4315c7bb0044f6bfacc5546f291618a987af8affa41bfa0dcd6143c365270c21",
+    "ru": "8f73f3369172dffb5664ca5301cdfb6f2db37a32f3b8d834482609a1b2599187",
+    "tr": "4a3002890e9057a3c5f72b6039c7d8adbc144bf5a0579caf50508992f2f986a1",
+    "vi": "0ea83f625ac1fdf5ed3dc01af030e3eba6ae96b3f3a7d5cd0ce3f41292f28276",
+    "zh-CN": "b45677921bbdccb8d2b7897289a1af491c89b945f4a506f02894d9a78b5e531b",
+    "zh-TW": "c9bd89e08b2c74ac7fd1366021745eb2344c8ee9cef01147e42dc03e6395bd3a"
+  }
 }

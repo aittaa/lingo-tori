@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process"
+import { createHash } from "node:crypto"
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
@@ -52,6 +53,55 @@ function runAudit() {
 function replaceFixtureToken(locale: string, token: string) {
   const filename = path.join(fixtureRoot, `src/locales/${locale}.yml`)
   writeFileSync(filename, readFileSync(filename, "utf8").replace(token, ""))
+}
+
+const sharedKeys = {
+  "languageSearch.placeholder": "Search languages...",
+  "languageSearch.noResults": "No languages found",
+  "translation.failed": "Translation Failed",
+  "translation.failedFallback": "Translation failed",
+}
+const restoredFixture = {
+  "contextMenu.translateSelection": 'Traducir "%s"',
+  "fixture.positional": "$1",
+  "fixture.named": "{{term}}",
+  "languageSearch.placeholder": "Buscar idiomas...",
+  "languageSearch.noResults": "No se encontraron idiomas",
+  "translation.failed": "Traducción fallida",
+  "translation.failedFallback": "Error de traducción",
+}
+
+function writeRestoredCoverage(
+  resource: Record<string, string>,
+  changedEnglishKeys: string[] = [],
+) {
+  // This synthetic upstream commit deliberately does not exist in the fixture repository.
+  const upstreamCommit = "a".repeat(40)
+  const restoredResourceSha256 = createHash("sha256")
+    .update(
+      JSON.stringify({
+        upstreamCommit,
+        locale: "es",
+        entries: Object.keys(resource)
+          .sort()
+          .map((key) => [key, resource[key]]),
+      }),
+    )
+    .digest("hex")
+  const coverage = {
+    upstreamCommit,
+    restoredResourceSha256: { es: restoredResourceSha256 },
+    restoredLocales: ["es"],
+    canonicalModelKeys: [],
+    dictionaryFallbackKeys: [],
+    changedEnglishKeys,
+    newEnglishKeys: [],
+    deferredHubKeys: [],
+    pendingSharedKeys: sharedKeys,
+    missingUpstream: { es: [] },
+  }
+  writeFixtureFile("docs/ui-locale-coverage.json", JSON.stringify(coverage))
+  return coverage
 }
 
 describe("UI resource audit placeholder regression", () => {
@@ -140,37 +190,86 @@ describe("UI resource audit placeholder regression", () => {
   })
 
   it("accepts documented restored fallbacks and rejects an unrecorded missing key", () => {
-    writeFixtureFile(
-      "src/locales/es.yml",
-      JSON.stringify({
-        contextMenu: { translateSelection: 'Traducir "%s"' },
-        fixture: { positional: "$1" },
-      }),
-    )
-    writeFixtureFile(
-      "docs/ui-locale-coverage.json",
-      JSON.stringify({
-        restoredLocales: ["es"],
-        canonicalModelKeys: [],
-        dictionaryFallbackKeys: [],
-        changedEnglishKeys: ["fixture.named"],
-        newEnglishKeys: [],
-        deferredHubKeys: [],
-        pendingSharedKeys: {},
-        missingUpstream: { es: [] },
-      }),
-    )
+    const resource = { ...restoredFixture }
+    delete (resource as Record<string, string>)["fixture.named"]
+    writeFixtureFile("src/locales/es.yml", JSON.stringify(resource))
+    writeRestoredCoverage(resource, ["fixture.named"])
     const accepted = runAudit()
     expect(accepted.status).toBe(0)
     expect(accepted.report.fallbackKeys.es).toEqual(["fixture.named"])
-    writeFixtureFile(
-      "src/locales/es.yml",
-      JSON.stringify({
-        contextMenu: { translateSelection: 'Traducir "%s"' },
-      }),
-    )
+    delete (resource as Record<string, string>)["fixture.positional"]
+    writeFixtureFile("src/locales/es.yml", JSON.stringify(resource))
     const rejected = runAudit()
     expect(rejected.status).toBe(1)
     expect(rejected.report.undocumentedFallbacks.es).toEqual(["fixture.positional"])
+  })
+
+  describe("restored source integrity", () => {
+    beforeEach(() => {
+      writeFixtureFile("src/locales/es.yml", JSON.stringify(restoredFixture))
+      writeRestoredCoverage(restoredFixture)
+    })
+
+    it("accepts the pinned snapshot without an upstream Git object or network", () => {
+      const result = runAudit()
+      expect(result.status).toBe(0)
+    })
+
+    it("ignores serialization and key order changes", () => {
+      writeFixtureFile(
+        "src/locales/es.yml",
+        JSON.stringify(Object.fromEntries(Object.entries(restoredFixture).reverse()), null, 2),
+      )
+      expect(runAudit().status).toBe(0)
+    })
+
+    it("rejects a changed value with the same placeholder signature", () => {
+      writeFixtureFile(
+        "src/locales/es.yml",
+        JSON.stringify({
+          ...restoredFixture,
+          "contextMenu.translateSelection": 'Otra frase "%s"',
+        }),
+      )
+      const result = runAudit()
+      expect(result.status).toBe(1)
+      expect(result.report.placeholderDifferences).toEqual([])
+      expect(result.report.restoredResourceDifferences).toEqual(["es"])
+    })
+
+    it.each(Object.keys(sharedKeys))("requires %s even before English adds it", (key) => {
+      const resource: Record<string, string> = { ...restoredFixture }
+      delete resource[key]
+      writeFixtureFile("src/locales/es.yml", JSON.stringify(resource))
+      // Even refreshing the digest must not hide a missing required shared key.
+      writeRestoredCoverage(resource)
+      const result = runAudit()
+      expect(result.status).toBe(1)
+      expect(result.report.restoredResourceDifferences).toEqual([])
+      expect(result.report.missingSharedKeys).toEqual([`es:${key}`])
+    })
+
+    it("binds the source commit to the snapshot digest", () => {
+      const coverage = writeRestoredCoverage(restoredFixture)
+      coverage.upstreamCommit = "b".repeat(40)
+      writeFixtureFile("docs/ui-locale-coverage.json", JSON.stringify(coverage))
+      const result = runAudit()
+      expect(result.status).toBe(1)
+      expect(result.report.restoredResourceDifferences).toEqual(["es"])
+    })
+
+    it("rejects a missing snapshot digest", () => {
+      const coverage = writeRestoredCoverage(restoredFixture)
+      writeFixtureFile(
+        "docs/ui-locale-coverage.json",
+        JSON.stringify({
+          ...coverage,
+          restoredResourceSha256: {},
+        }),
+      )
+      const result = runAudit()
+      expect(result.status).toBe(1)
+      expect(result.report.restoredResourceDifferences).toEqual(["es"])
+    })
   })
 })
