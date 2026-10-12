@@ -6,6 +6,7 @@ import {
   currentSubtitleAtom,
   currentTimeMsAtom,
   displaySubtitleAtom,
+  nativeSubtitleTranslationBlockedAtom,
   sourceTrackAtom,
   subtitlesShowContentAtom,
   subtitlesShowStateAtom,
@@ -21,6 +22,7 @@ describe("displaySubtitleAtom", () => {
     subtitlesStore.set(sourceTrackAtom, [])
     subtitlesStore.set(subtitlesStateAtom, null)
     subtitlesStore.set(subtitlesVisibleAtom, false)
+    subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, false)
     subtitlesStore.set(configAtom, DEFAULT_CONFIG)
   })
 
@@ -120,5 +122,88 @@ describe("displaySubtitleAtom", () => {
     expect(subtitlesStore.get(subtitlesShowContentAtom)).toBe(false)
     // User toggle intent stays on.
     expect(subtitlesStore.get(subtitlesVisibleAtom)).toBe(true)
+  })
+
+  describe("after a start with no provider to translate with", () => {
+    function showOriginalOnly(displayMode: "bilingual" | "originalOnly" | "translationOnly") {
+      subtitlesStore.set(configAtom, {
+        ...DEFAULT_CONFIG,
+        videoSubtitles: {
+          ...DEFAULT_CONFIG.videoSubtitles,
+          style: { ...DEFAULT_CONFIG.videoSubtitles.style, displayMode },
+        },
+      })
+      subtitlesStore.set(currentTimeMsAtom, 500)
+      subtitlesStore.set(subtitlesVisibleAtom, true)
+      subtitlesStore.set(sourceTrackAtom, [{ text: "hello", start: 0, end: 1000 }])
+      subtitlesStore.set(subtitlesStateAtom, { state: "idle" })
+    }
+
+    it.each(["bilingual", "originalOnly"] as const)(
+      "keeps showing the original in %s mode, with no loading",
+      (displayMode) => {
+        showOriginalOnly(displayMode)
+        subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, true)
+
+        expect(subtitlesStore.get(subtitlesShowContentAtom)).toBe(true)
+        expect(subtitlesStore.get(subtitlesShowStateAtom)).toBeUndefined()
+        expect(subtitlesStore.get(displaySubtitleAtom)).toEqual({
+          text: "hello",
+          start: 0,
+          end: 1000,
+        })
+      },
+    )
+
+    it("shows no loading and never passes the original off as the translation in translation-only mode", () => {
+      showOriginalOnly("translationOnly")
+      // Without a refusal a cue still waiting for its translation is "loading", as before.
+      expect(subtitlesStore.get(subtitlesShowStateAtom)).toBe("loading")
+
+      subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, true)
+
+      expect(subtitlesStore.get(subtitlesShowStateAtom)).toBeUndefined()
+      expect(subtitlesStore.get(subtitlesShowContentAtom)).toBe(false)
+    })
+
+    it("follows live display-mode changes on the same original cue without inventing a translation", () => {
+      // What an original-only start with no provider leaves behind: the source cue, no translation.
+      showOriginalOnly("originalOnly")
+      subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, true)
+      const setDisplayMode = (displayMode: "bilingual" | "originalOnly" | "translationOnly") =>
+        subtitlesStore.set(configAtom, {
+          ...DEFAULT_CONFIG,
+          videoSubtitles: {
+            ...DEFAULT_CONFIG.videoSubtitles,
+            style: { ...DEFAULT_CONFIG.videoSubtitles.style, displayMode },
+          },
+        })
+
+      expect(subtitlesStore.get(subtitlesShowContentAtom)).toBe(true)
+      expect(subtitlesStore.get(subtitlesShowStateAtom)).toBeUndefined()
+
+      setDisplayMode("translationOnly")
+      // The original is not passed off as the translation, and nothing is loading.
+      expect(subtitlesStore.get(subtitlesShowContentAtom)).toBe(false)
+      expect(subtitlesStore.get(subtitlesShowStateAtom)).toBeUndefined()
+
+      setDisplayMode("bilingual")
+      expect(subtitlesStore.get(subtitlesShowContentAtom)).toBe(true)
+      expect(subtitlesStore.get(subtitlesShowStateAtom)).toBeUndefined()
+      expect(subtitlesStore.get(displaySubtitleAtom)).toEqual({
+        text: "hello",
+        start: 0,
+        end: 1000,
+      })
+      expect(subtitlesStore.get(displaySubtitleAtom)?.translation).toBeUndefined()
+    })
+
+    it("still reports an error", () => {
+      showOriginalOnly("bilingual")
+      subtitlesStore.set(subtitlesStateAtom, { state: "error", message: "boom" })
+      subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, true)
+
+      expect(subtitlesStore.get(subtitlesShowStateAtom)).toBe("error")
+    })
   })
 })

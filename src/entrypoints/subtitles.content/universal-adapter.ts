@@ -5,6 +5,7 @@ import type { SubtitlesSource } from "@/utils/constants/subtitles"
 import type { SubtitlesFetcher } from "@/utils/subtitles/fetchers/types"
 import type { SubtitlesVideoContext } from "@/utils/subtitles/processor/translator"
 import type { SubtitlesFragment } from "@/utils/subtitles/types"
+import { browser } from "#imports"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
 import { createFeatureUsageContext, trackFeatureUsed } from "@/utils/analytics"
@@ -23,6 +24,7 @@ import { getDocumentDescription } from "@/utils/content/metadata"
 import { resolveLanguageCodeFromLocale } from "@/utils/content/page-language"
 import { waitForElement } from "@/utils/dom/wait-for-element"
 import { i18n } from "@/utils/i18n"
+import { buildFeatureProviderRoute, getFeatureProviderRowId } from "@/utils/navigation"
 import { canProviderRefGenerateText } from "@/utils/providers/provider-ref"
 import { resolveProviderRefForCapability } from "@/utils/providers/provider-registry"
 import { removeReactShadowHost } from "@/utils/react-shadow-host/create-shadow-host"
@@ -41,6 +43,7 @@ import {
   adPlayingAtom,
   currentTimeMsAtom,
   currentVideoIdAtom,
+  nativeSubtitleTranslationBlockedAtom,
   sourceTrackAtom,
   sourceSubtitlesCopyStatusAtom,
   translatedSubtitlesCopyStatusAtom,
@@ -491,6 +494,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     this.publishedTrackIdentity = undefined
     this.subtitlesSummaryContextHash = null
     subtitlesStore.set(sourceTrackAtom, [])
+    subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, false)
   }
 
   private clearVisibleStateForNavigation() {
@@ -898,6 +902,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   }
 
   private async startTranslation(analyticsContext?: FeatureUsageContext<"video_subtitles">) {
+    // A new start lifts an earlier refusal; the native guard below raises it again if need be.
+    subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, false)
     let providerAnalytics = UNKNOWN_FEATURE_PROVIDER
     let targetLanguage: Config["language"]["targetCode"] | undefined
 
@@ -908,15 +914,25 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       // AI is synthesized by the registry and is never a row there, so the
       // lookup returned undefined and every hosted subtitle run was reported as
       // provider "unknown" — the one metric that would size hosted adoption.
-      providerAnalytics = classifyResolvedProvider(
-        analyticsConfig
-          ? resolveProviderRefForCapability(
-              "videoSubtitles",
-              analyticsConfig.providersConfig,
-              analyticsConfig.videoSubtitles.providerId,
-            )
-          : null,
-      )
+      const requestedProvider = analyticsConfig
+        ? resolveProviderRefForCapability(
+            "videoSubtitles",
+            analyticsConfig.providersConfig,
+            analyticsConfig.videoSubtitles.providerId,
+          )
+        : null
+      providerAnalytics = classifyResolvedProvider(requestedProvider)
+      // The track is already in the target language: nothing to translate, so its cues stand as
+      // their own translation. Asked again after the fetch, when the track's language is known.
+      const isSameLanguage = () => this.shouldSkipTranslationForCurrentTrack(analyticsConfig)
+      // A native start that only wants originals and has no provider: there is no translation to
+      // wait for and none to fake, so the source cues are the whole display. A chosen provider
+      // that is broken keeps reporting its own diagnostics, and a provider-less start that does
+      // want translations is refused further down.
+      const isSourceOnly = () =>
+        this.source === SUBTITLES_SOURCE.NATIVE &&
+        requestedProvider === null &&
+        analyticsConfig?.videoSubtitles?.style?.displayMode === "originalOnly"
       const currentVideoId = this.config.getVideoId?.() ?? ""
       const hasCurrentSession =
         this.sessionProcessedFragments.length > 0 && this.sessionVideoId === currentVideoId
@@ -929,7 +945,19 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
           this.sessionTrackIdentity === this.fetcher.getTrackIdentity?.()) &&
         (await this.fetcher.shouldUseSameTrack())
 
-      if (useSameTrack && hasCurrentSession) {
+      // A native session resumes only while its kind still fits: a translated one needs a provider
+      // to go on translating with, a passthrough one must still be a track already in the target
+      // language. A source-only session never fills the session fragments, so it always starts
+      // fresh and a provider chosen later is picked up. An AI session keeps resuming as before.
+      const canResume =
+        useSameTrack &&
+        hasCurrentSession &&
+        (this.source !== SUBTITLES_SOURCE.NATIVE ||
+          (this.translationCoordinator
+            ? requestedProvider !== null && !isSameLanguage()
+            : isSameLanguage()))
+
+      if (canResume) {
         // Translated sessions create a coordinator; passthrough sessions only cache rendered fragments.
         if (this.translationCoordinator) {
           // Clear failed states to allow retry on resume
@@ -961,8 +989,27 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       this.sessionSubtitles = this.sourceSubtitles
       this.sessionTrackIdentity = this.fetcher.getTrackIdentity?.()
 
-      if (this.shouldSkipTranslationForCurrentTrack(analyticsConfig)) {
+      if (isSameLanguage()) {
         this.processPassthroughSubtitles()
+      } else if (isSourceOnly()) {
+        // Originals only and no provider. The flag marks the cues as not awaiting a translation;
+        // the session fragments stay empty, so this is never resumed as a finished passthrough.
+        // Nothing was refused, so there is no toast.
+        subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, true)
+        this.publishSourceTrack(this.sourceProcessedSubtitles)
+        this.subtitlesScheduler?.setState("idle")
+      } else if (this.source === SUBTITLES_SOURCE.NATIVE && requestedProvider === null) {
+        // The original captions stay on screen; translating them needs a provider to run on. The
+        // flag first, so publishing the track never flashes a translation as on its way. The catch
+        // below clears the loading state and raises this as the usual toast.
+        subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, true)
+        this.publishSourceTrack(this.sourceProcessedSubtitles)
+        throw new ToastSubtitlesError(i18n.t("providerRequired.message"), {
+          label: i18n.t("providerRequired.openSettings"),
+          url: browser.runtime.getURL(
+            `/options.html#${buildFeatureProviderRoute(getFeatureProviderRowId("videoSubtitles"))}`,
+          ),
+        })
       } else {
         await this.processTranslatedSubtitles(analyticsConfig)
       }
