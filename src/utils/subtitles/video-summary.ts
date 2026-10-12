@@ -145,6 +145,7 @@ export async function requestVideoSummary(
     sampleTranscript(transcript, VIDEO_SUMMARY_TRANSCRIPT_CHAR_BUDGET),
   )
   const payload: BackgroundStreamTextSerializablePayload = {
+    usageFeature: "videoSummary",
     providerKind: "local",
     providerId: providerRef.config.id,
     providerConfig: providerRef.config,

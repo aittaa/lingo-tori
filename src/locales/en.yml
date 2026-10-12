@@ -83,6 +83,98 @@ options:
     features: Features
     translation: Translation
     product: Product
+  apiUsage:
+    title: "Usage"
+    description: "Tokens and requests by feature."
+    refresh: Refresh
+    loading: Loading usage…
+    unavailable: "Usage unavailable. Try refreshing."
+    incomplete: "Some usage may be missing."
+    empty: "No usage recorded yet."
+    since: Counting since
+    total: "Total"
+    feature: Feature
+    api: "Other services"
+    byos: "ChatGPT"
+    semantics: "Requests include retries. Cached translations make no requests."
+    exclusions: Authentication, token refresh, model lists, connection checks and subtitle downloads are excluded. Shared / older requests cover mixed batches or callers without a feature label.
+    privacy: Only numeric local aggregates, recorded dates, fixed provider types and safe public model labels or aliases are saved. No text, URLs, user-defined names, keys, tokens or credentials are stored. History persists without automatic deletion; reset and export are not provided.
+    limitations: "Usage stays on this device. Earlier history is not reconstructed, and interruptions can leave gaps."
+    billing: "Tokens are reported by the service and may be incomplete. — means unreported; shares use reported values. Costs and remaining quota are unavailable."
+    history:
+      range7: "7 days"
+      range30: "30 days"
+      rangeCustom: "Custom"
+      share: "Share"
+      noShare: "No share (total is zero)"
+      details: "Details"
+      noUsage: "No recorded usage in this period."
+      connection: "Connection"
+      partialShare: "Reported values only"
+      about: "About these numbers"
+      views: "Usage view"
+      viewHistory: "Daily usage"
+      viewLifetime: "All-time requests"
+      lifetimeNote: "This preserves the original cumulative request counters. Earlier counts have no date, model or token history and are never distributed into the daily view."
+      byosPriority: "All models are shown."
+      from: "From date"
+      to: "Through date"
+      metric: "Metric"
+      metrics:
+        inputTokens: "Input tokens"
+        outputTokens: "Output tokens"
+        requests: "Requests"
+      period: "Date range"
+      started: "Daily/model recording started (local time)"
+      dateRule: "Requests use the date sent; tokens use the date the result is received. Dates follow the device’s local time when recorded."
+      empty: "No usage recorded yet."
+      legend: "Models"
+      visibleTotals: "Bars and period totals include only visible models. Hiding a model excludes it from sums; token sums contain only reported values."
+      chartTitle: "Usage by date and model"
+      chartDescription: "Usage by date. Select a date or model for details."
+      dateAxis: "Horizontal axis — calendar date recorded on this device"
+      privateModel: "Custom model"
+      selectDetails: "Select feature details"
+      beforeHistory: "Earlier history unavailable"
+      noReports: "No observed reports"
+      invalidRange: "Choose valid dates with the start on or before the end."
+      noVisible: "Select a model to view usage."
+      olderUnknown: "Earlier history is unavailable. The first recorded day may be partial."
+      previous: "Previous dates"
+      next: "Next dates"
+      pageNote: "Up to 31 dates per graph page; period totals cover the full selected range."
+      periodDetails: "Features"
+      clearSelection: "All dates"
+      detailsTitle: "Feature usage"
+      tableCaption: "Input/output values are provider-reported token sums. Requests are actual fetch attempts. Coverage is input-reported / finished-generation results, then output-reported / finished-generation results."
+      requests: "Requests"
+      coverage: "Input / output coverage"
+      unreported: "Unreported"
+      partial: "partial"
+      coverageNote: "Coverage describes finished local generation results, including failures and cancellation. It is not coverage of every HTTP attempt: one generation can dispatch multiple retries or provider subrequests, whose token usage may remain unavailable."
+      tokenNote: "SDK-normalized input includes reported cache input; it is not added again. Output may include reasoning. Missing fields, unsupported providers and errors without usage stay unreported. No token estimates, costs or subscription quota are calculated."
+      identityNote: "Provider kind, transport and local configuration aliases keep identical model names separate. Only approved public model labels are shown; arbitrary provider names, custom URLs and private model labels are not saved. Daily history has no automatic deletion."
+    chart:
+      title: Requests by feature
+      description: "Actual requests by feature."
+      period: Cumulative period (local time)
+      axis: Outbound request attempts (count)
+      legend: "Services"
+      byosLegend: "ChatGPT"
+    features:
+      pageTranslation: Page translation (including titles)
+      selectionTranslation: Selected-text translation
+      subtitlesTranslation: Video subtitle translation
+      dictionary: Dictionary
+      sentenceAnalysis: Sentence explanation
+      customAction: Custom AI actions
+      noteSuggestion: Reading / note suggestions
+      pageContext: Page context summary
+      subtitlesContext: Subtitle context summary
+      videoSummary: Video summary
+      subtitlesSegmentation: AI subtitle segmentation
+      languageDetection: AI language detection
+      sharedRequests: Shared / older requests
   apiProviders:
     title: API Providers
     pageDescription: Connect the AI services LingoTori calls, then choose which one runs each feature.

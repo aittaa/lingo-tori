@@ -18,6 +18,13 @@ type SearchItemDefinition = Omit<SearchItem, "titleKey" | "descriptionKey" | "pa
 }
 
 export const SEARCH_ITEMS: SearchItem[] = [
+  {
+    sectionId: "api-usage",
+    route: "/api-usage",
+    titleKey: "options.apiUsage.title",
+    descriptionKey: "options.apiUsage.description",
+    pageKey: "options.apiUsage.title",
+  },
   // Advanced page
   {
     sectionId: "glossary-enabled",

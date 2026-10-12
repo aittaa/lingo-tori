@@ -134,6 +134,7 @@ export function setupPageTranslationHandlers(): void {
       // Create thunk based on type and params
       const thunk = (signal?: AbortSignal) =>
         executeTranslate(text, langConfig, localProvider, getTranslatePrompt, {
+          usageFeature: routing.usageFeature,
           textFormat,
           preserveLineBreaks,
           signal,
@@ -194,6 +195,7 @@ export function setupPageTranslationHandlers(): void {
       title: webTitle,
       textContent: webContent,
       cacheKeyParts: [webTitle, Sha256Hex(cleanText(webContent))],
+      usageFeature: "pageContext",
       requestQueue,
     })
   })

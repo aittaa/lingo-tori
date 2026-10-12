@@ -4,6 +4,16 @@ import { z } from "zod"
 import { createByosModel } from "../model"
 vi.mock("../messages", () => ({ sendByosMessage: vi.fn<typeof fetch>() }))
 describe("BYOS AI SDK adapter", () => {
+  it("passes a fixed feature label separately from the strict upstream invocation", async () => {
+    const invoke = vi.fn<NonNullable<Parameters<typeof createByosModel>[1]>>(async () => ({
+      text: "result",
+    }))
+    await createByosModel("synthetic-model", invoke, "dictionary").doGenerate({
+      prompt: [{ role: "user", content: [{ type: "text", text: "source" }] }],
+    })
+    expect(invoke.mock.calls[0]?.[2]).toBe("dictionary")
+    expect(invoke.mock.calls[0]?.[0]).not.toHaveProperty("usageFeature")
+  })
   it("runs actual generateText pipeline for page translation", async () => {
     const invoke = vi.fn<NonNullable<Parameters<typeof createByosModel>[1]>>(async () => ({
       text: "번역된 페이지",

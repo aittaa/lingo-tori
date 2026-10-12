@@ -1,6 +1,10 @@
 import type { LangCodeISO6391 } from "@/lib/languages"
 import type { ProviderConfig } from "@/types/config/provider"
 import type { TranslationTextFormat } from "@/types/config/translate"
+import type { ApiUsageFeature } from "@/utils/api-usage"
+import type { ApiUsageIdentity } from "@/utils/api-usage-identity"
+import { createApiUsageIdentity } from "@/utils/api-usage-identity"
+import { withApiUsage } from "@/utils/api-usage-tracking"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 
 type DeepLXProviderConfig = Extract<ProviderConfig, { provider: "deeplx" }>
@@ -11,7 +15,11 @@ export async function deeplxTranslate(
   fromLang: LangCodeISO6391 | "auto",
   toLang: LangCodeISO6391,
   providerConfig: DeepLXProviderConfig,
-  options?: { textFormat?: TranslationTextFormat; signal?: AbortSignal },
+  options?: {
+    usageFeature?: ApiUsageFeature
+    textFormat?: TranslationTextFormat
+    signal?: AbortSignal
+  },
 ): Promise<string> {
   const baseURL = providerConfig.baseURL || DEFAULT_PROVIDER_CONFIG.deeplx.baseURL
   const apiKey = providerConfig.apiKey
@@ -37,13 +45,25 @@ export async function deeplxTranslate(
     ...(options?.textFormat === "html" ? { tag_handling: "html" } : {}),
   })
 
-  const fetchResponse = await fetchDirect(url, requestBody, options?.signal)
+  const fetchResponse = await fetchDirect(
+    url,
+    requestBody,
+    options?.signal,
+    options?.usageFeature,
+    options?.usageFeature ? createApiUsageIdentity(providerConfig) : undefined,
+  )
 
   return parseDeepLXResponse(fetchResponse)
 }
 
-async function fetchDirect(url: string, body: string, signal?: AbortSignal) {
-  const resp = await fetch(url, {
+async function fetchDirect(
+  url: string,
+  body: string,
+  signal?: AbortSignal,
+  usageFeature?: ApiUsageFeature,
+  identity?: ApiUsageIdentity,
+) {
+  const resp = await (usageFeature ? withApiUsage(usageFeature, undefined, identity) : fetch)(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body,

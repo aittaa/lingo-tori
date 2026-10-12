@@ -2,6 +2,7 @@ import type { PromptResolver } from "./api/ai"
 import type { Config } from "@/types/config/config"
 import type { ProviderConfig } from "@/types/config/provider"
 import type { TranslationTextFormat } from "@/types/config/translate"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import { ISO6393_TO_6391, LANG_CODE_TO_EN_NAME } from "@/lib/languages"
 import { isLLMProviderConfig, isPureAPIProvider } from "@/types/config/provider"
@@ -17,6 +18,7 @@ export async function executeTranslate<TContext>(
   providerConfig: ProviderConfig,
   promptResolver: PromptResolver<TContext>,
   options?: {
+    usageFeature?: ApiUsageFeature
     isBatch?: boolean
     context?: TContext
     textFormat?: TranslationTextFormat
@@ -47,11 +49,13 @@ export async function executeTranslate<TContext>(
       translatedText = await deeplxTranslate(preparedText, sourceLang, targetLang, providerConfig, {
         textFormat: options?.textFormat,
         signal: options?.signal,
+        usageFeature: options?.usageFeature,
       })
     } else if (provider === "deepl") {
       translatedText = await deeplTranslate(text, sourceLang, targetLang, providerConfig, {
         textFormat: options?.textFormat,
         signal: options?.signal,
+        usageFeature: options?.usageFeature,
       })
     }
   } else if (isLLMProviderConfig(providerConfig)) {

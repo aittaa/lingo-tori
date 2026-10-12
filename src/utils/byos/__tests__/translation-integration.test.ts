@@ -391,8 +391,13 @@ it("carries subtitle batch text through host translation, the real SDK adapter a
     })
   })
   await prepare(fetcher)
-  expect(await aiTranslate(source, "Korean", provider, prompt, { isBatch: true })).toBe(translated)
-  expect(mocks.getModel).toHaveBeenCalledWith(provider)
+  expect(
+    await aiTranslate(source, "Korean", provider, prompt, {
+      isBatch: true,
+      usageFeature: "subtitlesTranslation",
+    }),
+  ).toBe(translated)
+  expect(mocks.getModel).toHaveBeenCalledWith(provider, "subtitlesTranslation")
   expect(fetcher).toHaveBeenCalledOnce()
 })
 

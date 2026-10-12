@@ -31,6 +31,17 @@ export function SettingsNav() {
 
           <SidebarMenuItem>
             <SidebarMenuButton
+              render={<Link to="/api-usage" />}
+              isActive={pathname === "/api-usage"}
+              tooltip={i18n.t("options.apiUsage.title")}
+            >
+              <Icon icon="tabler:chart-bar" />
+              <span>{i18n.t("options.apiUsage.title")}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          <SidebarMenuItem>
+            <SidebarMenuButton
               render={<Link to="/preference" />}
               isActive={pathname.startsWith("/preference")}
               tooltip={i18n.t("options.preference.title")}

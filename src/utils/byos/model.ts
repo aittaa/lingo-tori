@@ -1,4 +1,5 @@
 import type { createOpenAI } from "@ai-sdk/openai"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import { z } from "zod"
 import { invokeByos } from "./invoke"
 import { ByosBridgeError } from "./service"
@@ -14,7 +15,11 @@ const usage = {
   },
   outputTokens: { total: undefined, text: undefined, reasoning: undefined },
 }
-export function createByosModel(modelId: string, invoke: Invoker = invokeByos): Model {
+export function createByosModel(
+  modelId: string,
+  invoke: Invoker = invokeByos,
+  usageFeature?: ApiUsageFeature,
+): Model {
   if (!modelId.trim()) throw new ByosBridgeError("model_required")
   async function generate(options: CallOptions) {
     options.abortSignal?.throwIfAborted()
@@ -47,7 +52,7 @@ export function createByosModel(modelId: string, invoke: Invoker = invokeByos): 
         )
       }
     }
-    const { text } = await invoke(
+    const result = await invoke(
       {
         model: modelId,
         text:
@@ -57,7 +62,9 @@ export function createByosModel(modelId: string, invoke: Invoker = invokeByos): 
         instructions: instructions.join("\n\n"),
       },
       options.abortSignal,
+      usageFeature,
     )
+    const { text } = result
     options.abortSignal?.throwIfAborted()
     if (options.responseFormat?.type === "json") {
       try {
@@ -67,7 +74,7 @@ export function createByosModel(modelId: string, invoke: Invoker = invokeByos): 
         throw new ByosBridgeError("invalid_structured_output")
       }
     }
-    return text
+    return result
   }
   return {
     specificationVersion: "v4",
@@ -75,17 +82,39 @@ export function createByosModel(modelId: string, invoke: Invoker = invokeByos): 
     modelId,
     supportedUrls: {},
     async doGenerate(options) {
-      const text = await generate(options)
+      const { text, usage: reported } = await generate(options)
       return {
         content: [{ type: "text", text }],
         finishReason: { unified: "stop", raw: "completed" },
-        usage,
+        usage: reported
+          ? {
+              inputTokens: {
+                total: reported.inputTokens,
+                noCache: undefined,
+                cacheRead: reported.cachedInputTokens,
+                cacheWrite: reported.cacheWriteInputTokens,
+              },
+              outputTokens: {
+                total: reported.outputTokens,
+                text: undefined,
+                reasoning: reported.reasoningTokens,
+              },
+              raw: {
+                ...(reported.inputTokens !== undefined
+                  ? { input_tokens: reported.inputTokens }
+                  : {}),
+                ...(reported.outputTokens !== undefined
+                  ? { output_tokens: reported.outputTokens }
+                  : {}),
+              },
+            }
+          : usage,
         warnings: [],
       }
     },
     async doStream(options) {
       // Emit a completed result only after the invocation succeeds.
-      const text = await generate(options)
+      const { text, usage: reported } = await generate(options)
       return {
         stream: new ReadableStream({
           start(controller) {
@@ -96,7 +125,29 @@ export function createByosModel(modelId: string, invoke: Invoker = invokeByos): 
             controller.enqueue({
               type: "finish",
               finishReason: { unified: "stop", raw: "completed" },
-              usage,
+              usage: reported
+                ? {
+                    inputTokens: {
+                      total: reported.inputTokens,
+                      noCache: undefined,
+                      cacheRead: reported.cachedInputTokens,
+                      cacheWrite: reported.cacheWriteInputTokens,
+                    },
+                    outputTokens: {
+                      total: reported.outputTokens,
+                      text: undefined,
+                      reasoning: reported.reasoningTokens,
+                    },
+                    raw: {
+                      ...(reported.inputTokens !== undefined
+                        ? { input_tokens: reported.inputTokens }
+                        : {}),
+                      ...(reported.outputTokens !== undefined
+                        ? { output_tokens: reported.outputTokens }
+                        : {}),
+                    },
+                  }
+                : usage,
             })
             controller.close()
           },

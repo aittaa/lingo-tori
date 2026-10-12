@@ -4,6 +4,7 @@ import type {
   DedicatedLLMProviderTypes,
   LLMProviderConfig,
 } from "@/types/config/provider"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import { createAlibaba } from "@ai-sdk/alibaba"
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock"
 import { createAnthropic } from "@ai-sdk/anthropic"
@@ -35,6 +36,8 @@ import {
   isOpenResponsesLLMProviderConfig,
 } from "@/types/config/provider"
 import { compactObject } from "@/types/utils"
+import { createApiUsageIdentity, registerApiUsageModel } from "@/utils/api-usage-identity"
+import { withApiUsage } from "@/utils/api-usage-tracking"
 import { createByosModel } from "@/utils/byos/model"
 import { getLLMProvidersConfig, getProviderConfigById } from "../config/helpers"
 import { CONFIG_STORAGE_KEY } from "../constants/config"
@@ -89,7 +92,7 @@ function getAzureApiMode(providerConfig: LLMProviderConfig): AzureApiMode {
   return apiMode === "chat" ? "chat" : DEFAULT_AZURE_API_MODE
 }
 
-async function getLanguageModelById(providerId: string) {
+async function getLanguageModelById(providerId: string, usageFeature?: ApiUsageFeature) {
   const config = await storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`)
   if (!config) {
     throw new ProviderSetupError("Config not found")
@@ -101,7 +104,7 @@ async function getLanguageModelById(providerId: string) {
     throw new ProviderSetupError(`Provider ${providerId} not found`)
   }
 
-  return getLanguageModelForConfig(providerConfig)
+  return getLanguageModelForConfig(providerConfig, usageFeature)
 }
 
 /**
@@ -112,14 +115,22 @@ async function getLanguageModelById(providerId: string) {
  * up edits made after the ref was captured, so the model would come from the
  * new row while the params derived from the ref came from the old one.
  */
-export function getLanguageModelForConfig(providerConfig: LLMProviderConfig) {
+export function getLanguageModelForConfig(
+  providerConfig: LLMProviderConfig,
+  usageFeature?: ApiUsageFeature,
+) {
   if (!providerConfig.enabled) {
     throw new ProviderSetupError("Enable this provider in Settings before using it.")
+  }
+  const identity = usageFeature ? createApiUsageIdentity(providerConfig) : undefined
+  const register = <T>(model: T): T => {
+    if (identity) registerApiUsageModel(model, identity)
+    return model
   }
   if (providerConfig.provider === "byos") {
     const modelId = resolveModelId(providerConfig.model)
     if (!modelId) throw new ProviderSetupError("Choose a ChatGPT model in Settings.")
-    return createByosModel(modelId)
+    return register(createByosModel(modelId, undefined, usageFeature))
   }
   // Custom/local endpoints may intentionally authenticate outside an API key.
   if (
@@ -134,12 +145,16 @@ export function getLanguageModelForConfig(providerConfig: LLMProviderConfig) {
   const headers = getProviderHeadersWithOverride(providerConfig.provider, providerConfig.headers)
   const providerSpecificSettings = getProviderSpecificSettings(providerConfig)
 
+  const meteredFetch = usageFeature
+    ? { fetch: withApiUsage(usageFeature, undefined, identity) }
+    : {}
   const provider = match(providerConfig)
     .when(isOpenAICompatibleLLMProviderConfig, (matchedConfig) =>
       createOpenAICompatible({
         name: matchedConfig.provider,
         baseURL: matchedConfig.baseURL,
         supportsStructuredOutputs: true,
+        ...meteredFetch,
         ...(matchedConfig.apiKey && { apiKey: matchedConfig.apiKey }),
         ...(headers && { headers }),
       }),
@@ -148,6 +163,7 @@ export function getLanguageModelForConfig(providerConfig: LLMProviderConfig) {
       createOpenResponses({
         name: matchedConfig.provider,
         url: matchedConfig.url,
+        ...meteredFetch,
         ...(matchedConfig.apiKey && { apiKey: matchedConfig.apiKey }),
         ...(headers && { headers }),
       }),
@@ -155,6 +171,7 @@ export function getLanguageModelForConfig(providerConfig: LLMProviderConfig) {
     .when(isDedicatedLLMProviderConfig, (matchedConfig) =>
       DEDICATED_PROVIDER_FACTORY_BY_TYPE[matchedConfig.provider]({
         ...providerSpecificSettings,
+        ...meteredFetch,
         ...(matchedConfig.baseURL && { baseURL: matchedConfig.baseURL }),
         ...(matchedConfig.apiKey && { apiKey: matchedConfig.apiKey }),
         ...(headers && { headers }),
@@ -169,16 +186,18 @@ export function getLanguageModelForConfig(providerConfig: LLMProviderConfig) {
   }
 
   if (providerConfig.provider === "azure" && getAzureApiMode(providerConfig) === "chat") {
-    return (provider as ReturnType<typeof createAzure>).chat(modelId)
+    return register((provider as ReturnType<typeof createAzure>).chat(modelId))
   }
 
   if (providerConfig.provider === "ollama") {
-    return (provider as ReturnType<typeof createOllama>).languageModel(modelId, { think: false })
+    return register(
+      (provider as ReturnType<typeof createOllama>).languageModel(modelId, { think: false }),
+    )
   }
 
-  return provider.languageModel(modelId)
+  return register(provider.languageModel(modelId))
 }
 
-export async function getModelById(providerId: string) {
-  return getLanguageModelById(providerId)
+export async function getModelById(providerId: string, usageFeature?: ApiUsageFeature) {
+  return getLanguageModelById(providerId, usageFeature)
 }

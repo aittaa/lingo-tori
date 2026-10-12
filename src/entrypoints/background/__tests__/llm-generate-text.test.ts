@@ -49,7 +49,10 @@ describe("llm-generate-text", () => {
     const { runGenerateTextInBackground } = await import("../llm-generate-text")
     const result = await runGenerateTextInBackground(localPayload)
 
-    expect(generateTextForProviderRefMock).toHaveBeenCalledWith(localPayload)
+    expect(generateTextForProviderRefMock).toHaveBeenCalledWith(localPayload, {
+      usageFeature: "languageDetection",
+    })
+    expect(generateTextForProviderRefMock.mock.calls[0]?.[0]).toBe(localPayload)
     expect(result).toEqual({ text: "eng" })
   })
 

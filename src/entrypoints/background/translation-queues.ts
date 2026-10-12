@@ -3,11 +3,13 @@ import type { ProviderConfig } from "@/types/config/provider"
 import type { BatchQueueConfig, RequestQueueConfig } from "@/types/config/translate"
 import type { WebPagePromptContext } from "@/types/content"
 import type { ProviderRequestRouting } from "@/types/hosted-request"
+import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import type { PromptResolver } from "@/utils/host/translate/api/ai"
 import type { SerializableProviderRef } from "@/utils/providers/provider-ref"
 import { storage } from "#imports"
 import { isLLMProviderConfig } from "@/types/config/provider"
+import { apiUsageFeatureSchema } from "@/utils/api-usage"
 import { putBatchRequestRecord } from "@/utils/batch-request-record"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { BATCH_SEPARATOR, BATCH_SEPARATOR_LINE_PATTERN } from "@/utils/constants/prompt"
@@ -28,11 +30,17 @@ import { ensureInitializedConfig } from "./config"
 
 type QueuedTranslationProvider = ProviderConfig | SerializableProviderRef
 
-type QueuedTranslationRouting = { provider: QueuedTranslationProvider }
+type QueuedTranslationRouting = {
+  provider: QueuedTranslationProvider
+  usageFeature?: ApiUsageFeature
+}
 export function getQueuedTranslationRouting(
-  request: ProviderRequestRouting,
+  request: ProviderRequestRouting & { usageFeature?: ApiUsageFeature },
 ): QueuedTranslationRouting {
-  return { provider: request.providerRef }
+  return {
+    provider: request.providerRef,
+    usageFeature: apiUsageFeatureSchema.safeParse(request.usageFeature).data ?? "sharedRequests",
+  }
 }
 
 function isSerializedPageProvider(
@@ -65,7 +73,7 @@ async function executeQueuedTranslation<TContext>(
     langConfig,
     getLocalProviderConfig(routing.provider),
     promptResolver,
-    options,
+    { ...options, usageFeature: routing.usageFeature ?? "sharedRequests" },
   )
 }
 
@@ -183,7 +191,12 @@ export async function executeBatchTranslation<TContext>(
   const result = await executeQueuedTranslation(
     batchText,
     langConfig,
-    dataList[0]!,
+    {
+      ...dataList[0]!,
+      usageFeature: dataList.every((data) => data.usageFeature === dataList[0]!.usageFeature)
+        ? dataList[0]!.usageFeature
+        : "sharedRequests",
+    },
     promptResolver,
     {
       isBatch: true,
