@@ -1,6 +1,6 @@
 # Experimental Firefox BYOS authentication
 
-Firefox 140+ now has the browser-only sign-in routing implementation as well as Chromium. Real Firefox/OpenAI sign-in is not verified by this draft. Build and synthetic callback checks do not establish account eligibility, inference access, official support, or store approval.
+Firefox 140+ now has the browser-only sign-in routing implementation as well as Chromium. Native QA on Firefox ESR 140.17.0 verified account connection, model discovery and video subtitle translation on the reviewed candidate described below. These results do not establish eligibility for every account, official support, or store approval.
 
 ## Callback and permission boundary
 
@@ -22,6 +22,8 @@ Firefox's native `identity.launchWebAuthFlow()` is not a drop-in replacement: it
 
 Synthetic checks cover signed Firefox callbacks with a UUID origin distinct from the add-on ID; foreign origins, IDs, tabs and frames; duplicate/wrong states; expiry and generation; cancel/retry with fresh PKCE/state/nonce; signed nonce/audience rejection; background restart; and refused-navigation replay/retirement. Existing Chromium authentication and routing checks also run with mocked upstream responses. Tests do not contact OpenAI or create real registrations or persistent grants.
 
-Firefox browser runtime, real sign-in, account model discovery, translation and token renewal remain **NOT RUN** until the user approves that stage. Do not disable browser security settings or bypass an authentication warning. Chrome credentials are not transferred to Firefox: the private extension-origin vault belongs to that browser profile and is excluded from config export.
+On 2026-10-12, user-authorized native QA temporarily installed the build from PR #65 head `aa81b450f827a0b851d8db086ddb03bb7ceb0e29` (tree `8beabfd0bb9d44375821bf2702801b4563989bb5`) in an isolated Firefox ESR 140.17.0 profile. The human completed sign-in; the account connected, seven models were listed, and GPT-6.1-Sol produced Korean subtitles for a real video. No `invalid_stream` error was observed. After terminating the extension background script and reopening settings, the connection, selected model and ChatGPT video-provider assignment remained available without another login. This native evidence applies to that exact candidate, before integration with later main changes.
 
-After approval, use an isolated Firefox profile, temporarily load the reviewed build with its declared callback API capability, and complete sign-in through the explicitly opened authorization tab. Firefox has no separate optional DNR prompt; OpenAI account consent remains an explicit user action. Validate the returned account, model discovery, a user-authorized translation, cancellation/retry and browser restart. Redact authorization URLs and never copy or publish token storage.
+Full browser restart, token expiry/refresh over time, forced background termination while OAuth is pending, and long-running translation remain **NOT VERIFIED**. The test did not measure the exact upstream request count. Further native checks require their own recorded evidence; a successful background restart does not cover these cases.
+
+Use an isolated Firefox profile for further authorized checks. Firefox has no separate optional DNR prompt; OpenAI account consent remains an explicit user action. Do not disable browser security settings or bypass an authentication warning. Chrome credentials are not transferred to Firefox: the private extension-origin vault belongs to that browser profile and is excluded from config export. Redact authorization URLs and never copy or publish token storage.

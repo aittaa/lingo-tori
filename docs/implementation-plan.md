@@ -12,7 +12,7 @@ Baseline: `ca8da8241883c9aff5862d15d045845a746c9a6b`. Follow `AGENTS.md`, conven
 
 ## Review and merge gate
 
-The core and reviewed BYOS changes remain individually traceable. This integration candidate combines their pinned inputs, preserving main cleanup and captured-provider routing. CI policy and settings remain owner-controlled. Version remains 1.50.3 until release planning is reviewed.
+The core and reviewed BYOS changes remain individually traceable. This integration candidate combines their pinned inputs, preserving main cleanup and captured-provider routing. CI policy and settings remain owner-controlled. The independent version baseline is [0.0.1](versioning.md), as approved in issue #62.
 
 Do not run tests during implementation, commits, pushes or PR creation. Immediately before merging, run the relevant regression suite with `SKIP_FREE_API=true`, type/lint and formatting checks, Chrome/Firefox builds, and applicable installed-browser checks. Report PASS, FAIL and NOT RUN accurately. Basic validation must not depend on live translation services or account credentials.
 

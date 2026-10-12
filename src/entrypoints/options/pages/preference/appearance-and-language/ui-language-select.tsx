@@ -11,15 +11,23 @@ import {
 } from "@/components/ui/base-ui/select"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { i18n } from "@/utils/i18n"
+import { SUPPORTED_UI_LOCALES } from "@/utils/i18n/locales"
 
 // Each language is shown in its own script (endonym), so these labels are the same
 // regardless of the current interface language and never need translation.
 const LANGUAGE_ENDONYMS: Record<Exclude<UiLanguage, "auto">, string> = {
+  az: "Azərbaycanca",
   en: "English",
-  ko: "한국어",
+  es: "Español",
   ja: "日本語",
+  ko: "한국어",
+  ru: "Русский",
+  tr: "Türkçe",
+  vi: "Tiếng Việt",
+  "zh-CN": "简体中文",
+  "zh-TW": "繁體中文",
 }
-const UI_LANGUAGE_ORDER: UiLanguage[] = ["auto", "en", "ko", "ja"]
+const UI_LANGUAGE_ORDER: UiLanguage[] = ["auto", ...SUPPORTED_UI_LOCALES]
 
 // Resolved at render so the "auto" label follows a runtime interface-language switch.
 function labelFor(language: UiLanguage): string {

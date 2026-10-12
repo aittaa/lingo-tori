@@ -10,8 +10,10 @@ BYOK means using a provider account, endpoint and API key that you control. The 
 
 For example, select English text and translate it to Korean, look up a Japanese word with the Dictionary action, or translate a video's existing English captions to Japanese. Captions must be available from the video platform; LingoTori does not transcribe audio in this core.
 
-If a provider is missing or disabled, configure and explicitly select one. Old experimental account-provider records are retained for configuration compatibility but cannot run requests here. There is no automatic paid fallback. Existing glossary and user records are not cleanup targets.
+If a provider is missing or disabled, configure and explicitly select one. Multiple BYOK providers and per-feature assignments remain supported. There is no automatic paid fallback. Existing glossary and user records are not cleanup targets.
+
+As of 2026-10-12, main `d1bba610634c7000dd930743f39948274e743271` includes experimental browser-only ChatGPT BYOS from [PR58](https://github.com/aittaa/lingo-tori/pull/58). An enabled account provider can execute requests after sign-in, model selection and explicit feature assignment; account-provider records are no longer storage-only. This experiment is not established as officially supported. Translation Hub / multi-API text translation was removed in [PR59](https://github.com/aittaa/lingo-tori/pull/59), while page, selection and video translation remain.
 
 Config exports can contain credentials. Exporting without API keys removes only fields named exactly `apiKey`; credentials in custom headers such as `Authorization` or `x-api-key`, provider options or other fields may remain. Before sharing any export, inspect it and manually remove all credentials, including custom headers and options. Do not assume that this export option makes a file safe to share. Builds must not embed credentials in `WXT_` environment variables.
 
-[Experimental BYOS status](experimental-byos.md) is tracked separately. Consult the [validation gate](validation.md) for remaining checks on the draft core.
+See the [experimental BYOS flow and limitations](byos.md) and the [validation evidence and merge gate](validation.md) for the revisions and scenarios actually checked.
