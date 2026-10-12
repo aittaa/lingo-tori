@@ -319,6 +319,86 @@ it("installs and reconciles Firefox routing with its runtime UUID and declared c
   expect(mocks.remove).toHaveBeenCalledWith(42)
 })
 
+// Gecko's official test_ext_dnr_session_rules.js makeRuleOutput fixture and
+// declarative_net_request.json schema fill omitted optional object fields with null.
+function firefoxNormalizedCallbackRule() {
+  const rule = buildCallbackRule(
+    42,
+    "moz-extension://a702f145-d458-4acf-9101-6549d0c2babc/byos-callback.html",
+    "http://127.0.0.1:51000/auth/callback",
+  )
+  return {
+    ...rule,
+    action: {
+      ...rule.action,
+      requestHeaders: null,
+      responseHeaders: null,
+      redirect: {
+        ...rule.action.redirect,
+        extensionPath: null,
+        url: null,
+        regexSubstitution: null,
+        transform: { ...rule.action.redirect.transform, query: null, queryTransform: null },
+      },
+    },
+    condition: {
+      ...rule.condition,
+      urlFilter: null,
+      initiatorDomains: null,
+      excludedInitiatorDomains: null,
+      requestDomains: null,
+      excludedRequestDomains: null,
+      excludedResourceTypes: null,
+      excludedRequestMethods: null,
+      domainType: null,
+      excludedTabIds: null,
+    },
+  }
+}
+
+it.each([
+  ["unchanged", {}, true],
+  ["foreign tab", { condition: { tabIds: [43] } }, false],
+  ["null array entry", { condition: { tabIds: [42, null] } }, false],
+  ["zero array entry", { condition: { tabIds: [42, 0] } }, false],
+  ["missing tab scope", { condition: { tabIds: null } }, false],
+  ["broad regex", { condition: { regexFilter: "^http:" } }, false],
+  ["case-insensitive filter", { condition: { isUrlFilterCaseSensitive: false } }, false],
+  ["different method", { condition: { requestMethods: ["post"] } }, false],
+  ["different resource", { condition: { resourceTypes: ["sub_frame"] } }, false],
+  ["extra empty array", { condition: { excludedTabIds: [] } }, false],
+  ["foreign host", { transform: { host: "foreign-extension" } }, false],
+  ["foreign path", { transform: { path: "/foreign.html" } }, false],
+  ["foreign scheme", { transform: { scheme: "https" } }, false],
+  ["cleared query", { transform: { query: "" } }, false],
+  ["removed port clear", { transform: { port: null } }, false],
+] as const)(
+  "reconciles Firefox normalized rules after restart: %s",
+  async (_name, change, valid) => {
+    mocks.protocol = "moz-extension:"
+    mocks.host = "a702f145-d458-4acf-9101-6549d0c2babc"
+    mocks.navigationRecovery = true
+    const pending = {
+      state: "synthetic",
+      nonce: "synthetic",
+      verifier: "synthetic",
+      redirectUri: "http://127.0.0.1:51000/auth/callback",
+      tabId: 42,
+      expires: Date.now() + 300000,
+      generation: 1,
+    }
+    const rule = firefoxNormalizedCallbackRule()
+    if ("condition" in change) Object.assign(rule.condition, change.condition)
+    if ("transform" in change) Object.assign(rule.action.redirect.transform, change.transform)
+    mocks.get.mockResolvedValue({ id: 42, url: "about:blank" })
+    mocks.rules.mockResolvedValue([rule])
+
+    expect(await createAuthTransport().reconcile(pending)).toBe(valid)
+    expect(mocks.update.mock.calls).toEqual(valid ? [] : [[{ removeRuleIds: [AUTH_RULE_ID] }]])
+    expect(mocks.alarms.create).toHaveBeenCalledTimes(valid ? 1 : 0)
+  },
+)
+
 it("fails closed on missing Firefox capability or foreign runtime protocols", async () => {
   mocks.protocol = "moz-extension:"
   const transport = createAuthTransport()

@@ -91,7 +91,11 @@ const canonical = (value: unknown) =>
   JSON.stringify(value, (_key, candidate: unknown) => {
     if (candidate && typeof candidate === "object" && !Array.isArray(candidate))
       return Object.fromEntries(
-        Object.entries(candidate).sort(([left], [right]) => left.localeCompare(right)),
+        // Firefox fills omitted optional rule fields with null. Keep every
+        // meaningful value, including empty strings, false and array entries.
+        Object.entries(candidate)
+          .filter(([, field]) => field !== null)
+          .sort(([left], [right]) => left.localeCompare(right)),
       )
     return candidate
   })
