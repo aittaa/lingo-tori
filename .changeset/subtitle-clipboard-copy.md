@@ -2,4 +2,4 @@
 "@lingotori/extension": patch
 ---
 
-feat(subtitles): copy prepared source and translated subtitles to the clipboard with explicit gesture and retry feedback
+feat(subtitles): copy source and translated dialogue as plain text with explicit gesture and retry feedback

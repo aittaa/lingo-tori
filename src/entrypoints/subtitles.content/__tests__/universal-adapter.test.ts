@@ -681,7 +681,9 @@ describe("universalVideoAdapter", () => {
   it("prepares source captions before copying and clears the prepared text on track change", async () => {
     const writeText = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined)
     vi.stubGlobal("navigator", { clipboard: { writeText } })
-    const { adapter, subtitlesFetcher } = createAdapter([{ text: "Hello.", start: 0, end: 1000 }])
+    const { adapter, subtitlesFetcher } = createAdapter([
+      { text: "Hello at 12:30, bring 2 tickets.", start: 0, end: 1000 },
+    ])
     await adapter.copySourceSubtitles()
     expect(writeText).not.toHaveBeenCalled()
     expect(subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase).toBe(SubtitleCopyPhase.Ready)
@@ -689,7 +691,7 @@ describe("universalVideoAdapter", () => {
     await adapter.handleSourceTrackChanged()
     expect(subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase).toBe(SubtitleCopyPhase.Ready)
     const copy = adapter.copySourceSubtitles()
-    expect(writeText).toHaveBeenCalledWith("1\n00:00:00,000 --> 00:00:01,000\nHello.")
+    expect(writeText).toHaveBeenCalledWith("Hello at 12:30, bring 2 tickets.")
     await copy
     expect(subtitlesFetcher.fetch).toHaveBeenCalledTimes(1)
     await adapter.handleSourceTrackChanged()

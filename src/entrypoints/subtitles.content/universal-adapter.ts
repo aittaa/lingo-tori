@@ -33,7 +33,7 @@ import {
   resolveSubtitlesProviderRef,
   fetchSubtitlesSummary,
 } from "@/utils/subtitles/processor/translator"
-import { buildSubtitlesSrtContent } from "@/utils/subtitles/srt"
+import { buildSubtitlesCopyText } from "@/utils/subtitles/srt"
 import { showAiSubtitlesWallToast, showSubtitlesErrorToast } from "@/utils/subtitles/toast"
 import { requestVideoSummary, VIDEO_SUMMARY_QUERY_SCOPE } from "@/utils/subtitles/video-summary"
 import { queryClient } from "@/utils/tanstack-query"
@@ -285,7 +285,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       async (assertActive) => {
         await this.getOrLoadSourceSubtitles()
         assertActive()
-        return buildSubtitlesSrtContent(this.sourceProcessedSubtitles)
+        return buildSubtitlesCopyText(this.sourceProcessedSubtitles)
       },
       (status) => subtitlesStore.set(sourceSubtitlesCopyStatusAtom, status),
       this.getExportContext,

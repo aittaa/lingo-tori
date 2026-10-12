@@ -22,7 +22,7 @@ import {
   fetchSubtitlesSummary,
   translateSubtitles,
 } from "@/utils/subtitles/processor/translator"
-import { buildSubtitlesSrtContent } from "@/utils/subtitles/srt"
+import { buildSubtitlesCopyText } from "@/utils/subtitles/srt"
 import { subtitlesStore, SubtitleCopyPhase, translatedSubtitlesCopyStatusAtom } from "./atoms"
 import { SubtitleClipboardExporter } from "./subtitle-clipboard-exporter"
 
@@ -85,7 +85,7 @@ export class TranslatedSubtitlesExporter {
       )
       assertActive()
       this.assertActive(operationId)
-      return buildSubtitlesSrtContent(
+      return buildSubtitlesCopyText(
         translatedSubtitles.map(({ translation, ...fragment }) => ({
           ...fragment,
           text: translation ?? "",

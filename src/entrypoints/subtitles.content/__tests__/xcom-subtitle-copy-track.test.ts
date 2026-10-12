@@ -220,7 +220,7 @@ describe("x.com same-video subtitle track selection", () => {
     await adapter.copySourceSubtitles()
     expect(writeText).not.toHaveBeenCalled()
     await adapter.copySourceSubtitles()
-    expect(writeText).toHaveBeenCalledWith("1\n00:00:03,000 --> 00:00:05,000\nNext track.")
+    expect(writeText).toHaveBeenCalledWith("Next track.")
   })
 
   it("invalidates a prepared translated export when the same-video source track changes", async () => {
@@ -246,7 +246,7 @@ describe("x.com same-video subtitle track selection", () => {
     await adapter.copyTranslatedSubtitles()
     expect(writeText).not.toHaveBeenCalled()
     await adapter.copyTranslatedSubtitles()
-    expect(writeText).toHaveBeenCalledWith("1\n00:00:03,000 --> 00:00:05,000\nkor:Next track.")
+    expect(writeText).toHaveBeenCalledWith("kor:Next track.")
   })
 
   it("preserves prepared translated text when source preparation uses the unchanged track", async () => {
@@ -258,7 +258,7 @@ describe("x.com same-video subtitle track selection", () => {
       SubtitleCopyPhase.Ready,
     )
     const copied = adapter.copyTranslatedSubtitles()
-    expect(writeText).toHaveBeenCalledWith("1\n00:00:00,000 --> 00:00:02,000\nkor:First track.")
+    expect(writeText).toHaveBeenCalledWith("kor:First track.")
     await copied
   })
 
@@ -272,7 +272,7 @@ describe("x.com same-video subtitle track selection", () => {
     await adapter.copySourceSubtitles()
     expect(writeText).not.toHaveBeenCalled()
     await adapter.copySourceSubtitles()
-    expect(writeText).toHaveBeenCalledWith("1\n00:00:03,000 --> 00:00:05,000\nNext track.")
+    expect(writeText).toHaveBeenCalledWith("Next track.")
   })
 
   it("preserves prepared source text when translated preparation uses the unchanged track", async () => {
@@ -282,7 +282,7 @@ describe("x.com same-video subtitle track selection", () => {
     await adapter.copyTranslatedSubtitles()
     expect(subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase).toBe(SubtitleCopyPhase.Ready)
     const copied = adapter.copySourceSubtitles()
-    expect(writeText).toHaveBeenCalledWith("1\n00:00:00,000 --> 00:00:02,000\nFirst track.")
+    expect(writeText).toHaveBeenCalledWith("First track.")
     await copied
   })
 
@@ -304,7 +304,7 @@ describe("x.com same-video subtitle track selection", () => {
     expect(writeText).not.toHaveBeenCalled()
     await adapter.copySourceSubtitles()
     await adapter.copySourceSubtitles()
-    expect(writeText).toHaveBeenCalledWith("1\n00:00:03,000 --> 00:00:05,000\nNext track.")
+    expect(writeText).toHaveBeenCalledWith("Next track.")
   })
 
   it("prepares the new target language instead of copying an export prepared for the old target", async () => {
@@ -319,7 +319,7 @@ describe("x.com same-video subtitle track selection", () => {
     await adapter.copyTranslatedSubtitles()
     expect(writeText).not.toHaveBeenCalled()
     await adapter.copyTranslatedSubtitles()
-    expect(writeText).toHaveBeenCalledWith("1\n00:00:00,000 --> 00:00:02,000\njpn:First track.")
+    expect(writeText).toHaveBeenCalledWith("jpn:First track.")
   })
 
   it("preserves source readiness and immediate clipboard invocation when only the target language changes", async () => {
@@ -333,7 +333,7 @@ describe("x.com same-video subtitle track selection", () => {
     })
     const fetch = vi.spyOn(fetcher, "fetch")
     const copied = adapter.copySourceSubtitles()
-    expect(writeText).toHaveBeenCalledWith("1\n00:00:00,000 --> 00:00:02,000\nFirst track.")
+    expect(writeText).toHaveBeenCalledWith("First track.")
     expect(fetch).not.toHaveBeenCalled()
     await copied
   })
@@ -352,9 +352,7 @@ describe("x.com same-video subtitle track selection", () => {
       expect(writeText).not.toHaveBeenCalled()
       await prepared
       await copy()
-      expect(writeText).toHaveBeenCalledWith(
-        `1\n00:00:03,000 --> 00:00:05,000\n${kind === "translated" ? "kor:" : ""}Next track.`,
-      )
+      expect(writeText).toHaveBeenCalledWith(`${kind === "translated" ? "kor:" : ""}Next track.`)
     },
   )
 
@@ -375,7 +373,7 @@ describe("x.com same-video subtitle track selection", () => {
     expect(writeText).not.toHaveBeenCalled()
     await adapter.copySourceSubtitles()
     await adapter.copySourceSubtitles()
-    expect(writeText).toHaveBeenCalledWith("1\n00:00:03,000 --> 00:00:05,000\nNext track.")
+    expect(writeText).toHaveBeenCalledWith("Next track.")
   })
 
   it.each([false, true])(

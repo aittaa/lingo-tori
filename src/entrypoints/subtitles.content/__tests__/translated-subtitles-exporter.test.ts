@@ -8,7 +8,7 @@ import { TranslatedSubtitlesExporter } from "../translated-subtitles-exporter"
 
 const mocks = vi.hoisted(() => ({
   aiSegmentBlock: vi.fn<(...args: any[]) => any>(),
-  buildSubtitlesSrtContent: vi.fn<(...args: any[]) => any>().mockReturnValue("prepared SRT"),
+  buildSubtitlesCopyText: vi.fn<(...args: any[]) => any>().mockReturnValue("prepared script"),
   copySubtitlesText: vi.fn<(...args: any[]) => any>(),
   fetchSubtitlesSummary: vi.fn<(...args: any[]) => any>(),
   getLocalConfig: vi.fn<(...args: any[]) => any>(),
@@ -31,7 +31,7 @@ vi.mock("@/utils/subtitles/processor/translator", () => ({
   translateSubtitles: mocks.translateSubtitles,
 }))
 vi.mock("@/utils/subtitles/srt", () => ({
-  buildSubtitlesSrtContent: mocks.buildSubtitlesSrtContent,
+  buildSubtitlesCopyText: mocks.buildSubtitlesCopyText,
   copySubtitlesText: mocks.copySubtitlesText,
 }))
 
@@ -115,7 +115,28 @@ describe("translatedSubtitlesExporter", () => {
     )
   })
 
-  it("uses one config snapshot while reporting batch progress and preparing the full SRT without writing the clipboard", async () => {
+  it("copies only translated dialogue while preserving numbers, time expressions and repeated cues", async () => {
+    const { buildSubtitlesCopyText } =
+      await vi.importActual<typeof import("@/utils/subtitles/srt")>("@/utils/subtitles/srt")
+    mocks.buildSubtitlesCopyText.mockImplementationOnce(buildSubtitlesCopyText)
+    const fragments = lines(3)
+    const translations = ["12:30，带2张票。", "再说一遍。", "再说一遍。"]
+    mocks.translateSubtitles.mockResolvedValueOnce(
+      fragments.map((fragment, index) => ({ ...fragment, translation: translations[index] })),
+    )
+    const { exporter } = createExporter(fragments)
+
+    await exporter.copy()
+    expect(mocks.copySubtitlesText).not.toHaveBeenCalled()
+    expect(status().phase).toBe(SubtitleCopyPhase.Ready)
+    await exporter.copy()
+
+    expect(mocks.copySubtitlesText).toHaveBeenCalledWith("12:30，带2张票。\n再说一遍。\n再说一遍。")
+    expect(mocks.translateSubtitles).toHaveBeenCalledTimes(1)
+    exporter.dispose()
+  })
+
+  it("uses one config snapshot while reporting batch progress and preparing the full subtitle text without writing the clipboard", async () => {
     const config = createConfig()
     const fragments = lines(6)
     const { exporter } = createExporter(fragments)
@@ -157,7 +178,7 @@ describe("translatedSubtitlesExporter", () => {
         { phase: SubtitleCopyPhase.Ready, progress: null },
       ]),
     )
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalledWith(
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith(
       translated(fragments).map(({ translation, ...fragment }) => ({
         ...fragment,
         text: translation,
@@ -165,7 +186,7 @@ describe("translatedSubtitlesExporter", () => {
     )
   })
 
-  it("translates exported SRT batches with a bounded two-batch window", async () => {
+  it("translates exported subtitle batches with a bounded two-batch window", async () => {
     const fragments = lines(15)
     const resolvers: Array<(value: SubtitlesFragment[]) => void> = []
     let activeBatches = 0
@@ -214,7 +235,7 @@ describe("translatedSubtitlesExporter", () => {
     resolvers[2]!(translated(fragments.slice(10)))
     await preparation
 
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalledWith(
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith(
       translated(fragments).map(({ translation, ...fragment }) => ({
         ...fragment,
         text: translation,
@@ -239,7 +260,7 @@ describe("translatedSubtitlesExporter", () => {
     await vi.waitFor(() => expect(mocks.translateSubtitles).toHaveBeenCalledTimes(2))
     await preparation
 
-    expect(mocks.buildSubtitlesSrtContent).not.toHaveBeenCalled()
+    expect(mocks.buildSubtitlesCopyText).not.toHaveBeenCalled()
     expect(mocks.toastAdd).toHaveBeenCalledWith({ type: "error", title: "Batch failed" })
     expect(status()).toEqual({ phase: SubtitleCopyPhase.Idle, progress: null })
 
@@ -262,7 +283,7 @@ describe("translatedSubtitlesExporter", () => {
 
     await createExporter(fragments).exporter.copy()
 
-    expect(mocks.buildSubtitlesSrtContent).not.toHaveBeenCalled()
+    expect(mocks.buildSubtitlesCopyText).not.toHaveBeenCalled()
     expect(mocks.toastAdd).toHaveBeenCalledWith({
       type: "error",
       title: "subtitles.errors.translatedExportIncomplete",
@@ -308,7 +329,7 @@ describe("translatedSubtitlesExporter", () => {
     await Promise.all([first, second])
 
     expect(fetcher.fetch).toHaveBeenCalledTimes(1)
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalledTimes(1)
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledTimes(1)
   })
 
   it("invalidates an in-flight export on dispose and allows a new preparation", async () => {
@@ -335,7 +356,7 @@ describe("translatedSubtitlesExporter", () => {
     await oldPreparation
 
     expect(fetcher.fetch).toHaveBeenCalledTimes(2)
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalledTimes(1)
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledTimes(1)
     expect(mocks.toastAdd).not.toHaveBeenCalled()
     expect(status().phase).toBe(SubtitleCopyPhase.Ready)
   })
@@ -353,7 +374,7 @@ describe("translatedSubtitlesExporter", () => {
     ).exporter.copy()
 
     expect(mocks.aiSegmentBlock).toHaveBeenCalledTimes(1)
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalledWith([
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
       { text: "zh:Hello. World.", start: 0, end: 2000 },
     ])
   })
@@ -384,7 +405,7 @@ describe("translatedSubtitlesExporter", () => {
       expect.any(Object),
       null,
     )
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalledWith([
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
       { text: "zh:Hello. World.", start: 0, end: 2000 },
     ])
     expect(status().phase).toBe(SubtitleCopyPhase.Ready)
@@ -417,7 +438,7 @@ describe("translatedSubtitlesExporter", () => {
     expect(mocks.aiSegmentBlock).toHaveBeenNthCalledWith(1, source, expect.any(Object))
     expect(mocks.aiSegmentBlock).toHaveBeenNthCalledWith(2, [source[0]], expect.any(Object))
     expect(mocks.aiSegmentBlock).toHaveBeenNthCalledWith(3, [source[1]], expect.any(Object))
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalledWith([
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
       { text: "zh:Retried first half.", start: 0, end: 29000 },
       { text: "zh:Retried second half.", start: 30000, end: 59000 },
     ])
@@ -440,7 +461,7 @@ describe("translatedSubtitlesExporter", () => {
       false,
     ).exporter.copy()
 
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalledWith([
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
       { text: "zh:Hello.", start: 0, end: 500 },
       { text: `zh:${questionText}`, start: 500, end: 3420 },
     ])
@@ -462,7 +483,7 @@ describe("translatedSubtitlesExporter", () => {
     ).exporter.copy()
 
     expect(mocks.aiSegmentBlock).toHaveBeenCalledTimes(1)
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalledWith([
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
       { text: "zh:Hi. OK.", start: 0, end: 1000 },
     ])
   })
@@ -484,7 +505,7 @@ describe("translatedSubtitlesExporter", () => {
       false,
     ).exporter.copy()
 
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalledWith([
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalledWith([
       { text: "zh:Hi.", start: 0, end: 500 },
       { text: `zh:${followUpText}`, start: 500, end: 3500 },
     ])
@@ -499,7 +520,7 @@ describe("translatedSubtitlesExporter", () => {
       expect.objectContaining({ summary: null }),
       expect.any(Object),
     )
-    expect(mocks.buildSubtitlesSrtContent).toHaveBeenCalled()
+    expect(mocks.buildSubtitlesCopyText).toHaveBeenCalled()
   })
 
   it("clears completion state when disposed", async () => {
@@ -534,7 +555,7 @@ describe("translatedSubtitlesExporter", () => {
   it("rejects an empty source track without preparing clipboard data", async () => {
     await createExporter([]).exporter.copy()
     expect(mocks.translateSubtitles).not.toHaveBeenCalled()
-    expect(mocks.buildSubtitlesSrtContent).not.toHaveBeenCalled()
+    expect(mocks.buildSubtitlesCopyText).not.toHaveBeenCalled()
     expect(mocks.copySubtitlesText).not.toHaveBeenCalled()
     expect(status().phase).toBe(SubtitleCopyPhase.Idle)
   })
