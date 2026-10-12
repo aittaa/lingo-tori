@@ -1,17 +1,44 @@
+/* Candidate A's cream feathers and teal wing form the shared LingoTori palette.
+   Keep this file import-free: translation presets also inject it as raw CSS. */
 :root {
-  --read-frog-primary: oklch(0.205 0 0);
-  --read-frog-brand: oklch(76.034% 0.12361 82.191);
-  --read-frog-foreground: oklch(0.985 0 0);
-  --read-frog-muted: oklch(0.97 0 0);
-  --read-frog-muted-foreground: oklch(0.556 0 0);
+  --rf-cream-50: #fffdf7;
+  --rf-cream-100: #fcfaf2;
+  --rf-cream-200: #f0f1e8;
+  --rf-teal-50: #edf7f3;
+  --rf-teal-100: #dceee7;
+  --rf-teal-200: #b8ded7;
+  --rf-teal-300: #88c5c4;
+  --rf-teal-400: #58b6ba;
+  --rf-teal-500: #32939a;
+  --rf-teal-600: #247780;
+  --rf-teal-700: #1d626b;
+  --rf-teal-800: #17505a;
+  --rf-teal-900: #103e49;
+  --rf-teal-950: #102c33;
+  --rf-ink: #09272e;
+  --rf-surface-night: #18373e;
+  --rf-muted-night: #24484e;
+  --rf-muted-text-day: #536862;
+  --rf-muted-text-night: #c6d5cf;
+  --rf-border-day: #d9e3da;
+  --rf-border-night: #3b555b;
+  --rf-input-day: #80958e;
+  --rf-input-night: #a1b8b4;
+
+  /* Preserve the public preset names used by existing custom translation CSS. */
+  --read-frog-primary: var(--rf-teal-900);
+  --read-frog-brand: var(--rf-teal-700);
+  --read-frog-foreground: var(--rf-cream-50);
+  --read-frog-muted: var(--rf-cream-200);
+  --read-frog-muted-foreground: var(--rf-muted-text-day);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --read-frog-primary: oklch(0.922 0 0);
-    --read-frog-brand: oklch(76.034% 0.12361 82.191);
-    --read-frog-foreground: oklch(0.205 0 0);
-    --read-frog-muted: oklch(0.269 0 0);
-    --read-frog-muted-foreground: oklch(0.708 0 0);
+    --read-frog-primary: var(--rf-cream-50);
+    --read-frog-brand: var(--rf-teal-300);
+    --read-frog-foreground: var(--rf-teal-950);
+    --read-frog-muted: var(--rf-muted-night);
+    --read-frog-muted-foreground: var(--rf-muted-text-night);
   }
 }

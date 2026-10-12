@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react"
+import lingotoriLogo from "@/assets/icons/lingotori.png?url&no-inline"
 import { i18n } from "@/utils/i18n"
 import { openOptionsPage } from "@/utils/navigation"
 import { version } from "../../../package.json"
@@ -23,7 +24,10 @@ function App() {
               whatever is left of the 320px popup is its width, and a long display
               name ellipses inside that instead of pushing the icons off. */}
           <div className="flex items-center justify-between gap-2">
-            <span className="font-semibold">LingoTori</span>
+            <span className="inline-flex items-center gap-2 font-semibold">
+              <img src={lingotoriLogo} alt="" className="size-7" />
+              LingoTori
+            </span>
             <div className="flex shrink-0 items-center">
               <TranslationHubButton />
             </div>
@@ -43,10 +47,10 @@ function App() {
         {/* Out of flow on purpose: the card appears on its own schedule, and letting it
             grow the popup would shift every control out from under the user's cursor. */}
       </div>
-      <div className="flex items-center justify-between bg-neutral-200 px-2 py-1 dark:bg-neutral-800">
+      <div className="flex items-center justify-between bg-muted px-2 py-1">
         <button
           type="button"
-          className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 hover:bg-neutral-300 dark:hover:bg-neutral-700"
+          className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 hover:bg-background"
           onClick={() => {
             void openOptionsPage()
           }}
@@ -54,7 +58,7 @@ function App() {
           <Icon icon="tabler:settings" className="size-4" strokeWidth={1.6} />
           <span className="text-[13px] font-medium">{i18n.t("popup.options")}</span>
         </button>
-        <span className="text-sm text-neutral-500 dark:text-neutral-400">{version}</span>
+        <span className="text-sm text-muted-foreground">{version}</span>
         <MoreMenu />
       </div>
     </>

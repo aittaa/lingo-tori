@@ -56,7 +56,7 @@ function LanguageComboboxTrigger({
     >
       <div className={langSelectorContentClasses}>
         <span className="w-full truncate text-left">{label}</span>
-        <span className="text-sm text-neutral-500">{subtitle}</span>
+        <span className="text-sm text-muted-foreground">{subtitle}</span>
       </div>
       <IconChevronDown className="size-4 text-muted-foreground" />
     </ComboboxPrimitive.Trigger>
@@ -142,7 +142,7 @@ export default function LanguageOptionsSelector() {
           <ComboboxEmpty>{i18n.t("translationHub.noLanguagesFound")}</ComboboxEmpty>
         </ComboboxContent>
       </Combobox>
-      <Icon icon="tabler:arrow-right" className="h-4 w-4 text-neutral-500" />
+      <Icon icon="tabler:arrow-right" className="h-4 w-4 text-muted-foreground" />
       <Combobox
         value={currentTargetItem}
         onValueChange={handleTargetLangChange}

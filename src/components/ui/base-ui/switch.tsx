@@ -204,7 +204,7 @@ function Switch({
         data-slot="switch-thumb"
         render={
           <motion.span
-            className="pointer-events-none absolute top-1/2 left-0 block rounded-full bg-white"
+            className="pointer-events-none absolute top-1/2 left-0 block rounded-full bg-accent-foreground"
             initial={false}
             style={{ x, y: "-50%" }}
             animate={{ width: thumbWidth, height: thumbHeight }}
