@@ -71,7 +71,10 @@ export async function signer() {
   }
   return { jwks: { keys: [jwk] }, sign }
 }
-export async function signedFixture(scopes = SCOPES) {
+export async function signedFixture(
+  scopes = SCOPES,
+  target = { extensionId: "extension", callbackUrl },
+) {
   const vault = memoryVault(),
     transport = mockTransport(),
     keys = await signer()
@@ -104,7 +107,13 @@ export async function signedFixture(scopes = SCOPES) {
       })
     throw new Error("Unmocked upstream")
   })
-  const service = createByosService(vault, transport, "extension", callbackUrl, fetcher)
+  const service = createByosService(
+    vault,
+    transport,
+    target.extensionId,
+    target.callbackUrl,
+    fetcher,
+  )
   await service.authStart()
   const query = `?state=${(await vault.read()).pending!.state}&code=synthetic-code&client_id=synthetic-client`
   return { vault, transport, keys, fetcher, service, query }

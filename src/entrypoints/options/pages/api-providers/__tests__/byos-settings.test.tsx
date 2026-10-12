@@ -12,7 +12,8 @@ import AddProviderDialog from "../providers-config/add-provider-dialog"
 const mocks = vi.hoisted(() => ({
   send: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   locale: "en",
-  chromium: true,
+  protocol: "chrome-extension:",
+  installedPermission: true,
   dnrAvailable: true,
   permission: vi.fn<() => Promise<boolean>>(),
 }))
@@ -20,8 +21,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("wxt/browser", () => ({
   browser: {
     runtime: {
-      getURL: () =>
-        mocks.chromium ? "chrome-extension://extension/" : "moz-extension://extension/",
+      getURL: () => `${mocks.protocol}//extension/`,
+      getManifest: () => ({
+        permissions: mocks.installedPermission ? ["declarativeNetRequestWithHostAccess"] : [],
+      }),
     },
     get declarativeNetRequest() {
       return mocks.dnrAvailable ? {} : undefined
@@ -93,7 +96,8 @@ vi.mock("../ai-content-aware", () => ({
 
 beforeEach(() => {
   mocks.locale = "en"
-  mocks.chromium = true
+  mocks.protocol = "chrome-extension:"
+  mocks.installedPermission = true
   mocks.dnrAvailable = true
   mocks.permission.mockReset()
   mocks.permission.mockResolvedValue(true)
@@ -259,12 +263,12 @@ describe("compact ChatGPT provider card", () => {
     )
   })
   it("keeps unsupported browsers explicit without requesting permission", async () => {
-    mocks.chromium = false
+    mocks.protocol = "https:"
     renderSettings()
     await waitFor(() => expect(mocks.send).toHaveBeenCalledWith("lingotoriByosSession", undefined))
     expect(screen.getByRole("button", { name: "Sign in with ChatGPT" })).toBeDisabled()
     expect(
-      screen.getByText("ChatGPT sign-in is available in Chromium browsers."),
+      screen.getByText("ChatGPT sign-in is available in Firefox and Chromium browsers."),
     ).toBeInTheDocument()
     expect(mocks.permission).not.toHaveBeenCalled()
   })
@@ -505,7 +509,7 @@ it("opening Add provider preserves a connected account, model and saved assignme
   expectAuthCount(0)
 })
 it("Firefox Add provider has no ChatGPT choice or callback permission request", async () => {
-  mocks.chromium = false
+  mocks.protocol = "moz-extension:"
   const store = renderSettings()
   const initial = store.get(configAtom)
   await waitFor(() => expect(screen.getByText("Connect your account")).toBeInTheDocument())
@@ -516,6 +520,29 @@ it("Firefox Add provider has no ChatGPT choice or callback permission request", 
   expect(store.get(configAtom)).toBe(initial)
   expect(mocks.permission).not.toHaveBeenCalled()
   expectAuthCount(0)
+})
+it("Firefox dedicated sign-in checks its installed capability without an unsupported optional request", async () => {
+  mocks.protocol = "moz-extension:"
+  renderSettings()
+  await waitForSignedOut()
+  fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
+  await waitFor(() => expectAuthCount(1))
+  expect(mocks.permission).not.toHaveBeenCalled()
+})
+it("missing Firefox capability stops before authorization and preserves configured providers", async () => {
+  mocks.protocol = "moz-extension:"
+  mocks.installedPermission = false
+  const store = renderSettings()
+  const initial = store.get(configAtom)
+  await waitForSignedOut()
+  expect(mocks.permission).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
+  await waitFor(() =>
+    expect(screen.getByText("Sign-in permission was not granted.")).toBeInTheDocument(),
+  )
+  expectAuthCount(0)
+  expect(store.get(configAtom)).toBe(initial)
+  expect(screen.getByLabelText("BYOK API key")).toHaveValue("keep-my-key")
 })
 it("opening Add provider during a pending grant leaves the dedicated sign-in cancellable", async () => {
   let release!: (value: boolean) => void

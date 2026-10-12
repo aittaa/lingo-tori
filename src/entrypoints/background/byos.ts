@@ -1,6 +1,7 @@
 import type { Config } from "@/types/config/config"
 import { browser } from "wxt/browser"
 import { storage } from "#imports"
+import { isByosExtensionUrl } from "@/utils/byos/browser"
 import { createByosJobRegistry } from "@/utils/byos/cancellation"
 import { installByosBackgroundInvoker } from "@/utils/byos/invoke"
 import { onByosMessage } from "@/utils/byos/messages"
@@ -21,10 +22,7 @@ export function setupByos() {
     browser.runtime.id,
     browser.runtime.getURL(CALLBACK_PATH),
   )
-  if (
-    browser.runtime.getURL("/").startsWith("chrome-extension://") &&
-    browser.webNavigation?.onErrorOccurred
-  ) {
+  if (isByosExtensionUrl(browser.runtime.getURL("/")) && browser.webNavigation?.onErrorOccurred) {
     browser.webNavigation.onErrorOccurred.addListener(
       (details) => {
         void service.recoverCallbackNavigation(details).catch(() => {})
