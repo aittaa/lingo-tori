@@ -46,37 +46,30 @@ export function ApiUsagePage() {
   )
 
   return (
-    <PageLayout
-      title={i18n.t("options.apiUsage.title")}
-      description={i18n.t("options.apiUsage.description")}
-      innerClassName="space-y-6"
-    >
+    <PageLayout title={i18n.t("options.apiUsage.title")} innerClassName="space-y-6">
       <section id="api-usage" className="space-y-4" aria-busy={loading}>
-        <div className="flex flex-wrap gap-2" aria-label={i18n.t("options.apiUsage.history.views")}>
-          <Button
-            variant={effectiveView === "history" ? "default" : "outline"}
-            aria-pressed={effectiveView === "history"}
-            onClick={() => setView("history")}
-            disabled={snapshot?.history === undefined}
-          >
-            {i18n.t("options.apiUsage.history.viewHistory")}
-          </Button>
-          <Button
-            variant={effectiveView === "lifetime" ? "default" : "outline"}
-            aria-pressed={effectiveView === "lifetime"}
-            onClick={() => setView("lifetime")}
-          >
-            {i18n.t("options.apiUsage.history.viewLifetime")}
-          </Button>
-        </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            {effectiveView === "lifetime" && usage && usage.since !== null
-              ? `${i18n.t("options.apiUsage.since")}: ${new Date(usage.since).toLocaleDateString(locale)}`
-              : effectiveView === "lifetime" && usage
-                ? i18n.t("options.apiUsage.empty")
-                : null}
-          </p>
+          <div
+            role="group"
+            className="flex flex-wrap gap-2"
+            aria-label={i18n.t("options.apiUsage.history.views")}
+          >
+            <Button
+              variant={effectiveView === "history" ? "default" : "outline"}
+              aria-pressed={effectiveView === "history"}
+              onClick={() => setView("history")}
+              disabled={snapshot?.history === undefined}
+            >
+              {i18n.t("options.apiUsage.history.viewHistory")}
+            </Button>
+            <Button
+              variant={effectiveView === "lifetime" ? "default" : "outline"}
+              aria-pressed={effectiveView === "lifetime"}
+              onClick={() => setView("lifetime")}
+            >
+              {i18n.t("options.apiUsage.history.viewLifetime")}
+            </Button>
+          </div>
           <Button
             variant="outline"
             disabled={loading}
@@ -87,6 +80,13 @@ export function ApiUsagePage() {
             {i18n.t("options.apiUsage.refresh")}
           </Button>
         </div>
+        {effectiveView === "lifetime" && usage && (
+          <p className="text-sm text-muted-foreground">
+            {usage.since !== null
+              ? `${i18n.t("options.apiUsage.since")}: ${new Date(usage.since).toLocaleDateString(locale)}`
+              : i18n.t("options.apiUsage.empty")}
+          </p>
+        )}
         <div role="status" aria-live="polite">
           {loading && (
             <p className="text-sm text-muted-foreground">{i18n.t("options.apiUsage.loading")}</p>
@@ -101,11 +101,6 @@ export function ApiUsagePage() {
         </div>
         {effectiveView === "history" && history && (
           <HistoryDashboard history={history} locale={locale} />
-        )}
-        {effectiveView === "lifetime" && (
-          <p className="text-sm text-muted-foreground">
-            {i18n.t("options.apiUsage.history.lifetimeNote")}
-          </p>
         )}
         {effectiveView === "lifetime" && usage && (
           <UsageChart usage={usage} locale={locale} snapshotAt={dataUpdatedAt} />
@@ -165,13 +160,17 @@ export function ApiUsagePage() {
           </div>
         )}
       </section>
-      <div className="space-y-3 text-sm text-muted-foreground">
-        <p>{i18n.t("options.apiUsage.semantics")}</p>
-        <p>{i18n.t("options.apiUsage.exclusions")}</p>
-        <p>{i18n.t("options.apiUsage.billing")}</p>
-        <p>{i18n.t("options.apiUsage.privacy")}</p>
-        <p>{i18n.t("options.apiUsage.limitations")}</p>
-      </div>
+      <details className="text-xs text-muted-foreground">
+        <summary className="w-fit cursor-pointer rounded py-2 focus-visible:outline-2 focus-visible:outline-ring">
+          {i18n.t("options.apiUsage.history.about")}
+        </summary>
+        <div className="mt-2 max-w-2xl space-y-2 leading-relaxed">
+          <p>{i18n.t("options.apiUsage.semantics")}</p>
+          <p>{i18n.t("options.apiUsage.billing")}</p>
+          <p>{i18n.t("options.apiUsage.history.dateRule")}</p>
+          <p>{i18n.t("options.apiUsage.limitations")}</p>
+        </div>
+      </details>
     </PageLayout>
   )
 }

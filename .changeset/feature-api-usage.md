@@ -2,6 +2,6 @@
 "@lingotori/extension": minor
 ---
 
-feat(settings): track reported model tokens by local date and feature
+feat(settings): show token usage by date, model and feature
 
-Preserve original cumulative requests and distinguish missing BYOS usage from measured tokens without backfilling history.
+Compare all recorded models in a daily chart with period controls and feature shares. Preserve cumulative requests and distinguish unreported usage from measured tokens without backfilling history.

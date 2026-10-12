@@ -154,7 +154,16 @@
     "subtitles.actions.copySource",
     "subtitles.actions.copyTranslated",
     "subtitles.actions.copyTranslating",
-    "subtitles.actions.copyUnavailable"
+    "subtitles.actions.copyUnavailable",
+    "options.apiUsage.history.range7",
+    "options.apiUsage.history.range30",
+    "options.apiUsage.history.rangeCustom",
+    "options.apiUsage.history.share",
+    "options.apiUsage.history.details",
+    "options.apiUsage.history.noUsage",
+    "options.apiUsage.history.connection",
+    "options.apiUsage.history.partialShare",
+    "options.apiUsage.history.about"
   ],
   "deferredHubKeys": [
     "popup.hub.tooltip",
