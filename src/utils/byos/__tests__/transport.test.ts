@@ -1,6 +1,8 @@
 import type { browser } from "wxt/browser"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
+import { createByosService } from "../service"
 import { AUTH_RULE_ID, buildCallbackRule, createAuthTransport } from "../transport"
+import { callbackUrl, memoryVault } from "./auth-fixtures"
 const mocks = vi.hoisted(() => ({
   dnrAvailable: true,
   protocol: "chrome-extension:",
@@ -54,6 +56,39 @@ beforeEach(() => {
   mocks.remove.mockResolvedValue(undefined)
 })
 afterEach(() => vi.useRealTimers())
+it.each(["startup", "first permission grant"])(
+  "stops fresh sign-in before opening a tab when removal hangs after %s",
+  async (phase) => {
+    vi.useFakeTimers()
+    const vault = memoryVault()
+    const transport = createAuthTransport()
+    const fetcher = vi.fn<typeof fetch>()
+    const service = createByosService(vault, transport, "extension", callbackUrl, fetcher)
+    if (phase === "first permission grant") {
+      mocks.contains.mockResolvedValue(false)
+      await service.initialize()
+      mocks.contains.mockResolvedValue(true)
+    }
+    let release!: () => void
+    mocks.update.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        release = resolve
+      }),
+    )
+
+    const outcome = service.authStart().catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(await outcome).toMatchObject({ code: "callback_rule_timeout_remove" })
+    expect(mocks.update.mock.calls).toEqual([[{ removeRuleIds: [AUTH_RULE_ID] }]])
+    expect(mocks.create).not.toHaveBeenCalled()
+    expect((await vault.read()).pending).toBeUndefined()
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(await transport.available()).toBe(false)
+    release()
+    await vi.waitFor(async () => expect(await transport.available()).toBe(true))
+  },
+)
 it("compensates a timed-out rule installation that settles after cleanup", async () => {
   vi.useFakeTimers()
   let release!: () => void
@@ -76,7 +111,7 @@ it("compensates a timed-out rule installation that settles after cleanup", async
     (error: unknown) => error,
   )
   await vi.advanceTimersByTimeAsync(5000)
-  expect(await outcome).toMatchObject({ message: "BYOS: callback_rule_timeout" })
+  expect(await outcome).toMatchObject({ code: "callback_rule_timeout_install" })
   expect(await transport.available()).toBe(false)
   await transport.cleanup()
   release()
@@ -112,7 +147,7 @@ it("blocks a new sign-in until timed-out cleanup can no longer delete its rule",
   const transport = createAuthTransport()
   const cleanup = transport.cleanup().catch((error: unknown) => error)
   await vi.advanceTimersByTimeAsync(5000)
-  expect(await cleanup).toMatchObject({ message: "BYOS: callback_rule_timeout" })
+  expect(await cleanup).toMatchObject({ code: "callback_rule_timeout_remove" })
   expect(await transport.available()).toBe(false)
   await expect(
     transport.install({

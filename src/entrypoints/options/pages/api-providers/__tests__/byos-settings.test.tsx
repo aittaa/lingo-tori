@@ -16,11 +16,13 @@ const mocks = vi.hoisted(() => ({
   installedPermission: true,
   dnrAvailable: true,
   permission: vi.fn<() => Promise<boolean>>(),
+  reload: vi.fn<() => void>(),
 }))
 
 vi.mock("wxt/browser", () => ({
   browser: {
     runtime: {
+      reload: mocks.reload,
       getURL: () => `${mocks.protocol}//extension/`,
       getManifest: () => ({
         permissions: mocks.installedPermission ? ["declarativeNetRequestWithHostAccess"] : [],
@@ -101,6 +103,7 @@ beforeEach(() => {
   mocks.dnrAvailable = true
   mocks.permission.mockReset()
   mocks.permission.mockResolvedValue(true)
+  mocks.reload.mockReset()
   mocks.send.mockReset()
   mocks.send.mockImplementation(async (type) =>
     type === "lingotoriByosSession"
@@ -409,20 +412,171 @@ it("shows bounded feedback if the background never responds to sign-in and ignor
   expect(screen.queryByText("Complete sign-in in the opened tab.")).not.toBeInTheDocument()
 })
 
-it("shows a specific recovery message for a callback-routing timeout", async () => {
-  renderSettings()
-  await waitForSignedOut()
+it.each(["callback_rule_timeout", "callback_rule_timeout_install", "callback_rule_timeout_remove"])(
+  "shows a specific recovery message for %s",
+  async (code) => {
+    renderSettings()
+    await waitForSignedOut()
+    mocks.send.mockImplementation(async (type) => {
+      if (type === "lingotoriByosAuth") throw new Error(`BYOS: ${code}`)
+      return undefined
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
+    await waitFor(() =>
+      expect(
+        screen.getByText("If sign-in fails, restart the extension and try again."),
+      ).toBeInTheDocument(),
+    )
+    expect(screen.getByRole("button", { name: "Restart extension" })).toBeEnabled()
+    expect(mocks.reload).not.toHaveBeenCalled()
+  },
+)
+
+async function failRouting() {
   mocks.send.mockImplementation(async (type) => {
-    if (type === "lingotoriByosAuth") throw new Error("BYOS: callback_rule_timeout")
-    return undefined
+    if (type === "lingotoriByosAuth") throw new Error("callback_rule_timeout_remove")
+    return { state: "disconnected" }
   })
   fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
-  await waitFor(() =>
-    expect(
-      screen.getByText("Callback routing did not start. Reload the extension, then try again."),
-    ).toBeInTheDocument(),
+  return screen.findByRole("button", { name: "Restart extension" })
+}
+
+it("restarts only on click, ignores repeated clicks, and preserves settings for manual reconnection", async () => {
+  const store = renderSettings()
+  const saved = store.get(configAtom)
+  await waitForSignedOut()
+  const restart = await failRouting()
+  expect(mocks.reload).not.toHaveBeenCalled()
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  act(() => {
+    fireEvent.click(restart)
+    fireEvent.click(restart)
+    fireEvent.click(restart)
+  })
+  expect(mocks.reload).toHaveBeenCalledTimes(1)
+  expect(restart).toBeDisabled()
+  expect(store.get(configAtom)).toBe(saved)
+  const callsBeforeFocus = mocks.send.mock.calls.length
+  fireEvent(window, new Event("focus"))
+  expect(mocks.send).toHaveBeenCalledTimes(callsBeforeFocus)
+  expectAuthCount(1)
+
+  cleanup()
+  mocks.send.mockImplementation(async (type) =>
+    type === "lingotoriByosSession" ? { state: "disconnected" } : undefined,
   )
-  expect(screen.getByRole("button", { name: "Sign in with ChatGPT" })).toBeEnabled()
+  render(
+    <Provider store={store}>
+      <ApiProvidersPage />
+    </Provider>,
+  )
+  await waitForSignedOut()
+  expect(screen.queryByRole("button", { name: "Restart extension" })).not.toBeInTheDocument()
+  expect(store.get(configAtom)).toBe(saved)
+  expectAuthCount(1)
+  fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
+  await screen.findByText("Complete sign-in in the opened tab.")
+  expectAuthCount(2)
+  expect(mocks.reload).toHaveBeenCalledTimes(1)
+})
+
+it("shows restart failure and permits a new explicit attempt without changing settings", async () => {
+  const store = renderSettings()
+  const saved = store.get(configAtom)
+  await waitForSignedOut()
+  const restart = await failRouting()
+  mocks.reload.mockImplementationOnce(() => {
+    throw new Error("synthetic restart failure")
+  })
+  fireEvent.click(restart)
+  expect(screen.getByText("Could not restart the extension. Try again.")).toBeInTheDocument()
+  expect(restart).toBeEnabled()
+  expect(store.get(configAtom)).toBe(saved)
+  fireEvent.click(restart)
+  expect(mocks.reload).toHaveBeenCalledTimes(2)
+  expect(restart).toBeDisabled()
+  expectAuthCount(1)
+})
+
+it("allows restart while a focus refresh is pending and ignores its late success", async () => {
+  renderSettings()
+  await waitForSignedOut()
+  const restart = await failRouting()
+  let release!: (value: unknown) => void
+  mocks.send.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  fireEvent(window, new Event("focus"))
+  expect(restart).toBeEnabled()
+  fireEvent.click(restart)
+  await act(async () => release(connected))
+  expect(restart).toBeDisabled()
+  expect(screen.queryByText(account.email)).not.toBeInTheDocument()
+  expect(mocks.reload).toHaveBeenCalledTimes(1)
+  expectAuthCount(1)
+})
+
+it("removes restart recovery when a later session refresh confirms a connected account", async () => {
+  renderSettings()
+  await waitForSignedOut()
+  await failRouting()
+  mockConnected()
+  fireEvent(window, new Event("focus"))
+  await screen.findByDisplayValue("Synthetic Model")
+  expect(screen.queryByRole("button", { name: "Restart extension" })).not.toBeInTheDocument()
+  expect(mocks.reload).not.toHaveBeenCalled()
+})
+
+it.each(["callback_permission_missing", "synthetic sign-in failure"])(
+  "does not offer extension restart for unrelated failure %s",
+  async (code) => {
+    renderSettings()
+    await waitForSignedOut()
+    mocks.send.mockImplementation(async (type) => {
+      if (type === "lingotoriByosAuth") throw new Error(code)
+      return undefined
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
+    await waitForSignedOut()
+    expect(screen.queryByRole("button", { name: "Restart extension" })).not.toBeInTheDocument()
+    expect(mocks.reload).not.toHaveBeenCalled()
+  },
+)
+
+it.each([
+  [
+    "en",
+    "Sign in with ChatGPT",
+    "Restart extension",
+    "If sign-in fails, restart the extension and try again.",
+  ],
+  [
+    "ko",
+    "ChatGPT로 로그인",
+    "확장 다시 시작",
+    "연결이 안 되면 확장을 다시 시작한 뒤 다시 시도해 주세요.",
+  ],
+  [
+    "ja",
+    "ChatGPT でログイン",
+    "拡張機能を再起動",
+    "接続できない場合は、拡張機能を再起動してから再試行してください。",
+  ],
+])("localizes routing recovery in %s", async (locale, signIn, restart, notice) => {
+  mocks.locale = locale
+  renderSettings()
+  await waitFor(() => expect(screen.getByRole("button", { name: signIn })).toBeEnabled())
+  mocks.send.mockImplementation(async (type) => {
+    if (type === "lingotoriByosAuth") throw new Error("callback_rule_timeout_install")
+    return undefined
+  })
+  fireEvent.click(screen.getByRole("button", { name: signIn }))
+  expect(await screen.findByRole("button", { name: restart })).toBeEnabled()
+  expect(screen.getByText(notice)).toBeInTheDocument()
+  expect(mocks.reload).not.toHaveBeenCalled()
 })
 
 it("returns to sign-in when the background no longer has the pending login", async () => {

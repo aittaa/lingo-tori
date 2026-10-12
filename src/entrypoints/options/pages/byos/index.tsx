@@ -44,7 +44,9 @@ const copy = {
     ended: "Sign-in did not finish. Try again.",
     background: "Extension connection unavailable. Reload this settings page and try again.",
     callback: "Allow callback access to start sign-in.",
-    routing: "Callback routing did not start. Reload the extension, then try again.",
+    routing: "If sign-in fails, restart the extension and try again.",
+    restart: "Restart extension",
+    restartFailed: "Could not restart the extension. Try again.",
     model: "Model",
     choose: "Choose a model",
     save: "Save model",
@@ -84,7 +86,9 @@ const copy = {
     background:
       "확장 프로그램에 연결할 수 없습니다. 이 설정 페이지를 새로고침하고 다시 시도하세요.",
     callback: "로그인을 시작하려면 콜백 접근을 허용하세요.",
-    routing: "콜백 라우팅을 시작하지 못했습니다. 확장 프로그램을 다시 로드하고 시도하세요.",
+    routing: "연결이 안 되면 확장을 다시 시작한 뒤 다시 시도해 주세요.",
+    restart: "확장 다시 시작",
+    restartFailed: "확장 프로그램을 다시 시작하지 못했습니다. 다시 시도하세요.",
     model: "모델",
     choose: "모델 선택",
     save: "모델 저장",
@@ -123,8 +127,9 @@ const copy = {
     ended: "ログインが完了しませんでした。再試行してください。",
     background: "拡張機能に接続できません。この設定ページを再読み込みして再試行してください。",
     callback: "ログインを開始するにはコールバックへのアクセスを許可してください。",
-    routing:
-      "コールバックのルーティングを開始できませんでした。拡張機能を再読み込みして再試行してください。",
+    routing: "接続できない場合は、拡張機能を再起動してから再試行してください。",
+    restart: "拡張機能を再起動",
+    restartFailed: "拡張機能を再起動できませんでした。再試行してください。",
     model: "モデル",
     choose: "モデルを選択",
     save: "モデルを保存",
@@ -183,11 +188,14 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
   const [models, setModels] = useState<{ slug: string; display_name: string }[]>([])
   const [model, setModel] = useState("")
   const [notice, setNotice] = useState("")
+  const [routingFailed, setRoutingFailed] = useState(false)
+  const [restarting, setRestarting] = useState(false)
   const [busy, setBusy] = useState(true)
   const [pending, setPending] = useState<"permission" | "starting" | "tab" | null>(null)
   const cardRef = useRef<HTMLElement>(null),
     modelRef = useRef<HTMLSelectElement>(null)
   const generation = useRef(0),
+    restartRequested = useRef(false),
     authAttemptRef = useRef<string | undefined>(undefined),
     busyRef = useRef(true),
     pendingRef = useRef<"permission" | "starting" | "tab" | null>(null)
@@ -238,6 +246,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         setModel("")
         return
       }
+      setRoutingFailed(false)
       try {
         const available = await boundedMessage(sendByosMessage("lingotoriByosModels", undefined))
         if (epoch(generation) !== owner) return
@@ -266,7 +275,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     const owner = invalidate(generation)
     void Promise.resolve()
       .then(async () => {
-        if (epoch(generation) !== owner) return
+        if (restartRequested.current || epoch(generation) !== owner) return
         setWorking(true)
         await refresh(owner)
       })
@@ -324,19 +333,40 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         }
         setAttempt("starting")
         await boundedMessage(sendByosMessage("lingotoriByosAuth", attemptId))
-        if (epoch(generation) === owner) setAttempt("tab")
+        if (epoch(generation) === owner) {
+          setRoutingFailed(false)
+          setAttempt("tab")
+        }
       } catch (error) {
         if (epoch(generation) === owner) {
           invalidate(generation)
           setAttempt(null)
           setWorking(false)
-          setNotice(t[failureKind(error)])
+          const failure = failureKind(error)
+          if (failure === "routing") setRoutingFailed(true)
+          setNotice(t[failure])
           void boundedMessage(sendByosMessage("lingotoriByosCancelAuth", attemptId)).catch(() => {})
         }
       } finally {
         if (epoch(generation) === owner) setWorking(false)
       }
     })()
+  }
+  function restartExtension() {
+    if (!routingFailed || restartRequested.current) return
+    restartRequested.current = true
+    invalidate(generation)
+    setRestarting(true)
+    setWorking(true)
+    setAttempt(null)
+    try {
+      browser.runtime.reload()
+    } catch {
+      restartRequested.current = false
+      setRestarting(false)
+      setWorking(false)
+      setNotice(t.restartFailed)
+    }
   }
   function cancel() {
     const attemptId = authAttemptRef.current
@@ -505,21 +535,32 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
             </Button>
           ) : (
             <>
-              {(!connected || recovery || session.state === "temporarily-unavailable") && (
+              {routingFailed ? (
                 <Button
                   variant="accent"
                   className="h-10 px-4 transition-colors motion-reduce:transition-none"
-                  disabled={
-                    busy || (!supportedBrowser && session.state !== "temporarily-unavailable")
-                  }
-                  onClick={selectChatGPT}
+                  disabled={restarting}
+                  onClick={restartExtension}
                 >
-                  {session.state === "temporarily-unavailable"
-                    ? t.retry
-                    : recovery
-                      ? t.reconnect
-                      : t.signIn}
+                  {t.restart}
                 </Button>
+              ) : (
+                (!connected || recovery || session.state === "temporarily-unavailable") && (
+                  <Button
+                    variant="accent"
+                    className="h-10 px-4 transition-colors motion-reduce:transition-none"
+                    disabled={
+                      busy || (!supportedBrowser && session.state !== "temporarily-unavailable")
+                    }
+                    onClick={selectChatGPT}
+                  >
+                    {session.state === "temporarily-unavailable"
+                      ? t.retry
+                      : recovery
+                        ? t.reconnect
+                        : t.signIn}
+                  </Button>
+                )
               )}
               {connected && (
                 <DropdownMenu modal={false}>

@@ -74,13 +74,16 @@ export function buildCallbackRule(tabId: number, callbackUrl: string, redirectUr
     },
   }
 }
-async function bounded<T>(operation: Promise<T>): Promise<T> {
+async function bounded<T>(operation: Promise<T>, phase: "install" | "remove"): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined
   try {
     return await Promise.race([
       operation,
       new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => reject(new ByosBridgeError("callback_rule_timeout")), 5000)
+        timeout = setTimeout(
+          () => reject(new ByosBridgeError(`callback_rule_timeout_${phase}`)),
+          5000,
+        )
       }),
     ])
   } finally {
@@ -120,7 +123,7 @@ export function createAuthTransport(): AuthTransport {
     try {
       const dnr = api()
       if (dnr && (await hasByosCallbackPermission()))
-        await bounded(updateRules(dnr, { removeRuleIds: [AUTH_RULE_ID] }))
+        await bounded(updateRules(dnr, { removeRuleIds: [AUTH_RULE_ID] }), "remove")
     } finally {
       pendingRuleChanges--
     }
@@ -159,7 +162,7 @@ export function createAuthTransport(): AuthTransport {
         ],
       })
       try {
-        await bounded(install)
+        await bounded(install, "install")
       } catch (error) {
         // A timed-out installation can still settle later; remove it again then.
         void install
