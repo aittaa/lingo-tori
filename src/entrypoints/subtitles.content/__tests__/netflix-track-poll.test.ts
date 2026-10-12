@@ -253,4 +253,42 @@ describe("Netflix track poll", () => {
     )
     expect(loadRequests()).toBe(3)
   })
+
+  it.each([
+    { cache: "shared", state: "missing" },
+    { cache: "shared", state: "malformed" },
+    { cache: "adapter", state: "missing" },
+  ])("does not republish $cache cache after a $state state reply", async ({ cache, state }) => {
+    page.answer = async () =>
+      pageReply({ ttml: '<tt><body><p begin="10000000t" end="20000000t">A</p></body></tt>' })
+    const { adapter, fetcher } = createNetflixAdapter(false)
+    await adapter.ensureSourceTrackPublished()
+    page.answer = async () => pageReply({ trackId: "T:ja" })
+    await adapter.handleSourceTrackChanged()
+    page.answer = async () =>
+      pageReply({
+        trackId: "T:ja",
+        ttml: '<tt><body><p begin="10000000t" end="20000000t">B</p></body></tt>',
+      })
+    if (cache === "adapter") await adapter.copySourceSubtitles()
+    else await fetcher.fetch()
+
+    const selectedC = pageReply({
+      trackId: "T:ko",
+      ttml: '<tt><body><p begin="10000000t" end="20000000t">C</p></body></tt>',
+    })
+    const unknownState = state === "missing" ? null : { ...selectedC, movieId: "invalid" }
+    page.answer = async (action) => (action === "state" ? unknownState : selectedC)
+    await adapter.handleSourceTrackChanged()
+    await adapter.handleSourceTrackChanged()
+
+    expect(subtitlesStore.get(sourceTrackAtom)).toEqual([])
+    expect(loadRequests()).toBe(3)
+    expect(showSubtitlesErrorToast).toHaveBeenCalledTimes(1)
+
+    page.answer = async () => selectedC
+    await adapter.handleSourceTrackChanged()
+    expect(subtitlesStore.get(sourceTrackAtom).map((cue) => cue.text)).toEqual(["C"])
+    expect(loadRequests()).toBe(4)
+  })
 })

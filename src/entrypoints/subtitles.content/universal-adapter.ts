@@ -810,10 +810,11 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
         // cancellation. Only read loaded data: a same-track result also keeps
         // Netflix's failed or pending load from being retried by every poll.
         const currentVideoId = this.config.getVideoId?.() ?? null
-        const subtitles =
-          this.sourceVideoId === currentVideoId && this.sourceSubtitles.length > 0
+        const subtitles = fetcher.getCachedSubtitles
+          ? fetcher.getCachedSubtitles()
+          : this.sourceVideoId === currentVideoId && this.sourceSubtitles.length > 0
             ? this.sourceSubtitles
-            : fetcher.getCachedSubtitles?.()
+            : null
         if (!subtitles?.length) return
         this.sourceVideoId = currentVideoId
         this.sourceSubtitles = subtitles
