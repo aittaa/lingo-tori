@@ -217,6 +217,62 @@
   --rf-font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
+
+  /* Deprecated palette names are a saved subtitle/custom-CSS compatibility surface.
+     Keep their original values; new UI colours use the semantic cream/teal tokens
+     below, never these legacy scales. Tailwind aliases also keep their dependencies
+     present in compiled shadow-root stylesheets. */
+  --rf-neutral-50: var(--color-neutral-50);
+  --rf-neutral-100: var(--color-neutral-100);
+  --rf-neutral-200: var(--color-neutral-200);
+  --rf-neutral-300: var(--color-neutral-300);
+  --rf-neutral-400: var(--color-neutral-400);
+  --rf-neutral-500: var(--color-neutral-500);
+  --rf-neutral-600: var(--color-neutral-600);
+  --rf-neutral-700: var(--color-neutral-700);
+  --rf-neutral-800: var(--color-neutral-800);
+  --rf-neutral-900: var(--color-neutral-900);
+  --rf-neutral-950: var(--color-neutral-950);
+  --rf-lemon-50: oklch(98.7% 0.026 105.276);
+  --rf-lemon-100: oklch(97.3% 0.071 106.257);
+  --rf-lemon-200: oklch(94.5% 0.129 104.604);
+  --rf-lemon-300: oklch(90.5% 0.1795 101.175);
+  --rf-lemon-400: oklch(86% 0.16779 95);
+  --rf-lemon-450: oklch(82.75% 0.16086 92.055);
+  --rf-lemon-500: oklch(79.5% 0.15438 89.111);
+  --rf-lemon-550: oklch(73.8% 0.14395 84.004);
+  --rf-lemon-600: oklch(68.1% 0.13451 78.898);
+  --rf-lemon-650: oklch(61.75% 0.12429 74.202);
+  --rf-lemon-700: oklch(55.4% 0.11446 69.506);
+  --rf-lemon-800: oklch(47.6% 0.10161 64.971);
+  --rf-lemon-900: oklch(42.1% 0.09328 60.772);
+  --rf-lemon-950: oklch(28.6% 0.066 56.877);
+  --rf-cornflower-50: oklch(97% 0.01363 265.19);
+  --rf-cornflower-100: oklch(93.2% 0.03115 265.19);
+  --rf-cornflower-200: oklch(88.2% 0.05743 265.19);
+  --rf-cornflower-300: oklch(80.9% 0.10221 265.19);
+  --rf-cornflower-400: oklch(69.256% 0.16062 265.19);
+  --rf-cornflower-450: oklch(65.778% 0.17098 265.19);
+  --rf-cornflower-500: oklch(62.3% 0.18134 265.19);
+  --rf-cornflower-550: oklch(58% 0.18 265.19);
+  --rf-cornflower-600: oklch(54.6% 0.19216 265.19);
+  --rf-cornflower-700: oklch(48.8% 0.19059 265.19);
+  --rf-cornflower-800: oklch(42.4% 0.15608 265.19);
+  --rf-cornflower-900: oklch(37.9% 0.11451 265.19);
+  --rf-cornflower-950: oklch(28.2% 0.07137 265.19);
+  --rf-blue-50: var(--color-blue-50);
+  --rf-blue-100: var(--color-blue-100);
+  --rf-blue-200: var(--color-blue-200);
+  --rf-blue-300: var(--color-blue-300);
+  --rf-blue-400: var(--color-blue-400);
+  --rf-blue-450: oklch(66% 0.184 254.753);
+  --rf-blue-500: var(--color-blue-500);
+  --rf-blue-550: oklch(58.5% 0.2295 261.348);
+  --rf-blue-600: var(--color-blue-600);
+  --rf-blue-700: var(--color-blue-700);
+  --rf-blue-800: var(--color-blue-800);
+  --rf-blue-900: var(--color-blue-900);
+  --rf-blue-950: var(--color-blue-950);
 }
 
 /* Semantic tokens shared by extension pages and isolated UI. The palette lives in

@@ -30,7 +30,7 @@ The generator renders the SVG sources directly to PNG. It never edits the retain
 
 ## Theme
 
-The compact palette in `src/assets/styles/host-theme.css` is shared by `theme.css` and raw translation-preset styling. It remains import-free because constructable stylesheets consume the preset CSS as text. Existing `--rf-*` semantic names, `--read-frog-*` preset names, theme mode selection, and saved custom CSS remain intact.
+The compact palette in `src/assets/styles/host-theme.css` is shared by `theme.css` and raw translation-preset styling. It remains import-free because constructable stylesheets consume the preset CSS as text. Existing `--rf-*` semantic names, `--read-frog-*` preset names, theme mode selection, and saved custom CSS remain intact. Deprecated `--rf-neutral-*`, `--rf-lemon-*`, `--rf-cornflower-*`, and `--rf-blue-*` names retain their original values for saved subtitle/custom CSS; they do not drive the new UI theme.
 
 | Role                   | Light               | Dark                   |
 | ---------------------- | ------------------- | ---------------------- |
