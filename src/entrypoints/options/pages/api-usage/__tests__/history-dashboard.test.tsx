@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { emptyApiUsageHistory, localUsageDate, offsetUsageDate } from "@/utils/api-usage-history"
 import { createApiUsageIdentity } from "@/utils/api-usage-identity"
+import { usageModelLabel } from "../history-chart"
 import { HistoryDashboard } from "../history-dashboard"
 
 vi.mock("@/utils/i18n", () => ({ i18n: { t: (key: string) => key } }))
@@ -53,6 +54,26 @@ function fixture() {
 }
 
 describe("date/model token dashboard", () => {
+  it.each(["deepl", "deeplx"] as const)(
+    "labels model-less %s requests by provider without claiming a private model",
+    (provider) => {
+      const identity = createApiUsageIdentity({
+        id: "synthetic-row",
+        name: "synthetic",
+        provider,
+        enabled: true,
+        apiKey: "synthetic-secret",
+        baseURL: "https://synthetic.test",
+      })
+      expect(identity.model).toBeNull()
+      expect(usageModelLabel(identity)).toBe(
+        `${provider} / API (${identity.providerKey.slice(0, 6)})`,
+      )
+      expect(usageModelLabel({ ...api, model: null })).toContain(
+        "options.apiUsage.history.privateModel",
+      )
+    },
+  )
   it("defaults to BYOS input tokens and excludes hidden API tokens from graph and table totals", () => {
     const { history } = fixture()
     render(<HistoryDashboard history={history} locale="en" />)

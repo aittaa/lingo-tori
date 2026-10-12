@@ -14,6 +14,7 @@ export function usageModelLabel(identity: ApiUsageIdentity): string {
     identity.transport === "byos"
       ? "ChatGPT / BYOS"
       : `${identity.provider} / API (${identity.providerKey.slice(0, 6)})`
+  if (identity.model === null && ["deepl", "deeplx"].includes(identity.provider)) return provider
   const model =
     identity.model ??
     `${i18n.t("options.apiUsage.history.privateModel")} ${identity.id.slice(0, 6)}`

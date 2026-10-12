@@ -43,6 +43,14 @@ export const apiUsageHistorySchema = z
     ),
   })
   .superRefine((history, ctx) => {
+    if (
+      history.since === null &&
+      (Object.keys(history.models).length > 0 || Object.keys(history.days).length > 0)
+    )
+      ctx.addIssue({ code: "custom", message: "History missing observation start" })
+    // Every chart/table selection is a subset of these nonnegative totals.
+    // Reject unsafe aggregates through the existing unavailable/preserve-data path.
+    const totals = emptyUsageMetrics()
     for (const [id, identity] of Object.entries(history.models)) {
       if (id !== identity.id) ctx.addIssue({ code: "custom", message: "History identity mismatch" })
     }
@@ -53,6 +61,16 @@ export const apiUsageHistorySchema = z
         for (const metrics of Object.values(features)) {
           if (metrics.inputReports > metrics.results || metrics.outputReports > metrics.results)
             ctx.addIssue({ code: "custom", message: "Invalid usage coverage" })
+          if (
+            (metrics.inputReports === 0 && metrics.inputTokens > 0) ||
+            (metrics.outputReports === 0 && metrics.outputTokens > 0)
+          )
+            ctx.addIssue({ code: "custom", message: "Tokens without usage report" })
+          for (const key of HISTORY_METRICS) {
+            totals[key] += metrics[key]
+            if (!Number.isSafeInteger(totals[key]))
+              ctx.addIssue({ code: "custom", message: "Usage history aggregate overflow" })
+          }
         }
       }
     }
@@ -171,6 +189,7 @@ export function createApiUsageHistoryRecorder(
           }
         }
       }
+      apiUsageHistorySchema.parse(history)
       await store.write(history)
       return history
     } catch (error) {

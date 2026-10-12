@@ -2,7 +2,9 @@ import type { ApiUsageHistory } from "../api-usage-history"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   createApiUsageHistoryRecorder,
+  apiUsageHistorySchema,
   emptyApiUsageHistory,
+  emptyUsageMetrics,
   historyFeatureTotals,
   localUsageDate,
 } from "../api-usage-history"
@@ -109,6 +111,89 @@ describe("local date/model/feature aggregates", () => {
     expect(await recorder.snapshot()).toEqual({ history: null, historyIncomplete: true })
     expect(await memory.read()).toEqual(future)
     expect(memory.write).not.toHaveBeenCalled()
+  })
+
+  it.each(["features", "models", "days"])(
+    "rejects individually safe cells whose token sum overflows across %s",
+    (boundary) => {
+      const history = emptyApiUsageHistory()
+      history.since = 1
+      history.models[byos.id] = byos
+      const metrics = {
+        ...emptyUsageMetrics(),
+        results: 1,
+        inputReports: 1,
+        inputTokens: Number.MAX_SAFE_INTEGER,
+      }
+      history.days["2026-10-12"] = { [byos.id]: { dictionary: metrics } }
+      expect(apiUsageHistorySchema.safeParse(history).success).toBe(true)
+      const extra = { ...metrics, inputTokens: 1 }
+      if (boundary === "features") history.days["2026-10-12"][byos.id]!.sentenceAnalysis = extra
+      else if (boundary === "days")
+        history.days["2026-10-13"] = { [byos.id]: { dictionary: extra } }
+      else {
+        const other = { ...byos, id: "a".repeat(64) }
+        history.models[other.id] = other
+        history.days["2026-10-12"][other.id] = { dictionary: extra }
+      }
+      expect(apiUsageHistorySchema.safeParse(history).success).toBe(false)
+    },
+  )
+
+  it("preserves stored safe totals when a new report would overflow an aggregate", async () => {
+    const history = emptyApiUsageHistory()
+    history.since = 1
+    history.models[byos.id] = byos
+    history.days["2026-10-12"] = {
+      [byos.id]: {
+        dictionary: {
+          ...emptyUsageMetrics(),
+          results: 1,
+          inputReports: 1,
+          inputTokens: Number.MAX_SAFE_INTEGER,
+        },
+      },
+    }
+    const memory = store(history)
+    const recorder = createApiUsageHistoryRecorder(memory, () => Date.parse("2026-10-13T12:00:00Z"))
+    recorder.result("sentenceAnalysis", byos, { inputTokens: 1 })
+    expect(await recorder.snapshot()).toEqual({ history: null, historyIncomplete: true })
+    expect(memory.write).not.toHaveBeenCalled()
+    expect(await memory.read()).toEqual(history)
+  })
+
+  it.each(["since", "inputReports", "outputReports"] as const)(
+    "preserves inconsistent stored history with invalid %s",
+    async (field) => {
+      const history = emptyApiUsageHistory()
+      history.since = 1
+      history.models[byos.id] = byos
+      const metrics = { ...emptyUsageMetrics(), requests: 1, results: 1 }
+      history.days["2026-10-12"] = { [byos.id]: { dictionary: metrics } }
+      if (field === "since") history.since = null
+      else metrics[field === "inputReports" ? "inputTokens" : "outputTokens"] = 1
+      const memory = store(history)
+      const recorder = createApiUsageHistoryRecorder(memory)
+      recorder.attempt("dictionary", byos)
+      expect(await recorder.snapshot()).toEqual({ history: null, historyIncomplete: true })
+      expect(memory.write).not.toHaveBeenCalled()
+      expect(await memory.read()).toEqual(history)
+    },
+  )
+
+  it("accepts genuine reported zero and empty unreported token fields", async () => {
+    const recorder = createApiUsageHistoryRecorder(store())
+    recorder.result("dictionary", byos, { inputTokens: 0 })
+    recorder.result("dictionary", byos, {})
+    const snapshot = await recorder.snapshot()
+    expect(snapshot.historyIncomplete).toBe(false)
+    expect(Object.values(snapshot.history!.days)[0]?.[byos.id]?.dictionary).toMatchObject({
+      results: 2,
+      inputReports: 1,
+      outputReports: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    })
   })
 
   it("distinguishes BYOS, providers and configured rows while excluding arbitrary sensitive labels", () => {

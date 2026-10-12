@@ -38,6 +38,8 @@ History is local, indefinite and sparse; no automatic deletion, reset, export or
 
 Lifetime and history have independent background persistence chains. Writes never delay network dispatch or consume/clone a stream. Failed writes retain pending deltas for retry; invalid/future data is preserved and reported unavailable. Snapshot reads flush prior pending writes and carry separate incomplete flags. Abrupt worker termination or storage failure can lose observations before writing, and the two stores have no network/storage transaction; their totals can differ when failures occur. The page states these diagnostic limits.
 
+Model-less DeepL/DeepLX requests show the provider alone rather than a private-model alias. History validation rejects nonempty records without an observation start, positive tokens without their corresponding report count, and histories whose nonnegative metric aggregates exceed the safe integer range. Checking the whole stored history also bounds every filtered chart/table subset; validation runs before writes, so an overflowing update does not replace the existing stored record. These cases use the existing unavailable-history state and never reset either store.
+
 ## Verification boundaries
 
 The requested focused regression run on the request-only candidate initially found five fixture/expectation mismatches. They were checked against the unchanged guards and request contracts, then strengthened without changing product code. Commit `4b92125a` passed 44 files / 525 tests with `SKIP_FREE_API=true`, Node 26.11.1, at most two workers and no file parallelism. The original reviewed count-only head remains `06c88783d95049636852828079cea9e7068038ac`.

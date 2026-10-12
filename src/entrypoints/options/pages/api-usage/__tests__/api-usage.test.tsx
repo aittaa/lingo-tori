@@ -54,6 +54,25 @@ describe("API usage settings", () => {
     expect(screen.queryByRole("figure")).not.toBeInTheDocument()
   })
 
+  it("shows rejected history as unavailable without hiding it as empty or resetting lifetime data", async () => {
+    const usage = emptyApiUsage()
+    usage.counts.dictionary.api = 12
+    readUsage.mockResolvedValue({
+      usage,
+      incomplete: false,
+      history: null,
+      historyIncomplete: true,
+    })
+    showPage()
+    expect(await screen.findByText("options.apiUsage.unavailable")).toBeInTheDocument()
+    expect(screen.queryByText("options.apiUsage.history.empty")).not.toBeInTheDocument()
+    expect(screen.queryByRole("table")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "options.apiUsage.history.viewLifetime" }))
+    expect(
+      await screen.findByRole("row", { name: "options.apiUsage.features.dictionary 12 0 12" }),
+    ).toBeInTheDocument()
+  })
+
   it("distinguishes first-use emptiness from incomplete saved counts", async () => {
     readUsage.mockResolvedValue({ usage: emptyApiUsage(), incomplete: true })
     showPage()
