@@ -1,10 +1,10 @@
 import type { APIProviderTypes } from "@/types/config/provider"
-import { useSetAtom, useStore } from "jotai"
+import { useSetAtom } from "jotai"
 import { requestEditorNavigationAtom } from "@/components/form/autosave-navigation"
 import ProviderIcon from "@/components/provider-icon"
 import { useTheme } from "@/components/providers/theme-provider"
 import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/base-ui/dialog"
-import { configFieldsAtomMap } from "@/utils/atoms/config"
+import { writeConfigAtom } from "@/utils/atoms/config"
 import {
   API_PROVIDER_ITEMS,
   PROVIDER_GROUPS,
@@ -20,19 +20,13 @@ const providerLabelClassName =
   "line-clamp-2 flex w-full flex-1 items-center justify-center text-xs font-light"
 
 export default function AddProviderDialog({ onClose }: { onClose: () => void }) {
-  const store = useStore()
   const requestNavigation = useSetAtom(requestEditorNavigationAtom)
-  const setProvidersConfig = useSetAtom(configFieldsAtomMap.providersConfig)
+  const writeConfig = useSetAtom(writeConfigAtom)
   const setSelectedProviderId = useSetAtom(selectedProviderIdAtom)
 
   const handleAddProvider = async (providerType: APIProviderTypes) => {
     await requestNavigation(async () => {
-      await addProvider(
-        providerType,
-        store.get(configFieldsAtomMap.providersConfig),
-        setProvidersConfig,
-        setSelectedProviderId,
-      )
+      await addProvider(providerType, writeConfig, setSelectedProviderId)
       onClose()
     })
   }

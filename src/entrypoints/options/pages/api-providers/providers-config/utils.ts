@@ -1,5 +1,7 @@
 import type { Config } from "@/types/config/config"
 import type { APIProviderConfig, APIProviderTypes } from "@/types/config/provider"
+import type { ConfigUpdate } from "@/utils/atoms/config"
+import { buildFirstProviderDefaultsPatch } from "@/utils/config/first-provider-defaults"
 import {
   DEFAULT_PROVIDER_CONFIG,
   getDefaultProviderDescription,
@@ -10,23 +12,29 @@ import { getUniqueName } from "@/utils/name"
 
 export async function addProvider(
   providerType: APIProviderTypes,
-  providersConfig: Config["providersConfig"],
-  setProvidersConfig: (config: Partial<Config["providersConfig"]>) => Promise<void>,
+  writeConfig: (update: ConfigUpdate) => Promise<void>,
   setSelectedProviderId?: (id: string) => void,
 ): Promise<string> {
-  const existingNames = new Set(providersConfig.map((p) => p.name))
-  const providerName = getUniqueName(getProviderItemName(providerType), existingNames)
-
   const description = getDefaultProviderDescription(providerType)
   const newProvider: APIProviderConfig = {
     ...structuredClone(DEFAULT_PROVIDER_CONFIG[providerType]),
     ...(description ? { description } : {}),
     id: getRandomUUID(),
-    name: providerName,
+    name: getProviderItemName(providerType),
   }
 
-  const updatedProviders = [...providersConfig, newProvider]
-  await setProvidersConfig(updatedProviders)
+  await writeConfig((current) => {
+    // Config writers may evaluate an updater for both optimistic and persisted state.
+    if (current.providersConfig.some((provider) => provider.id === newProvider.id)) return {}
+    const provider = {
+      ...newProvider,
+      name: getUniqueName(newProvider.name, new Set(current.providersConfig.map((p) => p.name))),
+    }
+    return {
+      ...buildFirstProviderDefaultsPatch(current, provider),
+      providersConfig: [...current.providersConfig, provider],
+    }
+  })
 
   if (setSelectedProviderId) {
     setSelectedProviderId(newProvider.id)

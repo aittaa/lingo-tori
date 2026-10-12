@@ -55,3 +55,43 @@ describe("BYOS feature assignment", () => {
     },
   )
 })
+
+describe("first BYOS provider save", () => {
+  it.each([undefined, "page", "selection", "dictionary"] as const)(
+    "composes defaults with explicit target %s",
+    (target) => {
+      const current = structuredClone(DEFAULT_CONFIG)
+      current.providersConfig = []
+      current.videoSubtitles.providerId = "keep-stale-choice"
+      const next = mergeWithArrayOverwrite(
+        current,
+        buildByosProviderPatch(current, "discovered-model", target),
+      )
+      expect(next.pageTranslation.providerId).toBe("lingotori-byos")
+      expect(next.selectionToolbar.features.translate.providerId).toBe("lingotori-byos")
+      expect(next.selectionToolbar.builtInActions.dictionary.providerId).toBe("lingotori-byos")
+      expect(next.selectionToolbar.builtInActions.sentenceAnalysis.providerId).toBe(
+        "lingotori-byos",
+      )
+      expect(next.videoSubtitles).toEqual(current.videoSubtitles)
+      expect(next.languageDetection).toEqual(current.languageDetection)
+    },
+  )
+  it("does not refill empty assignments when saving an existing provider", () => {
+    const current = structuredClone(DEFAULT_CONFIG)
+    current.providersConfig = [structuredClone(DEFAULT_PROVIDER_CONFIG.openai)]
+    const next = mergeWithArrayOverwrite(
+      current,
+      buildByosProviderPatch(current, "discovered-model"),
+    )
+    expect(next.pageTranslation).toEqual(current.pageTranslation)
+    expect(next.selectionToolbar).toEqual(current.selectionToolbar)
+  })
+  it("does not assign defaults without a discovered model", () => {
+    const current = structuredClone(DEFAULT_CONFIG)
+    current.providersConfig = []
+    const next = mergeWithArrayOverwrite(current, buildByosProviderPatch(current, ""))
+    expect(next.pageTranslation).toEqual(current.pageTranslation)
+    expect(next.selectionToolbar).toEqual(current.selectionToolbar)
+  })
+})

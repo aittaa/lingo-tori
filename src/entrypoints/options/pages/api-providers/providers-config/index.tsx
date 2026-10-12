@@ -12,7 +12,7 @@ import { Dialog, DialogTrigger } from "@/components/ui/base-ui/dialog"
 import { anchoredToastManager } from "@/components/ui/base-ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/base-ui/tooltip"
 import { isAPIProvider, isAPIProviderConfig } from "@/types/config/provider"
-import { configAtom, configFieldsAtomMap } from "@/utils/atoms/config"
+import { configAtom, configFieldsAtomMap, writeConfigAtom } from "@/utils/atoms/config"
 import { patchProviderConfigAtom } from "@/utils/atoms/entity-config"
 import { getAPIProvidersConfig, getProviderConfigById } from "@/utils/config/helpers"
 import {
@@ -48,7 +48,8 @@ import { addProvider } from "./utils"
  */
 function useRequestedProvider() {
   const { search, key: locationKey } = useLocation()
-  const [providersConfig, setProvidersConfig] = useAtom(configFieldsAtomMap.providersConfig)
+  const providersConfig = useAtomValue(configFieldsAtomMap.providersConfig)
+  const writeConfig = useSetAtom(writeConfigAtom)
   const setSelectedProviderId = useSetAtom(selectedProviderIdAtom)
   const setHighlightedField = useSetAtom(highlightedProviderFieldAtom)
   const handledLocationRef = useRef<string | null>(null)
@@ -93,17 +94,14 @@ function useRequestedProvider() {
       return
     }
 
-    void addProvider(
-      requestedType,
-      providersConfig,
-      setProvidersConfig,
-      setSelectedProviderId,
-    ).then(highlightRequestedField)
+    void addProvider(requestedType, writeConfig, setSelectedProviderId).then(
+      highlightRequestedField,
+    )
   }, [
     locationKey,
     search,
     providersConfig,
-    setProvidersConfig,
+    writeConfig,
     setSelectedProviderId,
     setHighlightedField,
   ])
