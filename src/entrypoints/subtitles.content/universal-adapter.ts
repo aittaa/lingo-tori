@@ -2,7 +2,7 @@ import type { ControlsConfig, PlatformConfig } from "@/entrypoints/subtitles.con
 import type { FeatureUsageContext, SurfaceByFeature } from "@/types/analytics"
 import type { Config } from "@/types/config/config"
 import type { SubtitlesSource } from "@/utils/constants/subtitles"
-import type { SubtitlesFetcher } from "@/utils/subtitles/fetchers/types"
+import type { SubtitlesFetcher, SubtitlesFetchOptions } from "@/utils/subtitles/fetchers/types"
 import type { SubtitlesVideoContext } from "@/utils/subtitles/processor/translator"
 import type { SubtitlesFragment } from "@/utils/subtitles/types"
 import { browser } from "#imports"
@@ -424,7 +424,10 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     this.subtitlesScheduler.hide()
   }
 
-  private async getOrLoadSourceSubtitles(signal?: AbortSignal): Promise<SubtitlesFragment[]> {
+  private async getOrLoadSourceSubtitles(
+    signal?: AbortSignal,
+    options?: SubtitlesFetchOptions,
+  ): Promise<SubtitlesFragment[]> {
     const currentVideoId = this.config.getVideoId?.() ?? null
     const fetcher = this.fetcher
     const cacheVersion = this.sourceLoadVersion
@@ -468,7 +471,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
         throw new OverlaySubtitlesError(i18n.t("subtitles.errors.noSubtitlesFound"))
       }
 
-      const subtitles = await fetcher.fetch()
+      const subtitles = await fetcher.fetch(options)
       assertCurrent()
       if (subtitles.length === 0) {
         throw new OverlaySubtitlesError(i18n.t("subtitles.errors.noSubtitlesFound"))
@@ -799,7 +802,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     try {
       if (!this.isAutoStartCurrent(token)) return
       isProbing = true
-      await this.getOrLoadSourceSubtitles()
+      await this.getOrLoadSourceSubtitles(undefined, { probe: true })
       // Checked before the settings are read, so an attempt that went stale during the load ends
       // here instead of waiting on them.
       if (!this.isAutoStartCurrent(token)) return
@@ -1133,6 +1136,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
             outcome: "success",
           })
         }
+        // The session is running: what a probe changed in the player's captions is its now.
+        this.fetcher.claimNativeSubtitles?.()
         return true
       }
 
@@ -1181,6 +1186,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
           outcome: "success",
         })
       }
+      // Likewise: an accepted start, translated or not, takes over the probe's changes.
+      this.fetcher.claimNativeSubtitles?.()
       return true
     } catch (error) {
       if (analyticsContext && targetLanguage) {

@@ -1111,7 +1111,10 @@ describe("universalVideoAdapter", () => {
       subtitlesFetcher.shouldUseSameTrack.mockResolvedValue(true)
       track(vi.spyOn(adapter as any, "hideNativeSubtitles")).mockImplementation(() => {})
       track(vi.spyOn(adapter as any, "showNativeSubtitles")).mockImplementation(() => {})
-      return { adapter, subtitlesFetcher, video, scheduler: attachScheduler(adapter, false) }
+      // What a fetcher that changes the player's own captions would be told when a start is accepted.
+      const claim = vi.fn<() => void>()
+      ;(subtitlesFetcher as any).claimNativeSubtitles = claim
+      return { adapter, subtitlesFetcher, video, claim, scheduler: attachScheduler(adapter, false) }
     }
 
     const stubSwitch = (adapter: UniversalVideoAdapter) =>
@@ -1880,6 +1883,53 @@ describe("universalVideoAdapter", () => {
         await settle()
 
         expect(showNativeCalls(adapter)).toBe(0)
+      })
+
+      it.each([
+        ["a probe that went on to a translated start", "kor", true],
+        ["a manual start", "kor", false],
+        ["a start on a video already in the viewer's language", "jpn", false],
+      ])("hands what was changed to %s once it is running", async (_case, targetCode, viaProbe) => {
+        mocks.getLocalConfig.mockResolvedValue(configFor({ targetCode }))
+        const startSpy = stubCoordinatorStart()
+        const { adapter, claim } = openVideo()
+
+        if (viaProbe) {
+          await tryAutoStart(adapter)
+        } else {
+          adapter.toggleSubtitlesManually(true)
+        }
+        // Passthrough and translated starts both run; only the translated one has a coordinator.
+        await vi.waitFor(() => expect(claim).toHaveBeenCalledOnce())
+
+        expect(startSpy).toHaveBeenCalledTimes(targetCode === "kor" ? 1 : 0)
+        expect(showNativeCalls(adapter)).toBe(0)
+      })
+
+      it("hands nothing over from a probe that declined, or from a start that was cancelled", async () => {
+        mocks.getLocalConfig.mockResolvedValue(configFor({ targetCode: "jpn" }))
+        const declined = openVideo()
+
+        await tryAutoStart(declined.adapter)
+        await settle()
+        expect(declined.claim).not.toHaveBeenCalled()
+        expect(showNativeCalls(declined.adapter)).toBe(1)
+
+        // An automatic start that the setting cancelled before it ran claims nothing either.
+        mocks.getLocalConfig.mockResolvedValue(configFor({ targetCode: "kor" }))
+        const startSpy = stubCoordinatorStart()
+        const provider = deferred<null>()
+        mocks.resolveSubtitlesProviderRef.mockReturnValueOnce(provider.promise)
+        const cancelled = openVideo()
+        await tryAutoStart(cancelled.adapter)
+        await vi.waitFor(() => expect(mocks.resolveSubtitlesProviderRef).toHaveBeenCalledOnce())
+        mocks.getLocalConfig.mockResolvedValue(configFor({ targetCode: "kor", autoStart: false }))
+        provider.resolve(null)
+        await settle()
+
+        expect(startSpy).not.toHaveBeenCalled()
+        expect(cancelled.claim).not.toHaveBeenCalled()
+        expect(showNativeCalls(cancelled.adapter)).toBe(1)
       })
     })
 
