@@ -144,6 +144,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   private sessionProcessedFragments: SubtitlesFragment[] = []
   private sessionVideoId: string | null = null
   private sessionTrackIdentity: string | null | undefined
+  /** The translation language the session was built for; its cues are only reused for that one. */
+  private sessionTargetCode: Config["language"]["targetCode"] | undefined
   private publishedTrackIdentity: string | null | undefined
 
   private isNativeSubtitlesHidden = false
@@ -521,6 +523,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     this.sessionProcessedFragments = []
     this.sessionVideoId = null
     this.sessionTrackIdentity = undefined
+    this.sessionTargetCode = undefined
     this.publishedTrackIdentity = undefined
     this.subtitlesSummaryContextHash = null
     subtitlesStore.set(sourceTrackAtom, [])
@@ -1108,9 +1111,12 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       // to go on translating with, a passthrough one must still be a track already in the target
       // language. A source-only session never fills the session fragments, so it always starts
       // fresh and a provider chosen later is picked up. An AI session keeps resuming as before.
+      // Whatever its kind, a session resumes only for the language it was built for: its cues are
+      // in that language. One that never recorded a language does not match a configured one.
       const canResume =
         useSameTrack &&
         hasCurrentSession &&
+        this.sessionTargetCode === targetLanguage &&
         (this.source !== SUBTITLES_SOURCE.NATIVE ||
           (this.translationCoordinator
             ? requestedProvider !== null && !isSameLanguage()
@@ -1151,6 +1157,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       await assertWanted()
       this.sessionSubtitles = this.sourceSubtitles
       this.sessionTrackIdentity = this.fetcher.getTrackIdentity?.()
+      this.sessionTargetCode = targetLanguage
 
       if (isSameLanguage()) {
         this.processPassthroughSubtitles()
