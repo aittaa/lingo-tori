@@ -244,6 +244,85 @@ describe("subtitles translator", () => {
     )
   })
 
+  describe("per-cue translation outcome", () => {
+    /** Resolves every cue except the ones named: "broken" rejects, "silent" resolves empty. */
+    function mockPerCueOutcome() {
+      sendMessageMock.mockImplementation(async (name: string, payload: { text?: string }) => {
+        if (name !== "enqueueSubtitlesTranslateRequest") return "translated subtitle"
+        if (payload.text === "broken") throw new Error("provider hiccup")
+        if (payload.text === "silent") return ""
+        return `t:${payload.text}`
+      })
+    }
+
+    const videoContext = { videoTitle: "Video title", subtitlesTextContent: "subtitle transcript" }
+
+    it("leaves a rejected cue untranslated instead of recording it as an empty translation", async () => {
+      mockPerCueOutcome()
+      const { translateSubtitles } = await import("../translator")
+
+      const result = await translateSubtitles(
+        [
+          { text: "ok", start: 0, end: 1_000 },
+          { text: "broken", start: 1_000, end: 2_000 },
+          { text: "after", start: 2_000, end: 3_000 },
+        ],
+        videoContext,
+      )
+
+      expect(result.map((cue) => cue.translation)).toEqual(["t:ok", undefined, "t:after"])
+    })
+
+    it("does not inherit an earlier translation for a cue whose request rejected", async () => {
+      mockPerCueOutcome()
+      const { translateSubtitles } = await import("../translator")
+
+      const result = await translateSubtitles(
+        [
+          { text: "ok", start: 0, end: 1_000 },
+          { text: "broken", start: 1_000, end: 2_000, translation: "stale translation" },
+        ],
+        videoContext,
+      )
+
+      expect(result[1]!.translation).toBeUndefined()
+    })
+
+    it("still counts a resolved empty translation as a success", async () => {
+      mockPerCueOutcome()
+      const { translateSubtitles } = await import("../translator")
+
+      const result = await translateSubtitles(
+        [
+          { text: "silent", start: 0, end: 1_000 },
+          { text: "broken", start: 1_000, end: 2_000 },
+        ],
+        videoContext,
+      )
+
+      expect(result[0]!.translation).toBe("")
+      expect(result[1]!.translation).toBeUndefined()
+    })
+
+    it("throws the first friendly error when every cue rejected", async () => {
+      sendMessageMock.mockImplementation(async (name: string) => {
+        if (name !== "enqueueSubtitlesTranslateRequest") return "translated subtitle"
+        throw new Error("provider hiccup")
+      })
+      const { translateSubtitles } = await import("../translator")
+
+      await expect(
+        translateSubtitles(
+          [
+            { text: "broken", start: 0, end: 1_000 },
+            { text: "broken", start: 1_000, end: 2_000 },
+          ],
+          videoContext,
+        ),
+      ).rejects.toThrow("provider hiccup")
+    })
+  })
+
   it("builds subtitle summary context hashes from subtitles text and provider config", async () => {
     const { buildSubtitlesSummaryContextHash } = await import("../translator")
 

@@ -332,7 +332,10 @@ export async function translateSubtitles(
     const result = results[index]
     return {
       ...fragment,
-      translation: result!.status === "fulfilled" ? result!.value : "",
+      // A rejected request leaves the cue without a translation, set explicitly so an earlier one
+      // on the fragment is not inherited. An empty string would read as translated-to-nothing and
+      // be marked complete; a resolved empty translation still is.
+      translation: result!.status === "fulfilled" ? result!.value : undefined,
     }
   })
 }

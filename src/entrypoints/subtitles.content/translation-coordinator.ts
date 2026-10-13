@@ -222,33 +222,36 @@ export class TranslationCoordinator {
 
     try {
       const translated = await translateSubtitles(batch, this.videoContext)
-      if (!this.active || runId !== this.runId) {
-        batch.forEach((f) => this.translatingStarts.delete(f.start))
-        return
-      }
+      // A newer generation owns the bookkeeping now; stop()/reset() already cleared this one's.
+      if (!this.active || runId !== this.runId) return
 
       // Only accept results whose cue identity still matches the current fragment list.
       const stillValid = this.filterIdentityValid(translated)
+      // A cue the translator returned without a translation failed: it is neither complete nor
+      // shown. It still counts as resolved (loading clears) but is retried only once clearFailed()
+      // runs, never by the next tick.
+      const succeeded = stillValid.filter((f) => f.translation !== undefined)
+      const failed = stillValid.filter((f) => f.translation === undefined)
 
-      stillValid.forEach((f) => {
-        this.translatingStarts.delete(f.start)
+      succeeded.forEach((f) => {
         this.translatedStarts.add(f.start)
+        this.rememberIdentity(f)
+      })
+      failed.forEach((f) => {
+        this.failedStarts.add(f.start)
         this.rememberIdentity(f)
       })
       // Starts that disappeared or were recut mid-request should not stay "translating".
       batch.forEach((f) => {
         this.translatingStarts.delete(f.start)
       })
-      this.onTranslated(stillValid)
+      this.onTranslated(succeeded)
 
       const latestTimeMs = this.getCurrentVideoTimeMs(currentTimeMs)
       const latestFragments = this.getFragments()
       this.updateLoadingStateAt(latestTimeMs, latestFragments)
     } catch (error) {
-      if (!this.active || runId !== this.runId) {
-        batch.forEach((f) => this.translatingStarts.delete(f.start))
-        return
-      }
+      if (!this.active || runId !== this.runId) return
 
       // Starts that disappeared or were recut mid-request should not stay "translating".
       batch.forEach((f) => {
