@@ -6,11 +6,15 @@ The standalone Translation Hub / Multi-API Text Translation screen has been remo
 
 ## Use your own provider
 
-The core uses **BYOK** (bring your own API key). Open **API Providers**, add a provider or compatible endpoint, then explicitly assign it to each feature. Gemini and Azure are supported alongside other model APIs. New installs have no provider, and requests can incur your provider's charges. See the [BYOK setup guide](docs/byok.md).
+Open **API Providers** and choose **Sign in with ChatGPT** ([experimental browser-only sign-in](docs/byos-firefox.md)), or add an API key for a provider or compatible endpoint. Gemini and Azure are supported alongside other model APIs. New installs have no provider. Requests use your own account or key and can incur charges or usage limits. Registering an API provider only saves its configuration; it does not validate the key. API-key providers remain independent of ChatGPT sign-in, and no automatic paid fallback runs.
+
+When an enabled provider is added to an empty provider list, it fills only the empty feature slots it is compatible with. Existing choices and each feature's ON/OFF state are unchanged. For ChatGPT, this also requires a connection and an available model. Later providers do not fill slots, and you can still configure each feature manually.
 
 Original reading suggestions remain. Voice playback, writing/input assistance, hosted accounts and backup, cloud transcription, vocabulary/SRS and companion services are outside this core. Subtitles require captions supplied by the video platform; supported platform adapters currently cover YouTube, X and Netflix. Site behavior can change, and this draft core still requires the [merge validation gate](docs/validation.md).
 
-[Experimental browser-only BYOS](docs/experimental-byos.md) adds **Sign in with ChatGPT** inside API Providers for Chromium. Existing ON/OFF, model and feature assignments are preserved; actual requests require authenticated account access. BYOK remains independent, and no automatic paid fallback runs. This integrated source candidate requires its own validation and review; earlier live evidence does not verify the combined build.
+There is one translation target language; there is no separate native-language setting. Smart context and automatic video translation are both OFF by default. With automatic video translation ON in the popup or settings, subtitles start only when the caption source language is known and differs from the translation target language. Same or unknown languages are not started automatically. Turning subtitles OFF in the player applies to the current video, and the next video follows the setting again. Turning the global setting OFF cancels pending starts but does not stop sessions already running.
+
+ChatGPT sign-in is experimental and available in Chromium and Firefox 140+. Requests need authenticated account access. Native QA on Firefox ESR 140.17.0 covered sign-in, model discovery, Korean subtitles and recovery after an extension background restart, but it ran on an earlier candidate ([PR #65](https://github.com/aittaa/lingo-tori/pull/65)), not current main. Full browser restart, long-term token refresh and clean-profile API-key runtime verification remain pending ([#8](https://github.com/aittaa/lingo-tori/issues/8) / [#36](https://github.com/aittaa/lingo-tori/issues/36)), as does comprehensive QA of current main; see the [Firefox notes](docs/byos-firefox.md). This does not establish official ChatGPT support, store approval or signed distribution.
 
 ## Development
 
