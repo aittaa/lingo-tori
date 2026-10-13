@@ -16,6 +16,14 @@ export interface AudioCaptionTrack {
   languageCode?: string
 }
 
+/**
+ * What a request on the page's caption bridge asks for: switch the player's captions on ("ensure"),
+ * put back what a named probe switched on ("restore"), give up an earlier request and undo what it
+ * already changed ("cancel"), or hand what some probes changed over to an accepted session
+ * ("claim").
+ */
+export type YoutubeCaptionsAction = "ensure" | "restore" | "cancel" | "claim"
+
 export interface PlayerData {
   videoId: string
   captionTracks: CaptionTrack[]

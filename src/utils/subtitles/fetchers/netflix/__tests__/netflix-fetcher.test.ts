@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type { NetflixSubtitlesResponse } from ".."
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   NETFLIX_LOAD_POST_MESSAGE_TIMEOUT_MS,
   POST_MESSAGE_TIMEOUT_MS,
@@ -10,16 +10,21 @@ import { NetflixSubtitlesFetcher } from ".."
 
 vi.mock("@/utils/i18n", () => ({ i18n: { t: (key: string) => key } }))
 
+interface SentMessage {
+  action: string
+  operationId?: string
+  expectedMovieId?: string | null
+}
 const postMessageRequest =
   vi.fn<
     (
       type: string,
-      message: { action: string },
+      message: SentMessage,
       timeoutMs?: number,
     ) => Promise<NetflixSubtitlesResponse | null>
   >()
 vi.mock("@/utils/subtitles/fetchers/post-message-request", () => ({
-  postMessageRequest: (type: string, message: { action: string }, timeoutMs?: number) =>
+  postMessageRequest: (type: string, message: SentMessage, timeoutMs?: number) =>
     postMessageRequest(type, message, timeoutMs),
 }))
 
@@ -211,6 +216,126 @@ describe("NetflixSubtitlesFetcher", () => {
       expect.objectContaining({ action: "restore" }),
       POST_MESSAGE_TIMEOUT_MS,
     )
+  })
+
+  describe("when the page is told which load, and which movie, a request is for", () => {
+    afterEach(() => {
+      window.history.pushState({}, "", "/")
+    })
+
+    it("names the load and the movie it was made on, so the page can refuse a stale one", async () => {
+      window.history.pushState({}, "", "/watch/42")
+      respondWith({ load: response() })
+
+      await new NetflixSubtitlesFetcher().fetch()
+
+      expect(postMessageRequest).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          action: "load",
+          operationId: expect.any(String),
+          expectedMovieId: "42",
+        }),
+        NETFLIX_LOAD_POST_MESSAGE_TIMEOUT_MS,
+      )
+    })
+
+    it("names the movie now showing in a restore", () => {
+      window.history.pushState({}, "", "/watch/7")
+      respondWith({})
+
+      new NetflixSubtitlesFetcher().showNativeSubtitles()
+
+      expect(postMessageRequest).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ action: "restore", expectedMovieId: "7" }),
+        POST_MESSAGE_TIMEOUT_MS,
+      )
+    })
+
+    it("tells the page to give up a load that cleanup abandons, and the load ends without caching", async () => {
+      let finishLoad!: (reply: NetflixSubtitlesResponse) => void
+      postMessageRequest.mockImplementation((_type, message) =>
+        message.action === "load"
+          ? new Promise((resolve) => {
+              finishLoad = resolve
+            })
+          : Promise.resolve(response()),
+      )
+      const fetcher = new NetflixSubtitlesFetcher()
+      const loading = fetcher.fetch()
+      const loadMessage = postMessageRequest.mock.calls[0]![1]
+
+      fetcher.cleanup()
+      expect(postMessageRequest).toHaveBeenLastCalledWith(
+        expect.any(String),
+        expect.objectContaining({ action: "cancel", operationId: loadMessage.operationId }),
+        POST_MESSAGE_TIMEOUT_MS,
+      )
+
+      // Even if the page answered after all, nothing of the abandoned load is kept or reported.
+      finishLoad(response())
+      await expect(loading).rejects.toMatchObject({ name: "AbortError" })
+      expect(fetcher.getCachedSubtitles()).toBeNull()
+      expect(fetcher.getSourceLanguage()).toBe("")
+      await expect(fetcher.shouldUseSameTrack()).resolves.toBe(false)
+    })
+
+    const cancelMessages = () =>
+      postMessageRequest.mock.calls
+        .filter(([, message]) => message.action === "cancel")
+        .map(([, message]) => message)
+
+    it("gives up even a load that finished, so the page can put back a track it changed", async () => {
+      respondWith({ load: response() })
+      const fetcher = new NetflixSubtitlesFetcher()
+      await fetcher.fetch()
+      const loadMessage = postMessageRequest.mock.calls[0]![1]
+
+      fetcher.cleanup()
+
+      expect(cancelMessages()).toHaveLength(1)
+      expect(cancelMessages()[0]!.operationId).toBe(loadMessage.operationId)
+
+      // Given up once: a second cleanup has nothing left to name.
+      fetcher.cleanup()
+      expect(cancelMessages()).toHaveLength(1)
+    })
+
+    it("names its own loads in a restore, and no other fetcher's", async () => {
+      respondWith({ load: response() })
+      const fetcher = new NetflixSubtitlesFetcher()
+      await fetcher.fetch()
+      const loadMessage = postMessageRequest.mock.calls[0]![1]
+
+      fetcher.showNativeSubtitles()
+      new NetflixSubtitlesFetcher().showNativeSubtitles()
+
+      const restores = postMessageRequest.mock.calls
+        .filter(([, message]) => message.action === "restore")
+        .map(([, message]) => message)
+      expect(restores[0]).toMatchObject({ operationIds: [loadMessage.operationId] })
+      expect(restores[1]).toMatchObject({ operationIds: [] })
+    })
+
+    it("ends a load for a movie that is no longer showing when its answer arrives", async () => {
+      window.history.pushState({}, "", "/watch/1")
+      let finishLoad!: (reply: NetflixSubtitlesResponse) => void
+      postMessageRequest.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            finishLoad = resolve
+          }),
+      )
+      const fetcher = new NetflixSubtitlesFetcher()
+      const loading = fetcher.fetch()
+
+      window.history.pushState({}, "", "/watch/2")
+      finishLoad(response({ movieId: null, trackId: null, translatable: false, ttml: null }))
+
+      await expect(loading).rejects.toMatchObject({ name: "AbortError" })
+      expect(fetcher.getCachedSubtitles()).toBeNull()
+    })
   })
 
   it("only exposes successfully loaded cache without IO and withholds it during another load", async () => {

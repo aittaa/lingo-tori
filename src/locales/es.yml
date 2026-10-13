@@ -916,9 +916,6 @@ options:
       enable:
         title: Activar subtítulos de video
         description: Añade un botón de traducción a los controles del reproductor en YouTube, X y Netflix.
-      autoStart:
-        title: Traducir al abrir el video
-        description: Empieza a traducir en cuanto se carga el video, sin pulsar el botón.
       aiSegmentation:
         title: Segmentación inteligente de IA
         description: La IA vuelve a cortar los subtítulos en líneas que se leen como frases. También fija sus tiempos, así que pueden desajustarse. Requiere un proveedor de traducción LLM.

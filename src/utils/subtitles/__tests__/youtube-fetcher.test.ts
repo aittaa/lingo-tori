@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest"
 import * as configStorage from "@/utils/config/storage"
-import { PLAYER_DATA_REQUEST_TYPE, PLAYER_DATA_RESPONSE_TYPE } from "@/utils/constants/subtitles"
+import {
+  ENSURE_SUBTITLES_REQUEST_TYPE,
+  ENSURE_SUBTITLES_RESPONSE_TYPE,
+  PLAYER_DATA_REQUEST_TYPE,
+  PLAYER_DATA_RESPONSE_TYPE,
+} from "@/utils/constants/subtitles"
 import { YoutubeSubtitlesFetcher } from "../fetchers/youtube"
 
 describe("youtube subtitles fetcher", () => {
@@ -552,6 +557,194 @@ describe("youtube subtitles fetcher", () => {
     expect(ensureSubtitlesEnabledSpy).toHaveBeenCalledTimes(1)
     expect(fetchWithRetrySpy.mock.calls[0]?.[0]).toContain("lang=en")
     expect(fetcher.getSourceLanguage()).toBe("en")
+  })
+
+  describe("asking the page to switch the player's captions on", () => {
+    const setLocation = () =>
+      Object.defineProperty(window, "location", {
+        value: {
+          href: "https://www.youtube.com/watch?v=test1234567",
+          search: "?v=test1234567",
+          origin: "https://www.youtube.com",
+          pathname: "/watch",
+          hostname: "www.youtube.com",
+        },
+        writable: true,
+      })
+
+    const track = (languageCode: string) => ({
+      baseUrl: `https://www.youtube.com/api/timedtext?v=test1234567&lang=${languageCode}`,
+      languageCode,
+      vssId: `.${languageCode}`,
+    })
+    const playerData = (selected: boolean) => ({
+      videoId: "test1234567",
+      captionTracks: [track("ar"), track("en")],
+      audioCaptionTracks: [],
+      device: null,
+      cver: null,
+      playerState: 1,
+      selectedTrackLanguageCode: selected ? "en" : null,
+      selectedTrackVssId: selected ? ".en" : null,
+      defaultCaptionTrackIndex: null,
+      cachedTimedtextUrl: null,
+    })
+
+    // The messages the fetcher posts to the page, answered as the page's bridge answers.
+    function listenToPage(onMessage: (message: Record<string, any>) => void = () => {}) {
+      const sent: Array<Record<string, any>> = []
+      vi.spyOn(window, "postMessage").mockImplementation(((message: any) => {
+        sent.push(message)
+        onMessage(message)
+        setTimeout(() => {
+          window.dispatchEvent(
+            new MessageEvent("message", {
+              origin: window.location.origin,
+              data: { type: ENSURE_SUBTITLES_RESPONSE_TYPE, requestId: message.requestId },
+            }),
+          )
+        })
+      }) as typeof window.postMessage)
+      return sent
+    }
+
+    it.each([
+      ["a probe", { probe: true }, true],
+      ["an ordinary load", undefined, false],
+    ])(
+      "names the video and the load, and whether it is a probe, for %s",
+      async (_case, options, probe) => {
+        setLocation()
+        let captionsEnabled = false
+        // The page's reply to the message is what switches the captions on.
+        const sent = listenToPage((message) => {
+          if (message.action === "ensure") captionsEnabled = true
+        })
+        const fetcher = new YoutubeSubtitlesFetcher()
+        vi.spyOn(fetcher as any, "requestPlayerData").mockImplementation(async () => ({
+          success: true,
+          data: playerData(captionsEnabled),
+        }))
+        vi.spyOn(fetcher as any, "fetchWithRetry").mockResolvedValue([])
+        vi.spyOn(fetcher as any, "processRawEvents").mockResolvedValue([])
+
+        await fetcher.fetch(options)
+
+        const ensures = sent.filter(
+          (message) =>
+            message.type === ENSURE_SUBTITLES_REQUEST_TYPE && message.action === "ensure",
+        )
+        expect(ensures).toHaveLength(1)
+        expect(ensures[0]).toMatchObject({
+          expectedVideoId: "test1234567",
+          probe,
+          operationId: expect.any(String),
+        })
+      },
+    )
+
+    it("tells the page to give up a load that cleanup abandons, and sends nothing after", async () => {
+      setLocation()
+      const sent = listenToPage()
+      const fetcher = new YoutubeSubtitlesFetcher()
+      let answerPlayerData!: (value: unknown) => void
+      vi.spyOn(fetcher as any, "requestPlayerData").mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            answerPlayerData = resolve
+          }),
+      )
+
+      const loading = fetcher.fetch({ probe: true })
+      fetcher.cleanup()
+      answerPlayerData({ success: true, data: playerData(false) })
+
+      await expect(loading).rejects.toMatchObject({ name: "AbortError" })
+      expect(sent.filter((message) => message.action === "cancel")).toHaveLength(1)
+      expect(sent.filter((message) => message.action === "ensure")).toHaveLength(0)
+    })
+
+    // A fetcher whose page switches the captions on when asked to, and whose track reads as a
+    // cue; the messages it sends are returned alongside.
+    function probingFetcher() {
+      setLocation()
+      let captionsEnabled = false
+      const sent = listenToPage((message) => {
+        if (message.action === "ensure") captionsEnabled = true
+      })
+      const fetcher = new YoutubeSubtitlesFetcher()
+      vi.spyOn(fetcher as any, "requestPlayerData").mockImplementation(async () => ({
+        success: true,
+        data: playerData(captionsEnabled),
+      }))
+      vi.spyOn(fetcher as any, "fetchWithRetry").mockResolvedValue([])
+      vi.spyOn(fetcher as any, "processRawEvents").mockResolvedValue([
+        { text: "cue", start: 0, end: 1 },
+      ])
+      const sentOf = (action: string) =>
+        sent.filter(
+          (message) => message.type === ENSURE_SUBTITLES_REQUEST_TYPE && message.action === action,
+        )
+      return { fetcher, sentOf }
+    }
+
+    it("asks the page to put back a probe's captions, naming the probe and its video", async () => {
+      const { fetcher, sentOf } = probingFetcher()
+      await fetcher.fetch({ probe: true })
+      const [ensure] = sentOf("ensure")
+
+      fetcher.showNativeSubtitles()
+
+      expect(sentOf("restore")).toEqual([
+        expect.objectContaining({
+          operationId: ensure!.operationId,
+          expectedVideoId: "test1234567",
+        }),
+      ])
+    })
+
+    it("has nothing to put back or hand over for an ordinary load, or for a fetcher that never probed", async () => {
+      const { fetcher, sentOf } = probingFetcher()
+      await fetcher.fetch()
+
+      fetcher.showNativeSubtitles()
+      fetcher.claimNativeSubtitles()
+      new YoutubeSubtitlesFetcher().showNativeSubtitles()
+
+      expect(sentOf("restore")).toHaveLength(0)
+      expect(sentOf("claim")).toHaveLength(0)
+    })
+
+    it("hands every probe's changes to an accepted session, including a probe that read cached captions", async () => {
+      const { fetcher, sentOf } = probingFetcher()
+      await fetcher.fetch({ probe: true })
+      // The same track again: the cache answers, and no ensure is sent.
+      await fetcher.fetch({ probe: true })
+      expect(sentOf("ensure")).toHaveLength(1)
+
+      fetcher.claimNativeSubtitles()
+      fetcher.showNativeSubtitles()
+
+      const [claim] = sentOf("claim")
+      expect(claim!.operationIds).toHaveLength(2)
+      expect(claim!.operationIds).toContain(sentOf("ensure")[0]!.operationId)
+      // Handed over: nothing of theirs is left to put back, and a second claim has nothing to name.
+      expect(sentOf("restore")).toHaveLength(0)
+      fetcher.claimNativeSubtitles()
+      expect(sentOf("claim")).toHaveLength(1)
+    })
+
+    it("gives up a probe that finished reading but was never accepted, when cleanup comes", async () => {
+      const { fetcher, sentOf } = probingFetcher()
+      await fetcher.fetch({ probe: true })
+      const [ensure] = sentOf("ensure")
+
+      fetcher.cleanup()
+
+      expect(sentOf("cancel")).toEqual([
+        expect.objectContaining({ operationId: ensure!.operationId }),
+      ])
+    })
   })
 
   it("does not toggle YouTube CC when the player already reports a selected track", async () => {

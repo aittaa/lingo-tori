@@ -1183,8 +1183,8 @@ options:
         title: Enable video subtitles
         description: Puts a translate button in the video player's controls on YouTube, X and Netflix.
       autoStart:
-        title: Translate on open
-        description: Start translating as soon as a video loads, without pressing the button.
+        title: Auto-translate videos in other languages
+        description: Automatically translates the subtitles of videos that aren't in your translation language. Turn it off for a single video from the player.
       aiSegmentation:
         title: AI smart segmentation
         description: Lets AI re-cut the subtitles into lines that read as sentences. It sets their timing too, so lines can drift out of sync. Needs an LLM translation provider.
@@ -1317,9 +1317,9 @@ providerRequired:
   message: Choose a provider
   openSettings: Open settings
 onboarding:
-  title: What's your native language?
+  title: Which language should we translate into?
   description: LingoTori will translate into this language by default. You can change it anytime in Settings.
-  languageLabel: Native language
+  languageLabel: Translation language
   suggested: Suggested from your browser language.
   use: Use this language
   later: Later

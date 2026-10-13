@@ -1,6 +1,6 @@
 import type { SubtitlesFragment } from "../../types"
-import type { SubtitlesFetcher } from "../types"
-import type { CaptionTrack, PlayerData, YoutubeTimedText } from "./types"
+import type { SubtitlesFetcher, SubtitlesFetchOptions } from "../types"
+import type { CaptionTrack, PlayerData, YoutubeCaptionsAction, YoutubeTimedText } from "./types"
 import { getLocalConfig } from "@/utils/config/storage"
 import {
   ENSURE_SUBTITLES_REQUEST_TYPE,
@@ -18,6 +18,7 @@ import {
   WAIT_TIMEDTEXT_REQUEST_TYPE,
   WAIT_TIMEDTEXT_RESPONSE_TYPE,
 } from "@/utils/constants/subtitles"
+import { getRandomUUID } from "@/utils/crypto-polyfill"
 import { i18n } from "@/utils/i18n"
 import { sleep } from "@/utils/sleep"
 import { OverlaySubtitlesError } from "@/utils/subtitles/errors"
@@ -59,43 +60,121 @@ export async function requestPlayerData(videoId: string): Promise<{
   return { success: resp.success, error: resp.error, data: resp.data }
 }
 
+/** One call to `fetch`: what the page is told about it, and whether it has been given up. */
+interface FetchOperation {
+  id: string
+  probe: boolean
+  cancelled: boolean
+}
+
+function assertNotCancelled(operation: FetchOperation): void {
+  if (operation.cancelled) {
+    throw new DOMException("Subtitle load cancelled", "AbortError")
+  }
+}
+
 export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
   private subtitles: SubtitlesFragment[] = []
   private sourceLanguage: string = ""
   private cachedTrackHash: string | null = null
   private preSegmented: boolean = false
+  private pendingOperations = new Set<FetchOperation>()
+  // Probes whose changes to the player's captions are still theirs to put back, by the video each
+  // read. Ended by a restore the page has answered, a claim by an accepted session, or cleanup.
+  private unsettledProbes = new Map<string, string>()
 
-  async fetch(): Promise<SubtitlesFragment[]> {
+  async fetch(options?: SubtitlesFetchOptions): Promise<SubtitlesFragment[]> {
     const videoId = getYoutubeVideoId()
     if (!videoId) {
       throw new OverlaySubtitlesError(i18n.t("subtitles.errors.videoNotFound"))
     }
 
-    const currentHash = await this.computeTrackHash()
+    const operation: FetchOperation = {
+      id: getRandomUUID(),
+      probe: options?.probe === true,
+      cancelled: false,
+    }
+    this.pendingOperations.add(operation)
+    // Registered before anything is asked of the page, so a path that never asks (cached captions)
+    // is still the probe's to end.
+    if (operation.probe) this.unsettledProbes.set(operation.id, videoId)
+    try {
+      const currentHash = await this.computeTrackHash()
+      assertNotCancelled(operation)
 
-    if (currentHash && this.subtitles.length > 0 && this.cachedTrackHash === currentHash) {
+      if (currentHash && this.subtitles.length > 0 && this.cachedTrackHash === currentHash) {
+        return this.subtitles
+      }
+
+      const fastPathResult = await this.tryFastFetch(videoId, operation)
+      let resolvedTrack = fastPathResult.track
+      let events = fastPathResult.events
+
+      if (!events) {
+        const fallbackResult = await this.fetchWithFallback(
+          videoId,
+          fastPathResult.track,
+          operation,
+        )
+        resolvedTrack = fallbackResult.track
+        events = fallbackResult.events
+      }
+
+      if (!resolvedTrack) {
+        throw new OverlaySubtitlesError(i18n.t("subtitles.errors.noSubtitlesFound"))
+      }
+
+      assertNotCancelled(operation)
+      this.sourceLanguage = resolvedTrack.languageCode
+      const subtitles = await this.processRawEvents(events)
+      // A load given up while it ran must not fill the cache that cleanup just emptied.
+      assertNotCancelled(operation)
+      this.subtitles = subtitles
+      this.cachedTrackHash = this.buildTrackHash(videoId, resolvedTrack)
+
       return this.subtitles
+    } finally {
+      this.pendingOperations.delete(operation)
     }
+  }
 
-    const fastPathResult = await this.tryFastFetch(videoId)
-    let resolvedTrack = fastPathResult.track
-    let events = fastPathResult.events
-
-    if (!events) {
-      const fallbackResult = await this.fetchWithFallback(videoId, fastPathResult.track)
-      resolvedTrack = fallbackResult.track
-      events = fallbackResult.events
+  /**
+   * Puts back the captions that probes of this fetcher switched on, if the page still has them as
+   * the probe left them. Each request names the probe and its video: the page acts on a record that
+   * matches both, and on no other.
+   */
+  showNativeSubtitles(): void {
+    for (const [operationId, videoId] of this.unsettledProbes) {
+      void postMessageRequest(ENSURE_SUBTITLES_RESPONSE_TYPE, {
+        type: ENSURE_SUBTITLES_REQUEST_TYPE,
+        action: "restore" satisfies YoutubeCaptionsAction,
+        expectedVideoId: videoId,
+        operationId,
+      }).then(() => {
+        // A probe still reading may switch the captions on after this answer, and then has this to
+        // do again: only one that has finished is settled by it.
+        const isRunning = [...this.pendingOperations].some(
+          (operation) => operation.id === operationId,
+        )
+        if (!isRunning) this.unsettledProbes.delete(operationId)
+      })
     }
+  }
 
-    if (!resolvedTrack) {
-      throw new OverlaySubtitlesError(i18n.t("subtitles.errors.noSubtitlesFound"))
-    }
-
-    this.sourceLanguage = resolvedTrack.languageCode
-    this.subtitles = await this.processRawEvents(events)
-    this.cachedTrackHash = this.buildTrackHash(videoId, resolvedTrack)
-
-    return this.subtitles
+  /**
+   * A start was accepted: the page drops its record of what these probes changed, and refuses to
+   * record anything they still ask for. A restore of theirs that is still on its way finds nothing
+   * to undo.
+   */
+  claimNativeSubtitles(): void {
+    if (this.unsettledProbes.size === 0) return
+    const operationIds = [...this.unsettledProbes.keys()]
+    this.unsettledProbes.clear()
+    void postMessageRequest(ENSURE_SUBTITLES_RESPONSE_TYPE, {
+      type: ENSURE_SUBTITLES_REQUEST_TYPE,
+      action: "claim" satisfies YoutubeCaptionsAction,
+      operationIds,
+    })
   }
 
   getSourceLanguage(): string {
@@ -107,6 +186,23 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
   }
 
   cleanup(): void {
+    // Loads still waiting end at their next step. The page is told to give up every load and probe
+    // of this fetcher: it refuses what is still queued for them, and undoes what a probe already
+    // changed while the player is still on the video it changed it for.
+    const abandoned = new Set([
+      ...[...this.pendingOperations].map((operation) => operation.id),
+      ...this.unsettledProbes.keys(),
+    ])
+    for (const operation of this.pendingOperations) operation.cancelled = true
+    for (const operationId of abandoned) {
+      void postMessageRequest(ENSURE_SUBTITLES_RESPONSE_TYPE, {
+        type: ENSURE_SUBTITLES_REQUEST_TYPE,
+        action: "cancel" satisfies YoutubeCaptionsAction,
+        operationId,
+      })
+    }
+    this.pendingOperations.clear()
+    this.unsettledProbes.clear()
     this.subtitles = []
     this.sourceLanguage = ""
     this.cachedTrackHash = null
@@ -164,7 +260,10 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
     return `${videoId}:${track.languageCode}:${track.kind ?? ""}:${track.vssId}`
   }
 
-  private async tryFastFetch(videoId: string): Promise<{
+  private async tryFastFetch(
+    videoId: string,
+    operation: FetchOperation,
+  ): Promise<{
     currentHash: string | null
     track: CaptionTrack | null
     events: YoutubeTimedText[] | null
@@ -178,7 +277,7 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
       }
     }
 
-    const playerData = await this.ensureTrackSelection(videoId, response.data)
+    const playerData = await this.ensureTrackSelection(videoId, response.data, operation)
     const track = this.selectTrack(playerData)
     const currentHash = this.buildTrackHash(videoId, track)
 
@@ -209,14 +308,16 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
   private async fetchWithFallback(
     videoId: string,
     preferredTrack: CaptionTrack | null,
+    operation: FetchOperation,
   ): Promise<{
     track: CaptionTrack
     events: YoutubeTimedText[]
   }> {
     // Wait for player state >= 1 before retrying with the slower POT/timedtext flow.
     await this.waitForPlayerState(videoId)
+    assertNotCancelled(operation)
 
-    const playerData = await this.getPlayerDataWithPot(videoId)
+    const playerData = await this.getPlayerDataWithPot(videoId, operation)
     const track = this.selectTrack(playerData) ?? preferredTrack
 
     if (!track) {
@@ -227,7 +328,11 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
     return { track, events }
   }
 
-  private async ensureTrackSelection(videoId: string, playerData: PlayerData): Promise<PlayerData> {
+  private async ensureTrackSelection(
+    videoId: string,
+    playerData: PlayerData,
+    operation: FetchOperation,
+  ): Promise<PlayerData> {
     if (
       playerData.captionTracks.length === 0 ||
       hasSelectedTrack(playerData) ||
@@ -236,11 +341,12 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
       return playerData
     }
 
-    await this.ensureSubtitlesEnabled()
+    await this.ensureSubtitlesEnabled(videoId, operation)
 
     let latest = playerData
     for (let i = 0; i < MAX_SELECTED_TRACK_WAIT_ATTEMPTS; i++) {
       const response = await this.requestPlayerData(videoId)
+      assertNotCancelled(operation)
       if (response.success && response.data) {
         latest = response.data
         if (hasSelectedTrack(latest)) {
@@ -266,8 +372,12 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
     }
   }
 
-  private async getPlayerDataWithPot(videoId: string): Promise<PlayerData> {
+  private async getPlayerDataWithPot(
+    videoId: string,
+    operation: FetchOperation,
+  ): Promise<PlayerData> {
     const response = await this.requestPlayerData(videoId)
+    assertNotCancelled(operation)
 
     if (!response.success || !response.data) {
       throw new OverlaySubtitlesError(i18n.t("subtitles.errors.fetchSubTimeout"))
@@ -283,11 +393,12 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
       return playerData
     }
 
-    await this.ensureSubtitlesEnabled()
+    await this.ensureSubtitlesEnabled(videoId, operation)
 
     for (let i = 0; i < MAX_POT_WAIT_ATTEMPTS; i++) {
       await sleep(POT_WAIT_INTERVAL_MS)
       const pollResponse = await this.requestPlayerData(videoId)
+      assertNotCancelled(operation)
       if (pollResponse.success && pollResponse.data) {
         playerData = pollResponse.data
         if (this.hasPotInAudioTracks(playerData) || playerData.cachedTimedtextUrl) {
@@ -335,10 +446,17 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
     return requestPlayerData(videoId)
   }
 
-  private async ensureSubtitlesEnabled(): Promise<void> {
+  // The page acts only if this operation is still wanted and the player still shows this video.
+  private async ensureSubtitlesEnabled(videoId: string, operation: FetchOperation): Promise<void> {
+    assertNotCancelled(operation)
     await postMessageRequest(ENSURE_SUBTITLES_RESPONSE_TYPE, {
       type: ENSURE_SUBTITLES_REQUEST_TYPE,
+      action: "ensure" satisfies YoutubeCaptionsAction,
+      expectedVideoId: videoId,
+      operationId: operation.id,
+      probe: operation.probe,
     })
+    assertNotCancelled(operation)
   }
 
   /**

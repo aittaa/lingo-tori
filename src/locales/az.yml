@@ -916,9 +916,6 @@ options:
       enable:
         title: Video subtitrlərini aktiv et
         description: YouTube, X və Netflix-də video pleyerin idarəetmə panelinə tərcümə düyməsi əlavə edir.
-      autoStart:
-        title: Açılan kimi tərcümə et
-        description: Düyməyə basmadan video yüklənən kimi tərcüməyə başlayın.
       aiSegmentation:
         title: Süni intellektlə ağıllı seqmentləşdirmə
         description: Süni intellekt subtitrləri cümlə kimi oxunan sətirlərə yenidən bölür. Vaxtları da təyin etdiyindən sətirlər sinxrondan çıxa bilər. LLM tərcümə provayderi tələb olunur.

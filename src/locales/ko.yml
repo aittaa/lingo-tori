@@ -1130,8 +1130,8 @@ options:
         title: 비디오 자막 켜기
         description: YouTube, X, Netflix의 동영상 플레이어 컨트롤 바에 번역 버튼을 추가합니다.
       autoStart:
-        title: 영상을 열면 바로 번역
-        description: 영상이 로드되면 버튼을 누르지 않아도 자막 번역을 시작합니다.
+        title: 다른 언어 영상 자동 번역
+        description: 번역 대상 언어와 다른 영상의 자막을 자동으로 번역해요. 영상마다 플레이어에서 끌 수 있어요.
       aiSegmentation:
         title: AI 스마트 분할
         description: AI가 자막을 문장처럼 읽히도록 다시 나눕니다. 타이밍도 AI가 정하므로 싱크가 어긋날 수 있습니다. LLM 번역 공급자가 필요합니다.
@@ -1264,9 +1264,9 @@ providerRequired:
   message: 제공자를 선택해 주세요
   openSettings: 설정 열기
 onboarding:
-  title: 모국어가 무엇인가요?
+  title: 어떤 언어로 번역할까요?
   description: LingoTori가 기본으로 이 언어로 번역해요. 설정에서 언제든 바꿀 수 있어요.
-  languageLabel: 모국어
+  languageLabel: 번역 대상 언어
   suggested: 브라우저 언어를 바탕으로 추천했어요.
   use: 이 언어 사용
   later: 나중에

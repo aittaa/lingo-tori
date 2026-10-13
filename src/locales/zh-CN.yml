@@ -921,9 +921,6 @@ options:
       enable:
         title: 开启视频字幕
         description: 在 YouTube、X 和 Netflix 的视频播放器控制栏加上翻译按钮。
-      autoStart:
-        title: 打开视频就翻译
-        description: 视频加载完成后自动开始翻译字幕，不用再点按钮。
       aiSegmentation:
         title: AI 智能断句
         description: 让 AI 把字幕重新切成读起来完整的句子。时间轴也由 AI 判断，可能出现错位。需要配置 LLM 翻译服务。

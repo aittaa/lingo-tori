@@ -8,6 +8,7 @@ import {
   NETFLIX_SUBTITLES_RESPONSE_TYPE,
   NETFLIX_PAGE_POLL_INTERVAL_MS,
   NETFLIX_PAGE_WAIT_TIMEOUT_MS,
+  NETFLIX_WATCH_PATH_PATTERN,
 } from "@/utils/constants/subtitles"
 import { pollUntil } from "@/utils/poll"
 import { findCapturedTtml } from "./ttml-capture"
@@ -28,7 +29,64 @@ interface NetflixPlayer {
   setTimedTextTrack: (track: TimedTextTrack) => void
 }
 
-let replacedTrack: { movieId: number; track: TimedTextTrack; pickedTrackId: string } | null = null
+// The track a load replaced, and the load that did so: only that load, or a restore that names it,
+// may put it back. A newer load on the same movie or the next one replaces the record, and an older
+// request can then neither act on it nor spend it.
+let replacedTrack: {
+  movieId: number
+  track: TimedTextTrack
+  pickedTrackId: string
+  operationId: string | null
+} | null = null
+
+// Loads the content script has given up. A request can wait for the player through a navigation or
+// a remount, and must not touch the captions of whatever the player shows by the time it is ready.
+const MAX_REMEMBERED_OPERATIONS = 200
+const cancelledOperations = new Set<string>()
+
+function currentWatchId(): string | null {
+  return window.location.pathname.match(NETFLIX_WATCH_PATH_PATTERN)?.[1] ?? null
+}
+
+/** What a request says about itself, so the page can tell whether it is still wanted and current. */
+interface RequestScope {
+  /** The load a request belongs to: what it changes is its own, and it can be given up. */
+  operationId?: string
+  /** A restore names every load of the fetcher that asks, and acts on the record of one of them. */
+  operationIds?: string[]
+  /** The movie the page shows and the player must be showing, as the watch URL names it. */
+  expectedMovieId?: string | null
+}
+
+function putBack(record: NonNullable<typeof replacedTrack>, player: NetflixPlayer): void {
+  if (
+    record.movieId === player.getMovieId() &&
+    player.getTimedTextTrack()?.trackId === record.pickedTrackId
+  ) {
+    player.setTimedTextTrack(record.track)
+  }
+}
+
+/**
+ * The load is given up: whatever is still queued for it is refused, and a track it already changed
+ * is put back while the player still shows that movie. A record that belongs to another load is
+ * left as it is; one whose movie has gone from the player has nothing left to put back.
+ */
+function cancelOperation(operationId: string): void {
+  cancelledOperations.add(operationId)
+  if (cancelledOperations.size > MAX_REMEMBERED_OPERATIONS) {
+    const oldest = cancelledOperations.values().next().value
+    if (oldest !== undefined) cancelledOperations.delete(oldest)
+  }
+  const record = replacedTrack
+  if (record?.operationId !== operationId) return
+  replacedTrack = null
+  const player = getReadyPlayer()
+  if (player) putBack(record, player)
+}
+
+// Returned from a wait that no longer has anything to wait for.
+const STALE = Symbol("stale")
 
 // Each wait gets whatever time is left before the request's deadline.
 function untilDeadline(deadline: number) {
@@ -68,7 +126,10 @@ function primaryLanguage(language: string | null | undefined): string {
   return language?.split("-")[0]?.toLowerCase() ?? ""
 }
 
-function ensureTranslatableTrack(player: NetflixPlayer): TimedTextTrack | null {
+function ensureTranslatableTrack(
+  player: NetflixPlayer,
+  operationId: string | null,
+): TimedTextTrack | null {
   const current = player.getTimedTextTrack()
   if (isTranslatable(current)) return current
 
@@ -81,7 +142,12 @@ function ensureTranslatableTrack(player: NetflixPlayer): TimedTextTrack | null {
   if (!next) return null
 
   if (current) {
-    replacedTrack = { movieId: player.getMovieId(), track: current, pickedTrackId: next.trackId }
+    replacedTrack = {
+      movieId: player.getMovieId(),
+      track: current,
+      pickedTrackId: next.trackId,
+      operationId,
+    }
   }
   player.setTimedTextTrack(next)
   return next
@@ -90,34 +156,62 @@ function ensureTranslatableTrack(player: NetflixPlayer): TimedTextTrack | null {
 async function handleRequest(
   requestId: string,
   action: NetflixSubtitlesAction,
+  scope: RequestScope = {},
 ): Promise<NetflixSubtitlesResponse> {
   const response = emptyResponse(requestId)
+  if (action === "cancel") {
+    if (scope.operationId) cancelOperation(scope.operationId)
+    return response
+  }
+
+  // Whatever changes the player's captions must be wanted still, be for the movie the page shows,
+  // and meet a player that actually shows that movie: the URL can move before the player does, and
+  // a request for one title is never run against another's. A state check only reads, and reports
+  // whatever the player shows.
+  const mutates = action !== "state"
+  const isCancelled = () => !!scope.operationId && cancelledOperations.has(scope.operationId)
+  const isStale = () =>
+    isCancelled() ||
+    typeof scope.expectedMovieId !== "string" ||
+    scope.expectedMovieId !== currentWatchId()
+  const showsExpectedMovie = (candidate: NetflixPlayer) =>
+    String(candidate.getMovieId()) === scope.expectedMovieId
+
   // A load shares one deadline between the player and its subtitle file, so the content
   // script knows the longest it can take.
   const deadline =
     Date.now() + (action === "load" ? NETFLIX_LOAD_TIMEOUT_MS : NETFLIX_PAGE_WAIT_TIMEOUT_MS)
-  const player = await pollUntil(getReadyPlayer, untilDeadline(deadline))
-  if (!player) return response
+  const player = await pollUntil<NetflixPlayer | typeof STALE>(() => {
+    if (mutates && isStale()) return STALE
+    const ready = getReadyPlayer()
+    if (!ready) return null
+    return !mutates || showsExpectedMovie(ready) ? ready : null
+  }, untilDeadline(deadline))
+  if (!player || player === STALE) return response
+
+  // The wait above ended on its own terms; nothing may sit between this check and the change.
+  if (mutates && (isStale() || !showsExpectedMovie(player))) return response
 
   const movieId = player.getMovieId()
   if (action === "restore") {
-    const previous = replacedTrack
-    replacedTrack = null
-    if (
-      previous?.movieId === movieId &&
-      player.getTimedTextTrack()?.trackId === previous.pickedTrackId
-    ) {
-      player.setTimedTextTrack(previous.track)
+    const record = replacedTrack
+    if (record?.operationId && scope.operationIds?.includes(record.operationId)) {
+      replacedTrack = null
+      putBack(record, player)
     }
   }
 
-  const track = action === "load" ? ensureTranslatableTrack(player) : player.getTimedTextTrack()
+  const track =
+    action === "load"
+      ? ensureTranslatableTrack(player, scope.operationId ?? null)
+      : player.getTimedTextTrack()
   response.movieId = movieId
   response.trackId = track?.trackId ?? null
   response.translatable = isTranslatable(track)
   if (action === "load" && track && response.translatable) {
+    // A load given up while it waits for its file stops waiting; the empty answer is never used.
     response.ttml = await pollUntil(
-      () => findCapturedTtml(movieId, track.trackId),
+      () => (isCancelled() ? "" : findCapturedTtml(movieId, track.trackId)),
       untilDeadline(deadline),
     )
   }
@@ -132,9 +226,9 @@ export function listenForSubtitlesRequests(): void {
     ) {
       return
     }
-    const { requestId, action } = event.data
+    const { requestId, action, operationId, operationIds, expectedMovieId } = event.data
     // Answer even when reading the player throws, so the content script is not left waiting.
-    void handleRequest(requestId, action)
+    void handleRequest(requestId, action, { operationId, operationIds, expectedMovieId })
       .catch(() => emptyResponse(requestId))
       .then((response) => window.postMessage(response, window.location.origin))
   })
