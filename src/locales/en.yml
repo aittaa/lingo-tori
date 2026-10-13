@@ -1183,8 +1183,8 @@ options:
         title: Enable video subtitles
         description: Puts a translate button in the video player's controls on YouTube, X and Netflix.
       autoStart:
-        title: Translate on open
-        description: Start translating as soon as a video loads, without pressing the button.
+        title: Auto-translate foreign videos
+        description: Starts subtitle translation by itself when a video's language differs from your translation language. Turn it off for a single video from the player.
       aiSegmentation:
         title: AI smart segmentation
         description: Lets AI re-cut the subtitles into lines that read as sentences. It sets their timing too, so lines can drift out of sync. Needs an LLM translation provider.

@@ -1130,8 +1130,8 @@ options:
         title: 動画字幕を有効にする
         description: YouTube、X、Netflix の動画プレーヤーのコントロールバーに翻訳ボタンを表示します。
       autoStart:
-        title: 動画を開いたら翻訳する
-        description: 動画の読み込みが終わり次第、ボタンを押さなくても字幕の翻訳を始めます。
+        title: 外国語の動画を自動で翻訳
+        description: 動画の言語が翻訳先の言語と異なる場合、字幕の翻訳を自動で開始します。動画ごとにプレーヤーからオフにできます。
       aiSegmentation:
         title: AI スマート区切り
         description: AI が字幕を文として読める形に切り直します。タイミングも AI が決めるため、字幕がずれることがあります。LLM 翻訳プロバイダーが必要です。

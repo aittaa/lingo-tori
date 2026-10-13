@@ -275,12 +275,12 @@ describe("summary panel navigation", () => {
     expect(await screen.findByText("B summary")).toBeInTheDocument()
   })
 
-  it("turns subtitles on when the panel opens", async () => {
+  it("leaves subtitles off when the panel opens", async () => {
     renderPanel(false)
     clickOpen()
 
     await waitFor(() => expect(subtitlesStore.get(subtitlesSidebarOpenAtom)).toBe(true))
-    expect(toggleSubtitles).toHaveBeenCalledExactlyOnceWith(true)
+    expect(toggleSubtitles).not.toHaveBeenCalled()
   })
 
   it("leaves subtitles alone when they are already showing", async () => {
