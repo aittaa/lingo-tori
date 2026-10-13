@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 
+import type { SurfaceByFeature } from "@/types/analytics"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
+import { createFeatureUsageContext } from "@/utils/analytics"
 import { DEFAULT_CONFIG as EMPTY_CONFIG } from "@/utils/constants/config"
 import { getSourceDocumentTitle } from "@/utils/content/document-title"
 import { PageTranslationManager } from "../page-translation"
@@ -402,5 +405,109 @@ describe("pageTranslationManager title handling", () => {
 
     manager.stop()
     expect(document.title).toBe("Updated Source Title")
+  })
+
+  describe("when no provider is chosen for page translation", () => {
+    beforeEach(() => {
+      mockValidateTranslationConfigAndToast.mockReturnValue(false)
+    })
+
+    function startedFrom(surface: SurfaceByFeature["page_translation"]) {
+      return createFeatureUsageContext(ANALYTICS_FEATURE.PAGE_TRANSLATION, surface)
+    }
+
+    // What the manager adds to the check is only who asked; the validator owns the toast.
+    function feedbackRequested(): unknown {
+      expect(mockValidateTranslationConfigAndToast).toHaveBeenCalledTimes(1)
+      return mockValidateTranslationConfigAndToast.mock.calls[0]?.[1]
+    }
+
+    function expectRefused(manager: PageTranslationManager) {
+      expect(manager.isActive).toBe(false)
+      // Nothing was activated, announced to the background, walked or enqueued.
+      expect(mockSendMessage).not.toHaveBeenCalled()
+      expect(mockWalkAndLabelElement).not.toHaveBeenCalled()
+      expect(mockTranslateWalkedElement).not.toHaveBeenCalled()
+      expect(mockTranslateTextForPageTitle).not.toHaveBeenCalled()
+      expect(document.title).toBe("Original Title")
+    }
+
+    it.each([
+      ANALYTICS_SURFACE.POPUP,
+      ANALYTICS_SURFACE.FLOATING_BUTTON,
+      ANALYTICS_SURFACE.CONTEXT_MENU,
+      ANALYTICS_SURFACE.SHORTCUT,
+      ANALYTICS_SURFACE.TOUCH_GESTURE,
+    ])("asks for the missing provider to be reported when started from %s", async (surface) => {
+      const manager = new PageTranslationManager()
+
+      await manager.start(startedFrom(surface))
+
+      expect(feedbackRequested()).toEqual({ notifyMissingProvider: true })
+      expectRefused(manager)
+    })
+
+    it("stays quiet for the automatic start", async () => {
+      const manager = new PageTranslationManager()
+
+      await manager.start(startedFrom(ANALYTICS_SURFACE.PAGE_AUTO))
+
+      expect(feedbackRequested()).toEqual({ notifyMissingProvider: false })
+      expectRefused(manager)
+    })
+
+    it("stays quiet when nothing says the user started it (restore, mode change, frame sync)", async () => {
+      const manager = new PageTranslationManager()
+
+      await manager.start()
+
+      expect(feedbackRequested()).toEqual({ notifyMissingProvider: false })
+      expectRefused(manager)
+    })
+
+    it("stays quiet inside a frame, which never carries the user's context", async () => {
+      vi.stubGlobal("top", {})
+      try {
+        const manager = new PageTranslationManager()
+
+        await manager.start(startedFrom(ANALYTICS_SURFACE.SHORTCUT))
+
+        expect(feedbackRequested()).toEqual({ notifyMissingProvider: false })
+        expectRefused(manager)
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    })
+
+    it("says nothing for a start the user cancelled before the check", async () => {
+      const config = createDeferred<typeof DEFAULT_CONFIG>()
+      mockGetLocalConfig.mockImplementationOnce(() => config.promise)
+      const manager = new PageTranslationManager()
+
+      const starting = manager.start(startedFrom(ANALYTICS_SURFACE.POPUP))
+      manager.stop({ userInitiated: true })
+      config.resolve(DEFAULT_CONFIG)
+      await starting
+
+      expect(mockValidateTranslationConfigAndToast).not.toHaveBeenCalled()
+      expectRefused(manager)
+    })
+
+    it("still starts from a manual surface once a provider is chosen", async () => {
+      mockValidateTranslationConfigAndToast.mockReturnValue(true)
+      mockTranslateTextForPageTitle.mockResolvedValue("Translated Title")
+      const manager = new PageTranslationManager()
+
+      await manager.start(startedFrom(ANALYTICS_SURFACE.POPUP))
+
+      expect(feedbackRequested()).toEqual({ notifyMissingProvider: true })
+      expect(manager.isActive).toBe(true)
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        "setAndNotifyPageTranslationStateChangedByManager",
+        { enabled: true, url: window.location.href },
+      )
+
+      manager.stop()
+    })
   })
 })

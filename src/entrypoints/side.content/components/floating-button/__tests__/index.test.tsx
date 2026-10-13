@@ -6,6 +6,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { sendMessage } from "@/utils/message"
 import FloatingButton from ".."
+import { enablePageTranslationAtom } from "../../../atoms"
 
 const toastAddMock = vi.fn<(...args: any[]) => any>()
 
@@ -469,6 +470,45 @@ describe("floatingButton controls", () => {
     expect(sendMessage).toHaveBeenCalledWith(
       "tryToSetEnablePageTranslationOnContentScript",
       expect.objectContaining({ enabled: true }),
+    )
+  })
+
+  it("starts page translation from the hidden translate button as a floating-button start", () => {
+    renderFloatingButton()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "options.floatingButton.tooltips.togglePageTranslation" }),
+    )
+
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage).toHaveBeenCalledWith("tryToSetEnablePageTranslationOnContentScript", {
+      enabled: true,
+      analyticsContext: expect.objectContaining({
+        feature: "page_translation",
+        surface: "floating_button",
+        startedAt: expect.any(Number),
+      }),
+    })
+  })
+
+  it("stops page translation from the hidden translate button with no provider and no context", () => {
+    // The mocked config has no provider for any feature: stopping must not depend on one.
+    const { store } = renderFloatingButton()
+    act(() => {
+      store.set(enablePageTranslationAtom, { enabled: true })
+    })
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "options.floatingButton.tooltips.togglePageTranslation" }),
+    )
+
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage).toHaveBeenCalledWith("tryToSetEnablePageTranslationOnContentScript", {
+      enabled: false,
+    })
+    expect(sendMessage).toHaveBeenCalledWith(
+      "tryToSetEnablePageTranslationOnContentScript",
+      expect.not.objectContaining({ analyticsContext: expect.anything() }),
     )
   })
 

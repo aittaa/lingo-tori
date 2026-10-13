@@ -27,11 +27,15 @@ export async function removeOrShowNodeTranslation(point: Point, config: Config):
   const id = getRandomUUID()
 
   if (
-    !validateTranslationConfigAndToast({
-      providersConfig: config.providersConfig,
-      pageTranslation: config.pageTranslation,
-      language: config.language,
-    })
+    !validateTranslationConfigAndToast(
+      {
+        providersConfig: config.providersConfig,
+        pageTranslation: config.pageTranslation,
+        language: config.language,
+      },
+      // The only caller is the reader pointing at a node, so a missing provider is worth saying.
+      { notifyMissingProvider: true },
+    )
   ) {
     return false
   }

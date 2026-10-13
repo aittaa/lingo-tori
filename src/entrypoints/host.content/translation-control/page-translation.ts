@@ -261,12 +261,19 @@ export class PageTranslationManager implements IPageTranslationManager {
       }
     }
 
+    // A start the user made carries a context. The automatic start (page_auto), restores, mode
+    // changes and frames (no tracked context) stay quiet about a missing provider.
+    const notifyMissingProvider =
+      trackedContext !== undefined && trackedContext.surface !== ANALYTICS_SURFACE.PAGE_AUTO
     if (
-      !validateTranslationConfigAndToast({
-        providersConfig: config.providersConfig,
-        pageTranslation: config.pageTranslation,
-        language: config.language,
-      })
+      !validateTranslationConfigAndToast(
+        {
+          providersConfig: config.providersConfig,
+          pageTranslation: config.pageTranslation,
+          language: config.language,
+        },
+        { notifyMissingProvider },
+      )
     ) {
       if (trackedContext) {
         void trackFeatureUsed({
