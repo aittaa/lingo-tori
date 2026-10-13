@@ -812,8 +812,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       const decision = decideAutoTranslate({
         enabled: config?.videoSubtitles?.autoStart ?? false,
         sourceLanguage: this.fetcher.getSourceLanguage(),
-        // A proposal, not a settled choice: no native-language setting exists, so the translation
-        // language stands in for "my language". This is the one place to change if that differs.
+        // The configured translation language is the one language setting: a video in it has
+        // nothing to translate, and changing the setting changes which videos are left alone.
         myLanguage: config?.language.targetCode,
         manualOff: this.manualChoice?.on === false,
       })

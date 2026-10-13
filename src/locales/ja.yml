@@ -1130,8 +1130,8 @@ options:
         title: 動画字幕を有効にする
         description: YouTube、X、Netflix の動画プレーヤーのコントロールバーに翻訳ボタンを表示します。
       autoStart:
-        title: 外国語の動画を自動で翻訳
-        description: 動画の言語が翻訳先の言語と異なる場合、字幕の翻訳を自動で開始します。動画ごとにプレーヤーからオフにできます。
+        title: 他の言語の動画を自動で翻訳
+        description: 翻訳先の言語と異なる動画の字幕を自動で翻訳します。動画ごとにプレーヤーからオフにできます。
       aiSegmentation:
         title: AI スマート区切り
         description: AI が字幕を文として読める形に切り直します。タイミングも AI が決めるため、字幕がずれることがあります。LLM 翻訳プロバイダーが必要です。
@@ -1264,9 +1264,9 @@ providerRequired:
   message: プロバイダーを選択してください
   openSettings: 設定を開く
 onboarding:
-  title: あなたの母語は何ですか？
+  title: どの言語に翻訳しますか？
   description: LingoToriはこの言語を既定の翻訳先として使います。設定からいつでも変更できます。
-  languageLabel: 母語
+  languageLabel: 翻訳先の言語
   suggested: ブラウザの言語をもとにおすすめしています。
   use: この言語を使う
   later: あとで

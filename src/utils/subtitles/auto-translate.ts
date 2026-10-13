@@ -12,7 +12,7 @@ export interface AutoTranslateInput {
   enabled: boolean
   /** The track's language as the platform reports it ("en", "en-US", ""). */
   sourceLanguage: string | null | undefined
-  /** The language the viewer reads in; the caller decides which setting stands for it. */
+  /** The configured translation language: a video in it is left alone. */
   myLanguage: string | null | undefined
   /** The viewer switched this video's subtitles off themselves. */
   manualOff: boolean
@@ -20,8 +20,9 @@ export interface AutoTranslateInput {
 
 /**
  * Whether opening a video should switch translation on by itself. Only a video whose language is
- * known and differs from the viewer's gets it: a language that cannot be told is held back rather
- * than guessed at, and a track already in the viewer's language has nothing to translate.
+ * known and differs from the translation language gets it: a language that cannot be told is held
+ * back rather than guessed at, and a track already in the translation language has nothing to
+ * translate.
  *
  * Both sides go through the same locale resolution the same-language passthrough uses, so the two
  * never disagree about what counts as the same language. Switching on by hand never comes here.

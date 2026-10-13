@@ -66,7 +66,9 @@
     "subtitles.sidebar.menu.label",
     "subtitles.loadingAiSubtitles",
     "subtitles.state.loading",
-    "subtitles.errors.aiLiveReplayUnsupported"
+    "subtitles.errors.aiLiveReplayUnsupported",
+    "options.videoSubtitles.preference.autoStart.title",
+    "options.videoSubtitles.preference.autoStart.description"
   ],
   "newEnglishKeys": [
     "options.apiUsage.api",
@@ -288,12 +290,12 @@
     "options.selectionToolbar.customActions.templates.dictionary.prompt"
   ],
   "restoredResourceSha256": {
-    "az": "e46745af519e87085114617d24557f3f8746b8aa1220968526c7f41ac06260be",
-    "es": "4315c7bb0044f6bfacc5546f291618a987af8affa41bfa0dcd6143c365270c21",
-    "ru": "8f73f3369172dffb5664ca5301cdfb6f2db37a32f3b8d834482609a1b2599187",
-    "tr": "4a3002890e9057a3c5f72b6039c7d8adbc144bf5a0579caf50508992f2f986a1",
-    "vi": "0ea83f625ac1fdf5ed3dc01af030e3eba6ae96b3f3a7d5cd0ce3f41292f28276",
-    "zh-CN": "b45677921bbdccb8d2b7897289a1af491c89b945f4a506f02894d9a78b5e531b",
-    "zh-TW": "c9bd89e08b2c74ac7fd1366021745eb2344c8ee9cef01147e42dc03e6395bd3a"
+    "az": "afd3ba7427e193f2f7c9ccfd4749f34352ac390951df4409fe53a15a021ea8dc",
+    "es": "0886d7c7725c67f2e9da7bbf84f4d2ca27c9d2b859a5822df9824f0cb7e59f32",
+    "ru": "845e0f5c4e13c4aab1c7340abade28f585c59a8262ecb963ecfbecdd71bcbddf",
+    "tr": "1076b9fd8f2b6bbee18df0102ad3c593e09f46ba1c28f313be5673aa0167b489",
+    "vi": "b08368b42ca210f1346ef74423911fcaea6f1f667235de2fc193882d499b3bda",
+    "zh-CN": "ff0e06d5d10de7fd905337daa89e67cc48bc54c2ed95d7844cdfef6d602ba362",
+    "zh-TW": "1c940a932ea5e1bae698b13f0287a1f4be36932f63a5ba5b7c9e104cd16fc8df"
   }
 }

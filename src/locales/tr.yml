@@ -911,9 +911,6 @@ options:
       enable:
         title: Video altyazılarını aç
         description: YouTube, X ve Netflix'te oynatıcı kontrollerine bir çeviri düğmesi ekler.
-      autoStart:
-        title: Video açılınca çevir
-        description: Video yüklenir yüklenmez, düğmeye basmadan altyazıları çevirmeye başlar.
       aiSegmentation:
         title: AI akıllı bölümlendirme
         description: Yapay zekâ altyazıları cümle gibi okunan satırlara yeniden böler. Zamanlamayı da kendisi belirlediği için satırlar kayabilir. LLM çeviri sağlayıcısı gerekir.
