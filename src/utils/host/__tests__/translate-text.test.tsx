@@ -1,13 +1,18 @@
 // @vitest-environment jsdom
 
+import type { Config } from "@/types/config/config"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { toastManager } from "@/components/ui/base-ui/toast"
 import { DEFAULT_CONFIG as EMPTY_CONFIG } from "@/utils/constants/config"
 import { NO_TRANSLATION_SENTINEL } from "@/utils/constants/prompt"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { detectLanguage } from "@/utils/content/language"
 import { Sha256Hex } from "@/utils/hash"
 import { executeTranslate } from "@/utils/host/translate/execute-translate"
-import { MIN_LENGTH_FOR_SKIP_LANGUAGE_DETECTION } from "@/utils/host/translate/translate-text"
+import {
+  MIN_LENGTH_FOR_SKIP_LANGUAGE_DETECTION,
+  validateTranslationConfigAndToast,
+} from "@/utils/host/translate/translate-text"
 import {
   translateTextForPage,
   translateTextForPageTitle,
@@ -455,6 +460,218 @@ describe("translate-text", () => {
         "enqueueTranslateRequest",
         expect.objectContaining({ providerRef: expect.objectContaining({ kind: "local" }) }),
       )
+    })
+  })
+
+  describe("page translation without a chosen provider", () => {
+    const deeplx = { ...DEFAULT_PROVIDER_CONFIG.deeplx, baseURL: "https://example.com/translate" }
+    const openai = { ...DEFAULT_PROVIDER_CONFIG.openai, apiKey: "test-key" }
+    const sameLanguage: Config["language"] = {
+      ...EMPTY_CONFIG.language,
+      sourceCode: "eng",
+      targetCode: "eng",
+    }
+
+    function configFor(
+      pageProviderId: string,
+      providersConfig: Config["providersConfig"] = [deeplx, openai],
+    ): Config {
+      return {
+        ...EMPTY_CONFIG,
+        providersConfig,
+        pageTranslation: { ...EMPTY_CONFIG.pageTranslation, providerId: pageProviderId },
+        language: { ...EMPTY_CONFIG.language, sourceCode: "eng", targetCode: "cmn" },
+      }
+    }
+
+    function spyOnToasts() {
+      return {
+        add: vi.spyOn(toastManager, "add").mockReturnValue("toast-id"),
+        close: vi.spyOn(toastManager, "close").mockImplementation(() => {}),
+      }
+    }
+
+    // Every way the page feature's own assignment can fail to resolve.
+    const unresolved: [string, Config][] = [
+      ["no provider is chosen", configFor("unconfigured")],
+      ["the assignment is empty", configFor("")],
+      ["the chosen provider was deleted", configFor("deleted-provider")],
+      ["there is no provider at all", configFor("unconfigured", [])],
+      [
+        "the chosen provider is disabled",
+        configFor(deeplx.id, [{ ...deeplx, enabled: false }, openai]),
+      ],
+      [
+        "the chosen provider cannot translate",
+        configFor("legacy-engine", [
+          // A stored row for an engine this version no longer offers for translation.
+          { ...deeplx, id: "legacy-engine", provider: "legacy-engine" },
+        ] as unknown as Config["providersConfig"]),
+      ],
+      [
+        "only another feature has a working provider",
+        {
+          ...configFor("unconfigured"),
+          videoSubtitles: { ...EMPTY_CONFIG.videoSubtitles, providerId: deeplx.id },
+        },
+      ],
+    ]
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    describe("validateTranslationConfigAndToast", () => {
+      it.each(unresolved)(
+        "shows one provider-required toast when %s and the user asked",
+        (_name, config) => {
+          const toasts = spyOnToasts()
+
+          expect(validateTranslationConfigAndToast(config, { notifyMissingProvider: true })).toBe(
+            false,
+          )
+
+          expect(toasts.add).toHaveBeenCalledTimes(1)
+          expect(toasts.add).toHaveBeenCalledWith(
+            expect.objectContaining({
+              id: expect.any(String),
+              type: "error",
+              title: "providerRequired.message",
+              actionProps: expect.objectContaining({ children: "providerRequired.openSettings" }),
+            }),
+          )
+          // Showing it opens nothing and asks no provider for anything.
+          expect(mockSendMessage).not.toHaveBeenCalled()
+          expect(mockDeepLTranslate).not.toHaveBeenCalled()
+          expect(mockDeepLXTranslate).not.toHaveBeenCalled()
+        },
+      )
+
+      it.each(unresolved)("stays silent when %s and nobody asked", (_name, config) => {
+        const toasts = spyOnToasts()
+
+        expect(validateTranslationConfigAndToast(config)).toBe(false)
+        expect(validateTranslationConfigAndToast(config, {})).toBe(false)
+        expect(validateTranslationConfigAndToast(config, { notifyMissingProvider: false })).toBe(
+          false,
+        )
+
+        expect(toasts.add).not.toHaveBeenCalled()
+      })
+
+      it("opens the page translation row of the feature providers only when the action is pressed", () => {
+        const toasts = spyOnToasts()
+        validateTranslationConfigAndToast(configFor("unconfigured"), {
+          notifyMissingProvider: true,
+        })
+
+        expect(mockSendMessage).not.toHaveBeenCalled()
+
+        const toast = toasts.add.mock.calls[0]![0]
+        toast.actionProps?.onClick?.({} as never)
+
+        expect(toasts.close).toHaveBeenCalledWith(toast.id)
+        expect(mockSendMessage).toHaveBeenCalledTimes(1)
+        expect(mockSendMessage).toHaveBeenCalledWith("openOptionsPage", {
+          route: "/api-providers?section=feature-provider-pageTranslation",
+        })
+      })
+
+      it("reuses one toast id across repeated attempts", () => {
+        const toasts = spyOnToasts()
+        const config = configFor("unconfigured")
+
+        validateTranslationConfigAndToast(config, { notifyMissingProvider: true })
+        validateTranslationConfigAndToast(config, { notifyMissingProvider: true })
+
+        const ids = toasts.add.mock.calls.map(([toast]) => toast.id)
+        expect(ids).toHaveLength(2)
+        expect(new Set(ids).size).toBe(1)
+      })
+
+      it("says only that a provider is needed when the languages also match", () => {
+        const toasts = spyOnToasts()
+
+        validateTranslationConfigAndToast(
+          { ...configFor("unconfigured"), language: sameLanguage },
+          { notifyMissingProvider: true },
+        )
+
+        expect(toasts.add).toHaveBeenCalledTimes(1)
+        expect(toasts.add).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "providerRequired.message" }),
+        )
+      })
+
+      it("accepts a chosen, enabled provider without a toast, whether or not the user asked", () => {
+        const toasts = spyOnToasts()
+        const config = configFor(deeplx.id)
+
+        expect(validateTranslationConfigAndToast(config)).toBe(true)
+        expect(validateTranslationConfigAndToast(config, { notifyMissingProvider: true })).toBe(
+          true,
+        )
+
+        expect(toasts.add).not.toHaveBeenCalled()
+      })
+
+      it("keeps the same-language message, whether or not the user asked", () => {
+        const toasts = spyOnToasts()
+        const config = { ...configFor(deeplx.id), language: sameLanguage }
+
+        expect(validateTranslationConfigAndToast(config)).toBe(false)
+        expect(validateTranslationConfigAndToast(config, { notifyMissingProvider: true })).toBe(
+          false,
+        )
+
+        expect(toasts.add.mock.calls.map(([toast]) => toast.title)).toEqual([
+          "translation.sameLanguage",
+          "translation.sameLanguage",
+        ])
+      })
+
+      it("keeps the missing API key message, whether or not the user asked", () => {
+        const toasts = spyOnToasts()
+        const keyless = { ...DEFAULT_PROVIDER_CONFIG.openai }
+        const config = configFor(keyless.id, [keyless])
+
+        expect(validateTranslationConfigAndToast(config)).toBe(false)
+        expect(validateTranslationConfigAndToast(config, { notifyMissingProvider: true })).toBe(
+          false,
+        )
+
+        expect(toasts.add.mock.calls.map(([toast]) => toast.title)).toEqual([
+          "noAPIKeyConfig.warning",
+          "noAPIKeyConfig.warning",
+        ])
+      })
+    })
+
+    describe("a manual node translation", () => {
+      it("says a provider is needed instead of failing silently, and requests nothing", async () => {
+        const { removeOrShowNodeTranslation } =
+          await import("@/utils/host/translate/node-manipulation")
+        const toasts = spyOnToasts()
+        document.body.innerHTML = '<div id="pointed-at">A paragraph the reader pointed at.</div>'
+        const node = document.getElementById("pointed-at")!
+        const originalElementFromPoint = Reflect.get(document, "elementFromPoint")
+        document.elementFromPoint = vi.fn<(...args: any[]) => any>(() => node)
+
+        try {
+          await expect(
+            removeOrShowNodeTranslation({ x: 10, y: 10 }, configFor("unconfigured")),
+          ).resolves.toBe(false)
+        } finally {
+          document.elementFromPoint = originalElementFromPoint
+        }
+
+        expect(toasts.add).toHaveBeenCalledTimes(1)
+        expect(toasts.add).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "providerRequired.message" }),
+        )
+        expect(mockSendMessage).not.toHaveBeenCalled()
+        expect(node.children).toHaveLength(0)
+      })
     })
   })
 

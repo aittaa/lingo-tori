@@ -1,6 +1,8 @@
 import type { FloatingButtonSide } from "@/types/config/floating-button"
 import { IconCheck, IconLanguage } from "@tabler/icons-react"
 import { useAtomValue } from "jotai"
+import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
+import { createFeatureUsageContext } from "@/utils/analytics"
 import { i18n } from "@/utils/i18n"
 import { sendMessage } from "@/utils/message"
 import { cn } from "@/utils/styles/utils"
@@ -27,7 +29,17 @@ export default function TranslateButton({
       side={side}
       expanded={expanded}
       onClick={() => {
-        void sendMessage("tryToSetEnablePageTranslationOnContentScript", { enabled: !isEnabled })
+        const nextEnabled = !isEnabled
+        void sendMessage("tryToSetEnablePageTranslationOnContentScript", {
+          enabled: nextEnabled,
+          // Only a start needs to be identifiable as the user's; stopping needs no context.
+          analyticsContext: nextEnabled
+            ? createFeatureUsageContext(
+                ANALYTICS_FEATURE.PAGE_TRANSLATION,
+                ANALYTICS_SURFACE.FLOATING_BUTTON,
+              )
+            : undefined,
+        })
       }}
     >
       <IconCheck

@@ -15,6 +15,7 @@ import { detectLanguage } from "@/utils/content/language"
 import { resolveGlossaryTerms } from "@/utils/glossary/active-matcher"
 import { i18n } from "@/utils/i18n"
 import { logger } from "@/utils/logger"
+import { buildFeatureProviderRoute, getFeatureProviderRowId } from "@/utils/navigation"
 import { getTranslatePrompt } from "@/utils/prompts/translate"
 import { serializeProviderRef } from "@/utils/providers/provider-ref"
 import { resolveProviderRefForCapability } from "@/utils/providers/provider-registry"
@@ -311,8 +312,39 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
   return isNoTranslationSentinel(result) ? "" : result
 }
 
+/** Stable, so a repeated attempt refreshes one toast instead of stacking another. */
+const PROVIDER_REQUIRED_TOAST_ID = "read-frog-page-translation-provider-required"
+
+export interface ValidateTranslationConfigOptions {
+  /**
+   * Say so when page translation has no provider of its own. Only for a start or a click the
+   * user made: automatic, restored and per-frame starts stay quiet.
+   */
+  notifyMissingProvider?: boolean
+}
+
+function showProviderRequiredToast(): void {
+  toastManager.add({
+    id: PROVIDER_REQUIRED_TOAST_ID,
+    type: "error",
+    title: i18n.t("providerRequired.message"),
+    // Nothing opens by itself: the settings page is only reached by pressing this.
+    actionProps: {
+      children: i18n.t("providerRequired.openSettings"),
+      onClick: () => {
+        toastManager.close(PROVIDER_REQUIRED_TOAST_ID)
+        // Content scripts cannot use chrome.tabs, so go through the background.
+        void sendMessage("openOptionsPage", {
+          route: buildFeatureProviderRoute(getFeatureProviderRowId("pageTranslation")),
+        })
+      },
+    },
+  })
+}
+
 export function validateTranslationConfigAndToast(
   config: Pick<Config, "providersConfig" | "pageTranslation" | "language">,
+  options: ValidateTranslationConfigOptions = {},
 ): boolean {
   const { providersConfig, pageTranslation: translateConfig, language: languageConfig } = config
   const provider = resolveProviderRefForCapability(
@@ -321,6 +353,9 @@ export function validateTranslationConfigAndToast(
     translateConfig.providerId,
   )
   if (!provider) {
+    if (options.notifyMissingProvider) {
+      showProviderRequiredToast()
+    }
     return false
   }
 
