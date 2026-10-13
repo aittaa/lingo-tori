@@ -1357,6 +1357,8 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       segmentationPipeline: this.segmentationPipeline,
       onTranslated: (fragments) => scheduler.supplementSubtitles(fragments),
       onStateChange: (state, data) => scheduler.setState(state, data),
+      // The language recorded for this session (the same settings snapshot it was started from).
+      targetCode: config?.language.targetCode,
     })
     this.translationCoordinator.start(videoContext)
     // The hash and the summary must share one ref — the promptable one — or

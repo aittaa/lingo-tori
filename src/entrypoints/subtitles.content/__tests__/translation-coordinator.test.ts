@@ -305,9 +305,16 @@ describe("translation coordinator loading state", () => {
     const cue = (text: string, start: number, end = start + 1000): Cue => ({ text, start, end })
     const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
     const startsOf = (cues: Array<{ start: number }>) => cues.map((c) => c.start)
+    // A failed cue is shown settled and empty, so the player does not read it as still translating.
+    const withTranslation = (cues: Cue[]) => cues.filter((c) => c.translation)
+    const settledEmpty = (cues: Cue[]) => cues.filter((c) => c.translation === "")
 
     /** A coordinator over a mutable cue list, with a player whose events a test can fire. */
-    function setup(initial: Cue[], currentTime = 0.2) {
+    function setup(
+      initial: Cue[],
+      currentTime = 0.2,
+      options: { targetCode?: "kor" | "jpn" } = {},
+    ) {
       const state = { fragments: initial }
       const listeners = new Map<string, Set<() => void>>()
       const video = {
@@ -330,6 +337,7 @@ describe("translation coordinator loading state", () => {
         segmentationPipeline: null,
         onTranslated,
         onStateChange,
+        ...options,
       })
       return {
         state,
@@ -371,7 +379,7 @@ describe("translation coordinator loading state", () => {
             )) as any
     }
 
-    it("completes and publishes only the cues that translated", async () => {
+    it("completes the cues that translated and settles the failed one without completing it", async () => {
       const spy = (await mockTranslate()).mockImplementation(resolveExcept([1000]))
       const t = setup([cue("a", 0), cue("b", 1000), cue("c", 2000)])
 
@@ -379,7 +387,8 @@ describe("translation coordinator loading state", () => {
       await flush()
 
       expect(spy).toHaveBeenCalledTimes(1)
-      expect(startsOf(t.published())).toEqual([0, 2000])
+      expect(startsOf(withTranslation(t.published()))).toEqual([0, 2000])
+      expect(startsOf(settledEmpty(t.published()))).toEqual([1000])
       expect([...t.internals.translatedStarts].sort((x, y) => x - y)).toEqual([0, 2000])
       expect([...t.internals.failedStarts]).toEqual([1000])
       expect(t.internals.translatingStarts.size).toBe(0)
@@ -405,8 +414,10 @@ describe("translation coordinator loading state", () => {
 
       expect(spy).toHaveBeenCalledTimes(2)
       expect(startsOf(spy.mock.calls[1]![0])).toEqual([1000])
-      // Earlier successes were published once and never withdrawn or repeated.
-      expect(startsOf(t.published())).toEqual([0, 2000, 1000])
+      // Earlier successes were published once and never withdrawn or repeated; the failed cue was
+      // settled empty on the first pass and filled in by the retry.
+      expect(startsOf(withTranslation(t.published()))).toEqual([0, 2000, 1000])
+      expect(startsOf(settledEmpty(t.published()))).toEqual([1000])
       expect([...t.internals.translatedStarts].sort((x, y) => x - y)).toEqual([0, 1000, 2000])
       expect(t.internals.failedStarts.size).toBe(0)
 
@@ -453,7 +464,7 @@ describe("translation coordinator loading state", () => {
       }
       expect(spy).toHaveBeenCalledTimes(2)
       expect([...t.internals.failedStarts]).toEqual([1000])
-      expect(startsOf(t.published())).toEqual([0])
+      expect(startsOf(withTranslation(t.published()))).toEqual([0])
 
       t.coordinator.stop()
       spy.mockRestore()
@@ -548,6 +559,44 @@ describe("translation coordinator loading state", () => {
       spy.mockRestore()
     })
 
+    describe("the language each batch is translated into", () => {
+      /** The 4th argument of a translate call: the language the batch is pinned to. */
+      const pinnedTo = (call: unknown[]) => call[3]
+
+      it("pins every batch, retries included, to the language the session recorded", async () => {
+        const spy = (await mockTranslate()).mockImplementation(resolveExcept([1000]))
+        const t = setup([cue("a", 0), cue("b", 1000)], 0.2, { targetCode: "kor" })
+
+        t.coordinator.start()
+        await flush()
+        spy.mockImplementation(resolveExcept([]))
+        t.coordinator.stop()
+        t.coordinator.clearFailed()
+        t.coordinator.start()
+        await flush()
+
+        expect(spy).toHaveBeenCalledTimes(2)
+        expect(spy.mock.calls.map(pinnedTo)).toEqual(["kor", "kor"])
+
+        t.coordinator.stop()
+        spy.mockRestore()
+      })
+
+      it("leaves the language to the current settings when the session recorded none", async () => {
+        const spy = (await mockTranslate()).mockImplementation(resolveExcept([]))
+        const t = setup([cue("a", 0)])
+
+        t.coordinator.start()
+        await flush()
+
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(pinnedTo(spy.mock.calls[0]!)).toBeUndefined()
+
+        t.coordinator.stop()
+        spy.mockRestore()
+      })
+    })
+
     describe("stale generations", () => {
       /** Two generations in flight: the first started before stop(), the second after start(). */
       async function twoGenerations(fragments: Cue[]) {
@@ -620,7 +669,8 @@ describe("translation coordinator loading state", () => {
         // The fresh generation still owns both cues and settles them itself.
         releases[1]!([{ ...cue("a", 0), translation: "t:a" }, { ...cue("b", 1000) }])
         await flush()
-        expect(startsOf(t.published())).toEqual([0])
+        expect(startsOf(withTranslation(t.published()))).toEqual([0])
+        expect(startsOf(settledEmpty(t.published()))).toEqual([1000])
         expect([...t.internals.failedStarts]).toEqual([1000])
 
         t.coordinator.stop()

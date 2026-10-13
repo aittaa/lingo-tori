@@ -1,4 +1,5 @@
 import type { SegmentationPipeline } from "./segmentation-pipeline"
+import type { Config } from "@/types/config/config"
 import type { SubtitlesVideoContext } from "@/utils/subtitles/processor/translator"
 import type { SubtitlesFragment, SubtitlesState } from "@/utils/subtitles/types"
 import { getLocalConfig } from "@/utils/config/storage"
@@ -14,6 +15,11 @@ export interface TranslationCoordinatorOptions {
   segmentationPipeline: SegmentationPipeline | null
   onTranslated: (fragments: SubtitlesFragment[]) => void
   onStateChange: (state: SubtitlesState, data?: Record<string, string>) => void
+  /**
+   * The language the session was built for. Every batch is translated into it, so the session's
+   * cues all match the language it is resumed for, whatever the setting says by then.
+   */
+  targetCode?: Config["language"]["targetCode"]
 }
 
 function fragmentIdentity(fragment: Pick<SubtitlesFragment, "end" | "text">): string {
@@ -41,6 +47,7 @@ export class TranslationCoordinator {
   private segmentationPipeline: SegmentationPipeline | null
   private onTranslated: (fragments: SubtitlesFragment[]) => void
   private onStateChange: (state: SubtitlesState, data?: Record<string, string>) => void
+  private targetCode: Config["language"]["targetCode"] | undefined
 
   constructor(options: TranslationCoordinatorOptions) {
     this.getFragments = options.getFragments
@@ -49,6 +56,7 @@ export class TranslationCoordinator {
     this.segmentationPipeline = options.segmentationPipeline
     this.onTranslated = options.onTranslated
     this.onStateChange = options.onStateChange
+    this.targetCode = options.targetCode
   }
 
   start(videoContext?: SubtitlesVideoContext) {
@@ -221,15 +229,21 @@ export class TranslationCoordinator {
     })
 
     try {
-      const translated = await translateSubtitles(batch, this.videoContext)
+      const translated = await translateSubtitles(
+        batch,
+        this.videoContext,
+        undefined,
+        this.targetCode,
+      )
       // A newer generation owns the bookkeeping now; stop()/reset() already cleared this one's.
       if (!this.active || runId !== this.runId) return
 
       // Only accept results whose cue identity still matches the current fragment list.
       const stillValid = this.filterIdentityValid(translated)
-      // A cue the translator returned without a translation failed: it is neither complete nor
-      // shown. It still counts as resolved (loading clears) but is retried only once clearFailed()
-      // runs, never by the next tick.
+      // A cue the translator returned without a translation failed: it is not complete. It counts
+      // as resolved (loading clears) and is retried only once clearFailed() runs, never by the
+      // next tick. It is shown settled and empty, as the all-failed path shows it, so the player
+      // does not read it as a translation still on its way; a retry fills it in.
       const succeeded = stillValid.filter((f) => f.translation !== undefined)
       const failed = stillValid.filter((f) => f.translation === undefined)
 
@@ -245,7 +259,7 @@ export class TranslationCoordinator {
       batch.forEach((f) => {
         this.translatingStarts.delete(f.start)
       })
-      this.onTranslated(succeeded)
+      this.onTranslated([...succeeded, ...failed.map((f) => ({ ...f, translation: "" }))])
 
       const latestTimeMs = this.getCurrentVideoTimeMs(currentTimeMs)
       const latestFragments = this.getFragments()

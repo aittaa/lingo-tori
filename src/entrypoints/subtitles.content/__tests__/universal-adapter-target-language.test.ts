@@ -71,10 +71,11 @@ const configFor = (targetCode: string) => ({
 // queue and starve the timers a test waits on; capped, it fails the call-count assertions instead.
 const RUNAWAY_REQUESTS = 25
 
-const translateInTarget = (batch: SubtitlesFragment[]) =>
+// As the real translator: the language is the one pinned for the batch, else the current setting.
+const translateInTarget = (batch: SubtitlesFragment[], pinnedTarget?: string) =>
   batch.map((cue) => ({
     ...cue,
-    translation: failing.has(cue.start) ? undefined : `${target}:${cue.text}`,
+    translation: failing.has(cue.start) ? undefined : `${pinnedTarget ?? target}:${cue.text}`,
   }))
 
 function deferred<T>() {
@@ -177,10 +178,11 @@ describe("subtitle session reuse across target language changes and partial fail
     mocks.getLocalConfig.mockImplementation(async () => configFor(target))
     mocks.resolveSubtitlesProviderRef.mockReset()
     mocks.translateSubtitles.mockReset()
-    mocks.translateSubtitles.mockImplementation((batch: SubtitlesFragment[]) =>
-      mocks.translateSubtitles.mock.calls.length > RUNAWAY_REQUESTS
-        ? new Promise(() => {})
-        : Promise.resolve(translateInTarget(batch)),
+    mocks.translateSubtitles.mockImplementation(
+      (batch: SubtitlesFragment[], _context: unknown, _config: unknown, pinnedTarget?: string) =>
+        mocks.translateSubtitles.mock.calls.length > RUNAWAY_REQUESTS
+          ? new Promise(() => {})
+          : Promise.resolve(translateInTarget(batch, pinnedTarget)),
     )
   })
 
@@ -416,14 +418,60 @@ describe("subtitle session reuse across target language changes and partial fail
     })
   })
 
+  describe("a target language that changes while a start is still setting up", () => {
+    /** Starts under Korean, then moves the setting to Japanese before the provider has resolved. */
+    async function startWhileTheSettingMoves(player: Player) {
+      const provider = deferred<undefined>()
+      mocks.resolveSubtitlesProviderRef.mockReturnValueOnce(provider.promise)
+      player.adapter.toggleSubtitlesManually(true)
+      await vi.waitFor(() => expect(mocks.resolveSubtitlesProviderRef).toHaveBeenCalledOnce())
+      target = "jpn"
+      provider.resolve(undefined)
+      await settle()
+    }
+
+    it("translates the session into the language it recorded, not the one the setting moved to", async () => {
+      const player = openVideo()
+      await startWhileTheSettingMoves(player)
+
+      expect(internals(player.adapter).sessionTargetCode).toBe("kor")
+      expect(shown()).toEqual(["kor:Hello", "kor:World"])
+    })
+
+    it("resumes that session when it is switched on again under the language it recorded", async () => {
+      const player = openVideo()
+      await startWhileTheSettingMoves(player)
+
+      switchOff(player)
+      target = "kor"
+      await switchOn(player)
+
+      // Resumed, not rebuilt, and nothing in it is in a language other than the recorded one.
+      expect(mocks.translateSubtitles).toHaveBeenCalledTimes(1)
+      expect(shown()).toEqual(["kor:Hello", "kor:World"])
+    })
+
+    it("rebuilds it in the new language when it is switched on again under that one", async () => {
+      const player = openVideo()
+      await startWhileTheSettingMoves(player)
+
+      switchOff(player)
+      await switchOn(player)
+
+      expect(mocks.translateSubtitles).toHaveBeenCalledTimes(2)
+      expect(shown()).toEqual(["jpn:Hello", "jpn:World"])
+    })
+  })
+
   describe("a partially failed batch across switch-off and switch-on", () => {
     it("retries only the cue that failed and keeps the one that translated", async () => {
       failing.add(2000)
       const player = openVideo()
       await switchOn(player)
 
-      // Only the cue that translated is on the player; the failed one shows its original.
-      expect(shown()).toEqual(["kor:Hello"])
+      // The cue that translated is on the player; the failed one is settled and empty (its original
+      // shows alone), not a translation that is still on its way.
+      expect(shown()).toEqual(["kor:Hello", ""])
       expect(mocks.translateSubtitles).toHaveBeenCalledTimes(1)
 
       failing.clear()
