@@ -58,6 +58,14 @@ export const subtitlesVisibleAtom = atom<boolean>(false)
 
 export const subtitlesSourceAtom = atom<SubtitlesSource>(SUBTITLES_SOURCE.NATIVE)
 
+/**
+ * True while a native start has no provider to translate with: it was refused, or it runs
+ * source-only because only originals are wanted. Either way the originals stay up, and a cue
+ * without a translation is not a translation on its way. Set only by such a start, so it never
+ * hides the loading state of a start that is really under way.
+ */
+export const nativeSubtitleTranslationBlockedAtom = atom<boolean>(false)
+
 export const subtitlesSettingsPanelOpenAtom = atom<boolean>(false)
 
 export const subtitlesSettingsPanelViewAtom = atom<ViewId>(ROOT_VIEW)
@@ -128,6 +136,9 @@ export const subtitlesShowStateAtom = atom((get): Exclude<SubtitlesState, "idle"
   const isError = stateData?.state === "error"
 
   if (isError) return "error"
+
+  // An error was returned above; a refused start leaves cues no translation is coming for.
+  if (get(nativeSubtitleTranslationBlockedAtom)) return undefined
 
   return isAwaitingTranslation(subtitle, stateData) && !hasRenderable ? "loading" : undefined
 })

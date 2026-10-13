@@ -312,6 +312,26 @@ describe("translatedSubtitlesExporter", () => {
     ])
   })
 
+  it("copies an already prepared translation once the provider is gone, resolving and translating nothing new", async () => {
+    const { exporter } = createExporter(lines(2))
+    await exporter.copy()
+    expect(status().phase).toBe(SubtitleCopyPhase.Ready)
+
+    // The provider is removed after preparing: the next gesture only writes the clipboard.
+    mocks.getLocalConfig.mockResolvedValue({ ...createConfig(), providersConfig: [] })
+    mocks.resolveSubtitlesProviderRef.mockResolvedValue(null)
+    mocks.getLocalConfig.mockClear()
+    mocks.resolveSubtitlesProviderRef.mockClear()
+    mocks.translateSubtitles.mockClear()
+    await exporter.copy()
+
+    expect(mocks.copySubtitlesText).toHaveBeenCalledExactlyOnceWith("prepared script")
+    expect(mocks.getLocalConfig).not.toHaveBeenCalled()
+    expect(mocks.resolveSubtitlesProviderRef).not.toHaveBeenCalled()
+    expect(mocks.translateSubtitles).not.toHaveBeenCalled()
+    exporter.dispose()
+  })
+
   it("prevents concurrent duplicate preparations", async () => {
     let finish!: () => void
     mocks.translateSubtitles.mockImplementation(async (fragments: SubtitlesFragment[]) => {

@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { SUBTITLES_SOURCE } from "@/utils/constants/subtitles"
 import { OverlaySubtitlesError, ToastSubtitlesError } from "@/utils/subtitles/errors"
 import {
   adPlayingAtom,
   currentTimeMsAtom,
+  nativeSubtitleTranslationBlockedAtom,
   sourceTrackAtom,
   sourceSubtitlesCopyStatusAtom,
   SubtitleCopyPhase,
@@ -81,6 +83,7 @@ function attachScheduler(adapter: UniversalVideoAdapter, active: boolean, curren
     supplementSubtitles: vi.fn<(...args: any[]) => any>(),
     reconcileTranslatedCuesAfterRecut: vi.fn<(...args: any[]) => any>(),
     resyncFromVideo: vi.fn<(...args: any[]) => any>(),
+    hide: vi.fn<(...args: any[]) => any>(),
     getVideoElement: vi.fn<(...args: any[]) => any>(() => ({ currentTime })),
     getState: vi.fn<(...args: any[]) => any>(() => "idle"),
   }
@@ -520,7 +523,8 @@ describe("universalVideoAdapter", () => {
     // test instead of this one.
     mocks.resolveSubtitlesProviderRef.mockReturnValueOnce(new Promise(() => {}))
 
-    void (adapter as any).processTranslatedSubtitles()
+    // A config is passed so the provider resolve runs here and consumes the value queued above.
+    void (adapter as any).processTranslatedSubtitles({ videoSubtitles: { aiSegmentation: false } })
     await Promise.resolve()
     await Promise.resolve()
 
@@ -696,5 +700,371 @@ describe("universalVideoAdapter", () => {
     expect(subtitlesFetcher.fetch).toHaveBeenCalledTimes(1)
     await adapter.handleSourceTrackChanged()
     expect(subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase).toBe(SubtitleCopyPhase.Idle)
+  })
+
+  describe("starting without a chosen subtitles provider", () => {
+    const PROVIDER_ID = "subtitles-provider"
+    const FRAGMENTS = [{ text: "Hello there.", start: 0, end: 1000 }]
+    const SETTINGS_URL = "/options.html#/api-providers?section=feature-provider-videoSubtitles"
+
+    function configWith({
+      providerId = PROVIDER_ID,
+      enabled = true,
+      targetCode = "cmn",
+      displayMode = "bilingual",
+    } = {}) {
+      return {
+        language: { targetCode },
+        providersConfig: [
+          { ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai), id: PROVIDER_ID, enabled },
+        ],
+        videoSubtitles: { aiSegmentation: false, providerId, style: { displayMode } },
+      }
+    }
+
+    const stubCoordinatorStart = () =>
+      vi.spyOn(TranslationCoordinator.prototype, "start").mockImplementation(() => undefined)
+
+    // A running session on the current video, as an earlier start leaves it behind.
+    function resumableSession(adapter: UniversalVideoAdapter, withCoordinator: boolean) {
+      const coordinator = {
+        clearFailed: vi.fn<(...args: any[]) => any>(),
+        start: vi.fn<(...args: any[]) => any>(),
+        stop: vi.fn<(...args: any[]) => any>(),
+      }
+      ;(adapter as any).sessionProcessedFragments = [
+        { text: "old", start: 0, end: 1000, translation: "old translation" },
+      ]
+      ;(adapter as any).sessionVideoId = ""
+      ;(adapter as any).translationCoordinator = withCoordinator ? coordinator : null
+      return coordinator
+    }
+
+    beforeEach(() => {
+      subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, false)
+      // A value queued with mockReturnValueOnce survives clearAllMocks; start each test without one.
+      mocks.resolveSubtitlesProviderRef.mockReset()
+    })
+
+    afterEach(() => {
+      ;(TranslationCoordinator.prototype.start as { mockRestore?: () => void }).mockRestore?.()
+      subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, false)
+    })
+
+    it("translates as before when the chosen provider resolves", async () => {
+      const startSpy = stubCoordinatorStart()
+      mocks.getLocalConfig.mockResolvedValue(configWith())
+      const { adapter } = createAdapter(FRAGMENTS)
+      attachScheduler(adapter, true)
+
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+      expect(startSpy).toHaveBeenCalledOnce()
+      expect(mocks.showSubtitlesErrorToast).not.toHaveBeenCalled()
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(false)
+    })
+
+    it.each<[string, Parameters<typeof configWith>[0]]>([
+      ["unassigned", { providerId: "unconfigured" }],
+      ["deleted", { providerId: "gone" }],
+      ["disabled", { enabled: false }],
+    ])(
+      "keeps the original captions and offers settings when the provider is %s",
+      async (_case, overrides) => {
+        const startSpy = stubCoordinatorStart()
+        mocks.getLocalConfig.mockResolvedValue(configWith(overrides))
+        const { adapter } = createAdapter(FRAGMENTS)
+        const scheduler = attachScheduler(adapter, true)
+
+        await expect((adapter as any).startTranslation()).resolves.toBe(false)
+
+        // Nothing is requested, nothing is hidden, and the loading state is cleared.
+        expect(startSpy).not.toHaveBeenCalled()
+        expect(mocks.translateSubtitles).not.toHaveBeenCalled()
+        expect(mocks.resolveSubtitlesProviderRef).not.toHaveBeenCalled()
+        expect(scheduler.supplementSubtitles).not.toHaveBeenCalled()
+        expect(scheduler.hide).not.toHaveBeenCalled()
+        expect(scheduler.setState).toHaveBeenLastCalledWith("idle")
+        // The originals are published for the overlay and the transcript, and the cues are
+        // marked as not waiting for a translation.
+        const sourceTrack = subtitlesStore.get(sourceTrackAtom)
+        expect(sourceTrack.length).toBeGreaterThan(0)
+        expect(sourceTrack.every((cue) => cue.translation === undefined)).toBe(true)
+        expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(true)
+        expect(mocks.showSubtitlesErrorToast).toHaveBeenCalledExactlyOnceWith(
+          "providerRequired.message",
+          {
+            label: "providerRequired.openSettings",
+            url: expect.stringContaining(SETTINGS_URL),
+          },
+        )
+        expect(mocks.showAiSubtitlesWallToast).not.toHaveBeenCalled()
+      },
+    )
+
+    it.each<[string, Parameters<typeof configWith>[0]]>([
+      ["bilingual", { providerId: "unconfigured", targetCode: "eng", displayMode: "bilingual" }],
+      [
+        "original-only",
+        { providerId: "unconfigured", targetCode: "eng", displayMode: "originalOnly" },
+      ],
+    ])(
+      "still passes a track already in the target language through as its own translation (%s)",
+      async (_case, overrides) => {
+        const startSpy = stubCoordinatorStart()
+        mocks.getLocalConfig.mockResolvedValue(configWith(overrides))
+        const { adapter } = createAdapter(FRAGMENTS)
+        const scheduler = attachScheduler(adapter, true)
+
+        await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+        expect(scheduler.supplementSubtitles).toHaveBeenCalledOnce()
+        const [shown] = scheduler.supplementSubtitles.mock.calls[0]!
+        expect(
+          shown.every(
+            (cue: { text: string; translation?: string }) => cue.translation === cue.text,
+          ),
+        ).toBe(true)
+        expect(startSpy).not.toHaveBeenCalled()
+        expect(mocks.translateSubtitles).not.toHaveBeenCalled()
+        expect(mocks.showSubtitlesErrorToast).not.toHaveBeenCalled()
+        expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(false)
+      },
+    )
+
+    it("shows the originals as they are, with no fake translation, when only originals are wanted and no provider is chosen", async () => {
+      const startSpy = stubCoordinatorStart()
+      mocks.getLocalConfig.mockResolvedValue(
+        configWith({ providerId: "unconfigured", displayMode: "originalOnly" }),
+      )
+      const { adapter } = createAdapter(FRAGMENTS)
+      const scheduler = attachScheduler(adapter, true)
+
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+      // A source-only success: the cues are shown untranslated and nothing waits for a translation.
+      expect(scheduler.supplementSubtitles).not.toHaveBeenCalled()
+      expect(scheduler.setState).toHaveBeenLastCalledWith("idle")
+      expect(scheduler.hide).not.toHaveBeenCalled()
+      const sourceTrack = subtitlesStore.get(sourceTrackAtom)
+      expect(sourceTrack.length).toBeGreaterThan(0)
+      expect(sourceTrack.every((cue) => cue.translation === undefined)).toBe(true)
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(true)
+      expect(startSpy).not.toHaveBeenCalled()
+      expect(mocks.translateSubtitles).not.toHaveBeenCalled()
+      expect(mocks.resolveSubtitlesProviderRef).not.toHaveBeenCalled()
+      expect(mocks.showSubtitlesErrorToast).not.toHaveBeenCalled()
+      // Never kept as a finished session, so it cannot be resumed as one.
+      expect((adapter as any).sessionProcessedFragments).toEqual([])
+      expect((adapter as any).translationCoordinator).toBeNull()
+    })
+
+    it("translates from a fresh session once a provider is chosen after a source-only start", async () => {
+      const startSpy = stubCoordinatorStart()
+      mocks.getLocalConfig.mockResolvedValue(
+        configWith({ providerId: "unconfigured", displayMode: "originalOnly" }),
+      )
+      const { adapter, subtitlesFetcher } = createAdapter(FRAGMENTS)
+      // The track is the same, so a finished passthrough session would be resumed if one were kept.
+      subtitlesFetcher.shouldUseSameTrack.mockResolvedValue(true)
+      const scheduler = attachScheduler(adapter, true)
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+      expect(startSpy).not.toHaveBeenCalled()
+
+      mocks.getLocalConfig.mockResolvedValue(configWith({ displayMode: "originalOnly" }))
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+      expect(startSpy).toHaveBeenCalledOnce()
+      expect(scheduler.supplementSubtitles).not.toHaveBeenCalled()
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(false)
+    })
+
+    it("does not resume an old coordinator when only originals are wanted and the provider is gone", async () => {
+      const startSpy = stubCoordinatorStart()
+      mocks.getLocalConfig.mockResolvedValue(
+        configWith({ providerId: "gone", displayMode: "originalOnly" }),
+      )
+      const { adapter, subtitlesFetcher } = createAdapter(FRAGMENTS)
+      subtitlesFetcher.shouldUseSameTrack.mockResolvedValue(true)
+      const scheduler = attachScheduler(adapter, true)
+      const coordinator = resumableSession(adapter, true)
+
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+      expect(coordinator.start).not.toHaveBeenCalled()
+      expect(coordinator.stop).toHaveBeenCalledOnce()
+      expect(startSpy).not.toHaveBeenCalled()
+      expect(scheduler.supplementSubtitles).not.toHaveBeenCalled()
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(true)
+      expect(mocks.showSubtitlesErrorToast).not.toHaveBeenCalled()
+    })
+
+    it("lowers the refusal flag before its first await, so a second trigger finds it down", async () => {
+      mocks.getLocalConfig.mockResolvedValue(
+        configWith({ providerId: "unconfigured", displayMode: "originalOnly" }),
+      )
+      const { adapter } = createAdapter(FRAGMENTS)
+      attachScheduler(adapter, true)
+      subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, true)
+
+      const start = (adapter as any).startTranslation()
+
+      // Synchronously: nothing has been awaited yet, not even the config read.
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(false)
+      await start
+    })
+
+    it("starts one coordinator over cues a source-only start left untranslated", async () => {
+      const startSpy = stubCoordinatorStart()
+      mocks.getLocalConfig.mockResolvedValue(
+        configWith({ providerId: "unconfigured", displayMode: "originalOnly" }),
+      )
+      const { adapter } = createAdapter(FRAGMENTS)
+      attachScheduler(adapter, true)
+      await (adapter as any).startTranslation()
+      expect(
+        subtitlesStore.get(sourceTrackAtom).every((cue) => cue.translation === undefined),
+      ).toBe(true)
+
+      // The reader leaves original-only with a provider chosen: the same start runs again.
+      mocks.getLocalConfig.mockResolvedValue(configWith({ displayMode: "bilingual" }))
+      await (adapter as any).startTranslation()
+
+      expect(startSpy).toHaveBeenCalledOnce()
+      expect((adapter as any).translationCoordinator).not.toBeNull()
+      // What the coordinator works through: every cue still waiting for its translation.
+      const eligible = (adapter as any).sessionProcessedFragments
+      expect(eligible.length).toBeGreaterThan(0)
+      expect(eligible.every((cue: { translation?: string }) => cue.translation === undefined)).toBe(
+        true,
+      )
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(false)
+    })
+
+    it("still translates in original-only mode when a provider is chosen", async () => {
+      const startSpy = stubCoordinatorStart()
+      mocks.getLocalConfig.mockResolvedValue(configWith({ displayMode: "originalOnly" }))
+      const { adapter } = createAdapter(FRAGMENTS)
+      const scheduler = attachScheduler(adapter, true)
+
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+      expect(startSpy).toHaveBeenCalledOnce()
+      expect(scheduler.supplementSubtitles).not.toHaveBeenCalled()
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(false)
+    })
+
+    it("resumes a translated session on the same track while the provider holds", async () => {
+      mocks.getLocalConfig.mockResolvedValue(configWith())
+      const { adapter, subtitlesFetcher } = createAdapter(FRAGMENTS)
+      subtitlesFetcher.shouldUseSameTrack.mockResolvedValue(true)
+      attachScheduler(adapter, true)
+      const coordinator = resumableSession(adapter, true)
+
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+      expect(coordinator.clearFailed).toHaveBeenCalledOnce()
+      expect(coordinator.start).toHaveBeenCalledOnce()
+      expect(subtitlesFetcher.fetch).not.toHaveBeenCalled()
+    })
+
+    it("does not restart the old coordinator once the provider is gone, and recovers when one is set", async () => {
+      const startSpy = stubCoordinatorStart()
+      mocks.getLocalConfig.mockResolvedValue(configWith({ providerId: "gone" }))
+      const { adapter, subtitlesFetcher } = createAdapter(FRAGMENTS)
+      subtitlesFetcher.shouldUseSameTrack.mockResolvedValue(true)
+      attachScheduler(adapter, true)
+      const coordinator = resumableSession(adapter, true)
+
+      await expect((adapter as any).startTranslation()).resolves.toBe(false)
+
+      expect(coordinator.start).not.toHaveBeenCalled()
+      expect(coordinator.stop).toHaveBeenCalledOnce()
+      expect(startSpy).not.toHaveBeenCalled()
+      expect(subtitlesStore.get(sourceTrackAtom).length).toBeGreaterThan(0)
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(true)
+      expect(mocks.showSubtitlesErrorToast).toHaveBeenCalledOnce()
+
+      // Choosing a provider and switching on again translates from a fresh session.
+      mocks.getLocalConfig.mockResolvedValue(configWith())
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+      expect(startSpy).toHaveBeenCalledOnce()
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(false)
+      expect(mocks.showSubtitlesErrorToast).toHaveBeenCalledOnce()
+    })
+
+    it("resumes a passthrough session without fetching again while it still needs no translation", async () => {
+      mocks.getLocalConfig.mockResolvedValue(
+        configWith({ providerId: "unconfigured", targetCode: "eng" }),
+      )
+      const { adapter, subtitlesFetcher } = createAdapter(FRAGMENTS)
+      subtitlesFetcher.shouldUseSameTrack.mockResolvedValue(true)
+      const scheduler = attachScheduler(adapter, true)
+      resumableSession(adapter, false)
+
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+      expect(scheduler.supplementSubtitles).toHaveBeenCalledWith(
+        (adapter as any).sessionProcessedFragments,
+      )
+      expect(subtitlesFetcher.fetch).not.toHaveBeenCalled()
+    })
+
+    it("starts a fresh translation when a passthrough session now needs one and a provider is chosen", async () => {
+      const startSpy = stubCoordinatorStart()
+      mocks.getLocalConfig.mockResolvedValue(configWith({ targetCode: "cmn" }))
+      const { adapter, subtitlesFetcher } = createAdapter(FRAGMENTS)
+      subtitlesFetcher.shouldUseSameTrack.mockResolvedValue(true)
+      attachScheduler(adapter, true)
+      resumableSession(adapter, false)
+
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+      expect(subtitlesFetcher.fetch).toHaveBeenCalledOnce()
+      expect(startSpy).toHaveBeenCalledOnce()
+    })
+
+    it("leaves an AI session's resume as it was, provider or not", async () => {
+      mocks.getLocalConfig.mockResolvedValue(configWith({ providerId: "unconfigured" }))
+      const { adapter, subtitlesFetcher } = createAdapter(FRAGMENTS)
+      subtitlesFetcher.shouldUseSameTrack.mockResolvedValue(true)
+      attachScheduler(adapter, true)
+      ;(adapter as any).source = SUBTITLES_SOURCE.AI
+      const coordinator = resumableSession(adapter, true)
+
+      await expect((adapter as any).startTranslation()).resolves.toBe(true)
+
+      expect(coordinator.start).toHaveBeenCalledOnce()
+      expect(mocks.showSubtitlesErrorToast).not.toHaveBeenCalled()
+      expect(mocks.showAiSubtitlesWallToast).not.toHaveBeenCalled()
+      expect(subtitlesStore.get(nativeSubtitleTranslationBlockedAtom)).toBe(false)
+    })
+
+    it("switches off without a provider and without asking for one", () => {
+      mocks.getLocalConfig.mockResolvedValue(configWith({ providerId: "unconfigured" }))
+      const { adapter } = createAdapter(FRAGMENTS)
+      const scheduler = attachScheduler(adapter, true)
+      const coordinator = resumableSession(adapter, true)
+
+      adapter.toggleSubtitlesManually(false)
+
+      expect(scheduler.hide).toHaveBeenCalledOnce()
+      expect(coordinator.stop).toHaveBeenCalledOnce()
+      expect(mocks.getLocalConfig).not.toHaveBeenCalled()
+      expect(mocks.showSubtitlesErrorToast).not.toHaveBeenCalled()
+    })
+
+    it("prepares the original captions for copying without a provider", async () => {
+      mocks.getLocalConfig.mockResolvedValue(configWith({ providerId: "unconfigured" }))
+      const { adapter } = createAdapter(FRAGMENTS)
+
+      await adapter.copySourceSubtitles()
+
+      expect(subtitlesStore.get(sourceSubtitlesCopyStatusAtom).phase).toBe(SubtitleCopyPhase.Ready)
+      expect(mocks.translateSubtitles).not.toHaveBeenCalled()
+      expect(mocks.resolveSubtitlesProviderRef).not.toHaveBeenCalled()
+      expect(mocks.showSubtitlesErrorToast).not.toHaveBeenCalled()
+    })
   })
 })

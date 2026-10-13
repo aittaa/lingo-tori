@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/base-ui/select"
 import { SliderComfortable } from "@/components/ui/base-ui/slider"
-import { configFieldsAtomMap } from "@/utils/atoms/config"
+import { configAtom, configFieldsAtomMap } from "@/utils/atoms/config"
 import {
   DEFAULT_BACKGROUND_OPACITY,
   DEFAULT_DISPLAY_MODE,
@@ -39,10 +39,19 @@ import {
   MIN_FONT_SCALE,
   MIN_FONT_WEIGHT,
   SUBTITLE_FONT_FAMILIES,
+  SUBTITLES_SOURCE,
 } from "@/utils/constants/subtitles"
 import { i18n } from "@/utils/i18n"
+import { logger } from "@/utils/logger"
+import { resolveProviderRefForCapability } from "@/utils/providers/provider-registry"
 import { ShadowWrapperContext } from "@/utils/react-shadow-host/create-shadow-host"
-import { subtitlesStore } from "../../../atoms"
+import {
+  nativeSubtitleTranslationBlockedAtom,
+  subtitlesSourceAtom,
+  subtitlesStore,
+  subtitlesVisibleAtom,
+} from "../../../atoms"
+import { useSubtitlesUI } from "../../subtitles-ui-context"
 
 const SELECT_TRIGGER_CLASS =
   "min-w-[5.5rem] text-xs text-popover-foreground [&_[data-slot=select-value]]:text-popover-foreground [&_[data-slot=select-icon]]:text-muted-foreground"
@@ -221,13 +230,51 @@ const DEFAULT_TEXT_STYLE: SubtitleTextStyle = {
   fontWeight: DEFAULT_FONT_WEIGHT,
 }
 
+/**
+ * A start with no provider to translate with leaves its cues untranslated, waiting for nothing.
+ * Once the reader leaves original-only a translation is wanted, so start again — if a provider is
+ * there to do it. Everything is read and the start is made in one synchronous breath: the start
+ * lowers the refusal flag before its first await, so a second write finishing right behind this
+ * one finds the flag down and does not start a second time.
+ */
+function restartBlockedTranslation(toggleSubtitles: (enabled: boolean) => void) {
+  const stored = subtitlesStore.get(configAtom)
+  if (
+    subtitlesStore.get(nativeSubtitleTranslationBlockedAtom) &&
+    subtitlesStore.get(subtitlesVisibleAtom) &&
+    subtitlesStore.get(subtitlesSourceAtom) === SUBTITLES_SOURCE.NATIVE &&
+    stored.videoSubtitles.style.displayMode !== "originalOnly" &&
+    resolveProviderRefForCapability(
+      "videoSubtitles",
+      stored.providersConfig,
+      stored.videoSubtitles.providerId,
+    ) !== null
+  ) {
+    toggleSubtitles(true)
+  }
+}
+
 export function StyleView() {
   const [config, setConfig] = useAtom(configFieldsAtomMap.videoSubtitles, { store: subtitlesStore })
   const portalContainer = use(ShadowWrapperContext)
+  const { toggleSubtitles } = useSubtitlesUI()
   const { displayMode, translationPosition, container } = config.style
 
   const updateStyle = (patch: PartialDeep<SubtitlesStyle>) => {
-    void setConfig(deepmerge(config, { style: patch }))
+    const write = setConfig(deepmerge(config, { style: patch }))
+    // Only an explicit change away from original-only is a reason to start again; a provider
+    // being chosen on its own is not, and neither is any other style change.
+    const leavesOriginalOnly =
+      displayMode === "originalOnly" && !!patch.displayMode && patch.displayMode !== "originalOnly"
+    if (!leavesOriginalOnly) {
+      void write
+      return
+    }
+    // A write that fails starts nothing; its rejection is reported here instead of left loose.
+    void write.then(
+      () => restartBlockedTranslation(toggleSubtitles),
+      (error: unknown) => logger.error("[subtitles] saving the display mode failed", error),
+    )
   }
 
   return (

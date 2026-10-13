@@ -4,7 +4,12 @@ import { act, render, screen } from "@testing-library/react"
 import { createStore, Provider } from "jotai"
 import { describe, expect, it, vi } from "vitest"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
-import { currentSubtitleAtom, currentTimeMsAtom, sourceTrackAtom } from "../../atoms"
+import {
+  currentSubtitleAtom,
+  currentTimeMsAtom,
+  nativeSubtitleTranslationBlockedAtom,
+  sourceTrackAtom,
+} from "../../atoms"
 import { MainSubtitle, TranslationSubtitle } from "../subtitle-lines"
 
 const mockedAtoms = vi.hoisted(() => ({
@@ -148,5 +153,70 @@ describe("subtitle lines", () => {
 
     const line = screen.getByText("你好")
     expect(line).not.toHaveClass("animate-subtitle-fade-in")
+  })
+
+  it("replaces the pending indicator with the provider message once the start was refused", () => {
+    const store = createStoreWithLanguage("eng")
+    store.set(nativeSubtitleTranslationBlockedAtom, true)
+    store.set(currentTimeMsAtom, 500)
+    store.set(currentSubtitleAtom, null)
+    store.set(sourceTrackAtom, [{ text: "Hello", start: 0, end: 1000 }])
+
+    const { container } = render(
+      <Provider store={store}>
+        <TranslationSubtitle />
+      </Provider>,
+    )
+
+    expect(screen.getByText("providerRequired.message")).toBeTruthy()
+    expect(container.querySelector("[data-pending='true']")).toBeNull()
+    expect(container.querySelector("[aria-busy]")).toBeNull()
+    expect(screen.queryByText("Translating")).toBeNull()
+  })
+
+  it("keeps the pending indicator while a translation is really on its way", () => {
+    const store = createStoreWithLanguage("eng")
+    store.set(currentTimeMsAtom, 500)
+    store.set(currentSubtitleAtom, null)
+    store.set(sourceTrackAtom, [{ text: "Hello", start: 0, end: 1000 }])
+
+    const { container } = render(
+      <Provider store={store}>
+        <TranslationSubtitle />
+      </Provider>,
+    )
+
+    expect(container.querySelector("[data-pending='true']")).not.toBeNull()
+    expect(screen.queryByText("providerRequired.message")).toBeNull()
+  })
+
+  it("leaves a translated cue and an explicit content override alone after a refusal", () => {
+    const store = createStoreWithLanguage("eng")
+    store.set(nativeSubtitleTranslationBlockedAtom, true)
+    store.set(currentTimeMsAtom, 500)
+    store.set(currentSubtitleAtom, {
+      text: "Hello",
+      start: 0,
+      end: 1000,
+      translation: "你好",
+    })
+
+    const { rerender } = render(
+      <Provider store={store}>
+        <TranslationSubtitle />
+      </Provider>,
+    )
+    expect(screen.getByText("你好")).toBeTruthy()
+    expect(screen.queryByText("providerRequired.message")).toBeNull()
+
+    store.set(currentSubtitleAtom, null)
+    store.set(sourceTrackAtom, [{ text: "Hello", start: 0, end: 1000 }])
+    rerender(
+      <Provider store={store}>
+        <TranslationSubtitle content="Hello world" />
+      </Provider>,
+    )
+    expect(screen.getByText("Hello world")).toBeTruthy()
+    expect(screen.queryByText("providerRequired.message")).toBeNull()
   })
 })

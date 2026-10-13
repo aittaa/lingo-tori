@@ -5,9 +5,10 @@ import { useEffect, useRef } from "react"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { SUBTITLE_FONT_FAMILIES } from "@/utils/constants/subtitles"
 import { getLanguageDirectionAndLang } from "@/utils/content/language-direction"
+import { i18n } from "@/utils/i18n"
 import { cn } from "@/utils/styles/utils"
 import { isTranslationPending } from "@/utils/subtitles/display-rules"
-import { displaySubtitleAtom } from "../atoms"
+import { displaySubtitleAtom, nativeSubtitleTranslationBlockedAtom } from "../atoms"
 import { SubtitlePendingLabel } from "./subtitle-pending-label"
 
 interface SubtitleLineProps {
@@ -50,6 +51,7 @@ export function TranslationSubtitle({ content, className }: SubtitleLineProps) {
   const { style } = useAtomValue(configFieldsAtomMap.videoSubtitles)
   const language = useAtomValue(configFieldsAtomMap.language)
   const pending = content === undefined && isTranslationPending(subtitle)
+  const translationBlocked = useAtomValue(nativeSubtitleTranslationBlockedAtom)
   const text = content ?? subtitle?.translation ?? ""
   const { dir, lang } = getLanguageDirectionAndLang(language.targetCode)
   const textStyleVars = getTextStyleVars(style.translation)
@@ -68,6 +70,22 @@ export function TranslationSubtitle({ content, className }: SubtitleLineProps) {
   useEffect(() => {
     lastFrameRef.current = { start: subtitle?.start, pending }
   })
+
+  // A start refused for want of a provider: say so plainly rather than show a spinner that never
+  // ends. The settings button is on the toast that came with the refusal.
+  if (pending && translationBlocked) {
+    return (
+      <div
+        className={cn(
+          "subtitles-translation flex min-h-[1.25em] items-center justify-center text-[0.74em] leading-tight opacity-70",
+          className,
+        )}
+        style={{ ...textStyleVars, "--rf-subtitle-font-weight": undefined } as CSSProperties}
+      >
+        {i18n.t("providerRequired.message")}
+      </div>
+    )
+  }
 
   if (pending) {
     return (
