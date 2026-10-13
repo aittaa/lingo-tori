@@ -716,8 +716,14 @@ describe("universalVideoAdapter", () => {
     const stubCoordinatorStart = () =>
       vi.spyOn(TranslationCoordinator.prototype, "start").mockImplementation(() => undefined)
 
-    // A running session on the current video, as an earlier start leaves it behind.
-    function resumableSession(adapter: UniversalVideoAdapter, withCoordinator: boolean) {
+    // A running session on the current video, as an earlier start leaves it behind. It was built
+    // for `targetCode`, which defaults to the one `configWith` asks for: a session only resumes for
+    // the language it was built for, so a fixture with none recorded would never be resumed.
+    function resumableSession(
+      adapter: UniversalVideoAdapter,
+      withCoordinator: boolean,
+      targetCode = "cmn",
+    ) {
       const coordinator = {
         clearFailed: vi.fn<(...args: any[]) => any>(),
         start: vi.fn<(...args: any[]) => any>(),
@@ -727,6 +733,7 @@ describe("universalVideoAdapter", () => {
         { text: "old", start: 0, end: 1000, translation: "old translation" },
       ]
       ;(adapter as any).sessionVideoId = ""
+      ;(adapter as any).sessionTargetCode = targetCode
       ;(adapter as any).translationCoordinator = withCoordinator ? coordinator : null
       return coordinator
     }
@@ -992,7 +999,7 @@ describe("universalVideoAdapter", () => {
       const { adapter, subtitlesFetcher } = createAdapter(FRAGMENTS)
       subtitlesFetcher.shouldUseSameTrack.mockResolvedValue(true)
       const scheduler = attachScheduler(adapter, true)
-      resumableSession(adapter, false)
+      resumableSession(adapter, false, "eng")
 
       await expect((adapter as any).startTranslation()).resolves.toBe(true)
 
@@ -1147,8 +1154,9 @@ describe("universalVideoAdapter", () => {
       return { element, listeners, play: () => listeners.get("playing")?.() }
     }
 
-    // A session an earlier start left running on video "A", as a resume would find it.
-    function runningSession(adapter: UniversalVideoAdapter) {
+    // A session an earlier start left running on video "A", as a resume would find it. Built for
+    // the language `configFor` asks for by default; a session only resumes for its own.
+    function runningSession(adapter: UniversalVideoAdapter, targetCode = "kor") {
       const coordinator = {
         clearFailed: vi.fn<(...args: any[]) => any>(),
         start: vi.fn<(...args: any[]) => any>(),
@@ -1158,6 +1166,7 @@ describe("universalVideoAdapter", () => {
         { text: "old", start: 0, end: 1000, translation: "old translation" },
       ]
       ;(adapter as any).sessionVideoId = "A"
+      ;(adapter as any).sessionTargetCode = targetCode
       ;(adapter as any).translationCoordinator = coordinator
       return coordinator
     }
