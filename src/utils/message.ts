@@ -11,6 +11,7 @@ import type { ProxyRequest, ProxyResponse } from "@/types/proxy-fetch"
 import type { ApiUsageSnapshot, ApiUsageFeature } from "@/utils/api-usage"
 import type { GlossarySnapshot } from "@/utils/glossary/active-matcher"
 import type { MatchedTerm } from "@/utils/glossary/types"
+import type { OnboardingAction, OnboardingTransitionResult } from "@/utils/onboarding/lifecycle"
 import type { PromptableProviderRef, SerializableProviderRef } from "@/utils/providers/provider-ref"
 import { defineExtensionMessaging } from "@webext-core/messaging"
 
@@ -32,6 +33,9 @@ interface ProtocolMap {
   getApiUsage: () => ApiUsageSnapshot
   // config
   getInitialConfig: () => Config | null
+  // first-run language question — the background alone writes its record, so a stale tab can
+  // neither undo a completion nor overwrite the language that completion saved.
+  onboardingTransition: (data: OnboardingAction) => Promise<OnboardingTransitionResult>
   // glossary — the terms live in IndexedDB, which a content script cannot open,
   // so it asks the background once per page and compiles a matcher locally.
   // `url` says which page is asking; glossaries scoped to other sites are left

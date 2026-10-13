@@ -159,6 +159,67 @@ describe("initializeConfig", () => {
     expect(isFreshInstall).toBe(true)
   })
 
+  it("reports that storage held no config only when nothing was stored", async () => {
+    getItemMock.mockResolvedValueOnce(null)
+    getMetaMock.mockResolvedValueOnce(null)
+
+    const { initializeConfig } = await import("../init")
+    const { hadStoredConfig } = await initializeConfig()
+
+    expect(hadStoredConfig).toBe(false)
+  })
+
+  it("reports a reused config as stored", async () => {
+    getItemMock.mockResolvedValueOnce(buildStableConfig())
+    getMetaMock.mockResolvedValueOnce({
+      schemaVersion: CONFIG_SCHEMA_VERSION,
+      lastModifiedAt: 123,
+    })
+
+    const { initializeConfig } = await import("../init")
+    const { hadStoredConfig } = await initializeConfig()
+
+    expect(hadStoredConfig).toBe(true)
+  })
+
+  it("keeps an unparseable stored config reported as stored although it is rebuilt as fresh", async () => {
+    getItemMock.mockResolvedValueOnce({ not: "a config" })
+    getMetaMock.mockResolvedValueOnce({
+      schemaVersion: CONFIG_SCHEMA_VERSION,
+      lastModifiedAt: 123,
+    })
+
+    const { initializeConfig } = await import("../init")
+    const result = await initializeConfig()
+
+    expect(result).toEqual({ isFreshInstall: true, hadStoredConfig: true })
+  })
+
+  it.each([false, 0, ""])(
+    "counts a corrupted falsy stored value %j as an existing config, though it is still rebuilt as fresh",
+    async (corrupted) => {
+      getItemMock.mockResolvedValueOnce(corrupted)
+      getMetaMock.mockResolvedValueOnce(null)
+
+      const { initializeConfig } = await import("../init")
+      const result = await initializeConfig()
+
+      // Recovery is unchanged: the unusable value is replaced by defaults like a missing one.
+      expect(result).toEqual({ isFreshInstall: true, hadStoredConfig: true })
+      expect(setItemMock).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it("treats an undefined read as absence, like null", async () => {
+    getItemMock.mockResolvedValueOnce(undefined)
+    getMetaMock.mockResolvedValueOnce(null)
+
+    const { initializeConfig } = await import("../init")
+    const result = await initializeConfig()
+
+    expect(result).toEqual({ isFreshInstall: true, hadStoredConfig: false })
+  })
+
   it("runs migration and persists migrated config once", async () => {
     const config = buildStableConfig()
     const migrated = {

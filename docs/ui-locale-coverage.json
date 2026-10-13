@@ -166,7 +166,21 @@
     "options.apiUsage.history.about",
     "options.apiUsage.history.noShare",
     "providerRequired.message",
-    "providerRequired.openSettings"
+    "providerRequired.openSettings",
+    "onboarding.title",
+    "onboarding.description",
+    "onboarding.languageLabel",
+    "onboarding.suggested",
+    "onboarding.use",
+    "onboarding.later",
+    "onboarding.saving",
+    "onboarding.errorTarget",
+    "onboarding.errorComplete",
+    "onboarding.retry",
+    "onboarding.errorLater",
+    "onboarding.doneTitle",
+    "onboarding.doneDescription",
+    "onboarding.goSettings"
   ],
   "deferredHubKeys": [
     "popup.hub.tooltip",

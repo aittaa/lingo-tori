@@ -1316,6 +1316,21 @@ noAPIKeyConfig:
 providerRequired:
   message: Choose a provider
   openSettings: Open settings
+onboarding:
+  title: What's your native language?
+  description: LingoTori will translate into this language by default. You can change it anytime in Settings.
+  languageLabel: Native language
+  suggested: Suggested from your browser language.
+  use: Use this language
+  later: Later
+  saving: Saving…
+  errorTarget: Couldn't save your language. Please try again.
+  errorComplete: Your language was saved, but setup couldn't be finished.
+  retry: Try again
+  errorLater: Couldn't save your choice. Please try again.
+  doneTitle: Setup is already done.
+  doneDescription: You can change your translation language in Settings.
+  goSettings: Go to Settings
 languageDetection:
   llmFailed: LLM language detection failed, fell back to basic detection
 translation:
