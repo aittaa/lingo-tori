@@ -123,9 +123,10 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   private hasPendingTranscriptRefresh = false
   private pendingSourceLoads = new WeakMap<SubtitlesFetcher, number>()
 
-  // Set when the viewer switches a video off themselves, cleared when they switch one on. Auto-start
-  // never overrides it, and the same video id coming back (a player remount) keeps it.
-  private manualOff: { videoId: string | null } | null = null
+  // The viewer's last switch for the video they made it on. A switch-off is never overridden by
+  // auto-start; a switch-on is put back when the player is mounted again. Only the same video id
+  // coming back (a remount) keeps either; another video, or no id to match, starts fresh.
+  private manualChoice: { videoId: string | null; on: boolean } | null = null
   // The one auto-start attempt a video's load gets, however often it is asked for.
   private autoStartToken: SwitchToken | null = null
   private cancelPendingAutoStart: (() => void) | null = null
@@ -394,10 +395,10 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     // Another video starts fresh. Without an id on either side there is nothing to match, so the
     // choice goes too; the same id (a remount of the player) keeps it.
     if (
-      this.manualOff &&
-      (this.navigationVideoId === null || this.manualOff.videoId !== this.navigationVideoId)
+      this.manualChoice &&
+      (this.navigationVideoId === null || this.manualChoice.videoId !== this.navigationVideoId)
     ) {
-      this.manualOff = null
+      this.manualChoice = null
     }
   }
 
@@ -696,9 +697,9 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     }
   }
 
-  /** An auto-start stays valid until the video or the switch moves on, or the viewer says off. */
+  /** An auto-start stays valid until the video or the switch moves on, or the viewer chooses. */
   private isAutoStartCurrent(token: SwitchToken) {
-    return isSameToken(token, this.captureSwitchToken()) && this.manualOff === null
+    return isSameToken(token, this.captureSwitchToken()) && this.manualChoice === null
   }
 
   /**
@@ -711,7 +712,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     if (!isSameToken(start, this.captureSwitchToken())) {
       throw new DOMException("Subtitle start superseded", "AbortError")
     }
-    if (this.manualOff) {
+    if (this.manualChoice?.on === false) {
       // Nothing newer owns the loading state, so it is cleared here.
       this.subtitlesScheduler?.setState("idle")
       throw new DOMException("Subtitles switched off", "AbortError")
@@ -738,7 +739,9 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
 
   /**
    * Translates a foreign-language video by itself when `videoSubtitles.autoStart` asks for it.
-   * Opening the learning panel does not ask: its transcript loads on its own.
+   * Opening the learning panel does not ask: its transcript loads on its own. A video the viewer
+   * switched on by hand, when its player is mounted again, gets that back through the manual
+   * path whatever the setting or the track's language; one they switched off is left alone.
    *
    * Returns once the attempt is under way, not when it ends: the video's language is only known
    * after its track is fetched, and nothing waiting on that should hold up navigation setup.
@@ -748,6 +751,11 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     if (this.autoStartToken && isSameToken(this.autoStartToken, token)) return
     this.cancelPendingAutoStart?.()
     this.autoStartToken = token
+
+    if (this.manualChoice?.on) {
+      this.toggleSubtitlesWithSource(true, "manual")
+      return
+    }
 
     const config = await getLocalConfig()
     if (!config?.videoSubtitles?.autoStart || !this.isAutoStartCurrent(token)) return
@@ -780,10 +788,17 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
    * can be outlived by a switch-off, a newer start or a navigation, and then the attempt ends
    * without a word. An unreadable track leaves the language unknown, which is held back too: the
    * button is still there, and it reports its own errors.
+   *
+   * Reading the track can change the player's own captions (Netflix switches a track on to get at
+   * its file). A probe that does not become a start puts them back once it has settled, since a
+   * late load can enable the track after an earlier restore - unless a newer start or a navigation
+   * owns the player by then, which the token tells apart from the viewer simply switching off.
    */
   private async runAutoStart(token: SwitchToken) {
+    let isProbing = false
     try {
       if (!this.isAutoStartCurrent(token)) return
+      isProbing = true
       await this.getOrLoadSourceSubtitles()
       // Checked before the settings are read, so an attempt that went stale during the load ends
       // here instead of waiting on them.
@@ -797,18 +812,23 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
         // A proposal, not a settled choice: no native-language setting exists, so the translation
         // language stands in for "my language". This is the one place to change if that differs.
         myLanguage: config?.language.targetCode,
-        manualOff: this.manualOff !== null,
+        manualOff: this.manualChoice?.on === false,
       })
       if (decision === "start") {
+        isProbing = false
         this.toggleSubtitlesWithSource(true, "auto")
       }
     } catch {
       // Nothing to report: see above.
+    } finally {
+      if (isProbing && isSameToken(token, this.captureSwitchToken())) {
+        this.showNativeSubtitles()
+      }
     }
   }
 
   private recordManualSwitch(enabled: boolean) {
-    this.manualOff = enabled ? null : { videoId: this.config.getVideoId?.() ?? null }
+    this.manualChoice = { videoId: this.config.getVideoId?.() ?? null, on: enabled }
   }
 
   private toggleSubtitlesWithSource(enabled: boolean, source: SubtitlesToggleSource) {
@@ -844,8 +864,9 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       showAiSubtitlesWallToast(i18n.t("subtitles.errors.aiLiveReplayUnsupported"))
       return
     }
-    // Asking for AI subtitles is asking for subtitles: a switch-off before it no longer stands.
-    this.recordManualSwitch(true)
+    // Asking for AI subtitles is asking for subtitles, so a switch-off before it no longer stands.
+    // It is not kept as a switch-on either: a remount would put back native subtitles, not these.
+    this.manualChoice = null
     return this.switchSubtitlesFetcher(SUBTITLES_SOURCE.AI)
   }
 
