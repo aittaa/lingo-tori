@@ -8,12 +8,17 @@ import { initI18n, setUiLanguage } from "@/utils/i18n"
 import { logger } from "@/utils/logger"
 import { onMessage } from "@/utils/message"
 import { openOptionsPage } from "@/utils/navigation"
+import { ONBOARDING_ROUTE } from "@/utils/onboarding/lifecycle"
 import { runAiSegmentSubtitles } from "./ai-segmentation"
 import { setupApiUsage } from "./api-usage"
 import { dispatchBackgroundStreamPort } from "./background-stream"
 import { initializeActionIcons, registerActionIconListeners } from "./browser-action-icon"
 import { setupByos } from "./byos"
-import { ensureInitializedConfig, isFreshInstalledConfig } from "./config"
+import {
+  ensureInitializedConfig,
+  getInitializeConfigResult,
+  isFreshInstalledConfig,
+} from "./config"
 import { setUpConfigBackup } from "./config-backup"
 import { initializeContextMenu, registerContextMenuListeners } from "./context-menu"
 import {
@@ -26,6 +31,7 @@ import { setupGlossaryMessageHandlers } from "./glossary"
 import { setupIframeInjection } from "./iframe-injection"
 import { setupLLMGenerateTextMessageHandlers } from "./llm-generate-text"
 import { initMockData } from "./mock-data"
+import { handleInstallOnboarding, setupOnboardingMessageHandlers } from "./onboarding"
 import { setupPageTranslationHandlers } from "./page-translation"
 import { proxyFetch } from "./proxy-fetch"
 import { setupSidePanelMessageHandler } from "./side-panel"
@@ -41,7 +47,15 @@ export default defineBackground({
     browser.runtime.onInstalled.addListener(async (details) => {
       await ensureInitializedConfig()
       if (await isFreshInstalledConfig()) await selectFreshTranslateProviders()
-      if (details.reason === "install") await openOptionsPage()
+      if (details.reason === "install") {
+        // Enrols a first install that found no config; every other install opens settings as before.
+        const onboardingStarted = await handleInstallOnboarding({
+          reason: details.reason,
+          initResult: await getInitializeConfigResult(),
+        })
+        if (onboardingStarted) await openOptionsPage({ route: ONBOARDING_ROUTE })
+        else await openOptionsPage()
+      }
     })
 
     onMessage("openPage", async (message) => {
@@ -82,6 +96,8 @@ export default defineBackground({
     onMessage("clearAiSegmentationCache", async () => {
       await cleanupAllAiSegmentationCache()
     })
+
+    setupOnboardingMessageHandlers()
 
     translationMessage()
     registerActionIconListeners()

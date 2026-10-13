@@ -1263,6 +1263,21 @@ noAPIKeyConfig:
 providerRequired:
   message: 제공자를 선택해 주세요
   openSettings: 설정 열기
+onboarding:
+  title: 모국어가 무엇인가요?
+  description: LingoTori가 기본으로 이 언어로 번역해요. 설정에서 언제든 바꿀 수 있어요.
+  languageLabel: 모국어
+  suggested: 브라우저 언어를 바탕으로 추천했어요.
+  use: 이 언어 사용
+  later: 나중에
+  saving: 저장 중…
+  errorTarget: 언어를 저장하지 못했어요. 다시 시도해 주세요.
+  errorComplete: 언어는 저장했지만 설정을 마치지 못했어요.
+  retry: 다시 시도
+  errorLater: 선택을 저장하지 못했어요. 다시 시도해 주세요.
+  doneTitle: 이미 설정을 마쳤어요.
+  doneDescription: 번역 언어는 설정에서 바꿀 수 있어요.
+  goSettings: 설정으로 이동
 languageDetection:
   llmFailed: LLM 언어 감지 실패, 기본 감지로 대체되었습니다
 translation:

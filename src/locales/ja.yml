@@ -1263,6 +1263,21 @@ noAPIKeyConfig:
 providerRequired:
   message: プロバイダーを選択してください
   openSettings: 設定を開く
+onboarding:
+  title: あなたの母語は何ですか？
+  description: LingoToriはこの言語を既定の翻訳先として使います。設定からいつでも変更できます。
+  languageLabel: 母語
+  suggested: ブラウザの言語をもとにおすすめしています。
+  use: この言語を使う
+  later: あとで
+  saving: 保存中…
+  errorTarget: 言語を保存できませんでした。もう一度お試しください。
+  errorComplete: 言語は保存しましたが、設定を完了できませんでした。
+  retry: 再試行
+  errorLater: 選択を保存できませんでした。もう一度お試しください。
+  doneTitle: 設定はすでに完了しています。
+  doneDescription: 翻訳先の言語は設定から変更できます。
+  goSettings: 設定へ移動
 languageDetection:
   llmFailed: LLM言語検出に失敗しました。基本検出にフォールバックしました
 translation:

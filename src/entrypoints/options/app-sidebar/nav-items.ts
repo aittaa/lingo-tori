@@ -14,6 +14,9 @@ export const ROUTE_DEFS = [
   // Advanced is a sidebar GROUP with no page of its own; this path only exists
   // so links made before that change still land somewhere.
   { path: "/advanced" },
+  // The first-run language question: opened by the background after a first install and by the
+  // root route while it is pending. Internal, so the sidebar has no entry for it.
+  { path: "/onboarding" },
 
   // Detail pages drilled into from a `ConfigNavItem`. They own no sidebar entry — the
   // sidebar lists its links itself — but route exactly like any other page.

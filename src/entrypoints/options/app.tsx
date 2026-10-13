@@ -2,11 +2,16 @@ import type { ComponentType } from "react"
 import { lazy, Suspense } from "react"
 import { Navigate, Route, Routes } from "react-router"
 import { ROUTE_DEFS } from "./app-sidebar/nav-items"
+import { OnboardingRootGuard } from "./pages/onboarding/root-guard"
 
 type RoutePath = (typeof ROUTE_DEFS)[number]["path"]
 
 const ApiUsagePage = lazy(() =>
   import("./pages/api-usage").then((module) => ({ default: module.ApiUsagePage })),
+)
+
+const OnboardingPage = lazy(() =>
+  import("./pages/onboarding").then((module) => ({ default: module.OnboardingPage })),
 )
 
 const ByosPage = lazy(() => import("./pages/byos").then((module) => ({ default: module.ByosPage })))
@@ -50,6 +55,15 @@ const GlossaryEditorPage = lazy(() =>
 /** Advanced has no page of its own; its group's only entry is the glossary. */
 function AdvancedRedirect() {
   return <Navigate to="/advanced/glossary" replace />
+}
+
+/** The root opens API providers, unless the first-run language question is still pending. */
+function RootPage() {
+  return (
+    <OnboardingRootGuard>
+      <ApiProvidersPage />
+    </OnboardingRootGuard>
+  )
 }
 const CustomCssPage = lazy(() =>
   import("./pages/translation/translation-style/custom-css").then((module) => ({
@@ -118,7 +132,8 @@ const SubtitlesQueuePage = lazy(() =>
 )
 
 const ROUTE_COMPONENTS: Record<RoutePath, ComponentType> = {
-  "/": ApiProvidersPage,
+  "/": RootPage,
+  "/onboarding": OnboardingPage,
   "/byos": ByosPage,
   "/preference": PreferencePage,
   "/shortcuts": ShortcutsPage,

@@ -41,6 +41,11 @@ interface LanguageComboboxProps<T extends string> {
   /** The trigger's size, as a `Button` variant — `sm` matches the settings selects. */
   triggerSize?: ComponentProps<typeof Button>["size"]
   className?: string
+  disabled?: boolean
+  /** Forwarded to the trigger, so a visible label and hint can name and describe it. */
+  id?: string
+  "aria-labelledby"?: string
+  "aria-describedby"?: string
 }
 
 export function LanguageCombobox<T extends string = LangCodeISO6393 | "auto">({
@@ -52,6 +57,10 @@ export function LanguageCombobox<T extends string = LangCodeISO6393 | "auto">({
   placeholder,
   triggerSize,
   className,
+  disabled,
+  id,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-describedby": ariaDescribedBy,
 }: LanguageComboboxProps<T>) {
   const languageItems = useMemo(() => {
     if (items) return items
@@ -71,8 +80,12 @@ export function LanguageCombobox<T extends string = LangCodeISO6393 | "auto">({
       items={languageItems}
       filter={filterLanguage}
       autoHighlight
+      disabled={disabled}
     >
       <ComboboxTrigger
+        id={id}
+        aria-labelledby={ariaLabelledBy}
+        aria-describedby={ariaDescribedBy}
         render={
           <Button
             type="button"

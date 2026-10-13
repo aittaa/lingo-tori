@@ -20,6 +20,13 @@ export interface InitializeConfigResult {
    * only makes sense on untouched defaults (see `selectFreshTranslateProviders`).
    */
   isFreshInstall: boolean
+  /**
+   * Storage held a config value before this run touched it. Unlike `isFreshInstall` it stays false
+   * only for a profile that had nothing at all — recovery from an invalid value still reports true —
+   * so first-run work that must never reach an existing user (see the onboarding lifecycle) can
+   * key on it.
+   */
+  hadStoredConfig: boolean
 }
 
 /**
@@ -31,6 +38,11 @@ export async function initializeConfig(): Promise<InitializeConfigResult> {
     storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`),
     storage.getMeta<ConfigMeta>(`local:${CONFIG_STORAGE_KEY}`),
   ])
+
+  // Absence is null/undefined only: a corrupted falsy value (false, 0, "") was still written by
+  // somebody, so it counts as an existing user even though the rebuild below treats it as missing.
+  const storedValue: unknown = storedConfig
+  const hadStoredConfig = storedValue !== null && storedValue !== undefined
 
   let config: Config
   let currentVersion: number
@@ -101,7 +113,7 @@ export async function initializeConfig(): Promise<InitializeConfigResult> {
     })
   }
 
-  return { isFreshInstall }
+  return { isFreshInstall, hadStoredConfig }
 }
 
 function applyAPIKeysFromEnv(config: Config): { config: Config; changed: boolean } {
