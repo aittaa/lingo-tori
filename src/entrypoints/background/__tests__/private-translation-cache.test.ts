@@ -105,7 +105,7 @@ function createProvider(): LLMProviderConfig {
     baseURL: "https://synthetic.example/v1",
     apiKey: "synthetic-key",
     model: { model: "use-custom-model", isCustomModel: true, customModel: "model-a" },
-  } as LLMProviderConfig
+  }
 }
 
 // Not an LLM provider, so the handlers take the per-request RequestQueue path
@@ -156,7 +156,7 @@ async function startHandler(route: "page" | "subtitles") {
 function request(
   text: string,
   sender: Sender,
-  { config = createProvider() as unknown, sessionId = "session", extra = {} } = {},
+  { config = createProvider(), sessionId = "session", extra = {} } = {},
 ) {
   const providerRef = { kind: "local" as const, config }
   return {
@@ -164,7 +164,7 @@ function request(
       text,
       langConfig: DEFAULT_CONFIG.language,
       providerRef,
-      hash: Sha256Hex(text, getProviderCacheIdentity(providerRef as never)),
+      hash: Sha256Hex(text, getProviderCacheIdentity(providerRef)),
       scheduleAt: Date.now(),
       webTitle: "Same title",
       webDescription: "Same description",

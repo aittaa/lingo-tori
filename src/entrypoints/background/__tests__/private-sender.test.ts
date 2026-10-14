@@ -2,19 +2,29 @@ import { describe, expect, it } from "vitest"
 import { Sha256Hex } from "@/utils/hash"
 import { getQueueIdentity, isPrivateSender } from "../private-sender"
 
+type SenderArgument = Parameters<typeof isPrivateSender>[0]
+
 describe("isPrivateSender", () => {
   it("is true only when the sender's tab is explicitly incognito", () => {
+    // A real browser sender carries far more than the helper reads.
+    const browserSender = { tab: { id: 7, incognito: true } }
     expect(isPrivateSender({ tab: { incognito: true } })).toBe(true)
-    expect(isPrivateSender({ tab: { id: 7, incognito: true } })).toBe(true)
+    expect(isPrivateSender(browserSender)).toBe(true)
   })
 
   it.each([
     ["no sender", undefined],
     ["a sender without a tab (popup, side panel, background)", {}],
-    ["a tab without the incognito field", { tab: { id: 7 } }],
     ["a normal tab", { tab: { id: 7, incognito: false } }],
   ])("is false for %s, which keeps today's persistent behaviour", (_label, sender) => {
     expect(isPrivateSender(sender)).toBe(false)
+  })
+
+  it("is false for a tab without the incognito field, which keeps today's persistent behaviour", () => {
+    // Not a shape the browser's types allow, but an older or unusual message can
+    // still arrive without it.
+    const senderWithoutFlag = { tab: { id: 7 } } as SenderArgument
+    expect(isPrivateSender(senderWithoutFlag)).toBe(false)
   })
 
   it("does not treat truthy non-boolean values on the wire as private", () => {
