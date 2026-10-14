@@ -122,6 +122,8 @@ export function setupPageTranslationHandlers(): void {
     // translates, but it must neither share a queue identity with a snapshot
     // request of the same hash (BatchQueue and RequestQueue both dedup on it) nor
     // persist its result under that hash for a snapshot request to be served later.
+    // An empty hash stays empty, because BatchQueue dedups only on a non-empty key and a
+    // tag would turn it into one shared by every such request.
     const legacyPromptResolution = promptTemplate === undefined && shouldUseBatchQueue(providerRef)
 
     if (shouldUseBatchQueue(providerRef)) {
@@ -129,7 +131,7 @@ export function setupPageTranslationHandlers(): void {
         text,
         langConfig,
         ...routing,
-        hash: legacyPromptResolution ? Sha256Hex("legacy-prompt-resolution", hash) : hash,
+        hash: legacyPromptResolution && hash ? Sha256Hex("legacy-prompt-resolution", hash) : hash,
         scheduleAt,
         context,
         // Kept off `context`, which is part of the batch key — see

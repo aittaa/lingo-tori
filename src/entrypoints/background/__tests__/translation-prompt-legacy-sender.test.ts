@@ -506,6 +506,42 @@ describe.each(ROUTES)("$label route: legacy request cache contract", (route) => 
   })
 })
 
+describe.each(ROUTES)("$label route: requests that arrive with an empty hash", (route) => {
+  // BatchQueue only dedups on a non-empty key, so an empty hash has to stay empty
+  // all the way through: a legacy tag that turned it into a real key would fold two
+  // unrelated texts into one task, and one of them would get the other's translation.
+  it("legacy requests with different texts are two members of one batch, not one deduped task", async () => {
+    await route.start()
+    const handler = route.handler()
+    const first = handler(route.message({ text: X, hash: "" }))
+    const second = handler(route.message({ text: Y, hash: "" }))
+    await settle()
+    await selectPrompt("b")
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(await Promise.all([first, second])).toEqual([`b:${X}`, `b:${Y}`])
+    expect(executedBatches()).toEqual([
+      expect.objectContaining({ marker: "b", segments: [X, Y], isBatch: true }),
+    ])
+    expect(mocks.cacheWrites).toEqual([])
+  })
+
+  it("control: snapshot requests with different texts stay separate members too", async () => {
+    await route.start()
+    const handler = route.handler()
+    const first = handler(route.message({ text: X, hash: "", promptTemplate: RAW_TEMPLATE.a }))
+    const second = handler(route.message({ text: Y, hash: "", promptTemplate: RAW_TEMPLATE.a }))
+    await settle()
+    await selectPrompt("b")
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(await Promise.all([first, second])).toEqual([`a:${X}`, `a:${Y}`])
+    expect(executedBatches()).toEqual([
+      expect.objectContaining({ marker: "a", segments: [X, Y], isBatch: true }),
+    ])
+  })
+})
+
 describe.each(ROUTES)("$label route: legacy sender queued BEFORE a snapshot sender", (route) => {
   it.each(LEGACY_SNAPSHOTS)(
     "legacy (%s) first, snapshot second, same text and hash, stored prompt changes before dispatch",
