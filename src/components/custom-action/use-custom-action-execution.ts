@@ -23,6 +23,7 @@ export interface SelectionToolbarCustomActionRequestSlice {
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
   createSelectionToolbarPrecheckError,
+  createSelectionToolbarProviderRequiredError,
   createSelectionToolbarRuntimeError,
   isAbortError,
 } from "@/components/ui/selection-popover/inline-error"
@@ -39,6 +40,7 @@ import {
   replaceSelectionToolbarCustomActionPromptTokens,
 } from "@/utils/custom-action-prompt"
 import { getOrCreateWebPageContext } from "@/utils/host/translate/webpage-context"
+import { getCustomActionProviderRowId } from "@/utils/navigation"
 import { resolveModelId } from "@/utils/providers/model-id"
 import { getProviderOptionsWithOverride } from "@/utils/providers/options"
 import { getTopLevelReasoning } from "@/utils/providers/reasoning"
@@ -159,8 +161,13 @@ export function buildCustomActionExecutionPlan(
 
   const provider = customActionRequest.provider
   if (!provider) {
+    // Not chosen, deleted, disabled and incompatible all resolve to null (see
+    // resolveProviderRefForCapability): the action's own row is where that gets fixed.
     return {
-      error: createSelectionToolbarPrecheckError("customAction", "providerUnavailable"),
+      error: createSelectionToolbarProviderRequiredError(
+        "customAction",
+        getCustomActionProviderRowId(action.id),
+      ),
       executionContext: null,
     }
   }

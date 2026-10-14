@@ -115,6 +115,9 @@ export function createByosService(
   let intent = 0
   let starting = false
   let startingAttemptId: string | undefined
+  // Terminal, handled promise of a failed sign-in's browser cleanup. It outlives the
+  // reported error and keeps new sign-ins out until it settles.
+  let failureCleanup: Promise<void> | undefined
   let refreshing: Promise<void> | undefined
   let initialization: Promise<void> | undefined
   let signingOut: Promise<ByosSession & { remoteRevocationConfirmed: boolean }> | undefined
@@ -154,6 +157,22 @@ export function createByosService(
     if (!cleared) return
     abortAll()
     await transport.cleanup(pending?.tabId)
+  }
+  function trackFailureCleanup(tabId: number) {
+    // The wrapper calls transport.cleanup synchronously, so the transport's rule-change
+    // gate is taken before the original error is thrown; a synchronous throw becomes a
+    // rejection that is handled here.
+    const cleanup: Promise<void> = (async () => {
+      try {
+        await transport.cleanup(tabId)
+      } catch {
+        // The original failure is reported separately; the transport keeps gating
+        // any rule mutation that is still unsettled.
+      }
+    })().finally(() => {
+      if (failureCleanup === cleanup) failureCleanup = undefined
+    })
+    failureCleanup = cleanup
   }
   async function initialize() {
     const attempt = (initialization ??= (async () => {
@@ -619,7 +638,7 @@ export function createByosService(
     async authStart(attemptId: string = crypto.randomUUID()) {
       authAttemptIdSchema.parse(attemptId)
       if (signingOut) fail("signout_in_progress")
-      if (starting) fail("auth_in_progress")
+      if (starting || failureCleanup) fail("auth_in_progress")
       starting = true
       startingAttemptId = attemptId
       const ownIntent = ++intent
@@ -676,9 +695,10 @@ export function createByosService(
               current.generation++
             }
           })
-          // Pending auth is already invalidated. Preserve the original failure
-          // while the transport continues gating any unsettled rule mutation.
-          await transport.cleanup(tabId).catch(() => {})
+          // Pending auth is already invalidated. Report the original failure now: the
+          // tracked cleanup keeps new sign-ins out until it settles, and the transport
+          // keeps gating any rule mutation that is still unsettled.
+          trackFailureCleanup(tabId)
           throw error
         }
       } finally {
