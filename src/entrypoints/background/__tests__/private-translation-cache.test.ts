@@ -171,6 +171,10 @@ function request(
       sessionId,
       glossaryRevision: 4,
       glossaryTerms: [],
+      // A current content script sends the prompt snapshot its hash was taken over. Without one
+      // the request is "legacy" (kept out of the shared queue identity and the cache), which is
+      // not what these tests are about — see private-legacy-composition.test.ts for that.
+      promptTemplate: { systemPrompt: "Translate the captured text.", prompt: "{{input}}" },
       ...extra,
     },
     sender,
