@@ -17,6 +17,7 @@ import {
 import { normalizePromptContextValue } from "@/utils/host/translate/translate-text"
 import { logger } from "@/utils/logger"
 import { onMessage } from "@/utils/message"
+import { parsePromptTemplate } from "@/utils/prompts/template"
 import { getTranslatePrompt } from "@/utils/prompts/translate"
 import { canProviderRefGenerateText } from "@/utils/providers/provider-ref"
 import { TranslationCancelledError } from "@/utils/request/cancellation"
@@ -74,9 +75,13 @@ export function setupPageTranslationHandlers(): void {
         forceRetranslation = false,
         glossaryTerms,
         glossaryRevision,
+        promptTemplate: rawPromptTemplate,
       },
     } = message
     const scope = buildTranslationScopeKey(message.sender, sessionId)
+    // Re-validated here: the wire is untyped, and a sender without a valid
+    // template makes the queue resolve the stored selection at execution.
+    const promptTemplate = parsePromptTemplate(rawPromptTemplate)
 
     const validateHtmlAttributeMarkers =
       textFormat === "html" && hasHtmlAttributeMarkerProtocol(text)
@@ -123,6 +128,9 @@ export function setupPageTranslationHandlers(): void {
         // `mergeBatchGlossaryTerms`.
         glossaryTerms,
         glossaryRevision,
+        // The prompt this request's `hash` was taken over. Part of the batch
+        // key, so a batch never mixes two prompts.
+        promptTemplate,
         scope,
       }
       result = await batchQueue.enqueue(data)

@@ -1,4 +1,6 @@
+import type { PromptTemplate } from "./template"
 import type { TranslatePromptOptions, TranslatePromptResult } from "./translate"
+import type { Config } from "@/types/config/config"
 import type { SubtitlePromptContext } from "@/types/content"
 import { getLocalConfig } from "@/utils/config/storage"
 import { resolveGlossaryTerms } from "@/utils/glossary/active-matcher"
@@ -18,13 +20,10 @@ import {
 import { replacePromptTokens } from "./replace-tokens"
 import { resolvePromptReplacementValue } from "./translate"
 
-export async function getSubtitlesTranslatePrompt(
-  targetLang: string,
-  input: string,
-  options?: TranslatePromptOptions<SubtitlePromptContext>,
-): Promise<TranslatePromptResult> {
-  const config = (await getLocalConfig()) ?? DEFAULT_CONFIG
-  const customPromptsConfig = config.videoSubtitles.customPromptsConfig
+/** The prompt a config selects, as stored: built-in, else the matching custom pattern, else the default. */
+export function selectSubtitlesPromptTemplate(
+  customPromptsConfig: Config["videoSubtitles"]["customPromptsConfig"],
+): PromptTemplate {
   const { patterns, promptId } = customPromptsConfig
 
   const resolvedPromptId = promptId || DEFAULT_TRANSLATE_PROMPT_ID
@@ -39,7 +38,30 @@ export async function getSubtitlesTranslatePrompt(
     customPrompt ??
     BUILT_IN_SUBTITLE_TRANSLATE_PROMPTS[DEFAULT_TRANSLATE_PROMPT_ID]
 
-  let { systemPrompt, prompt } = selectedPrompt
+  // Only the two prompt strings — see `selectTranslatePromptTemplate`.
+  return { systemPrompt: selectedPrompt.systemPrompt, prompt: selectedPrompt.prompt }
+}
+
+/** Snapshot the stored subtitle prompt selection — once per request, where its cache key is hashed. */
+export async function getSubtitlesPromptTemplate(): Promise<PromptTemplate> {
+  const config = (await getLocalConfig()) ?? DEFAULT_CONFIG
+  return selectSubtitlesPromptTemplate(config.videoSubtitles.customPromptsConfig)
+}
+
+export async function getSubtitlesTranslatePrompt(
+  targetLang: string,
+  input: string,
+  options?: TranslatePromptOptions<SubtitlePromptContext>,
+): Promise<TranslatePromptResult> {
+  // A request that carries both its template and its terms consults no stored
+  // setting — see `getTranslatePrompt`.
+  const carriesOwnSettings =
+    options?.promptTemplate !== undefined && options.glossaryTerms !== undefined
+  const config = carriesOwnSettings ? DEFAULT_CONFIG : ((await getLocalConfig()) ?? DEFAULT_CONFIG)
+
+  let { systemPrompt, prompt } =
+    options?.promptTemplate ??
+    selectSubtitlesPromptTemplate(config.videoSubtitles.customPromptsConfig)
 
   // For batch mode, append batch rules to system prompt
   if (options?.isBatch) {

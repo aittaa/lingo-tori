@@ -11,6 +11,7 @@ import { Sha256Hex } from "@/utils/hash"
 import { executeTranslate } from "@/utils/host/translate/execute-translate"
 import {
   MIN_LENGTH_FOR_SKIP_LANGUAGE_DETECTION,
+  translateTextCore,
   validateTranslationConfigAndToast,
 } from "@/utils/host/translate/translate-text"
 import {
@@ -55,6 +56,7 @@ vi.mock("@/utils/host/translate/api/deeplx", () => ({
 
 vi.mock("@/utils/prompts/translate", () => ({
   getTranslatePrompt: vi.fn<(...args: any[]) => any>(),
+  getTranslatePromptTemplate: vi.fn<(...args: any[]) => any>(),
 }))
 
 vi.mock("@/utils/content/language", () => ({
@@ -74,6 +76,7 @@ let mockDeepLTranslate: any
 let mockDeepLXTranslate: any
 let mockGetConfigFromStorage: any
 let mockGetTranslatePrompt: any
+let mockGetTranslatePromptTemplate: any
 let mockGetOrCreateWebPageContext: any
 let mockGetOrGenerateWebPageSummary: any
 let mockDetectLanguage: any
@@ -93,6 +96,9 @@ describe("translate-text", () => {
     mockGetConfigFromStorage = vi.mocked((await import("@/utils/config/storage")).getLocalConfig)
     mockGetTranslatePrompt = vi.mocked(
       (await import("@/utils/prompts/translate")).getTranslatePrompt,
+    )
+    mockGetTranslatePromptTemplate = vi.mocked(
+      (await import("@/utils/prompts/translate")).getTranslatePromptTemplate,
     )
     mockGetOrCreateWebPageContext = vi.mocked(
       (await import("@/utils/host/translate/webpage-context")).getOrCreateWebPageContext,
@@ -118,6 +124,10 @@ describe("translate-text", () => {
     // Mock getTranslatePrompt to return a simple prompt pair
     mockGetTranslatePrompt.mockResolvedValue({
       systemPrompt: "Translate to {{targetLang}}",
+      prompt: "{{input}}",
+    })
+    mockGetTranslatePromptTemplate.mockResolvedValue({
+      systemPrompt: "Translate to {{targetLanguage}}",
       prompt: "{{input}}",
     })
   })
@@ -321,6 +331,70 @@ describe("translate-text", () => {
         expect(isTranslationCancelledError(caught)).toBe(true)
         expect(mockSendMessage).not.toHaveBeenCalled()
       })
+    })
+  })
+
+  describe("prompt template snapshot", () => {
+    const template = { systemPrompt: "SNAPSHOT {{targetLanguage}}", prompt: "{{input}}" }
+
+    function coreOptions(config: (typeof DEFAULT_CONFIG.providersConfig)[number]) {
+      return {
+        text: "hello world",
+        langConfig: DEFAULT_CONFIG.language,
+        providerConfig: { kind: "local" as const, id: config.id, name: config.name, config },
+      }
+    }
+
+    function enqueuedPayload() {
+      const call = mockSendMessage.mock.calls.find(
+        ([type]: [string]) => type === "enqueueTranslateRequest",
+      )
+      return call?.[1]
+    }
+
+    it("reads the template once and hashes and sends that same object", async () => {
+      mockGetTranslatePromptTemplate.mockResolvedValue(template)
+      mockSendMessage.mockResolvedValue("translated")
+      const llm = DEFAULT_CONFIG.providersConfig.find(
+        (provider) => provider.id === "openai-default",
+      )!
+
+      await translateTextCore(coreOptions(llm))
+
+      expect(mockGetTranslatePromptTemplate).toHaveBeenCalledTimes(1)
+      expect(mockGetTranslatePrompt).toHaveBeenCalledTimes(1)
+      expect(mockGetTranslatePrompt.mock.calls[0][2].promptTemplate).toBe(template)
+      expect(enqueuedPayload().promptTemplate).toBe(template)
+    })
+
+    it("takes a fresh snapshot for every request", async () => {
+      const edited = { systemPrompt: "EDITED {{targetLanguage}}", prompt: "{{input}}" }
+      mockGetTranslatePromptTemplate.mockResolvedValueOnce(template).mockResolvedValueOnce(edited)
+      mockSendMessage.mockResolvedValue("translated")
+      const llm = DEFAULT_CONFIG.providersConfig.find(
+        (provider) => provider.id === "openai-default",
+      )!
+
+      await translateTextCore({ ...coreOptions(llm), text: "first" })
+      await translateTextCore({ ...coreOptions(llm), text: "second" })
+
+      const payloads = mockSendMessage.mock.calls
+        .filter(([type]: [string]) => type === "enqueueTranslateRequest")
+        .map(([, payload]: [string, { promptTemplate: unknown }]) => payload.promptTemplate)
+      expect(payloads).toEqual([template, edited])
+    })
+
+    it("holds no snapshot for a provider that takes no prompt", async () => {
+      mockSendMessage.mockResolvedValue("translated")
+      const pure = DEFAULT_CONFIG.providersConfig.find(
+        (provider) => provider.id === "deeplx-default",
+      )!
+
+      await translateTextCore(coreOptions(pure))
+
+      expect(mockGetTranslatePromptTemplate).not.toHaveBeenCalled()
+      expect(mockGetTranslatePrompt).not.toHaveBeenCalled()
+      expect(enqueuedPayload().promptTemplate).toBeUndefined()
     })
   })
 

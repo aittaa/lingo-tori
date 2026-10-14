@@ -6,6 +6,7 @@ import { executeTranslate } from "@/utils/host/translate/execute-translate"
 import { normalizePromptContextValue } from "@/utils/host/translate/translate-text"
 import { onMessage } from "@/utils/message"
 import { getSubtitlesTranslatePrompt } from "@/utils/prompts/subtitles"
+import { parsePromptTemplate } from "@/utils/prompts/template"
 import { canProviderRefGenerateText } from "@/utils/providers/provider-ref"
 import { getOrGenerateTranslationContextSummary } from "./translation-context-summary"
 import {
@@ -32,8 +33,12 @@ export function setupSubtitlesTranslationHandlers(): void {
         summary,
         glossaryTerms,
         glossaryRevision,
+        promptTemplate: rawPromptTemplate,
       },
     } = message
+    // See the page handler: anything but a well-formed template means "resolve
+    // the stored selection at execution", as before.
+    const promptTemplate = parsePromptTemplate(rawPromptTemplate)
 
     if (hash) {
       const cached = await db.translationCache.get(hash)
@@ -62,6 +67,9 @@ export function setupSubtitlesTranslationHandlers(): void {
         // `mergeBatchGlossaryTerms`.
         glossaryTerms,
         glossaryRevision,
+        // The prompt this request's `hash` was taken over. Part of the batch
+        // key, so a batch never mixes two prompts.
+        promptTemplate,
       }
       result = await batchQueue.enqueue(data)
     } else {

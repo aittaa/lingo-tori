@@ -12,6 +12,7 @@ import type { ApiUsageSnapshot, ApiUsageFeature } from "@/utils/api-usage"
 import type { GlossarySnapshot } from "@/utils/glossary/active-matcher"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import type { OnboardingAction, OnboardingTransitionResult } from "@/utils/onboarding/lifecycle"
+import type { PromptTemplate } from "@/utils/prompts/template"
 import type { PromptableProviderRef, SerializableProviderRef } from "@/utils/providers/provider-ref"
 import { defineExtensionMessaging } from "@webext-core/messaging"
 
@@ -118,6 +119,10 @@ interface ProtocolMap {
       // message arrival order, which is a coin flip. See
       // `mergeBatchGlossaryTerms`.
       glossaryRevision?: number
+      // The raw prompt template the sender hashed `hash` over. Absent from a
+      // sender that predates the field, and for providers that take no prompt;
+      // the background then resolves the stored selection at execution time.
+      promptTemplate?: PromptTemplate
     },
   ) => Promise<string>
   // Drain queued/in-flight page-translation requests of one session (#1881).
@@ -142,6 +147,7 @@ interface ProtocolMap {
     // See `enqueueTranslateRequest`.
     glossaryTerms?: MatchedTerm[]
     glossaryRevision?: number
+    promptTemplate?: PromptTemplate
   }) => Promise<string>
   getSubtitlesSummary: (data: {
     videoTitle: string

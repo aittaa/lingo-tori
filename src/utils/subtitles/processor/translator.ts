@@ -2,6 +2,7 @@ import type { SubtitlesFragment } from "../types"
 import type { Config } from "@/types/config/config"
 import type { SubtitlePromptContext } from "@/types/content"
 import type { MatchedTerm } from "@/utils/glossary/types"
+import type { PromptTemplate } from "@/utils/prompts/template"
 import type { PromptableProviderRef, SerializableProviderRef } from "@/utils/providers/provider-ref"
 import { APICallError } from "ai"
 import { LANG_CODE_TO_EN_NAME } from "@/lib/languages"
@@ -16,7 +17,7 @@ import { prepareTranslationText } from "@/utils/host/translate/text-preparation"
 import { normalizePromptContextValue } from "@/utils/host/translate/translate-text"
 import { i18n } from "@/utils/i18n"
 import { sendMessage } from "@/utils/message"
-import { getSubtitlesTranslatePrompt } from "@/utils/prompts/subtitles"
+import { getSubtitlesPromptTemplate, getSubtitlesTranslatePrompt } from "@/utils/prompts/subtitles"
 import {
   canResolvedProviderRefGenerateText,
   getProviderCacheIdentity,
@@ -89,6 +90,15 @@ function normalizeSubtitlePromptContext(
   }
 }
 
+/**
+ * Whether a request to this provider carries a prompt at all. Pure translate
+ * providers take none, so they contribute no prompt to the cache key and hold no
+ * template snapshot; Built-in AI and local LLMs do.
+ */
+function providerTakesPrompt(providerRef: SerializableProviderRef): boolean {
+  return !(providerRef.kind === "local" && !isLLMProviderConfig(providerRef.config))
+}
+
 async function buildSubtitleHashComponents(
   text: string,
   providerRef: SerializableProviderRef,
@@ -100,6 +110,7 @@ async function buildSubtitleHashComponents(
   subtitlePromptContext: SubtitlePromptContext,
   subtitlesTextContent: string,
   glossaryTerms: readonly MatchedTerm[],
+  promptTemplate: PromptTemplate | undefined,
 ): Promise<string[]> {
   const preparedText = prepareTranslationText(text)
   const normalizedSubtitlesTextContent = normalizePromptContextValue(subtitlesTextContent)
@@ -112,7 +123,7 @@ async function buildSubtitleHashComponents(
 
   // Pure translate providers take no prompt; Built-in AI does, and so do local
   // LLMs, so both contribute the prompt to the cache key.
-  if (providerRef.kind === "local" && !isLLMProviderConfig(providerRef.config)) {
+  if (!providerTakesPrompt(providerRef)) {
     return hashComponents
   }
 
@@ -121,11 +132,12 @@ async function buildSubtitleHashComponents(
     ? subtitlePromptContext
     : { ...subtitlePromptContext, videoSummary: undefined }
   // Passed in rather than resolved here, so the prompt this hash is taken over
-  // is built from exactly the terms the request will carry.
+  // is built from exactly the terms and the template the request will carry.
   const { systemPrompt, prompt } = await getSubtitlesTranslatePrompt(targetLangName, preparedText, {
     isBatch: true,
     context: promptContext,
     glossaryTerms,
+    promptTemplate,
   })
   hashComponents.push(systemPrompt, prompt)
   hashComponents.push(
@@ -172,6 +184,14 @@ async function translateSingleSubtitle(
     langConfig.targetCode,
     classifySerializedProvider(providerRef),
   )
+  // Snapshotted ONCE per cue, at the moment its cache key is hashed, and carried
+  // by the request: the prompt that runs is the one this hash describes even if
+  // the user switches prompts while the cue waits in a queue. Only the choice of
+  // prompt is frozen; the target language, context and glossary terms are filled
+  // in from the request itself.
+  const promptTemplate = providerTakesPrompt(providerRef)
+    ? await getSubtitlesPromptTemplate()
+    : undefined
   const hashComponents = await buildSubtitleHashComponents(
     text,
     providerRef,
@@ -180,6 +200,7 @@ async function translateSingleSubtitle(
     subtitlePromptContext,
     videoContext.subtitlesTextContent,
     glossaryTerms,
+    promptTemplate,
   )
 
   if (enableAIContentAware) {
@@ -198,6 +219,7 @@ async function translateSingleSubtitle(
     summary: enableAIContentAware ? subtitlePromptContext.videoSummary : undefined,
     glossaryTerms,
     glossaryRevision,
+    promptTemplate,
   })
 }
 

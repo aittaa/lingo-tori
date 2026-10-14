@@ -5,6 +5,7 @@ import type { TranslationTextFormat } from "@/types/config/translate"
 import type { WebPagePromptContext } from "@/types/content"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { MatchedTerm } from "@/utils/glossary/types"
+import type { PromptTemplate } from "@/utils/prompts/template"
 import type { SerializableProviderRef } from "@/utils/providers/provider-ref"
 import type { ResolvedProviderRef } from "@/utils/providers/provider-registry"
 import { toastManager } from "@/components/ui/base-ui/toast"
@@ -16,7 +17,7 @@ import { resolveGlossaryTerms } from "@/utils/glossary/active-matcher"
 import { i18n } from "@/utils/i18n"
 import { logger } from "@/utils/logger"
 import { buildFeatureProviderRoute, getFeatureProviderRowId } from "@/utils/navigation"
-import { getTranslatePrompt } from "@/utils/prompts/translate"
+import { getTranslatePrompt, getTranslatePromptTemplate } from "@/utils/prompts/translate"
 import { serializeProviderRef } from "@/utils/providers/provider-ref"
 import { resolveProviderRefForCapability } from "@/utils/providers/provider-registry"
 import { TranslationCancelledError } from "@/utils/request/cancellation"
@@ -93,6 +94,15 @@ function normalizeWebPagePromptContext(
   }
 }
 
+/**
+ * Whether a request to this provider carries a prompt at all. Pure translate
+ * APIs take none, so they contribute no prompt to the cache key and hold no
+ * template snapshot.
+ */
+function providerTakesPrompt(providerRef: SerializableProviderRef): boolean {
+  return !providerRef.config || isLLMProviderConfig(providerRef.config)
+}
+
 async function buildWebPageHashComponents(
   text: string,
   providerRef: SerializableProviderRef,
@@ -101,11 +111,11 @@ async function buildWebPageHashComponents(
   textFormat: TranslationTextFormat,
   preserveLineBreaks: boolean,
   glossaryTerms: readonly MatchedTerm[],
+  promptTemplate: PromptTemplate | undefined,
   webPageContext?: WebPagePromptContext,
 ): Promise<string[]> {
   const preparedText = prepareTranslationText(text)
   const normalizedWebPageContext = normalizeWebPagePromptContext(webPageContext)
-  const providerConfig = providerRef.config
   const providerHashIdentity = providerRef.config
   const hashComponents = [
     preparedText,
@@ -114,7 +124,7 @@ async function buildWebPageHashComponents(
     partialLangConfig.targetCode,
   ]
 
-  if (providerConfig && !isLLMProviderConfig(providerConfig)) {
+  if (!providerTakesPrompt(providerRef)) {
     // The provider request depends on the text format (escaping / textType), so
     // cache entries must too. This component also orphans entries cached before
     // the format-aware pipeline existed, which could hold corrupted output.
@@ -123,12 +133,14 @@ async function buildWebPageHashComponents(
   }
 
   const targetLangName = LANG_CODE_TO_EN_NAME[partialLangConfig.targetCode]
-  // The terms are passed in rather than resolved here, so the prompt this hash
-  // is taken over is built from exactly the terms the request will carry.
+  // The terms and the template are passed in rather than resolved here, so the
+  // prompt this hash is taken over is built from exactly the terms and the
+  // template the request will carry.
   const { systemPrompt, prompt } = await getTranslatePrompt(targetLangName, preparedText, {
     isBatch: true,
     context: normalizedWebPageContext,
     glossaryTerms,
+    promptTemplate,
   })
   hashComponents.push(systemPrompt, prompt)
   hashComponents.push(
@@ -237,6 +249,15 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
     glossaryEnabled,
     langConfig.targetCode,
   )
+  // Snapshotted ONCE per request, at the moment its cache key is hashed. The
+  // request then carries the template, so the prompt that runs is the one this
+  // hash describes even if the user switches prompts while the request waits in
+  // a queue (an A -> B -> A switch would otherwise cache B's output under A's
+  // key). Only the choice of prompt is frozen; the target language, context and
+  // glossary terms are filled in from the request itself.
+  const promptTemplate = providerTakesPrompt(providerRef)
+    ? await getTranslatePromptTemplate()
+    : undefined
   const hashComponents = await buildWebPageHashComponents(
     preparedText,
     providerRef,
@@ -245,6 +266,7 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
     textFormat,
     preserveLineBreaks,
     glossaryTerms,
+    promptTemplate,
     normalizedWebPageContext,
   )
 
@@ -298,6 +320,7 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
     forceRetranslation,
     glossaryTerms,
     glossaryRevision,
+    promptTemplate,
   })
   if (sessionId !== undefined) {
     // Raw result, sentinel included, so a "no translation needed" verdict is

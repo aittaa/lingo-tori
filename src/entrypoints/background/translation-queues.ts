@@ -6,6 +6,7 @@ import type { ProviderRequestRouting } from "@/types/hosted-request"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import type { PromptResolver } from "@/utils/host/translate/api/ai"
+import type { PromptTemplate } from "@/utils/prompts/template"
 import type { SerializableProviderRef } from "@/utils/providers/provider-ref"
 import { storage } from "#imports"
 import { isLLMProviderConfig } from "@/types/config/provider"
@@ -66,6 +67,7 @@ async function executeQueuedTranslation<TContext>(
     preserveLineBreaks?: boolean
     signal?: AbortSignal
     glossaryTerms?: readonly MatchedTerm[]
+    promptTemplate?: PromptTemplate
   } = {},
 ): Promise<string> {
   return executeTranslate(
@@ -203,6 +205,9 @@ export async function executeBatchTranslation<TContext>(
       context,
       signal,
       glossaryTerms: mergeBatchGlossaryTerms(dataList),
+      // The first member's template stands for the whole batch, which is sound
+      // because `getBatchKey` keys on it: every member carries the same one.
+      promptTemplate: dataList[0]!.promptTemplate,
     },
   )
   return parseBatchResult(result)
@@ -220,6 +225,9 @@ export type TranslateBatchData<TContext = unknown> = QueuedTranslationRouting & 
   // Which revision `glossaryTerms` was read from — how `mergeBatchGlossaryTerms`
   // settles two members that disagree about one term.
   glossaryRevision?: number
+  // The raw prompt template the sender hashed `hash` over. Absent for a sender
+  // that predates the field, whose prompt is resolved from storage at execution.
+  promptTemplate?: PromptTemplate
   // Cancellation scope (`${tabId}:${sessionId}`); absent = uncancellable.
   scope?: string
 }
@@ -300,6 +308,12 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
         // batch can only ever hold one glossary state, which is the only way to
         // represent a REMOVAL: see `mergeBatchGlossaryTerms`.
         `glossaryRevision:${data.glossaryRevision ?? 0}`,
+        // The prompt the batch will run, so items hashed under different prompts
+        // (the user switched mid-page, or A -> B -> A) never share one request:
+        // `executeBatchTranslation` runs the first member's template for all of
+        // them. Only the choice of prompt is keyed — the target language is
+        // already above, and the terms and context are filled in per request.
+        `promptTemplate:${data.promptTemplate ? JSON.stringify(data.promptTemplate) : ""}`,
       )
     },
     getCharacters: (data) => data.text.length,
@@ -330,7 +344,17 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
       return requestQueue.enqueue(batchThunk, earliestScheduleAt, hash, meta.scopes, { timeoutMs })
     },
     executeIndividual: async (data) => {
-      const { text, langConfig, provider, hash, scheduleAt, context, scope, glossaryTerms } = data
+      const {
+        text,
+        langConfig,
+        provider,
+        hash,
+        scheduleAt,
+        context,
+        scope,
+        glossaryTerms,
+        promptTemplate,
+      } = data
       const thunk = async (signal?: AbortSignal) => {
         const localProvider = getLocalProviderConfig(provider)
         if (localProvider) {
@@ -345,6 +369,9 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
           // over a prompt that HAD the terms in it — a mismatch that outlives
           // the failure by a week.
           glossaryTerms,
+          // Likewise the item's own prompt: a fallback must not re-resolve the
+          // stored selection and cache that under the hash of another one.
+          promptTemplate,
         })
       }
       return requestQueue.enqueue(thunk, scheduleAt, hash, scope ? [scope] : undefined)

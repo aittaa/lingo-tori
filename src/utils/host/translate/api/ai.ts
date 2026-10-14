@@ -1,6 +1,7 @@
 import type { LLMProviderConfig } from "@/types/config/provider"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { MatchedTerm } from "@/utils/glossary/types"
+import type { PromptTemplate } from "@/utils/prompts/template"
 import type { TranslatePromptOptions, TranslatePromptResult } from "@/utils/prompts/translate"
 import { generateText } from "ai"
 import { createApiUsageReporter } from "@/utils/api-usage-tracking"
@@ -33,6 +34,8 @@ export async function aiTranslate<TContext>(
     // context that knew the page URL, and re-resolving here would scope them
     // wrong (see `TranslatePromptOptions.glossaryTerms`).
     glossaryTerms?: readonly MatchedTerm[]
+    // Forwarded verbatim to the prompt resolver, like the terms above.
+    promptTemplate?: PromptTemplate
   },
 ) {
   const {

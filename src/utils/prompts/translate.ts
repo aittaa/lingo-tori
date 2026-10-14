@@ -1,3 +1,4 @@
+import type { PromptTemplate } from "./template"
 import type { Config } from "@/types/config/config"
 import type { WebPagePromptContext } from "@/types/content"
 import type { MatchedTerm } from "@/utils/glossary/types"
@@ -47,6 +48,14 @@ export interface TranslatePromptOptions<TContext = unknown> {
    * on any glossary edit.
    */
   glossaryTerms?: readonly MatchedTerm[]
+  /**
+   * The raw selected prompt this request was keyed under (see `PromptTemplate`).
+   * When present it replaces the stored selection, so a prompt switched while the
+   * request waited in a queue cannot run under the key of the one it was hashed
+   * with. Absent (an old sender, the selection toolbar) means "use the stored
+   * selection", as before.
+   */
+  promptTemplate?: PromptTemplate
 }
 
 export interface TranslatePromptResult {
@@ -61,13 +70,10 @@ export function resolvePromptReplacementValue(
   return typeof value === "string" && value.trim() !== "" ? value : fallback
 }
 
-export function getTranslatePromptFromConfig(
-  translateConfig: Pick<Config["pageTranslation"], "customPromptsConfig">,
-  targetLang: string,
-  input: string,
-  options?: TranslatePromptOptions<WebPagePromptContext>,
-): TranslatePromptResult {
-  const customPromptsConfig = translateConfig.customPromptsConfig
+/** The prompt a config selects, as stored: built-in, else the matching custom pattern, else the default. */
+export function selectTranslatePromptTemplate(
+  customPromptsConfig: Config["pageTranslation"]["customPromptsConfig"],
+): PromptTemplate {
   const { patterns, promptId } = customPromptsConfig
 
   const resolvedPromptId = promptId || DEFAULT_TRANSLATE_PROMPT_ID
@@ -80,7 +86,25 @@ export function getTranslatePromptFromConfig(
   const selectedPrompt =
     builtInPrompt ?? customPrompt ?? BUILT_IN_PAGE_TRANSLATE_PROMPTS[DEFAULT_TRANSLATE_PROMPT_ID]
 
-  let { systemPrompt, prompt } = selectedPrompt
+  // Only the two prompt strings: a custom pattern also carries an id and a name,
+  // which must not leak into a snapshot that is compared and keyed by its JSON.
+  return { systemPrompt: selectedPrompt.systemPrompt, prompt: selectedPrompt.prompt }
+}
+
+/** Snapshot the stored page prompt selection — once per request, where its cache key is hashed. */
+export async function getTranslatePromptTemplate(): Promise<PromptTemplate> {
+  const config = (await getLocalConfig()) ?? DEFAULT_CONFIG
+  return selectTranslatePromptTemplate(config.pageTranslation.customPromptsConfig)
+}
+
+export function getTranslatePromptFromConfig(
+  translateConfig: Pick<Config["pageTranslation"], "customPromptsConfig">,
+  targetLang: string,
+  input: string,
+  options?: TranslatePromptOptions<WebPagePromptContext>,
+): TranslatePromptResult {
+  let { systemPrompt, prompt } =
+    options?.promptTemplate ?? selectTranslatePromptTemplate(translateConfig.customPromptsConfig)
 
   // For batch mode, append batch rules to system prompt. The batch block is the
   // same one subtitles use — the marker appears only in the sentinel rule that
@@ -161,7 +185,13 @@ export async function getTranslatePrompt(
   input: string,
   options?: TranslatePromptOptions<WebPagePromptContext>,
 ): Promise<TranslatePromptResult> {
-  const config = (await getLocalConfig()) ?? DEFAULT_CONFIG
+  // A request that carries both its template and its terms consults no stored
+  // setting: the template replaces the selection and the terms replace the
+  // glossary lookup. Skipping the read keeps the hash-time build, which runs for
+  // every paragraph right after the template snapshot, at one config read.
+  const carriesOwnSettings =
+    options?.promptTemplate !== undefined && options.glossaryTerms !== undefined
+  const config = carriesOwnSettings ? DEFAULT_CONFIG : ((await getLocalConfig()) ?? DEFAULT_CONFIG)
   // Resolved here rather than at each call site so both prompt builds agree: the
   // content script builds one to derive the cache key
   // (host/translate/translate-text.ts:142) and the background builds another for

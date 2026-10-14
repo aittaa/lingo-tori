@@ -7,6 +7,7 @@ import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 const getLocalConfigMock = vi.fn<(...args: any[]) => any>()
 const sendMessageMock = vi.fn<(...args: any[]) => any>()
 const getSubtitlesTranslatePromptMock = vi.fn<(...args: any[]) => any>()
+const getSubtitlesPromptTemplateMock = vi.fn<(...args: any[]) => any>()
 
 vi.mock("@/utils/config/storage", () => ({
   getLocalConfig: getLocalConfigMock,
@@ -18,6 +19,7 @@ vi.mock("@/utils/message", () => ({
 
 vi.mock("@/utils/prompts/subtitles", () => ({
   getSubtitlesTranslatePrompt: getSubtitlesTranslatePromptMock,
+  getSubtitlesPromptTemplate: getSubtitlesPromptTemplateMock,
 }))
 
 /**
@@ -52,6 +54,10 @@ describe("subtitles translator", () => {
     getSubtitlesTranslatePromptMock.mockResolvedValue({
       systemPrompt: "system",
       prompt: "prompt",
+    })
+    getSubtitlesPromptTemplateMock.mockResolvedValue({
+      systemPrompt: "template system {{targetLanguage}}",
+      prompt: "{{input}}",
     })
     sendMessageMock.mockResolvedValue("translated subtitle")
   })
@@ -243,6 +249,56 @@ describe("subtitles translator", () => {
       "enqueueSubtitlesTranslateRequest",
       expect.objectContaining({ langConfig: configSnapshot.language }),
     )
+  })
+
+  describe("prompt template snapshot", () => {
+    const template = { systemPrompt: "SNAPSHOT {{targetLanguage}}", prompt: "{{input}}" }
+    const videoContext = { videoTitle: "Video title", subtitlesTextContent: "subtitle transcript" }
+
+    it("reads the template once per cue and hashes and sends that same object", async () => {
+      getSubtitlesPromptTemplateMock.mockResolvedValue(template)
+      const { translateSubtitles } = await import("../translator")
+
+      await translateSubtitles([{ text: "hello", start: 0, end: 1_000 }], videoContext)
+
+      expect(getSubtitlesPromptTemplateMock).toHaveBeenCalledTimes(1)
+      expect(getSubtitlesTranslatePromptMock).toHaveBeenCalledTimes(1)
+      expect(getSubtitlesTranslatePromptMock.mock.calls[0]![2].promptTemplate).toBe(template)
+      expect(enqueueRequests()[0].promptTemplate).toBe(template)
+    })
+
+    it("takes a fresh snapshot for each cue", async () => {
+      const edited = { systemPrompt: "EDITED {{targetLanguage}}", prompt: "{{input}}" }
+      getSubtitlesPromptTemplateMock.mockResolvedValueOnce(template).mockResolvedValueOnce(edited)
+      const { translateSubtitles } = await import("../translator")
+
+      await translateSubtitles(
+        [
+          { text: "first", start: 0, end: 1_000 },
+          { text: "second", start: 1_000, end: 2_000 },
+        ],
+        videoContext,
+      )
+
+      expect(enqueueRequests().map((request) => request.promptTemplate)).toEqual([template, edited])
+    })
+
+    it("holds no snapshot for a provider that takes no prompt", async () => {
+      const deeplx = { ...DEFAULT_PROVIDER_CONFIG.deeplx, baseURL: "https://example.com/translate" }
+      getLocalConfigMock.mockResolvedValue({
+        ...DEFAULT_CONFIG,
+        providersConfig: [deeplx],
+        videoSubtitles: { ...DEFAULT_CONFIG.videoSubtitles, providerId: deeplx.id },
+      })
+      const { translateSubtitles } = await import("../translator")
+
+      await translateSubtitles([{ text: "hello", start: 0, end: 1_000 }], videoContext)
+
+      expect(enqueueRequests()).toHaveLength(1)
+      expect(getSubtitlesPromptTemplateMock).not.toHaveBeenCalled()
+      expect(getSubtitlesTranslatePromptMock).not.toHaveBeenCalled()
+      expect(enqueueRequests()[0].promptTemplate).toBeUndefined()
+    })
   })
 
   describe("per-cue translation outcome", () => {

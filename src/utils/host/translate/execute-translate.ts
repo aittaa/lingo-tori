@@ -4,6 +4,7 @@ import type { ProviderConfig } from "@/types/config/provider"
 import type { TranslationTextFormat } from "@/types/config/translate"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { MatchedTerm } from "@/utils/glossary/types"
+import type { PromptTemplate } from "@/utils/prompts/template"
 import { ISO6393_TO_6391, LANG_CODE_TO_EN_NAME } from "@/lib/languages"
 import { isLLMProviderConfig, isPureAPIProvider } from "@/types/config/provider"
 import { aiTranslate } from "./api/ai"
@@ -28,6 +29,8 @@ export async function executeTranslate<TContext>(
     preserveLineBreaks?: boolean
     signal?: AbortSignal
     glossaryTerms?: readonly MatchedTerm[]
+    // Forwarded verbatim to the prompt resolver — see `TranslatePromptOptions`.
+    promptTemplate?: PromptTemplate
   },
 ) {
   const preparedText = prepareTranslationText(text)
