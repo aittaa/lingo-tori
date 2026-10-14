@@ -7,6 +7,7 @@ import { normalizePromptContextValue } from "@/utils/host/translate/translate-te
 import { onMessage } from "@/utils/message"
 import { getSubtitlesTranslatePrompt } from "@/utils/prompts/subtitles"
 import { canProviderRefGenerateText } from "@/utils/providers/provider-ref"
+import { getQueueIdentity, isPrivateSender } from "./private-sender"
 import { getOrGenerateTranslationContextSummary } from "./translation-context-summary"
 import {
   createSubtitlesTranslationQueues,
@@ -34,8 +35,12 @@ export function setupSubtitlesTranslationHandlers(): void {
         glossaryRevision,
       },
     } = message
+    // See `enqueueTranslateRequest`: a private-window tab never touches the
+    // persistent cache and never shares a queue identity with a normal tab.
+    const isPrivate = isPrivateSender(message.sender)
+    const queueHash = getQueueIdentity(hash, isPrivate)
 
-    if (hash) {
+    if (hash && !isPrivate) {
       const cached = await db.translationCache.get(hash)
       if (cached) {
         return cached.translation
@@ -55,7 +60,8 @@ export function setupSubtitlesTranslationHandlers(): void {
         text,
         langConfig,
         provider: providerRef,
-        hash,
+        hash: queueHash,
+        privateSender: isPrivate,
         scheduleAt,
         context,
         // Kept off `context`, which is part of the batch key — see
@@ -72,10 +78,10 @@ export function setupSubtitlesTranslationHandlers(): void {
           signal,
           glossaryTerms,
         })
-      result = await requestQueue.enqueue(thunk, scheduleAt, hash)
+      result = await requestQueue.enqueue(thunk, scheduleAt, queueHash)
     }
 
-    if (result && hash) {
+    if (result && hash && !isPrivate) {
       await db.translationCache.put({
         key: hash,
         translation: result,
@@ -107,6 +113,7 @@ export function setupSubtitlesTranslationHandlers(): void {
       cacheKeyParts: [Sha256Hex(cleanText(subtitlesContext))],
       usageFeature: "subtitlesContext",
       requestQueue,
+      persist: !isPrivateSender(message.sender),
     })
   })
 }

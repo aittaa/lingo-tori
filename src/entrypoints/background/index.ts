@@ -9,7 +9,7 @@ import { logger } from "@/utils/logger"
 import { onMessage } from "@/utils/message"
 import { openOptionsPage } from "@/utils/navigation"
 import { ONBOARDING_ROUTE } from "@/utils/onboarding/lifecycle"
-import { runAiSegmentSubtitles } from "./ai-segmentation"
+import { setupAiSegmentationHandlers } from "./ai-segmentation"
 import { setupApiUsage } from "./api-usage"
 import { dispatchBackgroundStreamPort } from "./background-stream"
 import { initializeActionIcons, registerActionIconListeners } from "./browser-action-icon"
@@ -75,14 +75,7 @@ export default defineBackground({
       registerMessageHandler: onMessage,
     })
 
-    onMessage("aiSegmentSubtitles", async (message) => {
-      try {
-        return await runAiSegmentSubtitles(message.data)
-      } catch (error) {
-        logger.error("[Background] aiSegmentSubtitles failed", error)
-        throw error
-      }
-    })
+    setupAiSegmentationHandlers()
 
     browser.runtime.onConnect.addListener((port) => {
       dispatchBackgroundStreamPort(port)
