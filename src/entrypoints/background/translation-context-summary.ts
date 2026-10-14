@@ -9,10 +9,15 @@ import { Sha256Hex } from "@/utils/hash"
 import { logger } from "@/utils/logger"
 import { getProviderCacheIdentity } from "@/utils/providers/provider-ref"
 import { generateTextForProviderRef } from "./background-stream"
+import { getQueueIdentity } from "./private-sender"
 
 /**
  * Cached summaries used as context by webpage and subtitle translation.
  * The caller supplies its feature queue and cache identity.
+ *
+ * `persist: false` (a private-window sender) generates the summary without
+ * reading or writing the persistent summary cache, and keeps the request out of
+ * any queue slot a persisting request could share.
  */
 export async function getOrGenerateTranslationContextSummary(
   args: ProviderRequestRouting<PromptableProviderRef> & {
@@ -21,9 +26,10 @@ export async function getOrGenerateTranslationContextSummary(
     cacheKeyParts: string[]
     usageFeature: ApiUsageFeature
     requestQueue: RequestQueue
+    persist?: boolean
   },
 ): Promise<string | null> {
-  const { title, textContent, providerRef, cacheKeyParts, requestQueue } = args
+  const { title, textContent, providerRef, cacheKeyParts, requestQueue, persist = true } = args
   const preparedText = cleanText(textContent)
   if (!preparedText) {
     return null
@@ -31,16 +37,20 @@ export async function getOrGenerateTranslationContextSummary(
 
   const cacheKey = Sha256Hex(...cacheKeyParts, getProviderCacheIdentity(providerRef))
 
-  const cached = await db.articleSummaryCache.get(cacheKey)
-  if (cached) {
-    logger.info("Using cached summary")
-    return cached.summary
+  if (persist) {
+    const cached = await db.articleSummaryCache.get(cacheKey)
+    if (cached) {
+      logger.info("Using cached summary")
+      return cached.summary
+    }
   }
 
   const thunk = async (signal?: AbortSignal) => {
-    const cachedAgain = await db.articleSummaryCache.get(cacheKey)
-    if (cachedAgain) {
-      return cachedAgain.summary
+    if (persist) {
+      const cachedAgain = await db.articleSummaryCache.get(cacheKey)
+      if (cachedAgain) {
+        return cachedAgain.summary
+      }
     }
 
     const summary = await generateArticleSummary(
@@ -57,6 +67,11 @@ export async function getOrGenerateTranslationContextSummary(
       return ""
     }
 
+    if (!persist) {
+      logger.info("Generated new summary (private sender, not cached)")
+      return summary
+    }
+
     await db.articleSummaryCache.put({
       key: cacheKey,
       summary,
@@ -68,7 +83,11 @@ export async function getOrGenerateTranslationContextSummary(
   }
 
   try {
-    const summary = await requestQueue.enqueue(thunk, Date.now(), cacheKey)
+    const summary = await requestQueue.enqueue(
+      thunk,
+      Date.now(),
+      getQueueIdentity(cacheKey, !persist),
+    )
     return summary || null
   } catch (error) {
     logger.warn("Failed to get/generate summary:", error)

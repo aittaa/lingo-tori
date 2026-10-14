@@ -267,6 +267,7 @@ describe("getModelById", () => {
     expect(result).toBe("ollama-model")
     expect(createOllamaMock).toHaveBeenCalledWith({
       baseURL: "http://127.0.0.1:11434/",
+      fetch: expect.any(Function),
     })
     expect(ollamaLanguageModelMock).toHaveBeenCalledWith("gemma3:4b", { think: false })
   })
@@ -466,6 +467,7 @@ describe("getModelById", () => {
     expect(createOpenResponsesMock).toHaveBeenCalledWith({
       name: "open-responses",
       url: "http://127.0.0.1:1234/v1/responses",
+      fetch: expect.any(Function),
       apiKey: "custom-key",
       headers: {
         "X-Test": "1",

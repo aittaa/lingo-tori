@@ -8,6 +8,7 @@ import { onMessage } from "@/utils/message"
 import { getSubtitlesTranslatePrompt } from "@/utils/prompts/subtitles"
 import { parsePromptTemplate } from "@/utils/prompts/template"
 import { canProviderRefGenerateText } from "@/utils/providers/provider-ref"
+import { getQueueIdentity, isPrivateSender } from "./private-sender"
 import { getOrGenerateTranslationContextSummary } from "./translation-context-summary"
 import {
   createSubtitlesTranslationQueues,
@@ -39,8 +40,11 @@ export function setupSubtitlesTranslationHandlers(): void {
     // See the page handler: anything but a well-formed template means "resolve
     // the stored selection at execution", as before.
     const promptTemplate = parsePromptTemplate(rawPromptTemplate)
+    // See `enqueueTranslateRequest`: a private-window tab never touches the
+    // persistent cache and never shares a queue identity with a normal tab.
+    const isPrivate = isPrivateSender(message.sender)
 
-    if (hash) {
+    if (hash && !isPrivate) {
       const cached = await db.translationCache.get(hash)
       if (cached) {
         return cached.translation
@@ -63,6 +67,14 @@ export function setupSubtitlesTranslationHandlers(): void {
     // An empty hash stays empty, because BatchQueue dedups only on a non-empty key and a
     // tag would turn it into one shared by every such request.
     const legacyPromptResolution = promptTemplate === undefined && shouldUseBatchQueue(providerRef)
+    // Both separations apply to a request that is both: the legacy tag first, then
+    // the private namespace on top, so normal/private x snapshot/legacy are four
+    // distinct identities. A normal snapshot request keeps the raw hash, and an empty hash
+    // stays empty through both steps.
+    const queueHash = getQueueIdentity(
+      legacyPromptResolution && hash ? Sha256Hex("legacy-prompt-resolution", hash) : hash,
+      isPrivate,
+    )
 
     if (shouldUseBatchQueue(providerRef)) {
       const data = {
@@ -70,7 +82,8 @@ export function setupSubtitlesTranslationHandlers(): void {
         text,
         langConfig,
         provider: providerRef,
-        hash: legacyPromptResolution && hash ? Sha256Hex("legacy-prompt-resolution", hash) : hash,
+        hash: queueHash,
+        privateSender: isPrivate,
         scheduleAt,
         context,
         // Kept off `context`, which is part of the batch key — see
@@ -90,10 +103,12 @@ export function setupSubtitlesTranslationHandlers(): void {
           signal,
           glossaryTerms,
         })
-      result = await requestQueue.enqueue(thunk, scheduleAt, hash)
+      result = await requestQueue.enqueue(thunk, scheduleAt, queueHash)
     }
 
-    if (result && hash && !legacyPromptResolution) {
+    // Never cached for a private sender, nor for a request whose prompt its hash
+    // cannot vouch for.
+    if (result && hash && !isPrivate && !legacyPromptResolution) {
       await db.translationCache.put({
         key: hash,
         translation: result,
@@ -125,6 +140,7 @@ export function setupSubtitlesTranslationHandlers(): void {
       cacheKeyParts: [Sha256Hex(cleanText(subtitlesContext))],
       usageFeature: "subtitlesContext",
       requestQueue,
+      persist: !isPrivateSender(message.sender),
     })
   })
 }

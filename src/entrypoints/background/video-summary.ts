@@ -3,6 +3,7 @@ import { db } from "@/utils/db/dexie/db"
 import { Sha256Hex } from "@/utils/hash"
 import { onMessage } from "@/utils/message"
 import { getProviderCacheIdentity } from "@/utils/providers/provider-ref"
+import { isPrivateSender } from "./private-sender"
 
 /**
  * Bumped whenever the summary prompt changes: the cache key has to move with
@@ -26,7 +27,8 @@ function videoSummaryCacheKey(args: {
 export function setupVideoSummaryHandlers(): void {
   onMessage("getCachedVideoSummary", async (message) => {
     const { transcript, targetLanguage, providerRef } = message.data
-    if (!transcript) {
+    // A private-window tab's transcript is neither looked up nor remembered.
+    if (!transcript || isPrivateSender(message.sender)) {
       return null
     }
 
@@ -39,7 +41,7 @@ export function setupVideoSummaryHandlers(): void {
   onMessage("saveVideoSummary", async (message) => {
     const { transcript, targetLanguage, providerRef, summary } = message.data
     const trimmed = summary.trim()
-    if (!transcript || !trimmed) {
+    if (!transcript || !trimmed || isPrivateSender(message.sender)) {
       return
     }
 

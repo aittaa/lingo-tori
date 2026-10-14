@@ -2,6 +2,7 @@ import type { PromptableProviderRef } from "@/utils/providers/provider-ref"
 import { db } from "@/utils/db/dexie/db"
 import { Sha256Hex } from "@/utils/hash"
 import { logger } from "@/utils/logger"
+import { onMessage } from "@/utils/message"
 import { getSubtitlesSegmentationPrompt } from "@/utils/prompts/subtitles-segmentation"
 import {
   canProviderRefGenerateText,
@@ -9,6 +10,7 @@ import {
 } from "@/utils/providers/provider-ref"
 import { parseSimplifiedVttToFragments } from "@/utils/subtitles/processor/ai-segmentation"
 import { generateTextForProviderRef } from "./background-stream"
+import { isPrivateSender } from "./private-sender"
 
 const VTT_CODE_BLOCK_RE = /```vtt\n?/g
 const CODE_BLOCK_RE = /```\n?/g
@@ -41,9 +43,15 @@ function cleanVttResponse(text: string): string {
 }
 
 /**
- * Run AI segmentation on JSON subtitle content
+ * Run AI segmentation on JSON subtitle content.
+ *
+ * `persist: false` (a private-window sender) segments without reading, deleting
+ * or writing the persistent segmentation cache.
  */
-export async function runAiSegmentSubtitles(data: AiSegmentSubtitlesData): Promise<string> {
+export async function runAiSegmentSubtitles(
+  data: AiSegmentSubtitlesData,
+  { persist = true }: { persist?: boolean } = {},
+): Promise<string> {
   const { jsonContent, providerRef } = data
 
   if (!jsonContent) {
@@ -60,7 +68,7 @@ export async function runAiSegmentSubtitles(data: AiSegmentSubtitlesData): Promi
 
   // The content session supplies its configured provider snapshot.
   const cacheKey = Sha256Hex(Sha256Hex(jsonContent), getProviderCacheIdentity(providerRef))
-  const cached = await db.aiSegmentationCache.get(cacheKey)
+  const cached = persist ? await db.aiSegmentationCache.get(cacheKey) : undefined
   if (cached) {
     if (parseSimplifiedVttToFragments(cached.result).length > 0) {
       logger.info("[Background] AI subtitle segmentation cache hit")
@@ -94,11 +102,13 @@ export async function runAiSegmentSubtitles(data: AiSegmentSubtitlesData): Promi
       throw new Error("AI segmentation returned an unparseable result")
     }
 
-    await db.aiSegmentationCache.put({
-      key: cacheKey,
-      result,
-      createdAt: new Date(),
-    })
+    if (persist) {
+      await db.aiSegmentationCache.put({
+        key: cacheKey,
+        result,
+        createdAt: new Date(),
+      })
+    }
 
     logger.info("[Background] AI subtitle segmentation completed")
     return result
@@ -106,4 +116,18 @@ export async function runAiSegmentSubtitles(data: AiSegmentSubtitlesData): Promi
     logger.error("[Background] AI subtitle segmentation failed:", error)
     throw error
   }
+}
+
+/** Register the segmentation handler synchronously in the background's first turn. */
+export function setupAiSegmentationHandlers(): void {
+  onMessage("aiSegmentSubtitles", async (message) => {
+    try {
+      return await runAiSegmentSubtitles(message.data, {
+        persist: !isPrivateSender(message.sender),
+      })
+    } catch (error) {
+      logger.error("[Background] aiSegmentSubtitles failed", error)
+      throw error
+    }
+  })
 }
