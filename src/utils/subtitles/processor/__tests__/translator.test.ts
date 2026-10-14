@@ -1,5 +1,6 @@
 import type { SerializableProviderRef } from "@/utils/providers/provider-ref"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { LANG_CODE_TO_EN_NAME } from "@/lib/languages"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 
@@ -242,6 +243,161 @@ describe("subtitles translator", () => {
       "enqueueSubtitlesTranslateRequest",
       expect.objectContaining({ langConfig: configSnapshot.language }),
     )
+  })
+
+  describe("per-cue translation outcome", () => {
+    /** Resolves every cue except the ones named: "broken" rejects, "silent" resolves empty. */
+    function mockPerCueOutcome() {
+      sendMessageMock.mockImplementation(async (name: string, payload: { text?: string }) => {
+        if (name !== "enqueueSubtitlesTranslateRequest") return "translated subtitle"
+        if (payload.text === "broken") throw new Error("provider hiccup")
+        if (payload.text === "silent") return ""
+        return `t:${payload.text}`
+      })
+    }
+
+    const videoContext = { videoTitle: "Video title", subtitlesTextContent: "subtitle transcript" }
+
+    it("leaves a rejected cue untranslated instead of recording it as an empty translation", async () => {
+      mockPerCueOutcome()
+      const { translateSubtitles } = await import("../translator")
+
+      const result = await translateSubtitles(
+        [
+          { text: "ok", start: 0, end: 1_000 },
+          { text: "broken", start: 1_000, end: 2_000 },
+          { text: "after", start: 2_000, end: 3_000 },
+        ],
+        videoContext,
+      )
+
+      expect(result.map((cue) => cue.translation)).toEqual(["t:ok", undefined, "t:after"])
+    })
+
+    it("does not inherit an earlier translation for a cue whose request rejected", async () => {
+      mockPerCueOutcome()
+      const { translateSubtitles } = await import("../translator")
+
+      const result = await translateSubtitles(
+        [
+          { text: "ok", start: 0, end: 1_000 },
+          { text: "broken", start: 1_000, end: 2_000, translation: "stale translation" },
+        ],
+        videoContext,
+      )
+
+      expect(result[1]!.translation).toBeUndefined()
+    })
+
+    it("still counts a resolved empty translation as a success", async () => {
+      mockPerCueOutcome()
+      const { translateSubtitles } = await import("../translator")
+
+      const result = await translateSubtitles(
+        [
+          { text: "silent", start: 0, end: 1_000 },
+          { text: "broken", start: 1_000, end: 2_000 },
+        ],
+        videoContext,
+      )
+
+      expect(result[0]!.translation).toBe("")
+      expect(result[1]!.translation).toBeUndefined()
+    })
+
+    it("throws the first friendly error when every cue rejected", async () => {
+      sendMessageMock.mockImplementation(async (name: string) => {
+        if (name !== "enqueueSubtitlesTranslateRequest") return "translated subtitle"
+        throw new Error("provider hiccup")
+      })
+      const { translateSubtitles } = await import("../translator")
+
+      await expect(
+        translateSubtitles(
+          [
+            { text: "broken", start: 0, end: 1_000 },
+            { text: "broken", start: 1_000, end: 2_000 },
+          ],
+          videoContext,
+        ),
+      ).rejects.toThrow("provider hiccup")
+    })
+  })
+
+  describe("a pinned target language", () => {
+    const videoContext = { videoTitle: "Video title", subtitlesTextContent: "subtitle transcript" }
+    const cue = [{ text: "hello", start: 0, end: 1_000 }]
+
+    /** The settings as they stand now: Japanese is the target, and `providerId` is the provider. */
+    const liveConfig = (providerId: string) => ({
+      ...DEFAULT_CONFIG,
+      language: { ...DEFAULT_CONFIG.language, targetCode: "jpn" as const },
+      providersConfig: [
+        { ...DEFAULT_PROVIDER_CONFIG.openai, id: "openai-default", apiKey: "test-key" },
+        { ...DEFAULT_PROVIDER_CONFIG.openai, id: "openai-other", apiKey: "other-key" },
+      ],
+      videoSubtitles: { ...DEFAULT_CONFIG.videoSubtitles, providerId },
+    })
+
+    it("translates into the pinned language, not the one the settings say now", async () => {
+      getLocalConfigMock.mockResolvedValue(liveConfig("openai-default"))
+      const { translateSubtitles } = await import("../translator")
+
+      await translateSubtitles(cue, videoContext, undefined, "kor")
+
+      const [request] = enqueueRequests()
+      expect(request.langConfig.targetCode).toBe("kor")
+      expect(getSubtitlesTranslatePromptMock).toHaveBeenCalledWith(
+        LANG_CODE_TO_EN_NAME.kor,
+        expect.any(String),
+        expect.anything(),
+      )
+    })
+
+    it("follows the current settings when nothing is pinned", async () => {
+      getLocalConfigMock.mockResolvedValue(liveConfig("openai-default"))
+      const { translateSubtitles } = await import("../translator")
+
+      await translateSubtitles(cue, videoContext)
+
+      expect(enqueueRequests()[0].langConfig.targetCode).toBe("jpn")
+    })
+
+    it("keeps the cache key apart per pinned language", async () => {
+      getLocalConfigMock.mockResolvedValue(liveConfig("openai-default"))
+      const { translateSubtitles } = await import("../translator")
+
+      await translateSubtitles(cue, videoContext, undefined, "kor")
+      await translateSubtitles(cue, videoContext)
+
+      const [pinned, live] = enqueueRequests()
+      expect(pinned.hash).not.toBe(live.hash)
+    })
+
+    it("still follows every other setting as it changes between batches", async () => {
+      getLocalConfigMock
+        .mockResolvedValueOnce(liveConfig("openai-default"))
+        .mockResolvedValueOnce(liveConfig("openai-other"))
+      const { translateSubtitles } = await import("../translator")
+
+      await translateSubtitles(cue, videoContext, undefined, "kor")
+      await translateSubtitles(cue, videoContext, undefined, "kor")
+
+      const [first, second] = enqueueRequests()
+      expect(first.langConfig.targetCode).toBe("kor")
+      expect(second.langConfig.targetCode).toBe("kor")
+      expect(first.providerRef.config.id).toBe("openai-default")
+      expect(second.providerRef.config.id).toBe("openai-other")
+    })
+
+    it("pins the language of a config snapshot too", async () => {
+      const { translateSubtitles } = await import("../translator")
+
+      await translateSubtitles(cue, videoContext, liveConfig("openai-default"), "kor")
+
+      expect(getLocalConfigMock).not.toHaveBeenCalled()
+      expect(enqueueRequests()[0].langConfig.targetCode).toBe("kor")
+    })
   })
 
   it("builds subtitle summary context hashes from subtitles text and provider config", async () => {

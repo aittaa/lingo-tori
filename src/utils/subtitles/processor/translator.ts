@@ -291,10 +291,16 @@ export async function fetchSubtitlesSummary(
   })
 }
 
+/**
+ * `targetCode` pins the language of this batch and nothing else: the provider, glossary and the
+ * rest still come from the settings as they stand, so a session can keep translating into the
+ * language it was built for while those keep updating.
+ */
 export async function translateSubtitles(
   fragments: SubtitlesFragment[],
   videoContext: SubtitlesVideoContext,
   configOverride?: Config,
+  targetCode?: Config["language"]["targetCode"],
 ): Promise<SubtitlesFragment[]> {
   const config = configOverride ?? (await getLocalConfig())
   if (!config) {
@@ -306,7 +312,7 @@ export async function translateSubtitles(
     return fragments.map((f) => ({ ...f, translation: "" }))
   }
 
-  const langConfig = config.language
+  const langConfig = targetCode ? { ...config.language, targetCode } : config.language
   const enableAIContentAware = config.pageTranslation.enableAIContentAware
 
   const translationPromises = fragments.map((fragment) =>
@@ -332,7 +338,10 @@ export async function translateSubtitles(
     const result = results[index]
     return {
       ...fragment,
-      translation: result!.status === "fulfilled" ? result!.value : "",
+      // A rejected request leaves the cue without a translation, set explicitly so an earlier one
+      // on the fragment is not inherited. An empty string would read as translated-to-nothing and
+      // be marked complete; a resolved empty translation still is.
+      translation: result!.status === "fulfilled" ? result!.value : undefined,
     }
   })
 }
