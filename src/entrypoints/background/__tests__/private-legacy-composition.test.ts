@@ -2,6 +2,11 @@
 // prompt snapshot). Neither branch's own tests know about the other, so nothing else covers a request
 // that is both private and legacy. Real handlers, BatchQueue, RequestQueue and prompt builders; only
 // the transport, the cache DB and the SDK are replaced.
+//
+// PR95's queue identity for a request with no hash (`createEphemeralQueueIdentity`) composes with
+// both separations: the handlers' queue identity is `getQueueIdentity(<per-request value>, isPrivate)`,
+// where the per-request value is the legacy tag or the raw hash, or the ephemeral id for an empty
+// hash. An empty hash is never cached and never deduped with a different request, in any combination.
 import type { LLMProviderConfig } from "@/types/config/provider"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { storage } from "#imports"
@@ -56,6 +61,17 @@ vi.mock("@ai-sdk/openai-compatible", () => ({
 }))
 
 const JOINED = `\n\n${BATCH_SEPARATOR}\n\n`
+
+/** Provider calls held until released, keyed by the exact prompt text (one segment per call). */
+const holds = new Map<string, { promise: Promise<void>; open: () => void }>()
+function holdCall(key: string) {
+  let open!: () => void
+  const promise = new Promise<void>((resolve) => {
+    open = resolve
+  })
+  holds.set(key, { promise, open })
+  return open
+}
 const TEMPLATES: Record<
   Marker,
   { id: string; name: string; systemPrompt: string; prompt: string }
@@ -177,6 +193,13 @@ const executed = () =>
 const cacheGetKeys = () => mocks.cacheGet.mock.calls.map(([k]) => k as string).sort()
 const cachePutKeys = () => mocks.cachePut.mock.calls.map(([e]) => e.key as string).sort()
 
+/** Post one request exactly as the content script would. The promise never goes unhandled. */
+function send(route: (typeof ROUTES)[number], req: Req): Promise<string> {
+  const result = mocks.handlers.get(route.name)!(wire(req)) as Promise<string>
+  result.catch(() => {})
+  return result
+}
+
 async function run(route: (typeof ROUTES)[number], requests: Req[]) {
   await route.start()
   const handler = mocks.handlers.get(route.name)!
@@ -186,10 +209,30 @@ async function run(route: (typeof ROUTES)[number], requests: Req[]) {
   return Promise.all(pending)
 }
 
+/** Let in-flight handlers run up to their next timer without flushing the 100 ms batch window. */
+async function settle() {
+  for (let turn = 0; turn < 8; turn++) await vi.advanceTimersByTimeAsync(0)
+}
+
+/** Move past BatchQueue's 100 ms window so pending batches flush into the RequestQueue. */
+async function flushBatchWindow() {
+  await vi.advanceTimersByTimeAsync(100)
+  await settle()
+}
+
+/** The prompt marker a request of this combination runs: snapshot -> template B, legacy -> stored A. */
+const markerOf = (c: Combo) => (c.prompt === "snapshot" ? "b" : "a")
+
+/** Every ordered pair of combinations: both arrival orders of each, and each combination with itself. */
+const PAIRS = COMBOS.flatMap((first) =>
+  COMBOS.map((second) => ({ first, second, label: `${first.label} then ${second.label}` })),
+)
+
 beforeEach(async () => {
   vi.resetModules()
   vi.clearAllMocks()
   mocks.handlers.clear()
+  holds.clear()
   vi.useFakeTimers()
   mocks.ensureInitializedConfig.mockResolvedValue(storedConfig(llmProvider))
   mocks.cacheGet.mockResolvedValue(undefined)
@@ -198,6 +241,11 @@ beforeEach(async () => {
   mocks.putBatchRequestRecord.mockResolvedValue(undefined)
   mocks.generateText.mockImplementation(async ({ instructions, prompt }) => {
     const marker = /MARK-([AB])/.exec(instructions)?.[1]?.toLowerCase() ?? "none"
+    const hold = holds.get(prompt)
+    if (hold) {
+      holds.delete(prompt)
+      await hold.promise
+    }
     return {
       text: prompt
         .split(JOINED)
@@ -214,6 +262,7 @@ beforeEach(async () => {
 })
 
 afterEach(() => {
+  for (const hold of holds.values()) hold.open()
   vi.clearAllTimers()
   vi.useRealTimers()
   vi.restoreAllMocks()
@@ -352,7 +401,7 @@ describe.each(ROUTES)("$label: private x legacy composition (batch provider)", (
 })
 
 describe.each(ROUTES)("$label: empty hash (batch provider)", (route) => {
-  it("stays empty through the legacy tag and the private namespace, for every combination", async () => {
+  it("gives every combination a queue identity of its own, never the empty key", async () => {
     const { BatchQueue } = await import("@/utils/request/batch-queue")
     const enqueue = vi.spyOn(BatchQueue.prototype, "enqueue")
 
@@ -366,19 +415,33 @@ describe.each(ROUTES)("$label: empty hash (batch provider)", (route) => {
       })),
     )
 
-    // BatchQueue dedups only on a non-empty key, so a tag on "" would make one shared key
-    expect(enqueue.mock.calls.map(([data]) => (data as { hash: string }).hash)).toEqual([
-      "",
-      "",
-      "",
-      "",
-    ])
+    const identities = enqueue.mock.calls.map(([data]) => ({
+      hash: (data as { hash: string }).hash,
+      privateSender: Boolean((data as { privateSender?: boolean }).privateSender),
+    }))
+    expect(identities).toHaveLength(4)
+    // BatchQueue dedups on this key and RequestQueue keys the batch on a digest of it: an empty
+    // key would be one shared by every unhashed request, so each request must carry its own.
+    expect(identities.every((i) => i.hash !== "")).toBe(true)
+    expect(new Set(identities.map((i) => i.hash)).size).toBe(4)
+    // A normal sender's id is the ephemeral one, untouched (the legacy tag is skipped for an empty
+    // hash); a private sender's is that same kind of id moved into the private namespace.
+    for (const normal of identities.filter((i) => !i.privateSender)) {
+      expect(normal.hash).toMatch(/^ephemeral-queue:\d+$/)
+    }
+    for (const priv of identities.filter((i) => i.privateSender)) {
+      const wrapped = Array.from({ length: 8 }, (_, n) =>
+        Sha256Hex("private-sender", `ephemeral-queue:${n + 1}`),
+      )
+      expect(wrapped).toContain(priv.hash)
+    }
+    expect(identities.filter((i) => i.privateSender)).toHaveLength(2)
   })
 
   it.each(COMBOS)(
     "$label: distinct texts with empty hashes are each translated, never folded into one another",
     async (combo) => {
-      const marker = combo.prompt === "snapshot" ? "b" : "a"
+      const marker = markerOf(combo)
 
       const results = await run(route, [
         { text: "empty-1", hash: "", sender: combo.sender, prompt: combo.prompt, tab: 3 },
@@ -389,6 +452,53 @@ describe.each(ROUTES)("$label: empty hash (batch provider)", (route) => {
       // neither a read nor a write: an empty hash is no cache key for anyone
       expect(cacheGetKeys()).toEqual([])
       expect(cachePutKeys()).toEqual([])
+    },
+  )
+
+  // The first request's batch has left BatchQueue and is EXECUTING in RequestQueue (held at the
+  // provider) when the second, different text arrives in a batch of its own. RequestQueue hands any
+  // arrival whose task key equals an executing one that task's promise, so with a shared empty key
+  // the second caller got the first caller's translation and its own thunk never ran.
+  it.each(PAIRS)(
+    "$label: a different text with an empty hash, arriving while the first batch is EXECUTING, gets its own result",
+    async ({ first, second }) => {
+      await route.start()
+      const release = holdCall("first-text")
+      const a = send(route, {
+        text: "first-text",
+        hash: "",
+        sender: first.sender,
+        prompt: first.prompt,
+        tab: 3,
+      })
+      await settle()
+      await flushBatchWindow()
+      // Precondition: the first batch left BatchQueue and its provider call is in flight.
+      expect(executed()).toEqual([`${markerOf(first)}|first-text`])
+
+      const b = send(route, {
+        text: "second-text",
+        hash: "",
+        sender: second.sender,
+        prompt: second.prompt,
+        tab: 4,
+      })
+      await settle()
+      await flushBatchWindow()
+      release()
+      await settle()
+
+      expect(await Promise.all([a, b])).toEqual([
+        `${markerOf(first)}:first-text`,
+        `${markerOf(second)}:second-text`,
+      ])
+      expect(executed()).toEqual(
+        [`${markerOf(first)}|first-text`, `${markerOf(second)}|second-text`].sort(),
+      )
+      // never cached, in any combination: no read, no write, no delete
+      expect(cacheGetKeys()).toEqual([])
+      expect(cachePutKeys()).toEqual([])
+      expect(mocks.cacheDelete).not.toHaveBeenCalled()
     },
   )
 })
@@ -484,4 +594,65 @@ describe.each(ROUTES)("$label: promptless request on a pure-API (non-batch) prov
     expect(results).toEqual(["api:same", "api:same"])
     expect(mocks.executeTranslate).toHaveBeenCalledTimes(1)
   })
+})
+
+describe.each(ROUTES)("$label: empty hash on a pure-API (non-batch) provider", (route) => {
+  const SENDERS: SenderKind[] = ["normal", "private"]
+  const SENDER_PAIRS = SENDERS.flatMap((first) =>
+    SENDERS.map((second) => ({ first, second, label: `${first} then ${second}` })),
+  )
+
+  beforeEach(() => {
+    mocks.ensureInitializedConfig.mockResolvedValue(storedConfig(pureApiProvider))
+    mocks.executeTranslate.mockImplementation(async (text: string) => {
+      const hold = holds.get(text)
+      if (hold) {
+        holds.delete(text)
+        await hold.promise
+      }
+      return `api:${text}`
+    })
+    vi.doMock("@/utils/host/translate/execute-translate", () => ({
+      executeTranslate: mocks.executeTranslate,
+    }))
+  })
+
+  it.each(SENDER_PAIRS)(
+    "$label: a different text with an empty hash, arriving while the first is EXECUTING, gets its own result",
+    async ({ first, second }) => {
+      await route.start()
+      const release = holdCall("first-text")
+      const a = send(route, {
+        text: "first-text",
+        hash: "",
+        sender: first,
+        prompt: "legacy",
+        provider: pureApiProvider,
+        tab: 3,
+      })
+      await settle()
+      // Precondition: the first request's thunk is running (held) in the RequestQueue.
+      expect(mocks.executeTranslate).toHaveBeenCalledTimes(1)
+
+      const b = send(route, {
+        text: "second-text",
+        hash: "",
+        sender: second,
+        prompt: "legacy",
+        provider: pureApiProvider,
+        tab: 4,
+      })
+      await settle()
+      release()
+      await settle()
+
+      expect(await Promise.all([a, b])).toEqual(["api:first-text", "api:second-text"])
+      expect(mocks.executeTranslate.mock.calls.map(([text]) => text)).toEqual([
+        "first-text",
+        "second-text",
+      ])
+      expect(cacheGetKeys()).toEqual([])
+      expect(cachePutKeys()).toEqual([])
+    },
+  )
 })
