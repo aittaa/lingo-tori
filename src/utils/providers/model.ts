@@ -155,7 +155,7 @@ export function getLanguageModelForConfig(
         baseURL: matchedConfig.baseURL,
         supportsStructuredOutputs: true,
         ...meteredFetch,
-        ...(matchedConfig.apiKey && { apiKey: matchedConfig.apiKey }),
+        ...(matchedConfig.apiKey?.trim() && { apiKey: matchedConfig.apiKey }),
         ...(headers && { headers }),
       }),
     )
@@ -164,7 +164,7 @@ export function getLanguageModelForConfig(
         name: matchedConfig.provider,
         url: matchedConfig.url,
         ...meteredFetch,
-        ...(matchedConfig.apiKey && { apiKey: matchedConfig.apiKey }),
+        ...(matchedConfig.apiKey?.trim() && { apiKey: matchedConfig.apiKey }),
         ...(headers && { headers }),
       }),
     )

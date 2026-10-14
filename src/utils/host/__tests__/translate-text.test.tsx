@@ -645,6 +645,157 @@ describe("translate-text", () => {
           "noAPIKeyConfig.warning",
         ])
       })
+
+      describe("API key precheck", () => {
+        // A local mock server address. Nothing dials it: the precheck only reads the config,
+        // and the fetch stub fails the test if that ever stops being true.
+        const MOCK_ENDPOINT = "http://127.0.0.1:1234/v1"
+        const fetchStub = vi.fn<(...args: any[]) => any>()
+
+        type ProviderRow = Config["providersConfig"][number]
+
+        beforeEach(() => {
+          fetchStub.mockReset()
+          vi.stubGlobal("fetch", fetchStub)
+        })
+
+        afterEach(() => {
+          vi.unstubAllGlobals()
+        })
+
+        function expectNothingRequested() {
+          expect(fetchStub).not.toHaveBeenCalled()
+          expect(mockSendMessage).not.toHaveBeenCalled()
+          expect(mockDeepLTranslate).not.toHaveBeenCalled()
+          expect(mockDeepLXTranslate).not.toHaveBeenCalled()
+        }
+
+        // The custom endpoints `getLanguageModelForConfig` builds without ever asking for a key:
+        // a local server may authenticate some other way, or not at all.
+        const keylessEndpoints: [string, ProviderRow][] = [
+          [
+            "a custom OpenAI-compatible endpoint with no key",
+            { ...DEFAULT_PROVIDER_CONFIG["openai-compatible"], baseURL: MOCK_ENDPOINT },
+          ],
+          [
+            "a custom OpenAI-compatible endpoint with a blank key",
+            {
+              ...DEFAULT_PROVIDER_CONFIG["openai-compatible"],
+              baseURL: MOCK_ENDPOINT,
+              apiKey: "   ",
+            },
+          ],
+          [
+            "a custom Open Responses endpoint with no key",
+            { ...DEFAULT_PROVIDER_CONFIG["open-responses"], url: `${MOCK_ENDPOINT}/responses` },
+          ],
+          [
+            "a custom Open Responses endpoint with a blank key",
+            {
+              ...DEFAULT_PROVIDER_CONFIG["open-responses"],
+              url: `${MOCK_ENDPOINT}/responses`,
+              apiKey: "",
+            },
+          ],
+        ]
+
+        // Never needed a key here, and still must not.
+        const keylessByDesign: [string, ProviderRow][] = [
+          ["DeepLX", deeplx],
+          ["Ollama", { ...DEFAULT_PROVIDER_CONFIG.ollama }],
+          ["ChatGPT", { ...DEFAULT_PROVIDER_CONFIG.byos }],
+        ]
+
+        // Services that authenticate with a key of the user's own, so a missing one is an error.
+        const keyRequired: [string, ProviderRow][] = [
+          ["OpenAI", { ...DEFAULT_PROVIDER_CONFIG.openai }],
+          ["Anthropic", { ...DEFAULT_PROVIDER_CONFIG.anthropic }],
+          [
+            "OpenRouter, a hosted OpenAI-compatible service",
+            { ...DEFAULT_PROVIDER_CONFIG.openrouter },
+          ],
+          ["Alibaba, which ships with a hosted base URL", { ...DEFAULT_PROVIDER_CONFIG.alibaba }],
+          ["DeepL", { ...DEFAULT_PROVIDER_CONFIG.deepl }],
+        ]
+
+        it.each(keylessEndpoints)("accepts %s", (_name, provider) => {
+          const toasts = spyOnToasts()
+          const config = configFor(provider.id, [provider])
+
+          expect(validateTranslationConfigAndToast(config)).toBe(true)
+          expect(validateTranslationConfigAndToast(config, { notifyMissingProvider: true })).toBe(
+            true,
+          )
+
+          expect(toasts.add).not.toHaveBeenCalled()
+          expectNothingRequested()
+        })
+
+        it.each(keylessByDesign)("keeps accepting %s with no API key", (_name, provider) => {
+          const toasts = spyOnToasts()
+          const config = configFor(provider.id, [provider])
+
+          expect(validateTranslationConfigAndToast(config)).toBe(true)
+          expect(validateTranslationConfigAndToast(config, { notifyMissingProvider: true })).toBe(
+            true,
+          )
+
+          expect(toasts.add).not.toHaveBeenCalled()
+          expectNothingRequested()
+        })
+
+        it.each(keyRequired)(
+          "keeps asking for an API key for %s until one is set",
+          (_name, row) => {
+            const toasts = spyOnToasts()
+
+            for (const apiKey of [undefined, "", "   "]) {
+              const provider = { ...row, apiKey } as ProviderRow
+              expect(validateTranslationConfigAndToast(configFor(provider.id, [provider]))).toBe(
+                false,
+              )
+            }
+            expect(toasts.add.mock.calls.map(([toast]) => toast.title)).toEqual([
+              "noAPIKeyConfig.warning",
+              "noAPIKeyConfig.warning",
+              "noAPIKeyConfig.warning",
+            ])
+
+            toasts.add.mockClear()
+            const keyed = { ...row, apiKey: "test-key" } as ProviderRow
+            expect(validateTranslationConfigAndToast(configFor(keyed.id, [keyed]))).toBe(true)
+            expect(toasts.add).not.toHaveBeenCalled()
+            expectNothingRequested()
+          },
+        )
+
+        it("still reports matching languages before accepting a keyless endpoint", () => {
+          const toasts = spyOnToasts()
+          const [, provider] = keylessEndpoints[0]!
+          const config = { ...configFor(provider.id, [provider]), language: sameLanguage }
+
+          expect(validateTranslationConfigAndToast(config)).toBe(false)
+
+          expect(toasts.add.mock.calls.map(([toast]) => toast.title)).toEqual([
+            "translation.sameLanguage",
+          ])
+        })
+
+        it("still asks for a provider when a keyless endpoint is disabled", () => {
+          const toasts = spyOnToasts()
+          const [, endpoint] = keylessEndpoints[0]!
+          const provider = { ...endpoint, enabled: false }
+          const config = configFor(provider.id, [provider])
+
+          expect(validateTranslationConfigAndToast(config, { notifyMissingProvider: true })).toBe(
+            false,
+          )
+
+          expect(toasts.add.mock.calls.map(([toast]) => toast.title)).toEqual([
+            "providerRequired.message",
+          ])
+        })
+      })
     })
 
     describe("a manual node translation", () => {
