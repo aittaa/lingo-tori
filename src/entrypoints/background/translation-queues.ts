@@ -6,6 +6,7 @@ import type { ProviderRequestRouting } from "@/types/hosted-request"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import type { PromptResolver } from "@/utils/host/translate/api/ai"
+import type { PromptTemplate } from "@/utils/prompts/template"
 import type { SerializableProviderRef } from "@/utils/providers/provider-ref"
 import { storage } from "#imports"
 import { isLLMProviderConfig } from "@/types/config/provider"
@@ -66,6 +67,7 @@ async function executeQueuedTranslation<TContext>(
     preserveLineBreaks?: boolean
     signal?: AbortSignal
     glossaryTerms?: readonly MatchedTerm[]
+    promptTemplate?: PromptTemplate
   } = {},
 ): Promise<string> {
   return executeTranslate(
@@ -87,6 +89,24 @@ export function parseBatchResult(result: string): string[] {
 export function shouldUseBatchQueue(provider: QueuedTranslationProvider): boolean {
   const local = getLocalProviderConfig(provider)
   return local ? isLLMProviderConfig(local) : true
+}
+
+let ephemeralQueueIdentitySeq = 0
+
+/**
+ * The queue identity of a request that has no cache hash.
+ *
+ * An empty `hash` means "do not cache this", but both queues still dedup on a key, and an
+ * empty (or member-derived) key is one every such request shares: the second, different text
+ * would be handed the first one's result without its own thunk ever running. This is that key,
+ * minted once per request and used wherever the hash would have been, so a request is only ever
+ * deduped with itself (a retry or fallback of the same request keeps the identity).
+ *
+ * Per-request, never cached (the handlers keep the ORIGINAL hash for every cache decision), and
+ * it can never equal a SHA-256 hex digest. It carries no text, key or headers.
+ */
+export function createEphemeralQueueIdentity(): string {
+  return `ephemeral-queue:${++ephemeralQueueIdentitySeq}`
 }
 
 /**
@@ -203,6 +223,9 @@ export async function executeBatchTranslation<TContext>(
       context,
       signal,
       glossaryTerms: mergeBatchGlossaryTerms(dataList),
+      // The first member's template stands for the whole batch, which is sound
+      // because `getBatchKey` keys on it: every member carries the same one.
+      promptTemplate: dataList[0]!.promptTemplate,
     },
   )
   return parseBatchResult(result)
@@ -220,6 +243,9 @@ export type TranslateBatchData<TContext = unknown> = QueuedTranslationRouting & 
   // Which revision `glossaryTerms` was read from — how `mergeBatchGlossaryTerms`
   // settles two members that disagree about one term.
   glossaryRevision?: number
+  // The raw prompt template the sender hashed `hash` over. Absent for a sender
+  // that predates the field, whose prompt is resolved from storage at execution.
+  promptTemplate?: PromptTemplate
   // Cancellation scope (`${tabId}:${sessionId}`); absent = uncancellable.
   scope?: string
   // The sender is a private-window tab. Part of the batch key, and the sender
@@ -305,6 +331,12 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
         // batch can only ever hold one glossary state, which is the only way to
         // represent a REMOVAL: see `mergeBatchGlossaryTerms`.
         `glossaryRevision:${data.glossaryRevision ?? 0}`,
+        // The prompt the batch will run, so items hashed under different prompts
+        // (the user switched mid-page, or A -> B -> A) never share one request:
+        // `executeBatchTranslation` runs the first member's template for all of
+        // them. Only the choice of prompt is keyed — the target language is
+        // already above, and the terms and context are filled in per request.
+        `promptTemplate:${data.promptTemplate ? JSON.stringify(data.promptTemplate) : ""}`,
         // Only a private item adds a component, so a normal item's key is
         // exactly what it was. Keeps a private tab's text out of any provider
         // request that also carries a normal tab's text.
@@ -339,7 +371,17 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
       return requestQueue.enqueue(batchThunk, earliestScheduleAt, hash, meta.scopes, { timeoutMs })
     },
     executeIndividual: async (data) => {
-      const { text, langConfig, provider, hash, scheduleAt, context, scope, glossaryTerms } = data
+      const {
+        text,
+        langConfig,
+        provider,
+        hash,
+        scheduleAt,
+        context,
+        scope,
+        glossaryTerms,
+        promptTemplate,
+      } = data
       const thunk = async (signal?: AbortSignal) => {
         const localProvider = getLocalProviderConfig(provider)
         if (localProvider) {
@@ -354,6 +396,9 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
           // over a prompt that HAD the terms in it — a mismatch that outlives
           // the failure by a week.
           glossaryTerms,
+          // Likewise the item's own prompt: a fallback must not re-resolve the
+          // stored selection and cache that under the hash of another one.
+          promptTemplate,
         })
       }
       return requestQueue.enqueue(thunk, scheduleAt, hash, scope ? [scope] : undefined)

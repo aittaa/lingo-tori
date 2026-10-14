@@ -4,6 +4,8 @@ import type { MatchedTerm } from "@/utils/glossary/types"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import {
+  BUILT_IN_PAGE_TRANSLATE_PROMPTS,
+  BUILT_IN_SUBTITLE_TRANSLATE_PROMPTS,
   DEFAULT_BATCH_TRANSLATE_PROMPT,
   DEFAULT_SENTINEL_TRANSLATE_PROMPT,
   DEFAULT_TRANSLATE_PROMPT_ID,
@@ -13,8 +15,17 @@ import {
 } from "@/utils/constants/prompt"
 import { appendGlossaryToSystemPrompt } from "@/utils/glossary/prompt"
 import { HTML_ATTRIBUTE_MARKER } from "@/utils/host/translate/html-attribute-markers"
-import { getSubtitlesTranslatePrompt } from "../subtitles"
-import { getTranslatePromptFromConfig } from "../translate"
+import {
+  getSubtitlesPromptTemplate,
+  getSubtitlesTranslatePrompt,
+  selectSubtitlesPromptTemplate,
+} from "../subtitles"
+import {
+  getTranslatePrompt,
+  getTranslatePromptFromConfig,
+  getTranslatePromptTemplate,
+  selectTranslatePromptTemplate,
+} from "../translate"
 
 vi.mock("@/utils/config/storage", () => ({
   getLocalConfig: vi.fn<(...args: any[]) => any>(),
@@ -647,6 +658,256 @@ describe("prompt template substitution", () => {
     expect(result.prompt).not.toContain("Clip")
     expect(result.systemPrompt).toContain("Video title: Clip $& $'\n")
     expect(result.systemPrompt).toContain("Video summary: Sum $$ {{input}}")
+  })
+})
+
+describe("prompt template snapshot", () => {
+  const mine = {
+    id: "mine",
+    name: "Mine",
+    systemPrompt: "MINE system for {{targetLanguage}}",
+    prompt: "MINE user: {{input}}",
+  }
+  const snapshot = {
+    systemPrompt: "SNAPSHOT system for {{targetLanguage}} / {{webTitle}}",
+    prompt: "SNAPSHOT user: {{input}}",
+  }
+  const selecting = (promptId: string) => ({ promptId, patterns: [mine] })
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    mockGetLocalConfig = vi.mocked((await import("@/utils/config/storage")).getLocalConfig)
+  })
+
+  describe("page", () => {
+    it("selects the raw template of the chosen custom prompt, and nothing else of its entry", () => {
+      const template = selectTranslatePromptTemplate(selecting("mine"))
+
+      expect(template).toEqual({ systemPrompt: mine.systemPrompt, prompt: mine.prompt })
+      expect(Object.keys(template)).toEqual(["systemPrompt", "prompt"])
+    })
+
+    it.each([
+      ["the default built-in id", DEFAULT_TRANSLATE_PROMPT_ID],
+      ["an unknown id", "missing-prompt"],
+      ["an empty id", ""],
+    ])("falls back to the product default for %s", (_case, promptId) => {
+      const { systemPrompt, prompt } = BUILT_IN_PAGE_TRANSLATE_PROMPTS[DEFAULT_TRANSLATE_PROMPT_ID]
+
+      expect(selectTranslatePromptTemplate(selecting(promptId))).toEqual({ systemPrompt, prompt })
+    })
+
+    it("reads the stored selection once for the snapshot", async () => {
+      mockGetLocalConfig.mockResolvedValue({
+        ...DEFAULT_CONFIG,
+        pageTranslation: {
+          ...DEFAULT_CONFIG.pageTranslation,
+          customPromptsConfig: selecting("mine"),
+        },
+      })
+
+      expect(await getTranslatePromptTemplate()).toEqual({
+        systemPrompt: mine.systemPrompt,
+        prompt: mine.prompt,
+      })
+      expect(mockGetLocalConfig).toHaveBeenCalledTimes(1)
+    })
+
+    it("snapshots the product default when no config is stored", async () => {
+      mockGetLocalConfig.mockResolvedValue(null)
+
+      expect(await getTranslatePromptTemplate()).toEqual(
+        selectTranslatePromptTemplate(DEFAULT_CONFIG.pageTranslation.customPromptsConfig),
+      )
+    })
+
+    it("builds from the snapshot rather than from the selection passed alongside it", () => {
+      const result = getTranslatePromptFromConfig(
+        { customPromptsConfig: selecting("mine") },
+        "French",
+        "Hola",
+        { promptTemplate: snapshot, context: { webTitle: "Title" } },
+      )
+
+      expect(result).toEqual({
+        systemPrompt: "SNAPSHOT system for French / Title",
+        prompt: "SNAPSHOT user: Hola",
+      })
+    })
+
+    it("builds the same prompt from a snapshot as from the selection it was taken from", () => {
+      const options = { isBatch: true, context: { webTitle: "Title", webSummary: "Sum" } }
+      const fromSelection = getTranslatePromptFromConfig(
+        { customPromptsConfig: selecting("mine") },
+        "French",
+        "Hola",
+        options,
+      )
+
+      const fromSnapshot = getTranslatePromptFromConfig(
+        defaultTranslatePromptConfig,
+        "French",
+        "Hola",
+        { ...options, promptTemplate: selectTranslatePromptTemplate(selecting("mine")) },
+      )
+
+      expect(fromSnapshot).toEqual(fromSelection)
+    })
+
+    it("still appends batch, marker and glossary blocks around a snapshot", () => {
+      const input = `<span ${HTML_ATTRIBUTE_MARKER}="0">Hi</span>`
+      const result = getTranslatePromptFromConfig(defaultTranslatePromptConfig, "French", input, {
+        isBatch: true,
+        promptTemplate: snapshot,
+        glossaryTerms: [{ matchKey: "hi", source: "Hi", target: "Salut", keepOriginal: false }],
+      })
+
+      expect(result.systemPrompt).toContain("SNAPSHOT system for French")
+      expect(result.systemPrompt).toContain(DEFAULT_BATCH_TRANSLATE_PROMPT)
+      expect(result.systemPrompt).toContain("## Protected HTML Marker Rules")
+      expect(result.systemPrompt).toContain("Hi => Salut")
+    })
+
+    it("lets getTranslatePrompt build from the snapshot after the stored selection moved on", async () => {
+      mockGetLocalConfig.mockResolvedValue({
+        ...DEFAULT_CONFIG,
+        pageTranslation: {
+          ...DEFAULT_CONFIG.pageTranslation,
+          customPromptsConfig: selecting("mine"),
+        },
+      })
+
+      const result = await getTranslatePrompt("French", "Hola", {
+        promptTemplate: snapshot,
+        glossaryTerms: [],
+      })
+
+      expect(result.prompt).toBe("SNAPSHOT user: Hola")
+      expect(result.systemPrompt).toContain("SNAPSHOT system for French")
+    })
+
+    it("falls back to the stored selection when no snapshot travels with the request", async () => {
+      mockGetLocalConfig.mockResolvedValue({
+        ...DEFAULT_CONFIG,
+        pageTranslation: {
+          ...DEFAULT_CONFIG.pageTranslation,
+          customPromptsConfig: selecting("mine"),
+        },
+      })
+
+      const result = await getTranslatePrompt("French", "Hola", { glossaryTerms: [] })
+
+      expect(result).toEqual({
+        systemPrompt: "MINE system for French",
+        prompt: "MINE user: Hola",
+      })
+    })
+
+    it("reads no stored setting when the request carries both its template and its terms", async () => {
+      const result = await getTranslatePrompt("French", "Hola", {
+        promptTemplate: snapshot,
+        glossaryTerms: [],
+      })
+
+      expect(result.prompt).toBe("SNAPSHOT user: Hola")
+      expect(mockGetLocalConfig).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ["no terms", { promptTemplate: snapshot }],
+      ["no template", { glossaryTerms: [] }],
+    ])("still consults the stored config when the request carries %s", async (_case, options) => {
+      mockGetLocalConfig.mockResolvedValue(DEFAULT_CONFIG)
+
+      await getTranslatePrompt("French", "Hola", options)
+
+      expect(mockGetLocalConfig).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe("subtitles", () => {
+    const subtitleConfig = (promptId: string) => ({
+      ...DEFAULT_CONFIG,
+      videoSubtitles: {
+        ...DEFAULT_CONFIG.videoSubtitles,
+        customPromptsConfig: selecting(promptId),
+      },
+    })
+
+    it("selects the raw template of the chosen custom prompt, and nothing else of its entry", () => {
+      const template = selectSubtitlesPromptTemplate(selecting("mine"))
+
+      expect(template).toEqual({ systemPrompt: mine.systemPrompt, prompt: mine.prompt })
+      expect(Object.keys(template)).toEqual(["systemPrompt", "prompt"])
+    })
+
+    it.each([
+      ["the default built-in id", DEFAULT_TRANSLATE_PROMPT_ID],
+      ["an unknown id", "missing-prompt"],
+      ["an empty id", ""],
+    ])("falls back to the product default for %s", (_case, promptId) => {
+      const { systemPrompt, prompt } =
+        BUILT_IN_SUBTITLE_TRANSLATE_PROMPTS[DEFAULT_TRANSLATE_PROMPT_ID]
+
+      expect(selectSubtitlesPromptTemplate(selecting(promptId))).toEqual({ systemPrompt, prompt })
+    })
+
+    it("reads the stored selection once for the snapshot", async () => {
+      mockGetLocalConfig.mockResolvedValue(subtitleConfig("mine"))
+
+      expect(await getSubtitlesPromptTemplate()).toEqual({
+        systemPrompt: mine.systemPrompt,
+        prompt: mine.prompt,
+      })
+      expect(mockGetLocalConfig).toHaveBeenCalledTimes(1)
+    })
+
+    it("builds from the snapshot after the stored selection moved on", async () => {
+      mockGetLocalConfig.mockResolvedValue(subtitleConfig("mine"))
+
+      const result = await getSubtitlesTranslatePrompt("French", "Salut", {
+        promptTemplate: snapshot,
+        glossaryTerms: [],
+        context: { webTitle: "Clip" },
+      })
+
+      expect(result).toEqual({
+        systemPrompt: "SNAPSHOT system for French / Clip",
+        prompt: "SNAPSHOT user: Salut",
+      })
+    })
+
+    it("falls back to the stored selection when no snapshot travels with the request", async () => {
+      mockGetLocalConfig.mockResolvedValue(subtitleConfig("mine"))
+
+      const result = await getSubtitlesTranslatePrompt("French", "Salut", { glossaryTerms: [] })
+
+      expect(result).toEqual({
+        systemPrompt: "MINE system for French",
+        prompt: "MINE user: Salut",
+      })
+    })
+
+    it("reads no stored setting when the request carries both its template and its terms", async () => {
+      const result = await getSubtitlesTranslatePrompt("French", "Salut", {
+        promptTemplate: snapshot,
+        glossaryTerms: [],
+      })
+
+      expect(result.prompt).toBe("SNAPSHOT user: Salut")
+      expect(mockGetLocalConfig).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ["no terms", { promptTemplate: snapshot }],
+      ["no template", { glossaryTerms: [] }],
+    ])("still consults the stored config when the request carries %s", async (_case, options) => {
+      mockGetLocalConfig.mockResolvedValue(DEFAULT_CONFIG)
+
+      await getSubtitlesTranslatePrompt("French", "Salut", options)
+
+      expect(mockGetLocalConfig).toHaveBeenCalledTimes(1)
+    })
   })
 })
 
