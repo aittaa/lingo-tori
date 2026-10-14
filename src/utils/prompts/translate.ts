@@ -27,6 +27,7 @@ import {
   WEB_SUMMARY,
   WEB_TITLE,
 } from "../constants/prompt"
+import { replacePromptTokens } from "./replace-tokens"
 
 const HTML_ATTRIBUTE_MARKER_SYSTEM_PROMPT = `## Protected HTML Marker Rules
 These mandatory rules override any conflicting instructions above:
@@ -126,15 +127,18 @@ ${INLINE_ATOM_TOKEN_SYSTEM_PROMPT}`
     "No summary available",
   )
 
-  // Replace tokens in both prompts
-  const replaceTokens = (text: string) =>
-    text
-      .replaceAll(getTokenCellText(TARGET_LANGUAGE), targetLang)
-      .replaceAll(getTokenCellText(INPUT), input)
-      .replaceAll(getTokenCellText(WEB_TITLE), title)
-      .replaceAll(getTokenCellText(WEB_DESCRIPTION), description)
-      .replaceAll(getTokenCellText(WEB_CONTENT), contentText)
-      .replaceAll(getTokenCellText(WEB_SUMMARY), summary)
+  // Replace tokens in both prompts, in one pass over each template: `input` and
+  // the context values are arbitrary page text, so they must land literally and
+  // must not be scanned again for tokens a later replacement would expand.
+  const replacements = {
+    [getTokenCellText(TARGET_LANGUAGE)]: targetLang,
+    [getTokenCellText(INPUT)]: input,
+    [getTokenCellText(WEB_TITLE)]: title,
+    [getTokenCellText(WEB_DESCRIPTION)]: description,
+    [getTokenCellText(WEB_CONTENT)]: contentText,
+    [getTokenCellText(WEB_SUMMARY)]: summary,
+  }
+  const replaceTokens = (text: string) => replacePromptTokens(text, replacements)
 
   // The glossary block is appended AFTER token replacement, and that ordering is
   // load-bearing: a term is arbitrary user text that may contain a `{{input}}`-

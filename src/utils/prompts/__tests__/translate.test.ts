@@ -1,4 +1,6 @@
+import type { TranslatePromptResult } from "../translate"
 import type { Config } from "@/types/config/config"
+import type { MatchedTerm } from "@/utils/glossary/types"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import {
@@ -9,6 +11,7 @@ import {
   NO_TRANSLATION_SENTINEL,
   PRECISION_REWRITE_TRANSLATE_PROMPT_ID,
 } from "@/utils/constants/prompt"
+import { appendGlossaryToSystemPrompt } from "@/utils/glossary/prompt"
 import { HTML_ATTRIBUTE_MARKER } from "@/utils/host/translate/html-attribute-markers"
 import { getSubtitlesTranslatePrompt } from "../subtitles"
 import { getTranslatePromptFromConfig } from "../translate"
@@ -342,6 +345,308 @@ describe("translate prompt tokens", () => {
     expect(result.systemPrompt).toContain("Video title: No title available")
     expect(result.systemPrompt).toContain("Video summary: No summary available")
     expect(result.systemPrompt).not.toContain("Video description:")
+  })
+})
+
+describe("prompt template substitution", () => {
+  type PromptContext = Record<string, string | null | undefined>
+  type Values = Record<string, string>
+
+  interface Surface {
+    name: string
+    /** Token names the builder substitutes, in template order. */
+    tokens: readonly string[]
+    /** What the builder writes when a context value is missing or blank. */
+    fallbacks: Readonly<Record<string, string>>
+    build: (
+      template: { systemPrompt: string; prompt: string },
+      targetLang: string,
+      input: string,
+      context?: PromptContext,
+      glossaryTerms?: readonly MatchedTerm[],
+    ) => Promise<TranslatePromptResult>
+  }
+
+  // Replacement-pattern syntax a raw `String.prototype.replaceAll` replacement
+  // would interpret: whole match, escaped dollar, before/after the match,
+  // numbered and named groups.
+  const DOLLAR_SEQUENCES = "$& $$ $` $' $1 $<name>"
+
+  const tokenText = (name: string) => `{{${name}}}`
+
+  const surfaces: Surface[] = [
+    {
+      name: "page and selection",
+      tokens: ["targetLanguage", "input", "webTitle", "webDescription", "webContent", "webSummary"],
+      fallbacks: {
+        webTitle: "No title available",
+        webDescription: "No description available",
+        webContent: "No content available",
+        webSummary: "No summary available",
+      },
+      // The selection toolbar calls this same builder with the same arguments.
+      build: async (template, targetLang, input, context, glossaryTerms) =>
+        getTranslatePromptFromConfig(
+          {
+            customPromptsConfig: {
+              promptId: "literal",
+              patterns: [{ id: "literal", name: "Literal", ...template }],
+            },
+          },
+          targetLang,
+          input,
+          {
+            ...(context ? { context } : {}),
+            ...(glossaryTerms ? { glossaryTerms } : {}),
+          },
+        ),
+    },
+    {
+      name: "subtitle",
+      tokens: ["targetLanguage", "input", "webTitle", "webDescription", "videoSummary"],
+      fallbacks: {
+        webTitle: "No title available",
+        webDescription: "No description available",
+        videoSummary: "No summary available",
+      },
+      build: async (template, targetLang, input, context, glossaryTerms) => {
+        mockGetLocalConfig.mockResolvedValue({
+          ...DEFAULT_CONFIG,
+          videoSubtitles: {
+            ...DEFAULT_CONFIG.videoSubtitles,
+            customPromptsConfig: {
+              promptId: "literal",
+              patterns: [{ id: "literal", name: "Literal", ...template }],
+            },
+          },
+        })
+        return getSubtitlesTranslatePrompt(targetLang, input, {
+          // Pass the matched terms (or none) so no test reaches the real matcher.
+          glossaryTerms: glossaryTerms ?? [],
+          ...(context ? { context } : {}),
+        })
+      },
+    },
+  ]
+
+  /** `name=<token>` for every token, so a wrong substitution names its token. */
+  const templateOf = (tokens: readonly string[], repeat = 1) => {
+    const body = tokens
+      .map((name) => `${name}=${Array.from({ length: repeat }, () => tokenText(name)).join("/")}`)
+      .join(" | ")
+    return { systemPrompt: `SYS ${body}`, prompt: `USR ${body}` }
+  }
+
+  /** The literal text the template must render to, built without any replace call. */
+  const expectedOf = (tokens: readonly string[], values: Values, repeat = 1) => {
+    const body = tokens
+      .map((name) => `${name}=${Array.from({ length: repeat }, () => values[name]).join("/")}`)
+      .join(" | ")
+    return { systemPrompt: `SYS ${body}`, prompt: `USR ${body}` }
+  }
+
+  const contextOf = (tokens: readonly string[], values: Values): PromptContext =>
+    Object.fromEntries(
+      tokens
+        .filter((name) => name !== "targetLanguage" && name !== "input")
+        .map((name) => [name, values[name]]),
+    )
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    mockGetLocalConfig = vi.mocked((await import("@/utils/config/storage")).getLocalConfig)
+  })
+
+  describe.each(surfaces)("$name path", (surface) => {
+    const { tokens } = surface
+    const contextKeys = tokens.filter((name) => name !== "targetLanguage" && name !== "input")
+    const allTokensText = tokens.map(tokenText).join(" ")
+
+    it("keeps dollar replacement sequences literal in every value", async () => {
+      const values = Object.fromEntries(tokens.map((name) => [name, `${name} ${DOLLAR_SEQUENCES}`]))
+
+      const result = await surface.build(
+        templateOf(tokens),
+        values.targetLanguage!,
+        values.input!,
+        contextOf(tokens, values),
+      )
+
+      expect(result).toEqual(expectedOf(tokens, values))
+    })
+
+    it("does not re-expand known tokens that are embedded in a value", async () => {
+      const values = Object.fromEntries(
+        tokens.map((name) => [name, `${name} embeds ${allTokensText}`]),
+      )
+
+      const result = await surface.build(
+        templateOf(tokens),
+        values.targetLanguage!,
+        values.input!,
+        contextOf(tokens, values),
+      )
+
+      expect(result).toEqual(expectedOf(tokens, values))
+    })
+
+    it("replaces every occurrence of a repeated token with the same literal value", async () => {
+      const values = Object.fromEntries(
+        tokens.map((name) => [name, `${name} ${DOLLAR_SEQUENCES} ${allTokensText}`]),
+      )
+
+      const result = await surface.build(
+        templateOf(tokens, 3),
+        values.targetLanguage!,
+        values.input!,
+        contextOf(tokens, values),
+      )
+
+      expect(result).toEqual(expectedOf(tokens, values, 3))
+    })
+
+    it.each<[string, ((keys: readonly string[]) => PromptContext) | undefined]>([
+      ["no context", undefined],
+      ["an empty context", () => ({})],
+      ["null values", (keys) => Object.fromEntries(keys.map((name) => [name, null]))],
+      ["undefined values", (keys) => Object.fromEntries(keys.map((name) => [name, undefined]))],
+      ["empty strings", (keys) => Object.fromEntries(keys.map((name) => [name, ""]))],
+      [
+        "whitespace-only strings",
+        (keys) => Object.fromEntries(keys.map((name) => [name, " \n\t "])),
+      ],
+    ])("writes the fallback for every missing value with %s", async (_case, makeContext) => {
+      const values: Values = { targetLanguage: "English", input: "Hello", ...surface.fallbacks }
+
+      const result = await surface.build(
+        templateOf(tokens),
+        "English",
+        "Hello",
+        makeContext?.(contextKeys),
+      )
+
+      expect(result).toEqual(expectedOf(tokens, values))
+    })
+
+    it("falls back only for the missing value when the rest of the context is present", async () => {
+      const provided = contextKeys.slice(1)
+      const values: Values = {
+        targetLanguage: "English",
+        input: "Hello",
+        ...surface.fallbacks,
+        ...Object.fromEntries(provided.map((name) => [name, `${name} ${DOLLAR_SEQUENCES}`])),
+      }
+
+      const result = await surface.build(
+        templateOf(tokens),
+        "English",
+        "Hello",
+        Object.fromEntries(provided.map((name) => [name, values[name]])),
+      )
+
+      expect(result).toEqual(expectedOf(tokens, values))
+    })
+
+    it("does not fill a missing value's token that appears inside another value", async () => {
+      // `{{webTitle}}` typed in the page text must stay as typed even though the
+      // title is missing and would otherwise render its fallback.
+      const values: Values = {
+        targetLanguage: "English",
+        input: `Quote: ${allTokensText}`,
+        ...surface.fallbacks,
+      }
+
+      const result = await surface.build(templateOf(tokens), "English", values.input!, {})
+
+      expect(result).toEqual(expectedOf(tokens, values))
+      expect(result.prompt).toContain(`input=Quote: ${allTokensText} |`)
+    })
+
+    it("leaves unknown, legacy and malformed tokens exactly as written", async () => {
+      // The tokens another surface substitutes are unknown to this one.
+      const foreign = ["webContent", "webSummary", "videoSummary"]
+        .filter((name) => !tokens.includes(name))
+        .map(tokenText)
+      const unknown = [
+        ...foreign,
+        "{{targetLang}}",
+        "{{title}}",
+        "{{ input }}",
+        "{{NO_TRANSLATION_NEEDED}}",
+        "{{}}",
+        "{{input",
+      ].join(" ")
+      // `{{0}}` is left out of the input on purpose: an inline-atom placeholder
+      // there appends the placeholder rules to the page system prompt.
+      const templateOnly = "{{0}}"
+
+      const result = await surface.build(
+        {
+          systemPrompt: `SYS ${unknown} ${templateOnly} {{{input}}}`,
+          prompt: `USR ${unknown} ${templateOnly} {{input}}`,
+        },
+        "English",
+        `Hello ${unknown}`,
+        {},
+      )
+
+      expect(result).toEqual({
+        systemPrompt: `SYS ${unknown} ${templateOnly} {Hello ${unknown}}`,
+        prompt: `USR ${unknown} ${templateOnly} Hello ${unknown}`,
+      })
+    })
+
+    it("appends the glossary block after substitution without expanding it", async () => {
+      const terms: MatchedTerm[] = [
+        {
+          matchKey: "a",
+          source: "{{input}}",
+          target: `${DOLLAR_SEQUENCES} {{webTitle}}`,
+          keepOriginal: false,
+        },
+        { matchKey: "b", source: "$&", target: "", keepOriginal: true },
+      ]
+      // Plain input: this case pins glossary composition alone; hostile input is
+      // covered above.
+      const values: Values = { targetLanguage: "English", input: "Hello", ...surface.fallbacks }
+
+      const result = await surface.build(templateOf(tokens), "English", values.input!, {}, terms)
+
+      expect(result.systemPrompt).toBe(
+        appendGlossaryToSystemPrompt(expectedOf(tokens, values).systemPrompt, terms),
+      )
+      expect(result.systemPrompt).toContain(`{{input}} => ${DOLLAR_SEQUENCES} {{webTitle}}`)
+      expect(result.systemPrompt).toContain("$& => KEEP ORIGINAL")
+      expect(result.prompt).toBe(expectedOf(tokens, values).prompt)
+    })
+  })
+
+  it("keeps hostile page text literal in the built-in page templates", () => {
+    const input = `Pay $& now ${tokenText("webTitle")} $' ${tokenText("webSummary")}`
+
+    const result = getTranslatePromptFromConfig(defaultTranslatePromptConfig, "Japanese", input, {
+      context: { webTitle: "Shop $& $'", webSummary: "Sum $$ {{input}}" },
+    })
+
+    expect(result.prompt).toContain(`\n${input}`)
+    expect(result.prompt).not.toContain("Shop")
+    expect(result.systemPrompt).toContain("Webpage title: Shop $& $'\n")
+    expect(result.systemPrompt).toContain("Webpage summary: Sum $$ {{input}}")
+  })
+
+  it("keeps hostile subtitle text literal in the built-in subtitle templates", async () => {
+    mockGetLocalConfig.mockResolvedValue(DEFAULT_CONFIG)
+    const input = `Pay $& now ${tokenText("webTitle")} $' ${tokenText("videoSummary")}`
+
+    const result = await getSubtitlesTranslatePrompt("Japanese", input, {
+      glossaryTerms: [],
+      context: { webTitle: "Clip $& $'", videoSummary: "Sum $$ {{input}}" },
+    })
+
+    expect(result.prompt).toContain(`\n${input}`)
+    expect(result.prompt).not.toContain("Clip")
+    expect(result.systemPrompt).toContain("Video title: Clip $& $'\n")
+    expect(result.systemPrompt).toContain("Video summary: Sum $$ {{input}}")
   })
 })
 
