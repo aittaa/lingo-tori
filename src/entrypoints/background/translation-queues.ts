@@ -222,6 +222,11 @@ export type TranslateBatchData<TContext = unknown> = QueuedTranslationRouting & 
   glossaryRevision?: number
   // Cancellation scope (`${tabId}:${sessionId}`); absent = uncancellable.
   scope?: string
+  // The sender is a private-window tab. Part of the batch key, and the sender
+  // also moves `hash` (the dedup key) into a private namespace — see
+  // `getQueueIdentity` — so private and normal requests share neither a dedup
+  // slot nor a provider request.
+  privateSender?: boolean
 }
 
 /**
@@ -300,6 +305,10 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
         // batch can only ever hold one glossary state, which is the only way to
         // represent a REMOVAL: see `mergeBatchGlossaryTerms`.
         `glossaryRevision:${data.glossaryRevision ?? 0}`,
+        // Only a private item adds a component, so a normal item's key is
+        // exactly what it was. Keeps a private tab's text out of any provider
+        // request that also carries a normal tab's text.
+        ...(data.privateSender ? ["privateSender"] : []),
       )
     },
     getCharacters: (data) => data.text.length,

@@ -20,6 +20,7 @@ import { onMessage } from "@/utils/message"
 import { getTranslatePrompt } from "@/utils/prompts/translate"
 import { canProviderRefGenerateText } from "@/utils/providers/provider-ref"
 import { TranslationCancelledError } from "@/utils/request/cancellation"
+import { getQueueIdentity, isPrivateSender } from "./private-sender"
 import { getOrGenerateTranslationContextSummary } from "./translation-context-summary"
 import {
   buildTranslationScopeKey,
@@ -77,6 +78,12 @@ export function setupPageTranslationHandlers(): void {
       },
     } = message
     const scope = buildTranslationScopeKey(message.sender, sessionId)
+    // A private-window tab still translates, but its text never touches the
+    // persistent cache: no read, no delete of a bad entry, no write. Its queue
+    // identity is also its own, so it cannot be merged with a normal request for
+    // the same text. `hash` itself stays the cache key for everyone else.
+    const isPrivate = isPrivateSender(message.sender)
+    const queueHash = getQueueIdentity(hash, isPrivate)
 
     const validateHtmlAttributeMarkers =
       textFormat === "html" && hasHtmlAttributeMarkerProtocol(text)
@@ -86,7 +93,7 @@ export function setupPageTranslationHandlers(): void {
 
     // Check cache first — unless the user asked for a fresh translation. The
     // existing entry is left untouched unless the fresh request succeeds below.
-    if (hash && !forceRetranslation) {
+    if (hash && !forceRetranslation && !isPrivate) {
       const cachedTranslation = await getValidatedCachedTranslation(
         hash,
         text,
@@ -116,7 +123,8 @@ export function setupPageTranslationHandlers(): void {
         text,
         langConfig,
         ...routing,
-        hash,
+        hash: queueHash,
+        privateSender: isPrivate,
         scheduleAt,
         context,
         // Kept off `context`, which is part of the batch key — see
@@ -139,7 +147,7 @@ export function setupPageTranslationHandlers(): void {
           preserveLineBreaks,
           signal,
         })
-      result = await requestQueue.enqueue(thunk, scheduleAt, hash, scope ? [scope] : undefined)
+      result = await requestQueue.enqueue(thunk, scheduleAt, queueHash, scope ? [scope] : undefined)
     }
 
     if (validateHtmlAttributeMarkers) {
@@ -161,8 +169,8 @@ export function setupPageTranslationHandlers(): void {
       logger.warn("Inline atom placeholders were not preserved; result not cached")
     }
 
-    // Cache the translation result if successful
-    if (result && hash && inlineAtomTokensIntact) {
+    // Cache the translation result if successful (never for a private sender)
+    if (result && hash && inlineAtomTokensIntact && !isPrivate) {
       await db.translationCache.put({
         key: hash,
         translation: result,
@@ -197,6 +205,7 @@ export function setupPageTranslationHandlers(): void {
       cacheKeyParts: [webTitle, Sha256Hex(cleanText(webContent))],
       usageFeature: "pageContext",
       requestQueue,
+      persist: !isPrivateSender(message.sender),
     })
   })
 

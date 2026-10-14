@@ -6,6 +6,7 @@ import type { ApiUsageIdentity } from "@/utils/api-usage-identity"
 import { createApiUsageIdentity } from "@/utils/api-usage-identity"
 import { withApiUsage } from "@/utils/api-usage-tracking"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
+import { noStoreFetch } from "@/utils/providers/no-store-fetch"
 
 type DeepLXProviderConfig = Extract<ProviderConfig, { provider: "deeplx" }>
 const API_KEY_PLACEHOLDER_RE = /\{\{apiKey\}\}/g
@@ -63,7 +64,9 @@ async function fetchDirect(
   usageFeature?: ApiUsageFeature,
   identity?: ApiUsageIdentity,
 ) {
-  const resp = await (usageFeature ? withApiUsage(usageFeature, undefined, identity) : fetch)(url, {
+  const resp = await (
+    usageFeature ? withApiUsage(usageFeature, noStoreFetch, identity) : noStoreFetch
+  )(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body,
