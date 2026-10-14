@@ -25,6 +25,7 @@ import { toastManager } from "@/components/ui/base-ui/toast"
 import { SelectionPopover } from "@/components/ui/selection-popover"
 import {
   createSelectionToolbarPrecheckError,
+  createSelectionToolbarProviderRequiredError,
   createSelectionToolbarRuntimeError,
   isAbortError,
 } from "@/components/ui/selection-popover/inline-error"
@@ -48,6 +49,7 @@ import { translateTextCore } from "@/utils/host/translate/translate-text"
 import { getOrCreateWebPageContext } from "@/utils/host/translate/webpage-context"
 import { getOrGenerateWebPageSummary } from "@/utils/host/translate/webpage-summary"
 import { onMessage } from "@/utils/message"
+import { getFeatureProviderRowId } from "@/utils/navigation"
 import { getTranslatePromptFromConfig } from "@/utils/prompts/translate"
 import { resolveModelId } from "@/utils/providers/model-id"
 import { getProviderOptionsWithOverride } from "@/utils/providers/options"
@@ -410,7 +412,14 @@ export function SelectionTranslationProvider({ children }: { children: ReactNode
       if (!provider) {
         if (runIdRef.current === runId) {
           setIsTranslating(false)
-          setError(createSelectionToolbarPrecheckError("translate", "providerUnavailable"))
+          // Not chosen, deleted, disabled and incompatible all resolve to null: point at this
+          // feature's own row instead of leaving a dead-end message.
+          setError(
+            createSelectionToolbarProviderRequiredError(
+              "translate",
+              getFeatureProviderRowId("selectionTranslation"),
+            ),
+          )
         }
         void trackFeatureUsed({
           ...analyticsContext,

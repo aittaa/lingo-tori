@@ -1,8 +1,10 @@
 import type { ErrorAction } from "@/utils/error-action"
+import { browser } from "#imports"
 import { StreamPortError } from "@/utils/content-script/port-streaming"
 import { isExtensionContextInvalidatedError } from "@/utils/error/extension-context"
 import { extractAISDKErrorMessage } from "@/utils/error/extract-message"
 import { i18n } from "@/utils/i18n"
+import { buildFeatureProviderRoute } from "@/utils/navigation"
 
 export interface SelectionToolbarInlineError {
   title: string
@@ -61,6 +63,27 @@ export function createSelectionToolbarPrecheckError(
   return {
     title: getErrorTitle(kind),
     description: getPrecheckErrorDescription(code),
+  }
+}
+
+/**
+ * The feature has no usable provider, so the popover cannot even try. Unlike the other precheck
+ * errors this one carries the way out: a link to the feature's own row in Feature providers
+ * (`rowId`, from getFeatureProviderRowId / getCustomActionProviderRowId). It travels as an
+ * `action`, so the alert opens it through the background like a stream failure's button — it is
+ * never opened on its own.
+ */
+export function createSelectionToolbarProviderRequiredError(
+  kind: SelectionToolbarErrorKind,
+  rowId: string,
+): SelectionToolbarInlineError {
+  return {
+    title: getErrorTitle(kind),
+    description: i18n.t("providerRequired.message"),
+    action: {
+      label: i18n.t("providerRequired.openSettings"),
+      url: browser.runtime.getURL(`/options.html#${buildFeatureProviderRoute(rowId)}`),
+    },
   }
 }
 
