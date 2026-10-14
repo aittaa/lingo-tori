@@ -1,6 +1,5 @@
 import type { TranslatePromptResult } from "../translate"
 import type { Config } from "@/types/config/config"
-import type { SubtitlePromptContext, WebPagePromptContext } from "@/types/content"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
@@ -397,7 +396,7 @@ describe("prompt template substitution", () => {
           targetLang,
           input,
           {
-            ...(context ? { context: context as WebPagePromptContext } : {}),
+            ...(context ? { context } : {}),
             ...(glossaryTerms ? { glossaryTerms } : {}),
           },
         ),
@@ -424,7 +423,7 @@ describe("prompt template substitution", () => {
         return getSubtitlesTranslatePrompt(targetLang, input, {
           // Pass the matched terms (or none) so no test reaches the real matcher.
           glossaryTerms: glossaryTerms ?? [],
-          ...(context ? { context: context as SubtitlePromptContext } : {}),
+          ...(context ? { context } : {}),
         })
       },
     },
