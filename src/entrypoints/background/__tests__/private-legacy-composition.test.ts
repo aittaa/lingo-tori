@@ -351,6 +351,48 @@ describe.each(ROUTES)("$label: private x legacy composition (batch provider)", (
   })
 })
 
+describe.each(ROUTES)("$label: empty hash (batch provider)", (route) => {
+  it("stays empty through the legacy tag and the private namespace, for every combination", async () => {
+    const { BatchQueue } = await import("@/utils/request/batch-queue")
+    const enqueue = vi.spyOn(BatchQueue.prototype, "enqueue")
+
+    await run(
+      route,
+      COMBOS.map((c) => ({
+        text: `empty-${c.label}`,
+        hash: "",
+        sender: c.sender,
+        prompt: c.prompt,
+      })),
+    )
+
+    // BatchQueue dedups only on a non-empty key, so a tag on "" would make one shared key
+    expect(enqueue.mock.calls.map(([data]) => (data as { hash: string }).hash)).toEqual([
+      "",
+      "",
+      "",
+      "",
+    ])
+  })
+
+  it.each(COMBOS)(
+    "$label: distinct texts with empty hashes are each translated, never folded into one another",
+    async (combo) => {
+      const marker = combo.prompt === "snapshot" ? "b" : "a"
+
+      const results = await run(route, [
+        { text: "empty-1", hash: "", sender: combo.sender, prompt: combo.prompt, tab: 3 },
+        { text: "empty-2", hash: "", sender: combo.sender, prompt: combo.prompt, tab: 4 },
+      ])
+
+      expect(results).toEqual([`${marker}:empty-1`, `${marker}:empty-2`])
+      // neither a read nor a write: an empty hash is no cache key for anyone
+      expect(cacheGetKeys()).toEqual([])
+      expect(cachePutKeys()).toEqual([])
+    },
+  )
+})
+
 describe("page: invalid-marker cache delete gate", () => {
   const route = ROUTES[0]!
   const html = '<a data-rf-attr="1">link</a>'
