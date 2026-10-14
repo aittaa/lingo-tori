@@ -54,13 +54,21 @@ export function setupSubtitlesTranslationHandlers(): void {
       videoSummary: normalizePromptContextValue(summary),
     }
 
+    // A prompt-using request with no valid snapshot (an old content script, or a
+    // malformed payload) runs whatever prompt is stored when it is dispatched, so
+    // its `hash` does not say which prompt produced its result. It still
+    // translates, but it must neither share a queue identity with a snapshot
+    // request of the same hash (BatchQueue and RequestQueue both dedup on it) nor
+    // persist its result under that hash for a snapshot request to be served later.
+    const legacyPromptResolution = promptTemplate === undefined && shouldUseBatchQueue(providerRef)
+
     if (shouldUseBatchQueue(providerRef)) {
       const data = {
         usageFeature: "subtitlesTranslation" as const,
         text,
         langConfig,
         provider: providerRef,
-        hash,
+        hash: legacyPromptResolution ? Sha256Hex("legacy-prompt-resolution", hash) : hash,
         scheduleAt,
         context,
         // Kept off `context`, which is part of the batch key — see
@@ -83,7 +91,7 @@ export function setupSubtitlesTranslationHandlers(): void {
       result = await requestQueue.enqueue(thunk, scheduleAt, hash)
     }
 
-    if (result && hash) {
+    if (result && hash && !legacyPromptResolution) {
       await db.translationCache.put({
         key: hash,
         translation: result,

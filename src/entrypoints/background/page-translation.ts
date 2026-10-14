@@ -116,12 +116,20 @@ export function setupPageTranslationHandlers(): void {
       webSummary: normalizePromptContextValue(webSummary),
     }
 
+    // A prompt-using request with no valid snapshot (an old content script, or a
+    // malformed payload) runs whatever prompt is stored when it is dispatched, so
+    // its `hash` does not say which prompt produced its result. It still
+    // translates, but it must neither share a queue identity with a snapshot
+    // request of the same hash (BatchQueue and RequestQueue both dedup on it) nor
+    // persist its result under that hash for a snapshot request to be served later.
+    const legacyPromptResolution = promptTemplate === undefined && shouldUseBatchQueue(providerRef)
+
     if (shouldUseBatchQueue(providerRef)) {
       const data = {
         text,
         langConfig,
         ...routing,
-        hash,
+        hash: legacyPromptResolution ? Sha256Hex("legacy-prompt-resolution", hash) : hash,
         scheduleAt,
         context,
         // Kept off `context`, which is part of the batch key — see
@@ -170,7 +178,7 @@ export function setupPageTranslationHandlers(): void {
     }
 
     // Cache the translation result if successful
-    if (result && hash && inlineAtomTokensIntact) {
+    if (result && hash && inlineAtomTokensIntact && !legacyPromptResolution) {
       await db.translationCache.put({
         key: hash,
         translation: result,

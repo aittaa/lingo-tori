@@ -135,6 +135,7 @@ function request(text: string, config: LLMProviderConfig, sessionId = "snapshot-
       sessionId,
       glossaryRevision: 4,
       glossaryTerms: [],
+      promptTemplate: { systemPrompt: "sys {{targetLanguage}}", prompt: "{{input}}" },
     },
     sender: { tab: { id: 39 } },
   }
