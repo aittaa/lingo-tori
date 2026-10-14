@@ -43,6 +43,7 @@ import { getLLMProvidersConfig, getProviderConfigById } from "../config/helpers"
 import { CONFIG_STORAGE_KEY } from "../constants/config"
 import { getProviderHeadersWithOverride } from "./headers"
 import { resolveModelId } from "./model-id"
+import { noStoreFetch } from "./no-store-fetch"
 import { ProviderSetupError } from "./provider-setup-error"
 
 const DEDICATED_PROVIDER_FACTORY_BY_TYPE = {
@@ -145,16 +146,16 @@ export function getLanguageModelForConfig(
   const headers = getProviderHeadersWithOverride(providerConfig.provider, providerConfig.headers)
   const providerSpecificSettings = getProviderSpecificSettings(providerConfig)
 
-  const meteredFetch = usageFeature
-    ? { fetch: withApiUsage(usageFeature, undefined, identity) }
-    : {}
+  const providerFetch = {
+    fetch: usageFeature ? withApiUsage(usageFeature, noStoreFetch, identity) : noStoreFetch,
+  }
   const provider = match(providerConfig)
     .when(isOpenAICompatibleLLMProviderConfig, (matchedConfig) =>
       createOpenAICompatible({
         name: matchedConfig.provider,
         baseURL: matchedConfig.baseURL,
         supportsStructuredOutputs: true,
-        ...meteredFetch,
+        ...providerFetch,
         ...(matchedConfig.apiKey && { apiKey: matchedConfig.apiKey }),
         ...(headers && { headers }),
       }),
@@ -163,7 +164,7 @@ export function getLanguageModelForConfig(
       createOpenResponses({
         name: matchedConfig.provider,
         url: matchedConfig.url,
-        ...meteredFetch,
+        ...providerFetch,
         ...(matchedConfig.apiKey && { apiKey: matchedConfig.apiKey }),
         ...(headers && { headers }),
       }),
@@ -171,7 +172,7 @@ export function getLanguageModelForConfig(
     .when(isDedicatedLLMProviderConfig, (matchedConfig) =>
       DEDICATED_PROVIDER_FACTORY_BY_TYPE[matchedConfig.provider]({
         ...providerSpecificSettings,
-        ...meteredFetch,
+        ...providerFetch,
         ...(matchedConfig.baseURL && { baseURL: matchedConfig.baseURL }),
         ...(matchedConfig.apiKey && { apiKey: matchedConfig.apiKey }),
         ...(headers && { headers }),

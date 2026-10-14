@@ -21,6 +21,7 @@ import { parsePromptTemplate } from "@/utils/prompts/template"
 import { getTranslatePrompt } from "@/utils/prompts/translate"
 import { canProviderRefGenerateText } from "@/utils/providers/provider-ref"
 import { TranslationCancelledError } from "@/utils/request/cancellation"
+import { getQueueIdentity, isPrivateSender } from "./private-sender"
 import { getOrGenerateTranslationContextSummary } from "./translation-context-summary"
 import {
   buildTranslationScopeKey,
@@ -83,6 +84,11 @@ export function setupPageTranslationHandlers(): void {
     // Re-validated here: the wire is untyped, and a sender without a valid
     // template makes the queue resolve the stored selection at execution.
     const promptTemplate = parsePromptTemplate(rawPromptTemplate)
+    // A private-window tab still translates, but its text never touches the
+    // persistent cache: no read, no delete of a bad entry, no write. Its queue
+    // identity is also its own, so it cannot be merged with a normal request for
+    // the same text. `hash` itself stays the cache key for everyone else.
+    const isPrivate = isPrivateSender(message.sender)
 
     const validateHtmlAttributeMarkers =
       textFormat === "html" && hasHtmlAttributeMarkerProtocol(text)
@@ -92,7 +98,7 @@ export function setupPageTranslationHandlers(): void {
 
     // Check cache first — unless the user asked for a fresh translation. The
     // existing entry is left untouched unless the fresh request succeeds below.
-    if (hash && !forceRetranslation) {
+    if (hash && !forceRetranslation && !isPrivate) {
       const cachedTranslation = await getValidatedCachedTranslation(
         hash,
         text,
@@ -129,11 +135,16 @@ export function setupPageTranslationHandlers(): void {
     // cache read and write (an empty one means "never cached"); it must not also be the queue
     // key, because every empty-hash request would then share one and a different text would be
     // handed the first one's result. A request without a hash gets an identity of its own.
-    const queueHash = hash
+    const requestQueueHash = hash
       ? legacyPromptResolution
         ? Sha256Hex("legacy-prompt-resolution", hash)
         : hash
       : createEphemeralQueueIdentity()
+    // Both separations apply to a request that is both: the legacy tag first, then the private
+    // namespace on top, so normal/private x snapshot/legacy are four distinct identities. A
+    // normal snapshot request keeps the raw hash; a request without a hash keeps its own
+    // ephemeral identity (renamespaced, still unique, when private).
+    const queueHash = getQueueIdentity(requestQueueHash, isPrivate)
 
     if (shouldUseBatchQueue(providerRef)) {
       const data = {
@@ -141,6 +152,7 @@ export function setupPageTranslationHandlers(): void {
         langConfig,
         ...routing,
         hash: queueHash,
+        privateSender: isPrivate,
         scheduleAt,
         context,
         // Kept off `context`, which is part of the batch key — see
@@ -188,8 +200,9 @@ export function setupPageTranslationHandlers(): void {
       logger.warn("Inline atom placeholders were not preserved; result not cached")
     }
 
-    // Cache the translation result if successful
-    if (result && hash && inlineAtomTokensIntact && !legacyPromptResolution) {
+    // Cache the translation result if successful — never for a private sender,
+    // and never for a request whose prompt cannot be vouched for by its hash.
+    if (result && hash && inlineAtomTokensIntact && !isPrivate && !legacyPromptResolution) {
       await db.translationCache.put({
         key: hash,
         translation: result,
@@ -224,6 +237,7 @@ export function setupPageTranslationHandlers(): void {
       cacheKeyParts: [webTitle, Sha256Hex(cleanText(webContent))],
       usageFeature: "pageContext",
       requestQueue,
+      persist: !isPrivateSender(message.sender),
     })
   })
 
