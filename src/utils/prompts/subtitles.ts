@@ -15,6 +15,7 @@ import {
   SUBTITLE_WEB_TITLE,
   VIDEO_SUMMARY,
 } from "../constants/prompt"
+import { replacePromptTokens } from "./replace-tokens"
 import { resolvePromptReplacementValue } from "./translate"
 
 export async function getSubtitlesTranslatePrompt(
@@ -58,14 +59,17 @@ ${DEFAULT_BATCH_TRANSLATE_PROMPT}`
     "No summary available",
   )
 
-  // Replace tokens in both prompts
-  const replaceTokens = (text: string) =>
-    text
-      .replaceAll(getTokenCellText(SUBTITLE_TARGET_LANGUAGE), targetLang)
-      .replaceAll(getTokenCellText(SUBTITLE_INPUT), input)
-      .replaceAll(getTokenCellText(SUBTITLE_WEB_TITLE), title)
-      .replaceAll(getTokenCellText(SUBTITLE_WEB_DESCRIPTION), description)
-      .replaceAll(getTokenCellText(VIDEO_SUMMARY), summary)
+  // Replace tokens in both prompts, in one pass over each template (see
+  // `replacePromptTokens`): cue text and video metadata land literally and are
+  // never scanned again for tokens.
+  const replacements = {
+    [getTokenCellText(SUBTITLE_TARGET_LANGUAGE)]: targetLang,
+    [getTokenCellText(SUBTITLE_INPUT)]: input,
+    [getTokenCellText(SUBTITLE_WEB_TITLE)]: title,
+    [getTokenCellText(SUBTITLE_WEB_DESCRIPTION)]: description,
+    [getTokenCellText(VIDEO_SUMMARY)]: summary,
+  }
+  const replaceTokens = (text: string) => replacePromptTokens(text, replacements)
 
   // Same contract as the page-translation builder: appended AFTER token
   // replacement so a term cannot rewrite the prompt around it, and omitted
