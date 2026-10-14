@@ -507,9 +507,12 @@ describe.each(ROUTES)("$label route: legacy request cache contract", (route) => 
 })
 
 describe.each(ROUTES)("$label route: requests that arrive with an empty hash", (route) => {
-  // BatchQueue only dedups on a non-empty key, so an empty hash has to stay empty
-  // all the way through: a legacy tag that turned it into a real key would fold two
-  // unrelated texts into one task, and one of them would get the other's translation.
+  // An empty hash is never cached and never deduped with a different request. The handler
+  // gives such a request a queue identity of its own, so the legacy tag cannot turn it into a
+  // key shared by every empty-hash request (which would fold two unrelated texts into one
+  // task, and one of them would get the other's translation). That the queues themselves keep
+  // different texts apart is pinned in translation-empty-hash-queue-identity.test.ts; this only
+  // checks that the legacy path still batches such requests together.
   it("legacy requests with different texts are two members of one batch, not one deduped task", async () => {
     await route.start()
     const handler = route.handler()

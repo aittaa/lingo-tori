@@ -91,6 +91,24 @@ export function shouldUseBatchQueue(provider: QueuedTranslationProvider): boolea
   return local ? isLLMProviderConfig(local) : true
 }
 
+let ephemeralQueueIdentitySeq = 0
+
+/**
+ * The queue identity of a request that has no cache hash.
+ *
+ * An empty `hash` means "do not cache this", but both queues still dedup on a key, and an
+ * empty (or member-derived) key is one every such request shares: the second, different text
+ * would be handed the first one's result without its own thunk ever running. This is that key,
+ * minted once per request and used wherever the hash would have been, so a request is only ever
+ * deduped with itself (a retry or fallback of the same request keeps the identity).
+ *
+ * Per-request, never cached (the handlers keep the ORIGINAL hash for every cache decision), and
+ * it can never equal a SHA-256 hex digest. It carries no text, key or headers.
+ */
+export function createEphemeralQueueIdentity(): string {
+  return `ephemeral-queue:${++ephemeralQueueIdentitySeq}`
+}
+
 /**
  * The glossary terms for a whole batch: every member's terms, deduped.
  *

@@ -24,6 +24,7 @@ import { TranslationCancelledError } from "@/utils/request/cancellation"
 import { getOrGenerateTranslationContextSummary } from "./translation-context-summary"
 import {
   buildTranslationScopeKey,
+  createEphemeralQueueIdentity,
   createWebPageTranslationQueues,
   getLocalProviderConfig,
   getQueuedTranslationRouting,
@@ -122,16 +123,24 @@ export function setupPageTranslationHandlers(): void {
     // translates, but it must neither share a queue identity with a snapshot
     // request of the same hash (BatchQueue and RequestQueue both dedup on it) nor
     // persist its result under that hash for a snapshot request to be served later.
-    // An empty hash stays empty, because BatchQueue dedups only on a non-empty key and a
-    // tag would turn it into one shared by every such request.
     const legacyPromptResolution = promptTemplate === undefined && shouldUseBatchQueue(providerRef)
+
+    // What both queues dedup on, minted once per request. `hash` itself keeps deciding every
+    // cache read and write (an empty one means "never cached"); it must not also be the queue
+    // key, because every empty-hash request would then share one and a different text would be
+    // handed the first one's result. A request without a hash gets an identity of its own.
+    const queueHash = hash
+      ? legacyPromptResolution
+        ? Sha256Hex("legacy-prompt-resolution", hash)
+        : hash
+      : createEphemeralQueueIdentity()
 
     if (shouldUseBatchQueue(providerRef)) {
       const data = {
         text,
         langConfig,
         ...routing,
-        hash: legacyPromptResolution && hash ? Sha256Hex("legacy-prompt-resolution", hash) : hash,
+        hash: queueHash,
         scheduleAt,
         context,
         // Kept off `context`, which is part of the batch key — see
@@ -157,7 +166,7 @@ export function setupPageTranslationHandlers(): void {
           preserveLineBreaks,
           signal,
         })
-      result = await requestQueue.enqueue(thunk, scheduleAt, hash, scope ? [scope] : undefined)
+      result = await requestQueue.enqueue(thunk, scheduleAt, queueHash, scope ? [scope] : undefined)
     }
 
     if (validateHtmlAttributeMarkers) {
