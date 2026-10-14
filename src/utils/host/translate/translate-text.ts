@@ -365,6 +365,20 @@ function showProviderRequiredToast(): void {
   })
 }
 
+/**
+ * API providers a page can translate with while the key field is empty. DeepLX and Ollama have
+ * always been allowed. The custom OpenAI-compatible and Open Responses rows point at a server of
+ * the user's own, which `getLanguageModelForConfig` already builds without asking for a key: a
+ * local model server may authenticate some other way, or not at all. Hosted services — including
+ * the ones that speak those protocols, like OpenRouter — still need one.
+ */
+const API_KEY_OPTIONAL_PROVIDERS: readonly string[] = [
+  "deeplx",
+  "ollama",
+  "openai-compatible",
+  "open-responses",
+]
+
 export function validateTranslationConfigAndToast(
   config: Pick<Config, "providersConfig" | "pageTranslation" | "language">,
   options: ValidateTranslationConfigOptions = {},
@@ -393,7 +407,7 @@ export function validateTranslationConfigAndToast(
     provider.kind === "local" &&
     isAPIProviderConfig(provider.config) &&
     !provider.config.apiKey?.trim() &&
-    !["deeplx", "ollama"].includes(provider.config.provider)
+    !API_KEY_OPTIONAL_PROVIDERS.includes(provider.config.provider)
   ) {
     toastManager.add({ type: "error", title: i18n.t("noAPIKeyConfig.warning") })
     logger.info("validateTranslationConfig: returning false (no API key)")

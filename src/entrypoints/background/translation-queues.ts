@@ -248,6 +248,11 @@ export type TranslateBatchData<TContext = unknown> = QueuedTranslationRouting & 
   promptTemplate?: PromptTemplate
   // Cancellation scope (`${tabId}:${sessionId}`); absent = uncancellable.
   scope?: string
+  // The sender is a private-window tab. Part of the batch key, and the sender
+  // also moves `hash` (the dedup key) into a private namespace — see
+  // `getQueueIdentity` — so private and normal requests share neither a dedup
+  // slot nor a provider request.
+  privateSender?: boolean
 }
 
 /**
@@ -332,6 +337,10 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
         // them. Only the choice of prompt is keyed — the target language is
         // already above, and the terms and context are filled in per request.
         `promptTemplate:${data.promptTemplate ? JSON.stringify(data.promptTemplate) : ""}`,
+        // Only a private item adds a component, so a normal item's key is
+        // exactly what it was. Keeps a private tab's text out of any provider
+        // request that also carries a normal tab's text.
+        ...(data.privateSender ? ["privateSender"] : []),
       )
     },
     getCharacters: (data) => data.text.length,

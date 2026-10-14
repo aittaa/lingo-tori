@@ -5,6 +5,7 @@ import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { ApiUsageIdentity } from "@/utils/api-usage-identity"
 import { createApiUsageIdentity } from "@/utils/api-usage-identity"
 import { withApiUsage } from "@/utils/api-usage-tracking"
+import { noStoreFetch } from "@/utils/providers/no-store-fetch"
 
 type DeepLProviderConfig = Extract<ProviderConfig, { provider: "deepl" }>
 
@@ -86,7 +87,9 @@ async function fetchDirect(
   usageFeature?: ApiUsageFeature,
   identity?: ApiUsageIdentity,
 ): Promise<Response> {
-  const resp = await (usageFeature ? withApiUsage(usageFeature, undefined, identity) : fetch)(url, {
+  const resp = await (
+    usageFeature ? withApiUsage(usageFeature, noStoreFetch, identity) : noStoreFetch
+  )(url, {
     method: "POST",
     headers: {
       Authorization: `DeepL-Auth-Key ${apiKey}`,
