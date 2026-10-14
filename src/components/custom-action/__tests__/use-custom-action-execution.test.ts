@@ -1,8 +1,10 @@
+import type { ProvidersConfig } from "@/types/config/provider"
 import type { CachedWebPageContext } from "@/utils/host/translate/webpage-context"
 // @vitest-environment jsdom
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react"
 import { createElement } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { browser } from "#imports"
 import { ANALYTICS_SURFACE } from "@/types/analytics"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import {
@@ -231,6 +233,121 @@ describe("buildCustomActionExecutionPlan", () => {
 
     expect(plan.error).toBeNull()
     expect(plan.executionContext?.promptTokens.webUrl).toBe(window.location.href)
+  })
+
+  describe("without a usable provider", () => {
+    // Stands in for the extension origin the options page lives on.
+    const runtime = browser.runtime as unknown as { getURL: (path: string) => string }
+    const realGetURL = runtime.getURL
+    const providers: ProvidersConfig = [
+      {
+        id: "test-openai",
+        name: "Test OpenAI",
+        provider: "openai",
+        enabled: true,
+        apiKey: "test-key",
+        model: { model: "gpt-4o-mini", isCustomModel: false, customModel: null },
+      },
+      {
+        id: "disabled-openai",
+        name: "Disabled OpenAI",
+        provider: "openai",
+        enabled: false,
+        apiKey: "test-key",
+        model: { model: "gpt-4o-mini", isCustomModel: false, customModel: null },
+      },
+    ]
+
+    /** What the selection atoms hand over: the registry's answer for the action's own assignment. */
+    function requestAssignedTo(providerId: string) {
+      const { action, language } = createCustomActionRequest()
+      return {
+        language,
+        action: { ...action, id: "synthetic-action", providerId },
+        provider: resolveProviderRefForCapability("customAction", providers, providerId),
+      }
+    }
+
+    beforeEach(() => {
+      runtime.getURL = (path) => `chrome-extension://test${path}`
+    })
+
+    afterEach(() => {
+      runtime.getURL = realGetURL
+    })
+
+    it.each([
+      ["not chosen", ""],
+      ["deleted", "deleted-openai"],
+      ["disabled", "disabled-openai"],
+    ] as const)("links to the action's own row when its provider is %s", (_label, providerId) => {
+      const request = requestAssignedTo(providerId)
+      // The working provider in the list is never borrowed for an action that was not given it.
+      expect(request.provider).toBeNull()
+
+      // Known up front, whether or not the page context has arrived yet.
+      for (const webPageContext of [undefined, null]) {
+        expect(
+          buildCustomActionExecutionPlan(request, "Selected text", "context", webPageContext),
+        ).toEqual({
+          error: {
+            title: "options.selectionToolbar.errors.customActionFailed",
+            description: "providerRequired.message",
+            action: {
+              label: "providerRequired.openSettings",
+              url: "chrome-extension://test/options.html#/api-providers?section=feature-provider-action-synthetic-action",
+            },
+          },
+          executionContext: null,
+        })
+      }
+    })
+
+    it("still reports a missing action or selection before the provider", () => {
+      const request = requestAssignedTo("")
+
+      expect(
+        buildCustomActionExecutionPlan({ ...request, action: null }, "Selected text", "context"),
+      ).toEqual({
+        error: {
+          title: "options.selectionToolbar.errors.customActionFailed",
+          description: "options.selectionToolbar.errors.actionUnavailable",
+        },
+        executionContext: null,
+      })
+      expect(buildCustomActionExecutionPlan(request, "", "context")).toEqual({
+        error: {
+          title: "options.selectionToolbar.errors.customActionFailed",
+          description: "options.selectionToolbar.errors.missingSelection",
+        },
+        executionContext: null,
+      })
+    })
+
+    it("keeps the disabled-provider message for a provider that resolved but is switched off", () => {
+      const request = createCustomActionRequest()
+
+      expect(
+        buildCustomActionExecutionPlan(
+          {
+            ...request,
+            provider: {
+              ...request.provider,
+              config: { ...request.provider.config, enabled: false },
+            },
+          },
+          "Selected text",
+          "context",
+          null,
+        ),
+      ).toEqual({
+        error: {
+          title: "options.selectionToolbar.errors.customActionFailed",
+          description: "options.selectionToolbar.errors.providerDisabled",
+        },
+        executionContext: null,
+      })
+    })
   })
 })
 
