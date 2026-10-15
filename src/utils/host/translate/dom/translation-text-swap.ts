@@ -290,6 +290,39 @@ export function planInPlaceTextSwap(
   return { pairs: acc.pairs, attributePairs: acc.attributePairs, coverage }
 }
 
+// Raw-text elements hold source code, never prose a reader should see.
+const NON_PROSE_ELEMENTS = new Set(["script", "style"])
+
+function collectInertText(parent: ParentNode, parts: string[]): void {
+  for (const child of parent.childNodes) {
+    if (isTextNode(child)) {
+      parts.push(child.data)
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      const { localName } = child as Element
+      if (NON_PROSE_ELEMENTS.has(localName)) continue
+      if (localName === "br") parts.push("\n")
+      else collectInertText(child as Element, parts)
+    }
+  }
+}
+
+/**
+ * The text of a provider's HTML translation, for when it cannot be paired with
+ * the site's own nodes. The string is untrusted — a hostile or prompt-injected
+ * provider can return any markup — so it is parsed in an inert `<template>`
+ * (no resource loads, no handlers, no scripts) and only the TEXT is taken. The
+ * caller sets it with `textContent`; no element, attribute or URL from the
+ * provider ever reaches the page. Entities decode once and the result is never
+ * re-parsed, so escaped markup stays visible text.
+ */
+export function extractTranslatedText(translatedHtml: string, ownerDoc: Document): string {
+  const template = ownerDoc.createElement("template")
+  template.innerHTML = translatedHtml
+  const parts: string[] = []
+  collectInertText(template.content, parts)
+  return parts.join("")
+}
+
 /**
  * Write the paired translated values into the site's own text nodes and
  * register the guarded-restore state on the anchor. An existing record for

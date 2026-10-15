@@ -48,6 +48,7 @@ import { insertTranslatedNodeIntoWrapper } from "../dom/translation-insertion"
 import {
   applyInPlaceTextSwap,
   ensureTranslationOnlyAnchorState,
+  extractTranslatedText,
   planInPlaceTextSwap,
   snapshotSourceTextNodes,
   verifySourceSnapshot,
@@ -1066,7 +1067,19 @@ async function translateTranslationOnlyRun(
 
     // Fallback strategy: render into the wrapper and displace the originals,
     // retaining the node objects so restore can re-insert the same nodes (#1846).
-    translatedWrapperNode.innerHTML = translatedText
+    // The provider's HTML is untrusted and nothing vouched for its structure (the
+    // swap above is what failed), so it is shown as text only — never written as
+    // markup into the live page.
+    const fallbackText = extractTranslatedText(translatedText, ownerDoc)
+    if (!fallbackText.trim()) {
+      // Markup with no text in it has nothing to show, and displacing the
+      // originals for an empty wrapper would blank the paragraph: treat it like
+      // an empty translation.
+      markExtensionDrivenNodeRemoval(translatedWrapperNode)
+      batchDOMOperation(() => translatedWrapperNode.remove())
+      return
+    }
+    translatedWrapperNode.textContent = fallbackText
 
     // Batch final DOM mutations to reduce layout thrashing
     batchDOMOperation(() => {
