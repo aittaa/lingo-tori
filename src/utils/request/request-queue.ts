@@ -203,7 +203,9 @@ export class RequestQueue {
       this.bucketTokens >= tokensNeeded
         ? 0
         : Math.ceil(((tokensNeeded - this.bucketTokens) / this.options.rate) * 1000)
-    return Math.max(pauseDelayMs, tokenDelayMs)
+    // Tokens only accrue once the pause is over, so the wait for them starts after it: the two add
+    // up. (Taking the larger of the two assumed the bucket kept filling during the pause.)
+    return pauseDelayMs + tokenDelayMs
   }
 
   private schedule() {
@@ -356,7 +358,8 @@ export class RequestQueue {
         this.pausedUntil = Math.max(this.pausedUntil, now + decision.pauseMs)
         // Post-pause probe: resume with at most one token so recovery sends a
         // single request first instead of bursting `capacity` requests at a
-        // provider that may still be limited.
+        // provider that may still be limited. `refillTokens` skips the pause,
+        // so nothing refills this back up before the pause ends.
         this.bucketTokens = Math.min(this.bucketTokens, 1)
         this.lastRefill = now
         task.rateLimitRetryCount++
@@ -431,7 +434,13 @@ export class RequestQueue {
 
   private refillTokens() {
     const now = Date.now()
-    const timeSinceLastRefill = now - this.lastRefill
+    // A rate-limit pause earns nothing. Counting it would hand back a full bucket the moment it
+    // ends (the pause is much longer than the time a bucket takes to fill), undoing the clamp to a
+    // single probe token that the 429 handler applied. Accrual starts at the later of the last
+    // refill and the end of the pause; during the pause that is in the future, so nothing accrues,
+    // however often the scheduler or the dispatch gate calls in.
+    const accrueFrom = Math.max(this.lastRefill, this.pausedUntil)
+    const timeSinceLastRefill = Math.max(0, now - accrueFrom)
     const tokensToAdd = (timeSinceLastRefill / 1000) * this.options.rate
     this.bucketTokens = Math.min(this.bucketTokens + tokensToAdd, this.options.capacity)
 

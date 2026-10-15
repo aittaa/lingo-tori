@@ -756,8 +756,10 @@ describe("requestQueue – retry policy and queue fail-fast drain", () => {
     const secondPromise = q.enqueue(flaky("second"), Date.now(), "second")
 
     // The first 429 opens a 5s window; the sibling extends it via the doubled
-    // backoff (consecutiveRateLimits=1 → 10s) without double-counting.
-    await vi.advanceTimersByTimeAsync(10_100)
+    // backoff (consecutiveRateLimits=1 → 10s) without double-counting. The two
+    // retries then resume one refill interval apart (rate 10 → 100ms), a single
+    // probe first rather than both at once.
+    await vi.advanceTimersByTimeAsync(10_300)
     await expect(firstPromise).resolves.toBe("first")
     await expect(secondPromise).resolves.toBe("second")
 
@@ -1347,5 +1349,232 @@ describe("requestQueue – dispatch ETA and per-task timeout", () => {
 
     await vi.advanceTimersByTimeAsync(600)
     await expect(promise).rejects.toThrow(/timed out after 500ms/)
+  })
+})
+
+// A 429 pauses dispatching and clamps the bucket to one token so that recovery starts with a single
+// probe. The pause itself must not refill the bucket, or the probe becomes a burst of `capacity`
+// requests the moment it ends, before the first response says whether the provider has recovered.
+describe("requestQueue – resuming after a 429", () => {
+  const RATE = 8
+  const CAPACITY = 4
+  // One normal refill interval at this rate.
+  const STEP_MS = 1_000 / RATE
+  const BASE_PAUSE_MS = 5_000
+
+  function rateLimited(headers?: Record<string, string>) {
+    return Object.assign(new Error("Too Many Requests"), {
+      statusCode: 429,
+      ...(headers ? { responseHeaders: headers } : {}),
+    })
+  }
+
+  function setup() {
+    vi.useFakeTimers()
+    vi.spyOn(Math, "random").mockReturnValue(0) // no jitter: the pause is exactly what it says
+    const q = new RequestQueue({
+      ...baseConfig,
+      rate: RATE,
+      capacity: CAPACITY,
+      maxRetries: 2,
+      baseRetryDelayMs: 100,
+    })
+    const t0 = Date.now()
+    const starts: Array<{ id: string; at: number }> = []
+    const held: Array<ReturnType<typeof createDeferred<string>>> = []
+    const promises: Array<Promise<string>> = []
+
+    // A request that starts, is recorded, and then waits for the test to answer: "before the first
+    // response" is the whole point.
+    const holdOpen = (id: string, first429?: Error) => {
+      let attempts = 0
+      promises.push(
+        q.enqueue(
+          () => {
+            starts.push({ id, at: Date.now() - t0 })
+            if (first429 && ++attempts === 1) return Promise.reject(first429)
+            const deferred = createDeferred<string>()
+            held.push(deferred)
+            return deferred.promise
+          },
+          Date.now(),
+          id,
+        ),
+      )
+    }
+
+    const startedSince = (atMs: number) => starts.filter((start) => start.at >= atMs).length
+
+    // Answers everything that starts, step by step, until every request has settled.
+    const finish = async () => {
+      for (let i = 0; i < 200; i++) {
+        held.splice(0).forEach((deferred) => deferred.resolve("ok"))
+        await vi.advanceTimersByTimeAsync(STEP_MS)
+      }
+      held.splice(0).forEach((deferred) => deferred.resolve("ok"))
+      await Promise.all(promises)
+    }
+
+    return { q, t0, starts, holdOpen, startedSince, finish }
+  }
+
+  /**
+   * Checks the dispatch budget since the pause ended. From an empty or one-token bucket, `k` full
+   * refill intervals allow at most 1 + k requests (no burst, whatever the pause did to the clock)
+   * and the backlog must be getting through at that rate: at least k (no stall either).
+   */
+  async function expectNormalRateAfter(
+    resumeAt: number,
+    startedSince: (atMs: number) => number,
+    intervals = 5,
+  ) {
+    for (let k = 0; k <= intervals; k++) {
+      await vi.advanceTimersByTimeAsync(k === 0 ? 0 : STEP_MS)
+      expect(startedSince(resumeAt)).toBeLessThanOrEqual(1 + k)
+      expect(startedSince(resumeAt)).toBeGreaterThanOrEqual(k)
+    }
+  }
+
+  it("sends at most one request when the pause ends, even from a drained bucket", async () => {
+    const { holdOpen, startedSince, starts, finish } = setup()
+    // The first four fill the bucket's capacity at once and the first of them is answered 429.
+    holdOpen("limited", rateLimited())
+    for (let i = 1; i <= 7; i++) holdOpen(`backlog-${i}`)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(starts).toHaveLength(CAPACITY)
+
+    await vi.advanceTimersByTimeAsync(BASE_PAUSE_MS - 1)
+    expect(starts).toHaveLength(CAPACITY) // nothing during the pause
+    await vi.advanceTimersByTimeAsync(1) // exactly the pause end
+
+    await expectNormalRateAfter(BASE_PAUSE_MS, startedSince)
+    await finish()
+  })
+
+  it("sends at most one request when the pause ends with tokens left and a backlog that arrived during it", async () => {
+    const { holdOpen, startedSince, starts, finish } = setup()
+    // Only one request: three tokens are left over when it is answered 429, then clamped to one.
+    holdOpen("limited", rateLimited())
+    await vi.advanceTimersByTimeAsync(0)
+    expect(starts).toHaveLength(1)
+    // Work keeps arriving during the pause; every arrival runs the scheduler.
+    for (let i = 1; i <= 8; i++) {
+      await vi.advanceTimersByTimeAsync(500)
+      holdOpen(`arrival-${i}`)
+    }
+    await vi.advanceTimersByTimeAsync(BASE_PAUSE_MS - 8 * 500 - 1)
+    expect(starts).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(1)
+
+    await expectNormalRateAfter(BASE_PAUSE_MS, startedSince)
+    await finish()
+  })
+
+  it("stays within one request when a sibling 429 extends the pause", async () => {
+    const { holdOpen, startedSince, starts, finish } = setup()
+    // Two attempts are rejected in the same tick: the first opens 5s, the second extends it to 10s.
+    holdOpen("limited-1", rateLimited())
+    holdOpen("limited-2", rateLimited())
+    for (let i = 1; i <= 8; i++) holdOpen(`backlog-${i}`)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(starts).toHaveLength(CAPACITY)
+
+    // The first window ends and nothing may start: the pause was extended.
+    await vi.advanceTimersByTimeAsync(BASE_PAUSE_MS * 2 - 1)
+    expect(starts).toHaveLength(CAPACITY)
+    await vi.advanceTimersByTimeAsync(1)
+
+    await expectNormalRateAfter(BASE_PAUSE_MS * 2, startedSince)
+    await finish()
+  })
+
+  it("stays within one request after a long Retry-After", async () => {
+    const { holdOpen, startedSince, starts, finish } = setup()
+    holdOpen("limited", rateLimited({ "retry-after": "30" }))
+    for (let i = 1; i <= 7; i++) holdOpen(`backlog-${i}`)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(starts).toHaveLength(CAPACITY)
+
+    await vi.advanceTimersByTimeAsync(29_999)
+    expect(starts).toHaveLength(CAPACITY)
+    await vi.advanceTimersByTimeAsync(1)
+
+    await expectNormalRateAfter(30_000, startedSince)
+    await finish()
+  })
+
+  it("keeps the invariant when the dispatch gate polls nextDispatchEtaMs throughout the pause", async () => {
+    const { q, holdOpen, startedSince, starts, finish } = setup()
+    holdOpen("limited", rateLimited())
+    for (let i = 1; i <= 7; i++) holdOpen(`backlog-${i}`)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(starts).toHaveLength(CAPACITY)
+
+    // A BatchQueue gate asks every few hundred milliseconds while it holds batches back.
+    for (let elapsed = 0; elapsed < BASE_PAUSE_MS - 100; elapsed += 100) {
+      q.nextDispatchEtaMs()
+      await vi.advanceTimersByTimeAsync(100)
+    }
+    q.nextDispatchEtaMs()
+    await vi.advanceTimersByTimeAsync(99)
+    expect(starts).toHaveLength(CAPACITY) // 1ms before the pause end: still nothing
+    q.nextDispatchEtaMs()
+    await vi.advanceTimersByTimeAsync(1) // the pause end
+    q.nextDispatchEtaMs()
+
+    await expectNormalRateAfter(BASE_PAUSE_MS, startedSince)
+    await finish()
+  })
+
+  it("reports an ETA that adds the backlog's token time after the pause, not inside it", async () => {
+    const { q, holdOpen, finish } = setup()
+    holdOpen("limited", rateLimited())
+    for (let i = 1; i <= 7; i++) holdOpen(`backlog-${i}`)
+    await vi.advanceTimersByTimeAsync(1_000) // 4s of the pause left
+    // Four backlog requests and the parked retry wait; a new one would be the sixth, and the pause
+    // gives the bucket nothing: its tokens only start to accrue when the pause ends.
+    const eta = q.nextDispatchEtaMs()
+    const waiting = 5
+    const remainingPause = BASE_PAUSE_MS - 1_000
+    const afterPause = ((waiting + 1) / RATE) * 1_000
+    expect(eta).toBeGreaterThanOrEqual(remainingPause + afterPause - STEP_MS)
+    await finish()
+  })
+
+  it("eventually runs every request, the rate-limited one included, at the normal rate", async () => {
+    const { holdOpen, starts, finish } = setup()
+    holdOpen("limited", rateLimited())
+    for (let i = 1; i <= 7; i++) holdOpen(`backlog-${i}`)
+
+    await finish()
+
+    // 8 requests, the rate-limited one started twice.
+    expect(starts).toHaveLength(9)
+    expect(starts.filter((start) => start.id === "limited")).toHaveLength(2)
+  })
+
+  it("accrues tokens normally again after the pause, up to the full capacity (control)", async () => {
+    const { holdOpen, startedSince, starts, finish } = setup()
+    holdOpen("limited", rateLimited())
+    await vi.advanceTimersByTimeAsync(0)
+    // The retry runs at the pause end; then the queue idles long enough to refill completely.
+    await vi.advanceTimersByTimeAsync(BASE_PAUSE_MS + 2_000)
+    const before = starts.length
+    for (let i = 1; i <= 6; i++) holdOpen(`later-${i}`)
+    await vi.advanceTimersByTimeAsync(0)
+
+    // A full bucket: the first CAPACITY go at once.
+    expect(starts.length - before).toBe(CAPACITY)
+    expect(startedSince(BASE_PAUSE_MS + 2_000)).toBe(CAPACITY)
+    await finish()
+  })
+
+  it("still lets a fresh queue burst up to its capacity (control)", async () => {
+    const { holdOpen, starts, finish } = setup()
+    for (let i = 1; i <= 6; i++) holdOpen(`fresh-${i}`)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(starts).toHaveLength(CAPACITY)
+    await finish()
   })
 })
