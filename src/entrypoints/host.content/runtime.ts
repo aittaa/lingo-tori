@@ -117,7 +117,13 @@ export async function bootstrapHostContent(
   // Listen for translation state changes from background
   const cleanupTranslationStateListener = onMessage("askManagerToTogglePageTranslation", (msg) => {
     const { enabled, analyticsContext } = msg.data
-    if (enabled === manager.isActive) return
+    // Only a redundant ON is skipped. `isActive` stays false for the whole span
+    // of a start still awaiting its gates (config read, provider availability),
+    // so comparing an OFF against it would drop the OFF and let that start
+    // switch translation on after the user turned it off — and its ON notice
+    // would overwrite the background's manual-off record. An OFF always goes to
+    // stop(), which cancels a pending start as well as a live session.
+    if (enabled && manager.isActive) return
     if (enabled) {
       void manager.start(window === window.top ? analyticsContext : undefined)
     } else {
@@ -134,7 +140,8 @@ export async function bootstrapHostContent(
       ? () => {}
       : onMessage("notifyTranslationStateChanged", (msg) => {
           const { enabled } = msg.data
-          if (enabled === manager.isActive) return
+          // Same rule as the toggle request above: never drop an OFF.
+          if (enabled && manager.isActive) return
           if (enabled) {
             void manager.start()
           } else {
