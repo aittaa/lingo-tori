@@ -1,5 +1,6 @@
 import type { LLMProviderConfig } from "@/types/config/provider"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { fakeBrowser } from "wxt/testing/fake-browser"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { BATCH_SEPARATOR } from "@/utils/constants/prompt"
 import { isTranslationCancelledError } from "@/utils/request/cancellation"
@@ -430,6 +431,34 @@ describe("batch cancellation ownership across deduped sessions", () => {
       await vi.advanceTimersByTimeAsync(1_000)
 
       expect(alphaB.outcome()).toEqual({ ok: true, value: "translated alpha" })
+    })
+
+    it("a tab closed during the backoff counts as cancelled, so the retry lists only the other tab", async () => {
+      const ctx = await setup()
+      const held = createDeferred<string>()
+      let attempt = 0
+      answer = (call) => {
+        if (!call.isBatch) return Promise.resolve(`translated ${call.text}`)
+        return ++attempt === 1 ? mismatch() : held.promise
+      }
+      ctx.request("alpha", "h-alpha", "sA", TAB_A)
+      ctx.request("beta", "h-beta", "sA", TAB_A)
+      const alphaB = ctx.request("alpha", "h-alpha", "sB", TAB_B)
+      await vi.advanceTimersByTimeAsync(10)
+      await flush()
+      expect(batchCalls()).toHaveLength(1)
+
+      // Tab 1 closes in the backoff: no cancel message ever arrives, the tab sweep marks its scopes.
+      await fakeBrowser.tabs.onRemoved.trigger(1, { windowId: 1, isWindowClosing: false })
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(batchCalls()).toHaveLength(2)
+
+      await ctx.cancelSession("sB", TAB_B)
+
+      expect(batchCalls()[1]!.signal!.aborted).toBe(true)
+      const result = alphaB.outcome()
+      expect(result?.ok).toBe(false)
+      expect(isTranslationCancelledError((result as { error: unknown }).error)).toBe(true)
     })
 
     it("both cancelled during the backoff: no retry is sent (control)", async () => {
