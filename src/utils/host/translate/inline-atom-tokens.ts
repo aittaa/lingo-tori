@@ -1,4 +1,4 @@
-import { BATCH_SEPARATOR } from "@/utils/constants/prompt"
+import { BATCH_SEPARATOR, isNoTranslationSentinel } from "@/utils/constants/prompt"
 
 /**
  * Plain-text placeholder protocol for inline atoms (rendered formulas) in
@@ -139,6 +139,24 @@ export function auditInlineAtomTokens(source: string, output: string): InlineAto
     unknown,
     duplicates,
   }
+}
+
+/**
+ * Whether a provider result for `source` may be remembered. The one rule both caches follow: the
+ * background's persistent cache and the content script's in-tab memory tier, which would otherwise
+ * disagree and let a tab keep answering from a result the background refused to persist.
+ *
+ * A source without placeholders is never audited. The no-translation sentinel is exempt: "no
+ * translation needed" carries no placeholders by definition, and auditing it as a total loss would
+ * make every already-in-target-language paragraph containing a formula ask the provider again on every
+ * request. Anything else must return every placeholder exactly once and invent none.
+ */
+export function isInlineAtomResultCacheable(source: string, result: string): boolean {
+  return (
+    !hasInlineAtomTokens(source) ||
+    isNoTranslationSentinel(result) ||
+    auditInlineAtomTokens(source, result).ok
+  )
 }
 
 // No worked example on purpose: a marker slot inside an example teaches models
