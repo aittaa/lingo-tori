@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query"
 import { kebabCase } from "case-anything"
 import { saveAs } from "file-saver"
 import { toastManager } from "@/components/ui/base-ui/toast"
-import { getObjectWithoutAPIKeys } from "@/utils/config/api"
+import { getConfigWithoutCredentials } from "@/utils/config/api"
 import { APP_NAME } from "@/utils/constants/app"
 import { buildGlossaryDocument } from "@/utils/glossary/sync/document"
 import { readLocalGlossary } from "@/utils/glossary/sync/local-store"
@@ -35,7 +35,17 @@ export function useExportConfig({
       let exportConfig = config
 
       if (!includeApiKeys) {
-        exportConfig = getObjectWithoutAPIKeys(config)
+        // Fail closed. The file is meant to be shared, so when the credentials
+        // cannot be taken out nothing is written, rather than the original with
+        // them still in it. The mutation cache shows the message as a toast.
+        try {
+          exportConfig = getConfigWithoutCredentials(config)
+        } catch (error) {
+          throw new Error(
+            "Could not remove the API keys and other credentials from the config, so nothing was exported.",
+            { cause: error },
+          )
+        }
       }
 
       // Best effort, and deliberately so: this hook is also what the recovery
