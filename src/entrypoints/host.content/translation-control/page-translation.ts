@@ -104,6 +104,8 @@ interface IPageTranslationManager {
    * Pass `userInitiated` when the stop comes from a user surface (shortcut,
    * touch gesture, popup/floating-button toggle) so the background records
    * the refusal and auto-translation stops re-enabling the page (#2011).
+   * Also cancels a start() still awaiting its pre-activation gates, so it is
+   * safe to call on a manager that is not active yet.
    */
   stop: (options?: { userInitiated?: boolean }) => void
 
@@ -503,7 +505,10 @@ export class PageTranslationManager implements IPageTranslationManager {
     this.pendingStart = null
 
     if (!this.isPageTranslating) {
-      console.warn("PageTranslationManager is already inactive")
+      // Reached routinely: every OFF the background broadcasts lands here, in
+      // frames with nothing to stop as well. A dev-only note, not a warning in
+      // the page's console.
+      logger.info("PageTranslationManager is already inactive")
       return
     }
 
