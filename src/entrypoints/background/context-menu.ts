@@ -11,6 +11,7 @@ import {
 } from "@/utils/constants/storage-keys"
 import { getSelectionToolbarActions } from "@/utils/custom-actions"
 import { i18n } from "@/utils/i18n"
+import { logger } from "@/utils/logger"
 import { sendMessage } from "@/utils/message"
 import { ensureInitializedConfig } from "./config"
 import { getPageTranslationEnabled, setPageTranslationEnabled } from "./page-translation-state"
@@ -206,7 +207,7 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
   }
 
   // Notify content script in that specific tab
-  void sendMessage(
+  const delivered = await sendMessage(
     "askManagerToTogglePageTranslation",
     {
       enabled: newState,
@@ -218,10 +219,19 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
         : undefined,
     },
     tabId,
+  ).then(
+    () => true,
+    (error) => {
+      logger.warn("Failed to ask page translation manager to toggle", error)
+      return false
+    },
   )
 
-  // Update menu title immediately
-  await updateTranslateMenuTitle(tabId, newState)
+  // Update the menu title once a manager heard the request. With no receiver in the tab
+  // nothing changed on the page, and the title keeps saying what is true.
+  if (delivered) {
+    await updateTranslateMenuTitle(tabId, newState)
+  }
 }
 
 async function handleSelectionTranslateClick(

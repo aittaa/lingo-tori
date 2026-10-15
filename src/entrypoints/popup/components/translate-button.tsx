@@ -1,6 +1,6 @@
 import { IconSettings } from "@tabler/icons-react"
 import { useAtom, useAtomValue } from "jotai"
-import { useId } from "react"
+import { useId, useRef, useState } from "react"
 import { browser } from "#imports"
 import { Button } from "@/components/ui/base-ui/button"
 import { Kbd, KbdGroup } from "@/components/ui/base-ui/kbd"
@@ -10,6 +10,7 @@ import { createFeatureUsageContext } from "@/utils/analytics"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { featureProviderRefAtom } from "@/utils/atoms/provider"
 import { i18n } from "@/utils/i18n"
+import { logger } from "@/utils/logger"
 import { sendMessage } from "@/utils/message"
 import {
   buildFeatureProviderRoute,
@@ -36,24 +37,47 @@ export default function TranslateButton({ className }: { className?: string }) {
   // Showing the original needs no provider; only starting a translation does.
   const needsProvider = !isPageTranslated && !providerRef
 
-  const toggleTranslation = async () => {
-    if (needsProvider) return
-    const [currentTab] = await browser.tabs.query({
-      active: true,
-      currentWindow: true,
-    })
+  // Set when the toggle reached no page manager; cleared by the next attempt.
+  const [deliveryFailed, setDeliveryFailed] = useState(false)
+  const toggleInFlight = useRef(false)
 
-    if (currentTab!.id) {
-      const nextEnabled = !isPageTranslated
-      void sendMessage("tryToSetEnablePageTranslationByTabId", {
-        tabId: currentTab!.id,
-        enabled: nextEnabled,
-        analyticsContext: nextEnabled
-          ? createFeatureUsageContext(ANALYTICS_FEATURE.PAGE_TRANSLATION, ANALYTICS_SURFACE.POPUP)
-          : undefined,
+  const toggleTranslation = async () => {
+    if (needsProvider || toggleInFlight.current) return
+    toggleInFlight.current = true
+    try {
+      const [currentTab] = await browser.tabs.query({
+        active: true,
+        currentWindow: true,
       })
 
-      setIsPageTranslated((prev) => !prev)
+      if (currentTab!.id) {
+        const nextEnabled = !isPageTranslated
+        // Flip only once a page manager in the tab has acknowledged the request. With no
+        // receiver (a tab opened before the install, a context invalidated by an update,
+        // a content script that failed to start) nothing changed on the page, so the
+        // button keeps showing what is true and asks for a refresh.
+        let delivered = false
+        try {
+          const result = await sendMessage("tryToSetEnablePageTranslationByTabId", {
+            tabId: currentTab!.id,
+            enabled: nextEnabled,
+            analyticsContext: nextEnabled
+              ? createFeatureUsageContext(
+                  ANALYTICS_FEATURE.PAGE_TRANSLATION,
+                  ANALYTICS_SURFACE.POPUP,
+                )
+              : undefined,
+          })
+          delivered = result.delivered
+        } catch (error) {
+          logger.warn("Failed to deliver the page translation toggle", error)
+        }
+
+        setDeliveryFailed(!delivered)
+        if (delivered) setIsPageTranslated(nextEnabled)
+      }
+    } finally {
+      toggleInFlight.current = false
     }
   }
 
@@ -87,7 +111,20 @@ export default function TranslateButton({ className }: { className?: string }) {
     </Button>
   )
 
-  if (!needsProvider) return button
+  const refreshHint = deliveryFailed ? (
+    <p role="alert" className="w-full text-xs text-destructive">
+      {i18n.t("popup.refreshNeeded")}
+    </p>
+  ) : null
+
+  if (!needsProvider) {
+    return (
+      <>
+        {button}
+        {refreshHint}
+      </>
+    )
+  }
 
   const description = i18n.t("providerRequired.message")
 

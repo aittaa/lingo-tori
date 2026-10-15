@@ -188,6 +188,38 @@ describe("translationMessage", () => {
     )
   })
 
+  it("tells the requester whether a page manager acknowledged a tab-level toggle", async () => {
+    await setupSubject()
+
+    await expect(
+      getHandler("tryToSetEnablePageTranslationByTabId")({ data: { tabId: 42, enabled: true } }),
+    ).resolves.toEqual({ delivered: true })
+
+    sendMessageMock.mockRejectedValue(
+      new Error("Could not establish connection. Receiving end does not exist."),
+    )
+    await expect(
+      getHandler("tryToSetEnablePageTranslationByTabId")({ data: { tabId: 42, enabled: true } }),
+    ).resolves.toEqual({ delivered: false })
+    expect(loggerWarnMock).toHaveBeenCalledWith(
+      "Failed to ask page translation manager to toggle",
+      expect.any(Error),
+    )
+    // A start the tab never heard persists nothing.
+    expect(storageSetItemMock).not.toHaveBeenCalled()
+  })
+
+  it("keeps the user's refusal when a stop could not be delivered", async () => {
+    await setupSubject()
+    sendMessageMock.mockRejectedValue(new Error("Extension context invalidated."))
+
+    await expect(
+      getHandler("tryToSetEnablePageTranslationByTabId")({ data: { tabId: 42, enabled: false } }),
+    ).resolves.toEqual({ delivered: false })
+
+    expect(storageSetItemMock).toHaveBeenCalledWith(getTranslationStateKey(42), { enabled: false })
+  })
+
   it("injects current iframes when explicitly asked for a tab", async () => {
     await setupSubject()
 

@@ -16,6 +16,7 @@ const { sendMessageMock, ensureInitializedConfigMock } = vi.hoisted(() => ({
   sendMessageMock: vi.fn<(...args: any[]) => any>(),
   ensureInitializedConfigMock: vi.fn<(...args: any[]) => any>(),
 }))
+const storageGetItemMock = vi.fn<(...args: any[]) => any>()
 const storageSetItemMock = vi.fn<(...args: any[]) => any>()
 const contextMenuClickListeners: Array<(info: any, tab?: any) => Promise<void> | void> = []
 
@@ -52,6 +53,9 @@ describe("background context menu", () => {
   beforeEach(() => {
     contextMenuClickListeners.length = 0
     vi.clearAllMocks()
+    // The real sendMessage always returns a promise (an answer, or a rejection when the
+    // tab has no receiver).
+    sendMessageMock.mockResolvedValue(undefined)
 
     browser.contextMenus.create = vi.fn<(...args: any[]) => any>()
     browser.contextMenus.removeAll = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined)
@@ -66,7 +70,8 @@ describe("background context menu", () => {
     browser.storage.session.onChanged.addListener = vi.fn<(...args: any[]) => any>()
 
     storage.watch = vi.fn<(...args: any[]) => any>()
-    storage.getItem = vi.fn<(...args: any[]) => any>().mockResolvedValue({ enabled: true })
+    storage.getItem = storageGetItemMock
+    storageGetItemMock.mockResolvedValue({ enabled: true })
     storage.setItem = storageSetItemMock
     storageSetItemMock.mockResolvedValue(undefined)
 
@@ -166,6 +171,46 @@ describe("background context menu", () => {
     expect(browser.contextMenus.removeAll).toHaveBeenCalledOnce()
     expect(browser.contextMenus.create).not.toHaveBeenCalled()
     expect(browser.contextMenus.update).not.toHaveBeenCalled()
+  })
+
+  describe("translate menu title after a click", () => {
+    async function clickTranslateMenu(stored: { enabled: boolean }) {
+      ensureInitializedConfigMock.mockResolvedValue(createConfig(true))
+      storageGetItemMock.mockResolvedValue(stored)
+      registerContextMenuListeners()
+      const clickHandler = contextMenuClickListeners[0]
+      if (!clickHandler) {
+        throw new Error("Context menu click listener was not registered")
+      }
+      await clickHandler(
+        { menuItemId: MENU_ID_TRANSLATE },
+        { id: 5, url: "https://example.com/articles/1" },
+      )
+    }
+
+    it("switches to Show Original once a page manager acknowledged the start", async () => {
+      await clickTranslateMenu({ enabled: false })
+
+      expect(sendMessageMock).toHaveBeenCalledWith(
+        "askManagerToTogglePageTranslation",
+        expect.objectContaining({ enabled: true }),
+        5,
+      )
+      expect(browser.contextMenus.update).toHaveBeenCalledWith(MENU_ID_TRANSLATE, {
+        title: "Show Original",
+      })
+    })
+
+    it.each([
+      "Could not establish connection. Receiving end does not exist.",
+      "Extension context invalidated.",
+    ])("keeps the title when no page manager heard the request (%s)", async (message) => {
+      sendMessageMock.mockRejectedValue(new Error(message))
+
+      await clickTranslateMenu({ enabled: false })
+
+      expect(browser.contextMenus.update).not.toHaveBeenCalled()
+    })
   })
 
   it("records a scoped user refusal when the translate menu disables translation", async () => {
