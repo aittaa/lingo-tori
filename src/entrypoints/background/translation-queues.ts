@@ -370,7 +370,7 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
 
       return requestQueue.enqueue(batchThunk, earliestScheduleAt, hash, meta.scopes, { timeoutMs })
     },
-    executeIndividual: async (data) => {
+    executeIndividual: async (data, meta) => {
       const {
         text,
         langConfig,
@@ -378,7 +378,6 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
         hash,
         scheduleAt,
         context,
-        scope,
         glossaryTerms,
         promptTemplate,
       } = data
@@ -401,7 +400,11 @@ async function createTranslationQueues<TContext>(config: TranslationQueueSetupCo
           promptTemplate,
         })
       }
-      return requestQueue.enqueue(thunk, scheduleAt, hash, scope ? [scope] : undefined)
+      // The owners of THIS item, not `data.scope`: that is only the first session that asked for
+      // it, while later ones were deduped into the same item. Using it let the first session's
+      // cancel abort a request another session was still waiting for (and left a first session that
+      // had already cancelled as an owner nobody could cancel again).
+      return requestQueue.enqueue(thunk, scheduleAt, hash, meta.scopes)
     },
     onError: (error, context) => {
       const errorType = context.isFallback ? "Individual request" : "Batch request"
