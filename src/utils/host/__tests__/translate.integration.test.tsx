@@ -3016,11 +3016,13 @@ describe("translate", () => {
       expect(vi.mocked(translateTextForPage).mock.calls[1]![0]).toContain(
         `data-rf-attr="rf-page-0"`,
       )
-      const translatedStrong = expectTranslationWrapper(node, "translationOnly")?.querySelector(
-        "strong",
-      )
-      expect(translatedStrong?.getAttribute("data-rf-attr")).toBe("0")
-      expect(translatedStrong?.className).toBe("place")
+      // The response drops the surrounding text, so it cannot be paired with the
+      // page's own nodes and the wrapper fallback shows its text only: no provider
+      // element is written into the page. The numeric-marker restore itself is
+      // pinned by the restoreLegacy test in translation-html-attributes.test.ts.
+      const wrapper = expectTranslationWrapper(node, "translationOnly")
+      expect(wrapper?.textContent).toBe("温哥华")
+      expect(wrapper?.querySelector("strong")).toBeNull()
     })
 
     it("keeps the source DOM and existing error UI when the full HTML fallback fails", async () => {
