@@ -1,6 +1,6 @@
 import { IconSettings } from "@tabler/icons-react"
 import { useAtom, useAtomValue } from "jotai"
-import { useId } from "react"
+import { useId, useRef, useState } from "react"
 import { browser } from "#imports"
 import { Button } from "@/components/ui/base-ui/button"
 import { Kbd, KbdGroup } from "@/components/ui/base-ui/kbd"
@@ -10,6 +10,7 @@ import { createFeatureUsageContext } from "@/utils/analytics"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { featureProviderRefAtom } from "@/utils/atoms/provider"
 import { i18n } from "@/utils/i18n"
+import { logger } from "@/utils/logger"
 import { sendMessage } from "@/utils/message"
 import {
   buildFeatureProviderRoute,
@@ -22,6 +23,17 @@ import { cn } from "@/utils/styles/utils"
 import { isPageTranslatedAtom } from "../atoms/auto-translate"
 import { isIgnoreTabAtom } from "../atoms/ignore"
 import { isCurrentSiteInBlacklistAtom, isCurrentSiteInWhitelistAtom } from "../atoms/site-control"
+
+/**
+ * How long the popup waits to hear from the background whether a page manager answered a toggle.
+ * The messaging library has no timeout of its own, so a channel that stays open and never replies
+ * would leave the button silently unusable. A chosen bound, not a measured one: long enough for a
+ * cold-started service worker and a page whose main thread is busy, short enough that the user is
+ * not left looking at a button that seems dead. An answer that comes later is dropped; the hint asks
+ * for a refresh and a retry, and a repeated start or stop is harmless (the page skips a redundant
+ * start, and a stop with nothing to stop does nothing).
+ */
+const TOGGLE_ANSWER_TIMEOUT_MS = 5_000
 
 export default function TranslateButton({ className }: { className?: string }) {
   const [isPageTranslated, setIsPageTranslated] = useAtom(isPageTranslatedAtom)
@@ -36,24 +48,66 @@ export default function TranslateButton({ className }: { className?: string }) {
   // Showing the original needs no provider; only starting a translation does.
   const needsProvider = !isPageTranslated && !providerRef
 
+  // Set when the toggle reached no page manager or got no answer in time; cleared when the next
+  // attempt starts.
+  const [deliveryFailed, setDeliveryFailed] = useState(false)
+  // The attempt now waiting for its answer, if any. Only the current attempt may change the screen:
+  // one the popup gave up on (its deadline passed) is not current any more, so a reply that comes
+  // in late, successful or not, is ignored.
+  const currentAttempt = useRef<number | null>(null)
+  const attemptCount = useRef(0)
+
   const toggleTranslation = async () => {
-    if (needsProvider) return
-    const [currentTab] = await browser.tabs.query({
-      active: true,
-      currentWindow: true,
-    })
-
-    if (currentTab!.id) {
-      const nextEnabled = !isPageTranslated
-      void sendMessage("tryToSetEnablePageTranslationByTabId", {
-        tabId: currentTab!.id,
-        enabled: nextEnabled,
-        analyticsContext: nextEnabled
-          ? createFeatureUsageContext(ANALYTICS_FEATURE.PAGE_TRANSLATION, ANALYTICS_SURFACE.POPUP)
-          : undefined,
+    if (needsProvider || currentAttempt.current !== null) return
+    const attempt = ++attemptCount.current
+    currentAttempt.current = attempt
+    setDeliveryFailed(false)
+    const deadline = setTimeout(() => {
+      if (currentAttempt.current !== attempt) return
+      // Stop waiting: release the button and say so.
+      currentAttempt.current = null
+      setDeliveryFailed(true)
+    }, TOGGLE_ANSWER_TIMEOUT_MS)
+    try {
+      const [currentTab] = await browser.tabs.query({
+        active: true,
+        currentWindow: true,
       })
+      if (currentAttempt.current !== attempt) return
 
-      setIsPageTranslated((prev) => !prev)
+      if (currentTab!.id) {
+        const nextEnabled = !isPageTranslated
+        // Flip only once a page manager in the tab has acknowledged the request. With no
+        // receiver (a tab opened before the install, a context invalidated by an update,
+        // a content script that failed to start) nothing is known to have changed on the page, so
+        // the button does not flip and asks for a refresh. It is not synced to the page's real
+        // state: what it shows is the last state a manager acknowledged, or the one the
+        // background had recorded when the popup opened.
+        let delivered = false
+        try {
+          const result = await sendMessage("tryToSetEnablePageTranslationByTabId", {
+            tabId: currentTab!.id,
+            enabled: nextEnabled,
+            analyticsContext: nextEnabled
+              ? createFeatureUsageContext(
+                  ANALYTICS_FEATURE.PAGE_TRANSLATION,
+                  ANALYTICS_SURFACE.POPUP,
+                )
+              : undefined,
+          })
+          delivered = result.delivered
+        } catch (error) {
+          logger.warn("Failed to deliver the page translation toggle", error)
+        }
+
+        // Given up on while waiting (or replaced by a newer attempt): this reply is stale.
+        if (currentAttempt.current !== attempt) return
+        setDeliveryFailed(!delivered)
+        if (delivered) setIsPageTranslated(nextEnabled)
+      }
+    } finally {
+      clearTimeout(deadline)
+      if (currentAttempt.current === attempt) currentAttempt.current = null
     }
   }
 
@@ -87,7 +141,20 @@ export default function TranslateButton({ className }: { className?: string }) {
     </Button>
   )
 
-  if (!needsProvider) return button
+  const refreshHint = deliveryFailed ? (
+    <p role="alert" className="w-full text-xs text-destructive">
+      {i18n.t("popup.refreshNeeded")}
+    </p>
+  ) : null
+
+  if (!needsProvider) {
+    return (
+      <>
+        {button}
+        {refreshHint}
+      </>
+    )
+  }
 
   const description = i18n.t("providerRequired.message")
 

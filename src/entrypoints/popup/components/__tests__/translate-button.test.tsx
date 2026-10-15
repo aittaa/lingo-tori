@@ -77,7 +77,8 @@ const showOriginalButton = () => screen.getByRole("button", { name: /^popup\.sho
 
 describe("popup translate button", () => {
   beforeEach(() => {
-    mocks.sendMessage.mockReset()
+    // The background now answers a toggle with whether a page manager acknowledged it.
+    mocks.sendMessage.mockReset().mockResolvedValue({ delivered: true })
     mocks.openOptionsPage.mockReset()
     browser.tabs.query = vi.fn<(...args: any[]) => any>().mockResolvedValue([{ id: 7 }])
   })

@@ -23,6 +23,7 @@ popup:
     open: Open provider settings
   translate: Translate
   showOriginal: Show Original
+  refreshNeeded: Couldn't reach this page. Refresh it, then try again.
   enabledFloatingButton: Enable floating button
   enabledSelectionToolbar: Enable selection toolbar
   alwaysTranslate: Always translate this site

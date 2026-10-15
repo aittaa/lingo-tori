@@ -23,6 +23,7 @@ popup:
     open: 제공업체 설정 열기
   translate: 번역
   showOriginal: 원문 보기
+  refreshNeeded: 이 페이지에 연결하지 못했어요. 새로고침한 뒤 다시 시도해 주세요.
   enabledFloatingButton: 플로팅 버튼 활성화
   enabledSelectionToolbar: 선택 툴바 활성화
   alwaysTranslate: 이 사이트 항상 번역

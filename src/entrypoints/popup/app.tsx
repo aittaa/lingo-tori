@@ -29,7 +29,7 @@ function App() {
           <LanguageOptionsSelector />
           <ProvidersField />
           <TranslatePromptSelector />
-          <div className="flex w-full items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2">
             <TranslationModeSelector />
             <TranslateButton className="min-w-0 flex-1" />
           </div>

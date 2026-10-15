@@ -29,13 +29,27 @@ function notifyPageTranslationStateChanged(tabId: number, enabled: boolean) {
   )
 }
 
+/**
+ * Asks the tab's page translation manager to switch. Resolves true once a manager
+ * acknowledged the request and false when none could be reached (no receiver, the
+ * port closed without an answer, the extension context was invalidated): the tab is
+ * then not doing what was asked, and a surface showing the state must not claim it is.
+ */
 function requestManagerToTogglePageTranslation(
   tabId: number,
   enabled: boolean,
   analyticsContext?: FeatureUsageContext<"page_translation">,
-) {
-  void sendMessage("askManagerToTogglePageTranslation", { enabled, analyticsContext }, tabId).catch(
-    (error) => logger.warn("Failed to ask page translation manager to toggle", error),
+): Promise<boolean> {
+  return sendMessage(
+    "askManagerToTogglePageTranslation",
+    { enabled, analyticsContext },
+    tabId,
+  ).then(
+    () => true,
+    (error) => {
+      logger.warn("Failed to ask page translation manager to toggle", error)
+      return false
+    },
   )
 }
 
@@ -133,7 +147,7 @@ export function translationMessage() {
         const state = await getPageTranslationState(tabId)
         if (isAutoTranslationSuppressed(state, url)) return
 
-        requestManagerToTogglePageTranslation(
+        void requestManagerToTogglePageTranslation(
           tabId,
           true,
           createFeatureUsageContext(
@@ -174,7 +188,13 @@ export function translationMessage() {
       await setPageTranslationEnabled(tabId, false, tabUrl, true)
       notifyPageTranslationStateChanged(tabId, false)
     }
-    requestManagerToTogglePageTranslation(tabId, enabled, analyticsContext)
+    // The popup flips its button only on a delivered request. What is persisted does not
+    // depend on it: a start writes nothing here (the manager records its own activation),
+    // and a stop's refusal is written above, before delivery, so a refresh after an
+    // undeliverable stop comes up untranslated as the user asked.
+    return {
+      delivered: await requestManagerToTogglePageTranslation(tabId, enabled, analyticsContext),
+    }
   })
 
   onMessage("tryToSetEnablePageTranslationOnContentScript", async (msg) => {
@@ -189,7 +209,7 @@ export function translationMessage() {
         await setPageTranslationEnabled(tabId, false, msg.sender?.tab?.url, true)
         notifyPageTranslationStateChanged(tabId, false)
       }
-      requestManagerToTogglePageTranslation(tabId, enabled, analyticsContext)
+      void requestManagerToTogglePageTranslation(tabId, enabled, analyticsContext)
     } else {
       logger.error("tabId is not a number", msg)
     }

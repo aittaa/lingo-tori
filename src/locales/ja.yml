@@ -23,6 +23,7 @@ popup:
     open: プロバイダー設定を開く
   translate: 翻訳
   showOriginal: 原文を表示
+  refreshNeeded: このページに接続できませんでした。再読み込みしてから、もう一度お試しください。
   enabledFloatingButton: フローティングボタンを有効化
   enabledSelectionToolbar: 選択ツールバーを有効化
   alwaysTranslate: このサイトを常に翻訳する

@@ -182,7 +182,8 @@
     "onboarding.errorLater",
     "onboarding.doneTitle",
     "onboarding.doneDescription",
-    "onboarding.goSettings"
+    "onboarding.goSettings",
+    "popup.refreshNeeded"
   ],
   "deferredHubKeys": [
     "popup.hub.tooltip",

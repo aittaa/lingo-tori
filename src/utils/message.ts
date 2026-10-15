@@ -48,11 +48,13 @@ interface ProtocolMap {
   // translation state
   getEnablePageTranslationByTabId: (data: { tabId: number }) => boolean | undefined
   getEnablePageTranslationFromContentScript: () => Promise<boolean>
+  // `delivered` is true once a page translation manager in the tab acknowledged the
+  // request; false when none could be reached (no receiver, context invalidated).
   tryToSetEnablePageTranslationByTabId: (data: {
     tabId: number
     enabled: boolean
     analyticsContext?: FeatureUsageContext<"page_translation">
-  }) => void
+  }) => Promise<{ delivered: boolean }>
   tryToSetEnablePageTranslationOnContentScript: (data: {
     enabled: boolean
     analyticsContext?: FeatureUsageContext<"page_translation">
