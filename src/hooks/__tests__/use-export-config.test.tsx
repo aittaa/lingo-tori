@@ -524,3 +524,151 @@ describe("useExportConfig credential-free export, URL and name forms", () => {
     expect((JSON.parse(json) as { config: Config }).config).toEqual(config)
   })
 })
+
+/**
+ * Round 3: the stand-in for `{{apiKey}}` that the URL pass uses must not be something URL
+ * normalization can build out of a credential or a hostname. Each input spells the old fixed
+ * stand-in, `zqplaceholderzq`, by a route the parser normalizes.
+ */
+const ROUND_3_VECTORS = [
+  {
+    name: "a query value behind a tab-split name",
+    input: "https://example.test/v1?si\tg=zq%70laceholderzq",
+    expected: "https://example.test/v1?sig=",
+  },
+  {
+    name: "a fragment value behind a newline-split name",
+    input: "https://example.test/v1#si\ng=zq%70laceholderzq",
+    expected: "https://example.test/v1#sig=",
+  },
+  {
+    name: "a username split by a tab",
+    input: " https://zqplace\tholderzq@example.test/v1",
+    expected: "https://example.test/v1",
+  },
+  {
+    name: "a host spelled with a percent-escape",
+    input: " https://U:P@zq%70laceholderzq.example.test/v1",
+    expected: "https://zqplaceholderzq.example.test/v1",
+  },
+  {
+    name: "a host spelled with fullwidth letters",
+    input:
+      " https://U:P@\uFF5A\uFF51\uFF50\uFF4C\uFF41\uFF43\uFF45\uFF48\uFF4F\uFF4C\uFF44\uFF45\uFF52\uFF5A\uFF51.example.test/v1",
+    expected: "https://zqplaceholderzq.example.test/v1",
+  },
+  {
+    name: "the query collision beside a genuine placeholder",
+    input: "https://example.test/{{apiKey}}?si\tg=zq%70laceholderzq",
+    expected: "https://example.test/{{apiKey}}?sig=",
+  },
+  {
+    name: "the host collision beside a genuine placeholder",
+    input: " https://U:P@zq%70laceholderzq.example.test/{{apiKey}}",
+    expected: "https://zqplaceholderzq.example.test/{{apiKey}}",
+  },
+] as const
+
+describe("useExportConfig credential-free export, placeholder stand-in collisions", () => {
+  beforeEach(() => {
+    vi.mocked(saveAs).mockClear()
+  })
+
+  function buildCollisionConfig(url: string, field: "baseURL" | "url"): Config {
+    const config: Config = structuredClone(DEFAULT_CONFIG)
+    config.providersConfig = [
+      field === "baseURL"
+        ? {
+            id: "collision-gateway",
+            name: "Collision gateway",
+            enabled: true,
+            provider: "openai-compatible",
+            model: CUSTOM_MODEL,
+            baseURL: url,
+          }
+        : {
+            id: "collision-responses",
+            name: "Collision responses",
+            enabled: true,
+            provider: "open-responses",
+            model: CUSTOM_MODEL,
+            url,
+          },
+    ] as Config["providersConfig"]
+    return config
+  }
+
+  const hostnameOf = (url: string) => new URL(url.replaceAll("{{apiKey}}", "placeholder")).hostname
+
+  it.each(ROUND_3_VECTORS)("exports a provider the schema accepts: $name", ({ input }) => {
+    expect(
+      providerConfigItemSchema.safeParse(buildCollisionConfig(input, "baseURL").providersConfig[0])
+        .success,
+    ).toBe(true)
+    expect(
+      providerConfigItemSchema.safeParse(buildCollisionConfig(input, "url").providersConfig[0])
+        .success,
+    ).toBe(true)
+  })
+
+  it.each(ROUND_3_VECTORS)(
+    "writes it credential-free with the same hostname: $name",
+    async ({ input, expected }) => {
+      const exported = JSON.parse(
+        await exportJson(buildCollisionConfig(input, "baseURL"), false),
+      ) as {
+        config: Config
+      }
+      const provider = exported.config.providersConfig[0] as { baseURL: string }
+
+      expect(provider.baseURL).toBe(expected)
+      const parsed = new URL(provider.baseURL.replaceAll("{{apiKey}}", "placeholder"))
+      expect(parsed.username).toBe("")
+      expect(parsed.password).toBe("")
+      expect([...parsed.searchParams].filter(([, value]) => value !== "")).toEqual([])
+      expect(parsed.hash.includes("=") ? parsed.hash.split("=")[1] : "").toBe("")
+      expect(parsed.hostname).toBe(hostnameOf(input))
+    },
+  )
+
+  it.each(ROUND_3_VECTORS)(
+    "does the same for the open-responses url: $name",
+    async ({ input, expected }) => {
+      const exported = JSON.parse(await exportJson(buildCollisionConfig(input, "url"), false)) as {
+        config: Config
+      }
+
+      expect((exported.config.providersConfig[0] as { url: string }).url).toBe(expected)
+    },
+  )
+
+  it.each(ROUND_3_VECTORS)("imports again through the real schema: $name", async ({ input }) => {
+    const exported = JSON.parse(
+      await exportJson(buildCollisionConfig(input, "baseURL"), false),
+    ) as {
+      config: unknown
+      schemaVersion: number
+    }
+
+    expect(configSchema.safeParse(exported.config).success).toBe(true)
+    await expect(migrateConfig(exported.config, exported.schemaVersion)).resolves.toBeDefined()
+  })
+
+  it("keeps a genuine placeholder, and a host that looks like the old stand-in, byte for byte", async () => {
+    const urls = [
+      "https://api.deeplx.org/{{apiKey}}/translate",
+      "https://example.test/v1?token={{apiKey}}",
+      "https://zqplaceholderzq.example.test/{{apiKey}}",
+      "https://zq%70laceholderzq.example.test/v1",
+    ]
+    for (const url of urls) {
+      const exported = JSON.parse(
+        await exportJson(buildCollisionConfig(url, "baseURL"), false),
+      ) as {
+        config: Config
+      }
+
+      expect((exported.config.providersConfig[0] as { baseURL: string }).baseURL).toBe(url)
+    }
+  })
+})

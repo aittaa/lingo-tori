@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { providerConfigSchemaList } from "@/types/config/provider"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { LLM_MODEL_OPTIONS } from "@/utils/constants/models"
@@ -833,7 +833,7 @@ describe("getConfigWithoutCredentials", () => {
     // A fixed-seed property test: random joins of the pieces a URL is made of, padding and slashes
     // and tabs included. Whatever comes out must hold nothing the URL parser reads as a credential,
     // and nothing here may be refused.
-    it("leaves no credential the parser can see in any mix of URL pieces, and never refuses one", () => {
+    it("leaves no credential the parser can see in any mix of URL pieces, and refuses only where a placeholder is involved", () => {
       const PIECES = [
         "",
         " ",
@@ -896,7 +896,10 @@ describe("getConfigWithoutCredentials", () => {
         try {
           output = redactUrl(input)
         } catch {
-          leaks.push(`refused: ${JSON.stringify(input)}`)
+          // Failing closed is allowed where a genuine placeholder could have been dropped or
+          // moved by the parser (a dot-segment, a scheme it joined); an input without one has
+          // nothing to count and must never be refused.
+          if (!input.includes("{{apiKey}}")) leaks.push(`refused: ${JSON.stringify(input)}`)
           continue
         }
         let found: string[] = []
@@ -923,6 +926,485 @@ describe("getConfigWithoutCredentials", () => {
         url.username = ""
         expect(url.username).toBe("")
       }
+    })
+  })
+  /**
+   * `{{apiKey}}` is swapped for a stand-in while a URL goes through the parser. The parser can
+   * build text out of pieces (it drops tabs and newlines, decodes percent-escapes in a host, maps
+   * fullwidth letters), so a stand-in anyone could guess could be assembled from a credential or a
+   * hostname and then be mistaken for a genuine placeholder, or be "restored" into one.
+   */
+  describe("the placeholder stand-in cannot be manufactured by URL normalization", () => {
+    const CREDENTIAL_PARAM = /key|token|auth|sig|secret|pass|credential|cookie|bearer|jwt/i
+    function credentialsOf(url: string): string[] {
+      const parsed = new URL(url.replaceAll("{{apiKey}}", "placeholder"))
+      const found: string[] = []
+      if (parsed.username && parsed.username !== "placeholder") found.push("username")
+      if (parsed.password && parsed.password !== "placeholder") found.push("password")
+      for (const [name, value] of parsed.searchParams) {
+        if (CREDENTIAL_PARAM.test(name) && value && value !== "placeholder")
+          found.push(`query:${name}`)
+      }
+      if (parsed.hash.slice(1).includes("=")) {
+        for (const [name, value] of new URLSearchParams(parsed.hash.slice(1))) {
+          if (CREDENTIAL_PARAM.test(name) && value && value !== "placeholder") {
+            found.push(`fragment:${name}`)
+          }
+        }
+      }
+      return found
+    }
+    const hostnameOf = (url: string) =>
+      new URL(url.replaceAll("{{apiKey}}", "placeholder")).hostname
+    const placeholdersIn = (text: string) => text.split("{{apiKey}}").length - 1
+
+    // The five collisions the review found, and the two that also carry a genuine placeholder.
+    // The old fixed stand-in was the literal `zqplaceholderzq`; each input spells it by a route the
+    // parser normalizes (a tab or newline inside it, a percent-escape in a host, fullwidth letters).
+    const VECTORS: Array<{ name: string; input: string; expected: string }> = [
+      {
+        name: "a query value, behind a tab-split name",
+        input: "https://example.test/v1?si\tg=zq%70laceholderzq",
+        expected: "https://example.test/v1?sig=",
+      },
+      {
+        name: "a fragment value, behind a newline-split name",
+        input: "https://example.test/v1#si\ng=zq%70laceholderzq",
+        expected: "https://example.test/v1#sig=",
+      },
+      {
+        name: "a username split by a tab",
+        input: " https://zqplace\tholderzq@example.test/v1",
+        expected: "https://example.test/v1",
+      },
+      {
+        name: "a host spelled with a percent-escape",
+        input: " https://U:P@zq%70laceholderzq.example.test/v1",
+        expected: "https://zqplaceholderzq.example.test/v1",
+      },
+      {
+        name: "a host spelled with fullwidth letters",
+        input:
+          " https://U:P@\uFF5A\uFF51\uFF50\uFF4C\uFF41\uFF43\uFF45\uFF48\uFF4F\uFF4C\uFF44\uFF45\uFF52\uFF5A\uFF51.example.test/v1",
+        expected: "https://zqplaceholderzq.example.test/v1",
+      },
+      {
+        name: "the query collision beside a genuine placeholder",
+        input: "https://example.test/{{apiKey}}?si\tg=zq%70laceholderzq",
+        expected: "https://example.test/{{apiKey}}?sig=",
+      },
+      {
+        name: "the host collision beside a genuine placeholder",
+        input: " https://U:P@zq%70laceholderzq.example.test/{{apiKey}}",
+        expected: "https://zqplaceholderzq.example.test/{{apiKey}}",
+      },
+    ]
+
+    it.each(VECTORS)(
+      "removes the credential and keeps the hostname: $name",
+      ({ input, expected }) => {
+        const output = redactUrl(input)
+
+        expect(output).toBe(expected)
+        expect(credentialsOf(output)).toEqual([])
+        expect(hostnameOf(output)).toBe(hostnameOf(input))
+        expect(placeholdersIn(output)).toBe(placeholdersIn(input))
+      },
+    )
+
+    it.each(VECTORS)("does the same for the open-responses url: $name", ({ input, expected }) => {
+      expect(redactProvider({ url: input }).url).toBe(expected)
+    })
+
+    it.each([
+      "https://api.deeplx.org/{{apiKey}}/translate",
+      "https://example.test/v1?token={{apiKey}}",
+      "https://{{apiKey}}@example.test/v1",
+      "https://{{apiKey}}:{{apiKey}}@example.test/v1",
+      "https://{{apiKey}}.example.test/v1",
+      "https://example.test/v1#token={{apiKey}}",
+      " https://example.test/{{apiKey}}?x=1#f={{apiKey}} ",
+      // Text that only looks like the old stand-in is just text, in every component.
+      "https://zqplaceholderzq.example.test/v1",
+      "https://zq%70laceholderzq.example.test/v1",
+      "https://example.test/zqplaceholderzq?x=zqplaceholderzq#zqplaceholderzq",
+      "https://zqplaceholderzq.example.test/{{apiKey}}",
+    ])("returns %j byte for byte, genuine placeholders included", (url) => {
+      expect(redactUrl(url)).toBe(url)
+    })
+
+    it("refuses to rebuild a URL whose host label holds the placeholder and is not plain ASCII", () => {
+      expect(() => redactUrl(" https://U:P@\u00FC{{apiKey}}.example.test/v1")).toThrow(
+        /placeholder/i,
+      )
+      // The same URL with nothing to remove is returned as it is, and a non-ASCII host without a
+      // placeholder in it is an ordinary rebuild.
+      expect(redactUrl("https://\u00FC{{apiKey}}.example.test/v1")).toBe(
+        "https://\u00FC{{apiKey}}.example.test/v1",
+      )
+      expect(redactUrl(" https://U:P@b\u00FCcher.example.test/{{apiKey}}")).toBe(
+        "https://xn--bcher-kva.example.test/{{apiKey}}",
+      )
+    })
+
+    it("treats a value that merely contains the placeholder as a credential, not as the placeholder", () => {
+      expect(redactUrl(" https://example.test/v1?token=abc{{apiKey}}&key={{apiKey}}")).toBe(
+        " https://example.test/v1?token=&key={{apiKey}}",
+      )
+      expect(redactUrl(" https://U:P@example.test/v1?sig=x{{apiKey}}")).toBe(
+        "https://example.test/v1?sig=",
+      )
+    })
+
+    describe("with a known stand-in, so a collision can be forced", () => {
+      const UUID = "00000000-0000-4000-8000-000000000000"
+      const STAND_IN = `zqph${UUID.replaceAll("-", "")}`
+      const tabSplit = (text: string, at = 7) => `${text.slice(0, at)}\t${text.slice(at)}`
+      const fullwidth = (text: string) =>
+        text
+          .split("")
+          .map((char) =>
+            /[0-9a-z]/.test(char) ? String.fromCodePoint(char.codePointAt(0)! + 0xfee0) : char,
+          )
+          .join("")
+
+      beforeEach(() => {
+        vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(UUID)
+      })
+      afterEach(() => {
+        vi.restoreAllMocks()
+      })
+
+      it("uses a stand-in the rest of the tests can rely on", () => {
+        // A forced collision below is only meaningful if the stand-in really is this one: the bare
+        // text of it, written out in a URL, is already one more of it than the placeholders there.
+        expect(() => redactUrl(`https://example.test/v1?si\tg=${STAND_IN}`)).toThrow(/placeholder/i)
+        expect(redactUrl("https://example.test/v1?sig=zqph")).toBe("https://example.test/v1?sig=")
+      })
+
+      it.each([
+        ["a query value", () => `https://example.test/v1?si\tg=${tabSplit(STAND_IN)}`],
+        ["a fragment value", () => `https://example.test/v1#si\tg=${tabSplit(STAND_IN)}`],
+        ["a username", () => ` https://${tabSplit(STAND_IN)}@example.test/v1`],
+        ["a password", () => ` https://U:${tabSplit(STAND_IN)}@example.test/v1`],
+        [
+          "a host, by a percent-escape",
+          () => ` https://U:P@${STAND_IN.slice(0, -1)}%30.example.test/v1`,
+        ],
+        [
+          "a host, by fullwidth letters",
+          () => ` https://U:P@${fullwidth(STAND_IN)}.example.test/v1`,
+        ],
+        ["a path, with no credential at all", () => `https://example.test/${tabSplit(STAND_IN)}`],
+        ["a path, spelled by a tab", () => `https://example.test/v1/${tabSplit(STAND_IN, 3)}/x`],
+        [
+          "a query, though the genuine placeholder is in the path",
+          () => `https://example.test/{{apiKey}}?x=${tabSplit(STAND_IN)}`,
+        ],
+        [
+          "a path that already holds the genuine placeholder",
+          () => `https://example.test/{{apiKey}}/${tabSplit(STAND_IN)}`,
+        ],
+        [
+          "a fragment, though the genuine placeholder is in the query",
+          () => `https://example.test/v1?token={{apiKey}}#${tabSplit(STAND_IN)}`,
+        ],
+      ])("refuses the URL when the parser manufactures the stand-in: %s", (_name, build) => {
+        expect(() => redactUrl(build())).toThrow(/placeholder/i)
+      })
+
+      it("refuses it for the open-responses url too", () => {
+        expect(() =>
+          redactProvider({ url: ` https://U:P@${fullwidth(STAND_IN)}.example.test/v1` }),
+        ).toThrow(/placeholder/i)
+      })
+
+      it.each([
+        ["in the path", "https://api.deeplx.org/{{apiKey}}/translate"],
+        ["in a query value", "https://example.test/v1?token={{apiKey}}"],
+        ["as the whole userinfo", "https://{{apiKey}}@example.test/v1"],
+        [
+          "as a password beside a placeholder user",
+          "https://{{apiKey}}:{{apiKey}}@example.test/v1",
+        ],
+        ["in the host", "https://{{apiKey}}.example.test/v1"],
+        ["in the fragment", "https://example.test/v1#token={{apiKey}}"],
+      ])("still takes a genuine placeholder %s through untouched", (_name, url) => {
+        expect(redactUrl(url)).toBe(url)
+        expect(redactUrl(` ${url}`)).toBe(` ${url}`)
+      })
+
+      it.each([
+        [
+          "path and query",
+          " https://U:P@example.test/{{apiKey}}?token={{apiKey}}&sig=X",
+          "https://example.test/{{apiKey}}?token={{apiKey}}&sig=",
+        ],
+        ["host", " https://U:P@{{apiKey}}.example.test/v1", "https://{{apiKey}}.example.test/v1"],
+        [
+          "userinfo",
+          " https://{{apiKey}}@example.test/v1?si\tg=SECRET",
+          "https://{{apiKey}}@example.test/v1?sig=",
+        ],
+        [
+          "fragment",
+          " https://U:P@example.test/v1#token={{apiKey}}&sig=X",
+          "https://example.test/v1#token={{apiKey}}&sig=",
+        ],
+      ])(
+        "puts a genuine placeholder back where it was after a rebuild: %s",
+        (_name, input, expected) => {
+          expect(redactUrl(input)).toBe(expected)
+        },
+      )
+
+      it("refuses a rebuild whose hostname is not the one it read", () => {
+        // Make clearing the userinfo move the host as a side effect, as a broken rebuild would.
+        const real = Object.getOwnPropertyDescriptor(URL.prototype, "username")!
+        Object.defineProperty(URL.prototype, "username", {
+          configurable: true,
+          // oxlint-disable-next-line typescript/unbound-method
+          get: real.get,
+          set(this: URL, value: string) {
+            // oxlint-disable-next-line typescript/unbound-method
+            Reflect.apply(real.set!, this, [value])
+            this.hostname = "other.example.test"
+          },
+        })
+        try {
+          expect(() => redactUrl(" https://U:P@example.test/v1")).toThrow(/hostname|credentials/i)
+        } finally {
+          Object.defineProperty(URL.prototype, "username", real)
+        }
+        expect(redactUrl(" https://U:P@example.test/v1")).toBe("https://example.test/v1")
+      })
+
+      // A URL implementation that misbehaves while the credentials are being cleared, to reach the
+      // checks that sit behind the parser: they must refuse rather than return what it produced.
+      function withPatchedUrl(
+        property: "username" | "href",
+        patch: (real: PropertyDescriptor) => PropertyDescriptor,
+        run: () => void,
+      ) {
+        const real = Object.getOwnPropertyDescriptor(URL.prototype, property)!
+        Object.defineProperty(URL.prototype, property, { configurable: true, ...patch(real) })
+        try {
+          run()
+        } finally {
+          Object.defineProperty(URL.prototype, property, real)
+        }
+      }
+
+      it("counts the decoded forms too: a stand-in spelled with an escape in a query value", () => {
+        // The href keeps `%70` as written, so its count matches the one genuine placeholder; the
+        // value the query check reads is decoded, and holds the stand-in a second time.
+        const escaped = `${STAND_IN.slice(0, 2)}%70${STAND_IN.slice(3)}`
+        expect(() => redactUrl(`https://example.test/{{apiKey}}?si\tg=${escaped}`)).toThrow(
+          /placeholder/i,
+        )
+        expect(() => redactUrl(`https://example.test/{{apiKey}}#si\tg=${escaped}`)).toThrow(
+          /placeholder/i,
+        )
+      })
+
+      it("counts the decoded userinfo and path too", () => {
+        const escaped = `${STAND_IN.slice(0, 2)}%70${STAND_IN.slice(3)}`
+        expect(() => redactUrl(` https://${escaped}@example.test/{{apiKey}}`)).toThrow(
+          /placeholder/i,
+        )
+        expect(() => redactUrl(`https://example.test/{{apiKey}}/${escaped}`)).toThrow(
+          /placeholder/i,
+        )
+      })
+
+      it("takes two genuine placeholders in one URL through, with or without a rebuild", () => {
+        expect(redactUrl("https://example.test/{{apiKey}}/v1?token={{apiKey}}")).toBe(
+          "https://example.test/{{apiKey}}/v1?token={{apiKey}}",
+        )
+        expect(redactUrl(" https://U:P@example.test/{{apiKey}}/v1?token={{apiKey}}&sig=X")).toBe(
+          "https://example.test/{{apiKey}}/v1?token={{apiKey}}&sig=",
+        )
+        expect(redactUrl(" https://{{apiKey}}:{{apiKey}}@example.test/{{apiKey}}?si\tg=X")).toBe(
+          "https://{{apiKey}}:{{apiKey}}@example.test/{{apiKey}}?sig=",
+        )
+      })
+
+      it("refuses a rebuild the parser reads as holding a stand-in nobody wrote", () => {
+        withPatchedUrl(
+          "href",
+          (real) => ({
+            get(this: URL) {
+              // oxlint-disable-next-line typescript/unbound-method
+              const value = Reflect.apply(real.get!, this, []) as string
+              // Only the rebuilt URL (its userinfo cleared) gets the stand-in spelled across a tab.
+              return value.includes("@") ? value : `${value}#${tabSplit(STAND_IN)}`
+            },
+          }),
+          () => {
+            expect(() => redactUrl(" https://U:P@example.test/v1")).toThrow(/credentials/i)
+          },
+        )
+      })
+
+      it("refuses a rebuild that gained a placeholder in the userinfo", () => {
+        withPatchedUrl(
+          "username",
+          (real) => ({
+            // oxlint-disable-next-line typescript/unbound-method
+            get: real.get,
+            set(this: URL) {
+              // oxlint-disable-next-line typescript/unbound-method
+              Reflect.apply(real.set!, this, [STAND_IN])
+            },
+          }),
+          () => {
+            expect(() => redactUrl(" https://U:P@example.test/v1")).toThrow(
+              /credentials|placeholder/i,
+            )
+          },
+        )
+      })
+
+      it("leaves no credential and no changed hostname in any mix of pieces that spell the stand-in", () => {
+        const PIECES = [
+          "",
+          " ",
+          "\t",
+          "https://",
+          "https:////",
+          "\\",
+          "U:P@",
+          "{{apiKey}}",
+          "{{apiKey}}@",
+          ".example.test",
+          "/v1",
+          "/",
+          "?",
+          "&",
+          "#",
+          "sig=",
+          "si\tg=",
+          "token=",
+          "x=",
+          STAND_IN,
+          tabSplit(STAND_IN, 3),
+          tabSplit(STAND_IN, 11),
+          `${STAND_IN.slice(0, -1)}%30`,
+          `${STAND_IN.slice(0, 4)}%${STAND_IN.charCodeAt(4).toString(16)}${STAND_IN.slice(5)}`,
+          fullwidth(STAND_IN),
+          fullwidth(STAND_IN.slice(0, 4)),
+          STAND_IN.slice(0, 4),
+          STAND_IN.slice(4),
+          STAND_IN.toUpperCase(),
+        ]
+        let seed = 20261016
+        const random = () => {
+          seed ^= seed << 13
+          seed >>>= 0
+          seed ^= seed >>> 17
+          seed ^= seed << 5
+          seed >>>= 0
+          return seed / 0xffffffff
+        }
+
+        const wrong: string[] = []
+        let refused = 0
+        for (let i = 0; i < 4000; i++) {
+          let input = ""
+          for (let piece = 0; piece < 2 + Math.floor(random() * 8); piece++) {
+            input += PIECES[Math.floor(random() * PIECES.length)]
+          }
+          let output: string
+          try {
+            output = redactUrl(input)
+          } catch {
+            refused++
+            continue
+          }
+          try {
+            const bad =
+              credentialsOf(output).length > 0 ||
+              hostnameOf(output) !== hostnameOf(input) ||
+              placeholdersIn(output) > placeholdersIn(input)
+            if (bad) wrong.push(`${JSON.stringify(input)} -> ${JSON.stringify(output)}`)
+          } catch {
+            // An input the parser does not read: only the text pass applied, nothing to compare.
+          }
+        }
+
+        expect(wrong).toEqual([])
+        // The pieces really do force collisions: a good share of the inputs must have been refused.
+        expect(refused).toBeGreaterThan(50)
+      })
+    })
+
+    it("leaves no credential, no changed hostname and no new placeholder in any mix of pieces, with a random stand-in, and refuses only where a placeholder is involved", () => {
+      const PIECES = [
+        "",
+        " ",
+        "\t",
+        "\n",
+        "https://",
+        "https:////",
+        "U:P@",
+        "{{apiKey}}",
+        "{{apiKey}}@",
+        ".example.test",
+        "/v1",
+        "?",
+        "&",
+        "#",
+        "sig=",
+        "si\tg=",
+        "token=",
+        "zqplaceholderzq",
+        "zq%70laceholderzq",
+        "zqplace\tholderzq",
+        "zqplace\nholderzq",
+        "\uFF5A\uFF51\uFF50\uFF4C\uFF41\uFF43\uFF45\uFF48\uFF4F\uFF4C\uFF44\uFF45\uFF52\uFF5A\uFF51",
+        "zqph",
+        "zq%70h",
+        "ZQPLACEHOLDERZQ",
+      ]
+      let seed = 20261017
+      const random = () => {
+        seed ^= seed << 13
+        seed >>>= 0
+        seed ^= seed >>> 17
+        seed ^= seed << 5
+        seed >>>= 0
+        return seed / 0xffffffff
+      }
+
+      const wrong: string[] = []
+      for (let i = 0; i < 4000; i++) {
+        let input = ""
+        for (let piece = 0; piece < 2 + Math.floor(random() * 8); piece++) {
+          input += PIECES[Math.floor(random() * PIECES.length)]
+        }
+        let output: string
+        try {
+          output = redactUrl(input)
+        } catch (error) {
+          // Failing closed is allowed, but only where a genuine placeholder could have been
+          // dropped or moved by the parser; an input without one has nothing to count.
+          if (!input.includes("{{apiKey}}")) {
+            wrong.push(`refused ${JSON.stringify(input)}: ${(error as Error).message}`)
+          }
+          continue
+        }
+        try {
+          const bad =
+            credentialsOf(output).length > 0 ||
+            hostnameOf(output) !== hostnameOf(input) ||
+            placeholdersIn(output) > placeholdersIn(input)
+          if (bad) wrong.push(`${JSON.stringify(input)} -> ${JSON.stringify(output)}`)
+        } catch {
+          // Not a URL the parser reads at all.
+        }
+      }
+
+      expect(wrong).toEqual([])
     })
   })
 })
