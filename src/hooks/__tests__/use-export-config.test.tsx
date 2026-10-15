@@ -6,6 +6,7 @@ import { act, renderHook } from "@testing-library/react"
 import { saveAs } from "file-saver"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { configSchema } from "@/types/config/config"
+import { providerConfigItemSchema } from "@/types/config/provider"
 import { migrateConfig } from "@/utils/config/migration"
 import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
@@ -325,5 +326,201 @@ describe("useExportConfig export with API keys", () => {
     const imported = await migrateConfig(exported.config, exported.schemaVersion)
 
     expect(imported.providersConfig).toEqual(buildConfig().providersConfig)
+  })
+})
+
+/**
+ * Round 2: forms of the same credentials that the URL parser and the name matching treat
+ * differently from a plain reading of the text.
+ */
+const SECRETS_ROUND_2 = {
+  paddedUser: "FAKE-PADDED-USER-0101",
+  paddedPassword: "FAKE-PADDED-PASSWORD-0102",
+  paddedQueryToken: "FAKE-PADDED-QUERY-TOKEN-0103",
+  paddedUpperQuery: "FAKE-PADDED-UPPER-QUERY-0104",
+  slashesUser: "FAKE-SLASHES-USER-0105",
+  slashesPassword: "FAKE-SLASHES-PASSWORD-0106",
+  backslashUser: "FAKE-BACKSLASH-USER-0107",
+  backslashPassword: "FAKE-BACKSLASH-PASSWORD-0108",
+  tabbedFragment: "FAKE-TABBED-FRAGMENT-0109",
+  optionUpperAccessToken: "FAKE-OPTION-ACCESSTOKEN-0110",
+  optionLowerAccessToken: "FAKE-OPTION-lowercase-accesstoken-0111",
+  optionNestedSubscriptionKey: "FAKE-OPTION-SUBSCRIPTIONKEY-0112",
+  optionNestedBasicAuth: "FAKE-OPTION-BASICAUTH-0113",
+  placeholderNeighbour: "FAKE-PLACEHOLDER-NEIGHBOUR-0114",
+} as const
+
+const CUSTOM_MODEL = {
+  model: "use-custom-model",
+  isCustomModel: true,
+  customModel: "lingo",
+} as const
+
+function buildRound2Providers() {
+  return [
+    {
+      id: "padded-gateway",
+      name: "Padded gateway",
+      enabled: true,
+      provider: "openai-compatible",
+      model: CUSTOM_MODEL,
+      baseURL:
+        ` https://${SECRETS_ROUND_2.paddedUser}:${SECRETS_ROUND_2.paddedPassword}@gateway.example.com/v1` +
+        `?to\tken=${SECRETS_ROUND_2.paddedQueryToken}&ACCESSTOKEN=${SECRETS_ROUND_2.paddedUpperQuery}&region=eu `,
+      providerOptions: {
+        reasoningEffort: "low",
+        budgetTokens: 2048,
+        ACCESSTOKEN: SECRETS_ROUND_2.optionUpperAccessToken,
+        accesstoken: SECRETS_ROUND_2.optionLowerAccessToken,
+        nested: {
+          SUBSCRIPTIONKEY: SECRETS_ROUND_2.optionNestedSubscriptionKey,
+          BASICAUTH: SECRETS_ROUND_2.optionNestedBasicAuth,
+          MAXTOKENS: 512,
+        },
+      },
+    },
+    {
+      id: "slashes-gateway",
+      name: "Extra slashes",
+      enabled: true,
+      provider: "openai-compatible",
+      model: CUSTOM_MODEL,
+      baseURL: `https:////${SECRETS_ROUND_2.slashesUser}:${SECRETS_ROUND_2.slashesPassword}@slashes.example.com/v1`,
+    },
+    {
+      id: "backslash-gateway",
+      name: "Backslashes",
+      enabled: true,
+      provider: "openai-compatible",
+      model: CUSTOM_MODEL,
+      baseURL: `https:\\\\${SECRETS_ROUND_2.backslashUser}:${SECRETS_ROUND_2.backslashPassword}@backslash.example.com\\v1`,
+    },
+    {
+      id: "responses-fragment",
+      name: "Responses with a tabbed fragment",
+      enabled: true,
+      provider: "open-responses",
+      model: { ...CUSTOM_MODEL, customModel: "lingo-responses" },
+      url: ` https://responses.example.com/v1/responses#access\t_token=${SECRETS_ROUND_2.tabbedFragment}&state=s`,
+    },
+    {
+      id: "padded-placeholder",
+      name: "Padded DeepLX with the placeholder",
+      enabled: true,
+      provider: "deeplx",
+      baseURL: ` https://api.deeplx.org/{{apiKey}}/translate?key=${SECRETS_ROUND_2.placeholderNeighbour}&token={{apiKey}}`,
+    },
+    {
+      id: "padded-ordinary",
+      name: "Padded DeepLX with nothing to remove",
+      enabled: true,
+      provider: "deeplx",
+      baseURL: " https://api.deeplx.org/{{apiKey}}/translate ",
+    },
+  ]
+}
+
+describe("useExportConfig credential-free export, URL and name forms", () => {
+  beforeEach(() => {
+    vi.mocked(saveAs).mockClear()
+  })
+
+  function buildRound2Config(): Config {
+    const config: Config = structuredClone(DEFAULT_CONFIG)
+    config.providersConfig = buildRound2Providers() as Config["providersConfig"]
+    return config
+  }
+
+  it("uses providers the real provider schema accepts", () => {
+    for (const provider of buildRound2Providers()) {
+      expect(providerConfigItemSchema.safeParse(provider).success).toBe(true)
+    }
+  })
+
+  it.each(Object.entries(SECRETS_ROUND_2))("does not write the %s value", async (_name, secret) => {
+    const json = await exportJson(buildRound2Config(), false)
+
+    expect(json).not.toContain(secret)
+  })
+
+  it("leaves nothing the URL parser reads as a credential in any exported URL", async () => {
+    const exported = JSON.parse(await exportJson(buildRound2Config(), false)) as { config: Config }
+
+    const credentials: string[] = []
+    for (const provider of exported.config.providersConfig) {
+      const value = "baseURL" in provider ? provider.baseURL : "url" in provider ? provider.url : ""
+      if (!value) continue
+      const parsed = new URL(value.replaceAll("{{apiKey}}", "placeholder"))
+      if (parsed.username || parsed.password) credentials.push(`${provider.id}: userinfo`)
+      for (const [name, paramValue] of [
+        ...parsed.searchParams,
+        ...new URLSearchParams(parsed.hash.slice(1)),
+      ]) {
+        if (
+          /key|token|auth|secret|pass/i.test(name) &&
+          paramValue &&
+          paramValue !== "placeholder"
+        ) {
+          credentials.push(`${provider.id}: ${name}`)
+        }
+      }
+    }
+    expect(credentials).toEqual([])
+  })
+
+  it("removes only the credentials: the rest of each URL and the tuning options stay", async () => {
+    const exported = JSON.parse(await exportJson(buildRound2Config(), false)) as { config: Config }
+    const byId = Object.fromEntries(
+      exported.config.providersConfig.map((p) => [p.id, p]),
+    ) as Record<string, any>
+
+    expect(byId["padded-gateway"].baseURL).toBe(
+      "https://gateway.example.com/v1?token=&ACCESSTOKEN=&region=eu",
+    )
+    expect(byId["padded-gateway"].providerOptions).toEqual({
+      reasoningEffort: "low",
+      budgetTokens: 2048,
+      nested: { MAXTOKENS: 512 },
+    })
+    expect(byId["slashes-gateway"].baseURL).toBe("https://slashes.example.com/v1")
+    expect(byId["backslash-gateway"].baseURL).toBe("https://backslash.example.com/v1")
+    expect(byId["responses-fragment"].url).toBe(
+      " https://responses.example.com/v1/responses#access\t_token=&state=s",
+    )
+  })
+
+  it("keeps the {{apiKey}} placeholder, and returns a URL with nothing to remove untouched", async () => {
+    const exported = JSON.parse(await exportJson(buildRound2Config(), false)) as { config: Config }
+    const byId = Object.fromEntries(
+      exported.config.providersConfig.map((p) => [p.id, p]),
+    ) as Record<string, any>
+
+    expect(byId["padded-placeholder"].baseURL).toBe(
+      " https://api.deeplx.org/{{apiKey}}/translate?key=&token={{apiKey}}",
+    )
+    expect(byId["padded-ordinary"].baseURL).toBe(" https://api.deeplx.org/{{apiKey}}/translate ")
+  })
+
+  it("imports again through the real migration and schema path", async () => {
+    const exported = JSON.parse(await exportJson(buildRound2Config(), false)) as {
+      config: unknown
+      schemaVersion: number
+    }
+
+    expect(configSchema.safeParse(exported.config).success).toBe(true)
+    const imported = await migrateConfig(exported.config, exported.schemaVersion)
+    expect(imported.providersConfig.map((provider) => provider.id)).toEqual(
+      buildRound2Providers().map((provider) => provider.id),
+    )
+  })
+
+  it("still writes everything when the keys are included", async () => {
+    const config = buildRound2Config()
+    const json = await exportJson(config, true)
+
+    for (const secret of Object.values(SECRETS_ROUND_2)) {
+      expect(json).toContain(secret)
+    }
+    expect((JSON.parse(json) as { config: Config }).config).toEqual(config)
   })
 })

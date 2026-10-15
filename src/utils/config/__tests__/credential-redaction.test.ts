@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
+import { providerConfigSchemaList } from "@/types/config/provider"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
+import { LLM_MODEL_OPTIONS } from "@/utils/constants/models"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { getConfigWithoutCredentials, hasAPIKey } from "../api"
 import { LATEST_SCHEMA_VERSION } from "../migration"
@@ -159,6 +161,11 @@ describe("getConfigWithoutCredentials", () => {
         "https://h.example/v1?api%5Fkey=",
       ],
       [
+        "a percent-encoded letter in the name",
+        "https://h.example/v1?to%6Ben=FAKE",
+        "https://h.example/v1?to%6Ben=",
+      ],
+      [
         "a name with a dash",
         "https://h.example/v1?subscription-key=FAKE",
         "https://h.example/v1?subscription-key=",
@@ -290,7 +297,6 @@ describe("getConfigWithoutCredentials", () => {
       "keep_alive",
       "author",
       "tokenizer",
-      "monkey",
       "keyboard",
     ])("keeps an entry named %s", (name) => {
       const options = { [name]: "value" }
@@ -389,7 +395,7 @@ describe("getConfigWithoutCredentials", () => {
 
       it(`leaves no apiKey or headers in the v${versionLabel} examples`, async () => {
         const { testSeries } = await import(`./example/v${versionLabel}.ts`)
-        const examples = Object.values(testSeries) as Array<{ config: Loose }>
+        const examples = Object.values<{ config: Loose }>(testSeries)
         expect(examples.length).toBeGreaterThan(0)
 
         for (const { config } of examples) {
@@ -419,6 +425,504 @@ describe("getConfigWithoutCredentials", () => {
       )
 
       expect(credentialNames).toEqual([])
+    })
+  })
+  describe("spelling and case", () => {
+    // Names a credential can have. Each one must go whatever its case, in providerOptions and as a
+    // query or fragment parameter.
+    const CREDENTIAL_NAMES = [
+      "apiKey",
+      "api_key",
+      "x-api-key",
+      "accessToken",
+      "authToken",
+      "idToken",
+      "refreshToken",
+      "sessionToken",
+      "csrfToken",
+      "subscriptionKey",
+      "accessKey",
+      "secretAccessKey",
+      "privateKey",
+      "signingKey",
+      "clientSecret",
+      "basicAuth",
+      "oauth",
+      "bearer",
+      "authorization",
+      "password",
+      "passwd",
+      "credentials",
+      "cookie",
+      "extraHeaders",
+      "defaultHeaders",
+      "headers",
+      "signature",
+      "jwt",
+      "token",
+      "key",
+      "sig",
+      "x-sig",
+      "pwd",
+      "dbpwd",
+    ]
+    // Tuning fields and the like. None of them may go, whatever its case.
+    const TUNING_NAMES = [
+      "maxTokens",
+      "max_tokens",
+      "max_completion_tokens",
+      "maxOutputTokens",
+      "budgetTokens",
+      "budget_tokens",
+      "thinkingBudget",
+      "reasoningEffort",
+      "reasoning_effort",
+      "textVerbosity",
+      "thinkingConfig",
+      "thinkingLevel",
+      "includeThoughts",
+      "enableThinking",
+      "reasoningHistory",
+      "chat_template_kwargs",
+      "temperature",
+      "top_p",
+      "top_k",
+      "topK",
+      "keep_alive",
+      "seed",
+      "stop",
+      "user",
+      "metadata",
+      "author",
+      "tokenizer",
+      "keyboard",
+    ]
+
+    function caseVariants(name: string): string[] {
+      const alternating = name
+        .split("")
+        .map((char, i) => (i % 2 ? char.toLowerCase() : char.toUpperCase()))
+      return [
+        ...new Set([
+          name,
+          name.toLowerCase(),
+          name.toUpperCase(),
+          name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(),
+          alternating.join(""),
+        ]),
+      ]
+    }
+
+    function isDroppedFromOptions(name: string): boolean {
+      return !(name in redactOptions({ [name]: "FAKE-VALUE" }))
+    }
+
+    function isBlankedInQuery(name: string): boolean {
+      return redactUrl(`https://h.example/v1?${name}=FAKE-VALUE`).endsWith(`?${name}=`)
+    }
+
+    function isBlankedInFragment(name: string): boolean {
+      return redactUrl(`https://h.example/v1#${name}=FAKE-VALUE`).endsWith(`#${name}=`)
+    }
+
+    it.each(CREDENTIAL_NAMES.flatMap(caseVariants))("drops an entry named %s", (name) => {
+      expect(isDroppedFromOptions(name)).toBe(true)
+    })
+
+    it.each(CREDENTIAL_NAMES.flatMap(caseVariants))(
+      "blanks the query and fragment parameter %s",
+      (name) => {
+        expect(isBlankedInQuery(name)).toBe(true)
+        expect(isBlankedInFragment(name)).toBe(true)
+      },
+    )
+
+    it.each(TUNING_NAMES.flatMap(caseVariants))("keeps an entry named %s", (name) => {
+      expect(isDroppedFromOptions(name)).toBe(false)
+    })
+
+    it.each(TUNING_NAMES.flatMap(caseVariants))("leaves a parameter named %s alone", (name) => {
+      expect(redactUrl(`https://h.example/v1?${name}=7`)).toBe(`https://h.example/v1?${name}=7`)
+    })
+
+    it("treats a name the same in lower case, upper case and as written", () => {
+      const names = [
+        ...CREDENTIAL_NAMES,
+        ...TUNING_NAMES,
+        "Authorization",
+        "X-Api-Key",
+        "ACCESSTOKEN",
+      ]
+      const disagreements = names.filter((name) => {
+        const decisions = [name, name.toLowerCase(), name.toUpperCase()].map(isDroppedFromOptions)
+        return new Set(decisions).size !== 1
+      })
+
+      expect(disagreements).toEqual([])
+    })
+
+    it("treats a query parameter name the same in lower case, upper case and as written", () => {
+      const names = [...CREDENTIAL_NAMES, ...TUNING_NAMES]
+      const disagreements = names.filter((name) => {
+        const decisions = [name, name.toLowerCase(), name.toUpperCase()].map(isBlankedInQuery)
+        return new Set(decisions).size !== 1
+      })
+
+      expect(disagreements).toEqual([])
+    })
+
+    it("drops the case variants Astra found, in nested options and in URLs", () => {
+      const result = redactProvider({
+        providerOptions: {
+          nested: {
+            ACCESSTOKEN: "FAKE",
+            accesstoken: "FAKE",
+            SUBSCRIPTIONKEY: "FAKE",
+            subscriptionkey: "FAKE",
+            BASICAUTH: "FAKE",
+            keep: 1,
+          },
+        },
+        url: "https://example.test/v1/responses?ACCESSTOKEN=FAKE&SUBSCRIPTIONKEY=FAKE&basicauth=FAKE&ok=1",
+      })
+
+      expect(result).toEqual({
+        providerOptions: { nested: { keep: 1 } },
+        url: "https://example.test/v1/responses?ACCESSTOKEN=&SUBSCRIPTIONKEY=&basicauth=&ok=1",
+      })
+    })
+
+    it("keeps every documented tuning option, as recommended and as defaulted", () => {
+      const documented = [
+        ...LLM_MODEL_OPTIONS.map(({ options }) => options),
+        ...Object.values(DEFAULT_PROVIDER_CONFIG).flatMap((provider) =>
+          "providerOptions" in provider && provider.providerOptions
+            ? [provider.providerOptions]
+            : [],
+        ),
+      ]
+      expect(documented.length).toBeGreaterThan(0)
+
+      for (const options of documented) {
+        expect(redactOptions(structuredClone(options))).toEqual(options)
+      }
+    })
+
+    // Every property name a provider schema defines survives, except the two that are credentials.
+    // The name rule applies to all of providersConfig, so a field it matched would be lost from the
+    // export and the file would no longer import.
+    it("drops no field any provider schema defines, apart from apiKey and headers", () => {
+      function fieldPaths(schema: any, prefix: string[] = []): string[][] {
+        const shape = schema?.shape
+        if (!shape) return []
+        return Object.entries(shape).flatMap(([name, field]) => {
+          const children = fieldPaths((field as any)?.unwrap?.() ?? field, [...prefix, name])
+          return children.length > 0 ? children : [[...prefix, name]]
+        })
+      }
+      function build(paths: string[][]): Loose {
+        const target: Loose = {}
+        for (const path of paths) {
+          let node = target
+          for (const part of path.slice(0, -1)) node = node[part] ??= {}
+          node[path.at(-1)!] = "value"
+        }
+        return target
+      }
+      function has(value: Loose, path: string[]): boolean {
+        let node: any = value
+        for (const part of path) {
+          if (node === null || node === undefined || typeof node !== "object" || !(part in node))
+            return false
+          node = node[part]
+        }
+        return true
+      }
+
+      expect(providerConfigSchemaList).toHaveLength(32)
+      const lost: string[] = []
+      for (const schema of providerConfigSchemaList) {
+        const paths = fieldPaths(schema).filter(
+          (path) => path[0] !== "apiKey" && path[0] !== "headers",
+        )
+        const result = redactProvider(build(paths))
+        for (const path of paths) {
+          if (!has(result, path)) lost.push(path.join("."))
+        }
+      }
+
+      expect([...new Set(lost)]).toEqual([])
+    })
+  })
+
+  describe("URLs the browser parses differently from the text", () => {
+    // Credentials as the URL parser reports them, checked without any of the code under test.
+    const CREDENTIAL_PARAM = /key|token|auth|sig|secret|pass|credential|cookie|bearer|jwt/i
+    function credentialsOf(url: string): string[] {
+      const parsed = new URL(url.replaceAll("{{apiKey}}", "placeholder"))
+      const found: string[] = []
+      if (parsed.username && parsed.username !== "placeholder") {
+        found.push(`username:${parsed.username}`)
+      }
+      if (parsed.password && parsed.password !== "placeholder") {
+        found.push(`password:${parsed.password}`)
+      }
+      for (const [name, value] of parsed.searchParams) {
+        if (CREDENTIAL_PARAM.test(name) && value && value !== "placeholder") {
+          found.push(`query:${name}=${value}`)
+        }
+      }
+      const hash = parsed.hash.slice(1)
+      if (hash.includes("=")) {
+        for (const [name, value] of new URLSearchParams(hash)) {
+          if (CREDENTIAL_PARAM.test(name) && value && value !== "placeholder") {
+            found.push(`fragment:${name}=${value}`)
+          }
+        }
+      }
+      return found
+    }
+
+    const VECTORS: Array<[string, string, string]> = [
+      [
+        "a leading space",
+        " https://FAKE_USER:FAKE_PASSWORD@example.test/v1",
+        "https://example.test/v1",
+      ],
+      [
+        "a trailing space",
+        "https://FAKE_USER:FAKE_PASSWORD@example.test/v1 ",
+        "https://example.test/v1 ",
+      ],
+      [
+        "a leading newline",
+        "\nhttps://FAKE_USER:FAKE_PASSWORD@example.test/v1",
+        "https://example.test/v1",
+      ],
+      [
+        "extra slashes",
+        "https:////FAKE_USER:FAKE_PASSWORD@example.test/v1",
+        "https://example.test/v1",
+      ],
+      [
+        "backslashes after the scheme",
+        "https:\\\\FAKE_USER:FAKE_PASSWORD@example.test/v1",
+        "https://example.test/v1",
+      ],
+      [
+        "a backslash and a slash",
+        "https:/\\FAKE_USER:FAKE_PASSWORD@example.test/v1",
+        "https://example.test/v1",
+      ],
+      [
+        "a tab inside the userinfo",
+        "https://FAKE\t_USER:FAKE_PASSWORD@example.test/v1",
+        "https://example.test/v1",
+      ],
+      [
+        "percent-encoded userinfo",
+        "https://%46AKE_USER:FAKE%5FPASSWORD@example.test/v1",
+        "https://example.test/v1",
+      ],
+      [
+        "a tab inside a query name",
+        "https://example.test/v1?to\tken=FAKE_TOKEN&ok=1",
+        "https://example.test/v1?to\tken=&ok=1",
+      ],
+      [
+        "a newline inside a query name",
+        "https://example.test/v1?api\n_key=FAKE_KEY",
+        "https://example.test/v1?api\n_key=",
+      ],
+      [
+        "a tab inside a fragment name",
+        "https://example.test/v1#access\t_token=FAKE_TOKEN&state=s",
+        "https://example.test/v1#access\t_token=&state=s",
+      ],
+      [
+        "a tab inside a name the word rule needs whole",
+        "https://example.test/v1?si\tg=FAKE_SIGNATURE&ok=1",
+        "https://example.test/v1?sig=&ok=1",
+      ],
+      [
+        "a leading space and a query credential",
+        " https://example.test/v1?key=FAKE_KEY",
+        " https://example.test/v1?key=",
+      ],
+      [
+        "userinfo and query together",
+        " https://FAKE_USER:FAKE_PASSWORD@example.test/v1?key=FAKE_KEY&ok=1",
+        "https://example.test/v1?key=&ok=1",
+      ],
+    ]
+
+    it.each(VECTORS)("removes the credentials from %s", (_name, input, expected) => {
+      expect(credentialsOf(input).length).toBeGreaterThan(0)
+
+      const result = redactUrl(input)
+
+      expect(credentialsOf(result)).toEqual([])
+      expect(result).not.toMatch(/FAKE/)
+      expect(result).toBe(expected)
+    })
+
+    it.each(VECTORS)("treats the open-responses url the same: %s", (_name, input) => {
+      const result = redactProvider({ url: input }).url
+
+      expect(credentialsOf(result)).toEqual([])
+      expect(result).not.toMatch(/FAKE/)
+    })
+
+    it("keeps the placeholder when it has to rebuild the URL", () => {
+      expect(
+        redactUrl(
+          " https://FAKE_USER:FAKE_PASSWORD@api.deeplx.org/{{apiKey}}/translate?key=FAKE_KEY",
+        ),
+      ).toBe("https://api.deeplx.org/{{apiKey}}/translate?key=")
+      expect(
+        redactUrl(" https://FAKE_USER@example.test/v1?token={{apiKey}}&api_key=FAKE_KEY"),
+      ).toBe("https://example.test/v1?token={{apiKey}}&api_key=")
+      expect(
+        redactUrl("https:////FAKE_USER:FAKE_PASSWORD@{{apiKey}}.example.test/v1?to\tken=FAKE"),
+      ).toBe("https://{{apiKey}}.example.test/v1?token=")
+      expect(redactUrl("https://{{apiKey}}@example.test/v1?si\tg=FAKE")).toBe(
+        "https://{{apiKey}}@example.test/v1?sig=",
+      )
+    })
+
+    it("keeps the placeholder in a padded URL whose credentials the text pass already removed", () => {
+      expect(redactUrl(" https://example.test/v1?token={{apiKey}}&api_key=FAKE_KEY")).toBe(
+        " https://example.test/v1?token={{apiKey}}&api_key=",
+      )
+    })
+
+    it("does not mistake a host that the parser lower-cases into the stand-in for the placeholder", () => {
+      expect(redactUrl(" https://FAKE_USER@ZQPLACEHOLDERZQ.example.test/v1")).toBe(
+        "https://zqplaceholderzq.example.test/v1",
+      )
+    })
+
+    it("does not mistake text that merely looks like the placeholder for it", () => {
+      expect(redactUrl(" https://FAKE_USER@example.test/v1?token=ZQPLACEHOLDERZQ&key=FAKE")).toBe(
+        "https://example.test/v1?token=&key=",
+      )
+    })
+
+    it.each([
+      "https://example.test/v1",
+      " https://example.test/v1",
+      "https://example.test/v1 ",
+      "HTTPS://Example.TEST:443/a b/%7Bx%7D?x=1&y=a b#frag",
+      "https:////example.test/v1",
+      "https:\\\\example.test\\v1",
+      "https://example.test",
+      "https://example.test/v1?model=lingo&region=eu#section",
+      "https://example.test/v1?token={{apiKey}}",
+      " https://api.deeplx.org/{{apiKey}}/translate",
+      "https://{{apiKey}}@example.test/v1",
+      "http://localhost:11434",
+      "http://127.0.0.1:1234/v1/",
+      "https://example.test/v1/%E2%9C%93?q=%20x",
+      "localhost:11434",
+      "not a url at all",
+      "",
+    ])("returns %j byte for byte, because there is nothing to redact", (url) => {
+      expect(redactUrl(url)).toBe(url)
+    })
+
+    // A fixed-seed property test: random joins of the pieces a URL is made of, padding and slashes
+    // and tabs included. Whatever comes out must hold nothing the URL parser reads as a credential,
+    // and nothing here may be refused.
+    it("leaves no credential the parser can see in any mix of URL pieces, and never refuses one", () => {
+      const PIECES = [
+        "",
+        " ",
+        "\t",
+        "\n",
+        "https:",
+        "HTTP:",
+        "wss:",
+        "//",
+        "///",
+        "////",
+        "\\",
+        "/\\",
+        "U:P@",
+        "U@",
+        "{{apiKey}}@",
+        "u:{{apiKey}}@",
+        "host.test",
+        "HOST.TEST:443",
+        "{{apiKey}}.host.test",
+        "/v1",
+        "/{{apiKey}}/x",
+        "?",
+        "&",
+        "key=SECRET",
+        "to\tken=SECRET",
+        "ACCESSTOKEN=SECRET",
+        "si\tg=SECRET",
+        "token={{apiKey}}",
+        "api%5Fkey=SECRET",
+        "access+token=SECRET",
+        "Pass\nword=SECRET",
+        "ok=1",
+        "#",
+        "access_token=SECRET",
+        "state=s",
+        "=",
+        "%0A",
+        "SECRET",
+        "ZQPLACEHOLDERZQ",
+        "\u200b",
+      ]
+      let seed = 20261015
+      const random = () => {
+        seed ^= seed << 13
+        seed >>>= 0
+        seed ^= seed >>> 17
+        seed ^= seed << 5
+        seed >>>= 0
+        return seed / 0xffffffff
+      }
+
+      const leaks: string[] = []
+      for (let i = 0; i < 4000; i++) {
+        let input = ""
+        for (let piece = 0; piece < 2 + Math.floor(random() * 9); piece++) {
+          input += PIECES[Math.floor(random() * PIECES.length)]
+        }
+        let output: string | undefined
+        try {
+          output = redactUrl(input)
+        } catch {
+          leaks.push(`refused: ${JSON.stringify(input)}`)
+          continue
+        }
+        let found: string[] = []
+        try {
+          found = credentialsOf(output)
+        } catch {
+          // Not a URL the parser reads at all, so nothing there can be a credential.
+        }
+        if (found.length > 0) leaks.push(`${JSON.stringify(input)} -> ${JSON.stringify(output)}`)
+      }
+
+      expect(leaks).toEqual([])
+    })
+
+    it("fails closed if the credentials are still in the URL after the rebuild", () => {
+      const spy = vi.spyOn(URL.prototype, "username", "set").mockImplementation(() => {})
+      try {
+        expect(() => redactUrl(" https://FAKE_USER:FAKE_PASSWORD@example.test/v1")).toThrow(
+          "credentials",
+        )
+      } finally {
+        spy.mockRestore()
+        const url = new URL("https://FAKE_USER@example.test/")
+        url.username = ""
+        expect(url.username).toBe("")
+      }
     })
   })
 })

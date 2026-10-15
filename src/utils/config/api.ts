@@ -1,46 +1,32 @@
 const API_KEY_PLACEHOLDER = "{{apiKey}}"
 
-// Whole words (a name is split on case changes and non-alphanumerics) that name a credential.
-// `key` is here because `x-api-key`, `?key=` and `subscriptionKey` are credentials. It also takes
-// `cacheKey`, and a credential-free export may lose a harmless setting to be sure.
-// `token` is singular on purpose, so `maxTokens` and `budgetTokens` survive.
-const CREDENTIAL_WORDS = new Set([
-  "key",
-  "keys",
-  "token",
-  "auth",
-  "oauth",
-  "bearer",
-  "pwd",
-  "sig",
-  "signature",
-  "jwt",
-  "header",
-  "headers",
-])
-
-// Credential names that run into other words (`xapikey`, `clientsecret`).
-const CREDENTIAL_SUBSTRINGS = [
-  "apikey",
-  "authorization",
-  "password",
-  "passwd",
-  "secret",
-  "credential",
-  "cookie",
+// What names a credential. The decision is made on the lower-cased name, never on where the case
+// changes, so `accessToken`, `accesstoken` and `ACCESSTOKEN` are the same name.
+// `key` is in because `x-api-key`, `?key=` and `subscriptionKey` are credentials; it also takes
+// `cacheKey`, and a credential-free export may lose a harmless setting to be sure. The few words that
+// only contain it (`keyboard`) are left out.
+// `token` must not be followed by `s` or `iz`, so `maxTokens`, `budgetTokens` and `tokenizer` survive.
+// `auth` must not be followed by `or`, so `author` survives; `authorization` is matched on its own.
+// They run on the name with its separators removed (`x-api-key` is `xapikey`).
+const CREDENTIAL_PATTERNS = [
+  /key(?!board|pad|note|word|frame|stone|stroke)/,
+  /token(?!s|iz)/,
+  /auth(?!or)/,
+  /authorization|bearer|secret|password|passwd|credential|cookie|signature|jwt|header/,
 ]
+
+// Short enough to be a whole word only: `sig` is a signature, `design` and `assign` are not.
+const CREDENTIAL_WORD_SUFFIXES = ["sig", "pwd"]
 
 function isCredentialName(name: string): boolean {
   const words = name
-    .replaceAll(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replaceAll(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter(Boolean)
   const joined = words.join("")
   return (
-    words.some((word) => CREDENTIAL_WORDS.has(word)) ||
-    CREDENTIAL_SUBSTRINGS.some((substring) => joined.includes(substring))
+    CREDENTIAL_PATTERNS.some((pattern) => pattern.test(joined)) ||
+    words.some((word) => CREDENTIAL_WORD_SUFFIXES.some((suffix) => word.endsWith(suffix)))
   )
 }
 
@@ -73,10 +59,11 @@ function redactPairs(pairs: string): string {
     .join("&")
 }
 
-// What a URL can carry: userinfo (`https://user:pass@host`) and the value of a credential-named
-// query or fragment parameter. A key typed into the path cannot be told from a path segment, so
-// the path is never touched.
-function redactUrlCredentials(url: string): string {
+// The textual pass. What a URL can carry: userinfo (`https://user:pass@host`) and the value of a
+// credential-named query or fragment parameter. A key typed into the path cannot be told from a
+// path segment, so the path is never touched. It reads the string as typed, which is not always how
+// a browser reads it, so `redactUrlCredentials` checks the result again with the URL parser.
+function redactUrlText(url: string): string {
   const withoutUserinfo = url.replace(
     /^((?:[a-z][a-z0-9+.-]*:)?\/\/)([^/?#]*)@/i,
     (match, prefix: string, userinfo: string) =>
@@ -98,6 +85,97 @@ function redactUrlCredentials(url: string): string {
     result += `#${hash.includes("=") ? redactPairs(hash) : hash}`
   }
   return result
+}
+
+function parseUrl(text: string): URL | undefined {
+  try {
+    return new URL(text)
+  } catch {
+    return undefined
+  }
+}
+
+// A stand-in for `{{apiKey}}` while a string goes through the URL parser: lower-case letters only,
+// so no component rewrites it, and nothing the credential-name rule would match. It is made not to
+// occur in the text in any case, so putting `{{apiKey}}` back cannot touch anything else.
+function placeholderSentinel(text: string): string {
+  const lower = text.toLowerCase()
+  let sentinel = "zqplaceholderzq"
+  while (lower.includes(sentinel)) sentinel += "q"
+  return sentinel
+}
+
+const isLiteral = (value: string, sentinel: string) => value !== "" && value !== sentinel
+
+function hasCredentialParams(params: URLSearchParams, sentinel: string): boolean {
+  for (const [name, value] of params) {
+    if (isLiteral(value, sentinel) && isCredentialName(name)) return true
+  }
+  return false
+}
+
+function withoutCredentialValues(params: URLSearchParams, sentinel: string): URLSearchParams {
+  const result = new URLSearchParams()
+  for (const [name, value] of params) {
+    result.append(name, isLiteral(value, sentinel) && isCredentialName(name) ? "" : value)
+  }
+  return result
+}
+
+function hasUserinfo(url: URL, sentinel: string): boolean {
+  return isLiteral(url.username, sentinel) || isLiteral(url.password, sentinel)
+}
+
+function fragmentParams(url: URL): URLSearchParams | undefined {
+  const fragment = url.hash.slice(1)
+  return fragment.includes("=") ? new URLSearchParams(fragment) : undefined
+}
+
+// What the URL parser reads as a credential, which is what the text can hide: whitespace and extra
+// slashes before the authority, backslashes for slashes, and tabs or newlines inside a name.
+function hasParsedCredentials(url: URL, sentinel: string): boolean {
+  const fragment = fragmentParams(url)
+  return (
+    hasUserinfo(url, sentinel) ||
+    hasCredentialParams(url.searchParams, sentinel) ||
+    (fragment !== undefined && hasCredentialParams(fragment, sentinel))
+  )
+}
+
+function stripParsedCredentials(url: URL, sentinel: string): void {
+  if (hasUserinfo(url, sentinel)) {
+    url.username = ""
+    url.password = ""
+  }
+  if (hasCredentialParams(url.searchParams, sentinel)) {
+    url.search = withoutCredentialValues(url.searchParams, sentinel).toString()
+  }
+  const fragment = fragmentParams(url)
+  if (fragment && hasCredentialParams(fragment, sentinel)) {
+    url.hash = withoutCredentialValues(fragment, sentinel).toString()
+  }
+}
+
+// The text pass, then the way `fetch` reads the string. A URL that still has a credential once
+// parsed is rebuilt from the parsed form with it removed, and checked again: if one survives the
+// rebuild this throws, so the export is not written. A string with nothing left to remove comes
+// back exactly as it went in, and one that is not a URL gets the text pass only.
+function redactUrlCredentials(url: string): string {
+  const textual = redactUrlText(url)
+  const sentinel = placeholderSentinel(textual)
+  const protect = (text: string) => text.replaceAll(API_KEY_PLACEHOLDER, sentinel)
+
+  const parsed = parseUrl(protect(textual))
+  if (!parsed || !hasParsedCredentials(parsed, sentinel)) return textual
+
+  stripParsedCredentials(parsed, sentinel)
+  const rebuilt = parsed.href.replaceAll(sentinel, API_KEY_PLACEHOLDER)
+
+  const check = parseUrl(protect(rebuilt))
+  if (!check || hasParsedCredentials(check, sentinel)) {
+    throw new Error("Could not remove the credentials from a provider URL")
+  }
+  return rebuilt
 }
 
 function redactCredentials(value: unknown, inProviders: boolean): unknown {
@@ -128,8 +206,10 @@ function redactCredentials(value: unknown, inProviders: boolean): unknown {
  * - `headers` is a free `Record<string, any>` sent verbatim on every request, so a header under any
  *   name can be the credential. The whole object goes.
  * - `providerOptions` is a free object too. Entries named like a credential go, at any depth.
- * - `baseURL` and `url` can hold userinfo or a credential-named parameter. Those are removed, and a
- *   `{{apiKey}}` placeholder stays as typed, so a DeepLX URL works again once the key is re-entered.
+ * - `baseURL` and `url` can hold userinfo or a credential-named parameter. Those are removed, in the
+ *   forms the text shows and in the ones only the URL parser sees (padding, extra slashes, tabs in a
+ *   name), and a `{{apiKey}}` placeholder stays as typed, so a DeepLX URL works again once the key
+ *   is re-entered.
  *
  * A property named `apiKey` goes wherever it sits, as it always did. Nothing outside provider
  * settings held another credential when this was written (a test keeps that true), so the rest of
