@@ -7,6 +7,9 @@ export interface ConfigItemProps {
   title?: ReactNode
   /** Omit where the title says everything; the block is dropped rather than left empty. */
   description?: ReactNode
+  /** DOM ids for the title and the description, so the row's control can name itself with `aria-labelledby` / `aria-describedby`. */
+  titleId?: string
+  descriptionId?: string
   children: ReactNode
   /** `vertical` stacks the control under the label — for controls too wide to sit beside it. */
   orientation?: "horizontal" | "vertical"
@@ -33,6 +36,8 @@ export function ConfigItem({
   id,
   title,
   description,
+  titleId,
+  descriptionId,
   children,
   orientation = "horizontal",
   className,
@@ -45,10 +50,15 @@ export function ConfigItem({
       <div className={layout.label}>
         <div className="flex flex-col items-start justify-start gap-1">
           {title && (
-            <h3 className={cn("text-sm leading-5 font-medium", titleClassName)}>{title}</h3>
+            <h3 id={titleId} className={cn("text-sm leading-5 font-medium", titleClassName)}>
+              {title}
+            </h3>
           )}
           {description !== undefined && (
-            <div className="text-[13px] leading-[18px] text-pretty text-muted-foreground">
+            <div
+              id={descriptionId}
+              className="text-[13px] leading-[18px] text-pretty text-muted-foreground"
+            >
               {description}
             </div>
           )}
