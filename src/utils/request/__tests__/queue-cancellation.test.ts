@@ -255,7 +255,10 @@ function createBatchQueue(options: {
     dataList: FakeBatchData[],
     meta: { scopes: readonly string[] | undefined },
   ) => Promise<string[]>
-  executeIndividual?: (data: FakeBatchData) => Promise<string>
+  executeIndividual?: (
+    data: FakeBatchData,
+    meta: { scopes: readonly string[] | undefined },
+  ) => Promise<string>
   batchDelay?: number
   maxItemsPerBatch?: number
   maxRetries?: number
@@ -537,5 +540,214 @@ describe("batchQueue – cancelByScope", () => {
     await vi.advanceTimersByTimeAsync(60_000)
     expect(executeBatch).toHaveBeenCalledTimes(2)
     await expect(a1).resolves.toBe("t:alpha")
+  })
+})
+
+describe("batchQueue – live owners at every new downstream task", () => {
+  type Meta = { scopes: readonly string[] | undefined }
+  const mismatch = () => {
+    throw new BatchCountMismatchError(2, 1, ["only-one"])
+  }
+
+  // Two paragraphs flushed together: "alpha" asked for by every given scope (deduped into one task),
+  // "beta" by A alone. Resolves once the batch has been flushed.
+  async function flushShared(
+    q: ReturnType<typeof createBatchQueue>,
+    alphaScopes: Array<string | undefined>,
+  ) {
+    const alphas = alphaScopes.map((scope) => q.enqueue({ text: "alpha", key: "alpha", scope }))
+    const beta = q.enqueue({ text: "beta", key: "beta", scope: "A" })
+    await vi.advanceTimersByTimeAsync(20)
+    return { alphas, beta }
+  }
+
+  it("hands each fallback item the live subset of its OWN subscribers, not the first requester's scope", async () => {
+    vi.useFakeTimers()
+    const cancelled = new Set<string>()
+    const executeIndividual = vi.fn<(data: FakeBatchData, meta: Meta) => Promise<string>>(
+      async (item) => `solo:${item.text}`,
+    )
+    const q = createBatchQueue({
+      batchDelay: 10,
+      maxRetries: 1,
+      executeBatch: async () => mismatch(),
+      executeIndividual,
+      isScopeCancelled: (scope) => cancelled.has(scope),
+    })
+    const { alphas } = await flushShared(q, ["A", "B"])
+    cancelled.add("A")
+
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    const scopesFor = (text: string) =>
+      executeIndividual.mock.calls.find(([item]) => item.text === text)?.[1].scopes
+    expect(scopesFor("alpha")).toEqual(["B"])
+    await expect(alphas[0]).resolves.toBe("solo:alpha")
+  })
+
+  it("passes every scope while all of them are live", async () => {
+    vi.useFakeTimers()
+    const executeIndividual = vi.fn<(data: FakeBatchData, meta: Meta) => Promise<string>>(
+      async (item) => `solo:${item.text}`,
+    )
+    const q = createBatchQueue({
+      batchDelay: 10,
+      maxRetries: 1,
+      executeBatch: async () => mismatch(),
+      executeIndividual,
+      isScopeCancelled: () => false,
+    })
+    await flushShared(q, ["A", "B"])
+
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    const alpha = executeIndividual.mock.calls.find(([item]) => item.text === "alpha")!
+    expect([...alpha[1].scopes!].sort()).toEqual(["A", "B"])
+    const beta = executeIndividual.mock.calls.find(([item]) => item.text === "beta")!
+    expect(beta[1].scopes).toEqual(["A"])
+  })
+
+  it("passes every scope when no cancellation registry is wired", async () => {
+    vi.useFakeTimers()
+    const executeIndividual = vi.fn<(data: FakeBatchData, meta: Meta) => Promise<string>>(
+      async (item) => `solo:${item.text}`,
+    )
+    const q = createBatchQueue({
+      batchDelay: 10,
+      maxRetries: 1,
+      executeBatch: async () => mismatch(),
+      executeIndividual,
+    })
+    await flushShared(q, ["A", "B"])
+
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    const alpha = executeIndividual.mock.calls.find(([item]) => item.text === "alpha")!
+    expect([...alpha[1].scopes!].sort()).toEqual(["A", "B"])
+  })
+
+  it("keeps an item an unscoped subscriber joined pinned, whatever the first requester did", async () => {
+    vi.useFakeTimers()
+    const cancelled = new Set<string>(["A"])
+    const executeIndividual = vi.fn<(data: FakeBatchData, meta: Meta) => Promise<string>>(
+      async (item) => `solo:${item.text}`,
+    )
+    const q = createBatchQueue({
+      batchDelay: 10,
+      maxRetries: 1,
+      executeBatch: async () => mismatch(),
+      executeIndividual,
+      isScopeCancelled: (scope) => cancelled.has(scope),
+    })
+    await flushShared(q, ["A", undefined])
+
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    const alpha = executeIndividual.mock.calls.find(([item]) => item.text === "alpha")!
+    expect(alpha[1].scopes).toBeUndefined()
+  })
+
+  it("rejects an item whose every owner was cancelled instead of sending it, and still sends the rest", async () => {
+    vi.useFakeTimers()
+    const cancelled = new Set<string>()
+    const executeIndividual = vi.fn<(data: FakeBatchData, meta: Meta) => Promise<string>>(
+      async (item) => `solo:${item.text}`,
+    )
+    const q = createBatchQueue({
+      batchDelay: 10,
+      maxRetries: 1,
+      executeBatch: async () => mismatch(),
+      executeIndividual,
+      isScopeCancelled: (scope) => cancelled.has(scope),
+    })
+    const { alphas, beta } = await flushShared(q, ["A", "B"])
+    // A cancels in the backoff window: "beta" (A alone) has no owner left, "alpha" still has B.
+    cancelled.add("A")
+    const betaSettled = expectCancelled(beta)
+
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    await betaSettled
+    expect(executeIndividual.mock.calls.map(([item]) => item.text)).toEqual(["alpha"])
+    await expect(alphas[0]).resolves.toBe("solo:alpha")
+  })
+
+  it("narrows the scopes of a mismatch retry to the live ones", async () => {
+    vi.useFakeTimers()
+    const cancelled = new Set<string>()
+    const executeBatch = vi.fn<(dataList: FakeBatchData[], meta: Meta) => Promise<string[]>>(
+      async (dataList) => {
+        if (executeBatch.mock.calls.length === 1) return mismatch()
+        return dataList.map((d) => `t:${d.text}`)
+      },
+    )
+    const q = createBatchQueue({
+      batchDelay: 10,
+      maxRetries: 3,
+      executeBatch,
+      isScopeCancelled: (scope) => cancelled.has(scope),
+    })
+    await flushShared(q, ["A", "B"])
+    expect([...executeBatch.mock.calls[0]![1].scopes!].sort()).toEqual(["A", "B"])
+    cancelled.add("A")
+
+    await vi.advanceTimersByTimeAsync(2_000)
+
+    expect(executeBatch).toHaveBeenCalledTimes(2)
+    expect(executeBatch.mock.calls[1]![1].scopes).toEqual(["B"])
+  })
+
+  it("narrows again at each further retry, never widening back", async () => {
+    vi.useFakeTimers()
+    const cancelled = new Set<string>()
+    const executeBatch = vi.fn<(dataList: FakeBatchData[], meta: Meta) => Promise<string[]>>(
+      async (dataList) => {
+        if (executeBatch.mock.calls.length < 3) return mismatch()
+        return dataList.map((d) => `t:${d.text}`)
+      },
+    )
+    const q = createBatchQueue({
+      batchDelay: 10,
+      maxRetries: 3,
+      executeBatch,
+      isScopeCancelled: (scope) => cancelled.has(scope),
+    })
+    const alpha = q.enqueue({ text: "alpha", key: "alpha", scope: "A" })
+    void q.enqueue({ text: "alpha", key: "alpha", scope: "B" })
+    void q.enqueue({ text: "alpha", key: "alpha", scope: "C" })
+    void q.enqueue({ text: "beta", key: "beta", scope: "A" })
+    await vi.advanceTimersByTimeAsync(20)
+    cancelled.add("A")
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect([...executeBatch.mock.calls[1]![1].scopes!].sort()).toEqual(["B", "C"])
+    cancelled.add("B")
+
+    await vi.advanceTimersByTimeAsync(2_100)
+
+    expect(executeBatch.mock.calls[2]![1].scopes).toEqual(["C"])
+    await expect(alpha).resolves.toBe("t:alpha")
+  })
+
+  it("keeps a retry pinned when an unscoped member is in the batch", async () => {
+    vi.useFakeTimers()
+    const cancelled = new Set<string>(["A"])
+    const executeBatch = vi.fn<(dataList: FakeBatchData[], meta: Meta) => Promise<string[]>>(
+      async (dataList) => {
+        if (executeBatch.mock.calls.length === 1) return mismatch()
+        return dataList.map((d) => `t:${d.text}`)
+      },
+    )
+    const q = createBatchQueue({
+      batchDelay: 10,
+      maxRetries: 3,
+      executeBatch,
+      isScopeCancelled: (scope) => cancelled.has(scope),
+    })
+    await flushShared(q, ["A", undefined])
+
+    await vi.advanceTimersByTimeAsync(2_000)
+
+    expect(executeBatch).toHaveBeenCalledTimes(2)
+    expect(executeBatch.mock.calls[1]![1].scopes).toBeUndefined()
   })
 })

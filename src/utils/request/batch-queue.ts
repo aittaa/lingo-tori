@@ -58,9 +58,17 @@ interface PendingBatch<T, R> {
 
 export interface BatchExecutionMeta {
   /**
-   * Union of the live members' cancellation scopes at flush time, or
-   * `undefined` when any member is uncancellable. Thread this into the
-   * downstream RequestQueue so cancelling the scopes aborts the whole batch.
+   * Union of the live members' cancellation scopes, or `undefined` when any
+   * member is uncancellable. Thread this into the downstream RequestQueue so
+   * cancelling the scopes aborts the whole batch.
+   *
+   * "Live" is judged each time a new downstream task is created. At flush the
+   * pending members are all live (a cancel drains them). At every mismatch retry
+   * and for every individual fallback item it is judged again against the
+   * cancellation registry: a scope cancelled since is left out, because nothing
+   * will ever cancel it a second time — listing it would leave a ghost owner
+   * that keeps the task alive after its last real subscriber is gone. For an
+   * individual item the scopes are that item's own subscribers, not the batch's.
    */
   scopes: readonly string[] | undefined
 }
@@ -80,7 +88,7 @@ export interface BatchOptions<T, R> {
   // batch was outside every cancellable structure (retry backoff sleep).
   isScopeCancelled?: (scopeKey: string) => boolean
   executeBatch: (dataList: T[], meta: BatchExecutionMeta) => Promise<R[]>
-  executeIndividual?: (data: T) => Promise<R>
+  executeIndividual?: (data: T, meta: BatchExecutionMeta) => Promise<R>
   onError?: (
     error: Error,
     context: { batchKey: string; retryCount: number; isFallback: boolean },
@@ -103,7 +111,7 @@ export class BatchQueue<T, R> {
   private getScope?: (data: T) => string | undefined
   private isScopeCancelled?: (scopeKey: string) => boolean
   private executeBatch: (dataList: T[], meta: BatchExecutionMeta) => Promise<R[]>
-  private executeIndividual?: (data: T) => Promise<R>
+  private executeIndividual?: (data: T, meta: BatchExecutionMeta) => Promise<R>
   private onError?: (
     error: Error,
     context: { batchKey: string; retryCount: number; isFallback: boolean },
@@ -383,8 +391,9 @@ export class BatchQueue<T, R> {
         // (its RequestQueue task already completed, it left pendingBatchMap at
         // flush) — a cancel that arrived meanwhile drained nothing, so re-check
         // scope liveness before burning another provider round trip (#1881).
-        if (this.rejectIfAllScopesCancelled(tasks, meta)) return
-        return this.executeBatchWithRetry(tasks, batchKey, meta, retryCount + 1)
+        const liveMeta = this.rejectOrNarrowToLiveScopes(tasks, meta)
+        if (!liveMeta) return
+        return this.executeBatchWithRetry(tasks, batchKey, liveMeta, retryCount + 1)
       }
 
       if (
@@ -392,9 +401,8 @@ export class BatchQueue<T, R> {
         this.executeIndividual &&
         err instanceof BatchCountMismatchError
       ) {
-        // Same gate before the per-item fallback: the failed attempt's provider
-        // call may have straddled the cancel.
-        if (this.rejectIfAllScopesCancelled(tasks, meta)) return
+        // Each item is checked against its own subscribers as it is sent, so a
+        // cancel that straddled the failed attempt is caught there.
         return this.executeFallbackIndividual(tasks, batchKey)
       }
 
@@ -403,17 +411,47 @@ export class BatchQueue<T, R> {
   }
 
   /**
-   * When every scope this batch was flushed with has since been cancelled,
-   * reject all members with the cancellation error and report true. A batch
-   * with an unscoped member (scopes: undefined) or any surviving scope keeps
-   * running — same mixed-batch semantics as cancelByScope.
+   * The scopes of this batch that are still live, for the RequestQueue task a
+   * retry is about to create. The scope list handed out at flush is frozen, and
+   * a cancel that lands while the batch sits in its backoff sleep (in no queue)
+   * drains nothing, so the cancelled scope would otherwise be listed again as an
+   * owner nobody can cancel a second time.
+   *
+   * When every scope has been cancelled, rejects all members with the
+   * cancellation error and returns undefined. A batch with an unscoped member
+   * (scopes: undefined) stays pinned, and any surviving scope keeps it running
+   * with only the survivors — same mixed-batch semantics as cancelByScope.
    */
-  private rejectIfAllScopesCancelled(tasks: BatchTask<T, R>[], meta: BatchExecutionMeta): boolean {
-    if (!this.isScopeCancelled || !meta.scopes || meta.scopes.length === 0) return false
-    if (!meta.scopes.every((scope) => this.isScopeCancelled!(scope))) return false
-    const error = new TranslationCancelledError(meta.scopes.join(","))
-    tasks.forEach((task) => task.reject(error))
-    return true
+  private rejectOrNarrowToLiveScopes(
+    tasks: BatchTask<T, R>[],
+    meta: BatchExecutionMeta,
+  ): BatchExecutionMeta | undefined {
+    if (!this.isScopeCancelled || !meta.scopes || meta.scopes.length === 0) return meta
+    const live = meta.scopes.filter((scope) => !this.isScopeCancelled!(scope))
+    if (live.length === 0) {
+      const error = new TranslationCancelledError(meta.scopes.join(","))
+      tasks.forEach((task) => task.reject(error))
+      return undefined
+    }
+    return live.length === meta.scopes.length ? meta : { scopes: live }
+  }
+
+  /**
+   * The live owners of one item, from its own subscribers: the scopes of every
+   * session deduped into it, minus the cancelled ones, or `undefined` when an
+   * unscoped subscriber pins it. Returns `null` when each of its owners has been
+   * cancelled, so nobody is waiting for it any more.
+   *
+   * The item's `data.scope` is only the first requester's; the later subscribers
+   * live in `cancelScopes` alone.
+   */
+  private liveOwnersOf(task: BatchTask<T, R>): BatchExecutionMeta | null {
+    if (task.cancelScopes === null) return { scopes: undefined }
+    const scopes = [...task.cancelScopes]
+    const live = this.isScopeCancelled
+      ? scopes.filter((scope) => !this.isScopeCancelled!(scope))
+      : scopes
+    return live.length > 0 ? { scopes: live } : null
   }
 
   private async executeFallbackIndividual(tasks: BatchTask<T, R>[], batchKey: string) {
@@ -423,7 +461,12 @@ export class BatchQueue<T, R> {
           if (!this.executeIndividual) {
             throw new Error("executeIndividual is not defined")
           }
-          const result = await this.executeIndividual(task.data)
+          const owners = this.liveOwnersOf(task)
+          if (!owners) {
+            task.reject(new TranslationCancelledError([...task.cancelScopes!].join(",")))
+            return
+          }
+          const result = await this.executeIndividual(task.data, owners)
           task.resolve(result)
         } catch (error) {
           const err = error as Error
