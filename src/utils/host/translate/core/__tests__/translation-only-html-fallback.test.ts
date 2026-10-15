@@ -132,7 +132,22 @@ function expectNoActiveContent(root: ParentNode): void {
   }
 }
 
-/** Trigger what injected markup would trigger in a browser, then settle timers. */
+/**
+ * Let everything an injected payload could have queued actually run before the caller looks.
+ * jsdom evaluates a clicked `javascript:` link two `setImmediate` hops after the click (follow the
+ * hyperlink, then navigate), and Node does not order a `setTimeout(0)` against the second hop: on a
+ * busy machine the timer fires first and the evaluation lands in whatever test runs next. That set the
+ * probe during the test after the harness control, and would let a live `javascript:` payload pass
+ * unseen. Alternating immediate and timer turns drains the chain whichever of the two goes first.
+ */
+async function settleQueuedWork(): Promise<void> {
+  for (let turn = 0; turn < 3; turn++) {
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+  }
+}
+
+/** Trigger what injected markup would trigger in a browser, then settle what it queued. */
 async function fireInjectedTriggers(root: ParentNode): Promise<void> {
   for (const element of root.querySelectorAll("*")) {
     for (const type of ["error", "load", "toggle", "focus", "mouseover"]) {
@@ -140,7 +155,7 @@ async function fireInjectedTriggers(root: ParentNode): Promise<void> {
     }
     if (element instanceof HTMLElement) element.click()
   }
-  await new Promise((resolve) => setTimeout(resolve, 0))
+  await settleQueuedWork()
 }
 
 function expectProbeUntouched(): void {
