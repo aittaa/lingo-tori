@@ -378,6 +378,9 @@ export function useCustomActionExecution({
     lastRunKeyRef.current = executionRequestKey
 
     let isCancelled = false
+    // True once the run produced its outcome (a result or a failure). A run that is torn
+    // down before that never did, and must not leave its mark behind.
+    let hasSettled = false
     const abortController = new AbortController()
 
     const analyticsContext = createFeatureUsageContext(
@@ -453,6 +456,7 @@ export function useCustomActionExecution({
         })
       } finally {
         if (!isCancelled) {
+          hasSettled = true
           setIsRunning(false)
         }
       }
@@ -463,6 +467,17 @@ export function useCustomActionExecution({
     return () => {
       isCancelled = true
       abortController.abort()
+      if (!hasSettled) {
+        // Cancelled before completion: the action was switched off (the plan went away),
+        // the key changed, or the popover closed. The same key may come back — the action
+        // switched on again — and must not be skipped as "already run", and the cancelled
+        // run's `finally` no longer clears the running state, so clear it here. A run that
+        // settled keeps its key: the same inputs already have their result on screen.
+        if (lastRunKeyRef.current === executionRequestKey) {
+          lastRunKeyRef.current = null
+        }
+        setIsRunning(false)
+      }
     }
   }, [executionRequestKey, open])
 
