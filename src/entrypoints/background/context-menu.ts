@@ -25,6 +25,31 @@ function getSelectionCustomActionMenuId(actionId: string) {
 }
 
 /**
+ * Per tab, a count of the things that set the translate item's title for it: a click, the tab
+ * becoming (or ceasing to be) the active one, its page finishing loading, a change of its stored
+ * state, a rebuild of the menu. The item is one global object, so a click that waits for its
+ * acknowledgement may only write its title if none of these happened to its tab meanwhile;
+ * otherwise whichever listener ran has already set the right one.
+ */
+const titleGenerations = new Map<number, number>()
+
+function bumpTitleGeneration(tabId: number): number {
+  const next = (titleGenerations.get(tabId) ?? 0) + 1
+  titleGenerations.set(tabId, next)
+  return next
+}
+
+function getTitleGeneration(tabId: number): number {
+  return titleGenerations.get(tabId) ?? 0
+}
+
+/** Whether the tab is the active one of the window the user last focused. */
+async function isFrontTab(tabId: number): Promise<boolean> {
+  const [frontTab] = await browser.tabs.query({ active: true, lastFocusedWindow: true })
+  return frontTab?.id === tabId
+}
+
+/**
  * Register all context menu event listeners synchronously
  * This must be called during main() execution to ensure listeners are registered
  * before Chrome completes initialization
@@ -39,12 +64,14 @@ export function registerContextMenuListeners() {
 
   // Listen for tab activation to update menu title
   browser.tabs.onActivated.addListener(async (activeInfo) => {
+    bumpTitleGeneration(activeInfo.tabId)
     await updateTranslateMenuTitle(activeInfo.tabId)
   })
 
   // Listen for tab updates (e.g., navigation)
   browser.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
     if (changeInfo.status === "complete") {
+      bumpTitleGeneration(tabId)
       await updateTranslateMenuTitle(tabId)
     }
   })
@@ -60,6 +87,8 @@ export function registerContextMenuListeners() {
         const tabId = parseTabIdFromStorageKey(key)
 
         if (!Number.isNaN(tabId)) {
+          // Counted when it arrives, before any await, so an older click knows it was overtaken.
+          bumpTitleGeneration(tabId)
           // Only update menu if this is the active tab
           const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true })
           if (activeTab?.id === tabId) {
@@ -128,6 +157,7 @@ async function updateContextMenuItems(config: Config) {
   // Update translate menu title for current tab
   const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true })
   if (activeTab?.id) {
+    bumpTitleGeneration(activeTab.id)
     await updateTranslateMenuTitle(activeTab.id)
   }
 }
@@ -136,8 +166,13 @@ async function updateContextMenuItems(config: Config) {
  * Update translate menu title based on current translation state
  * @param tabId - The tab ID to check translation state for
  * @param enabled - Optional: if provided, use this value instead of reading from storage
+ * @param isStillCurrent - Optional: asked just before the write; the write is dropped if it says no
  */
-async function updateTranslateMenuTitle(tabId: number, enabled?: boolean) {
+async function updateTranslateMenuTitle(
+  tabId: number,
+  enabled?: boolean,
+  isStillCurrent?: () => boolean | Promise<boolean>,
+) {
   const config = await ensureInitializedConfig()
   if (!config?.contextMenu.enabled) {
     return
@@ -150,6 +185,11 @@ async function updateTranslateMenuTitle(tabId: number, enabled?: boolean) {
     } else {
       const state = await storage.getItem<{ enabled: boolean }>(getTranslationStateKey(tabId))
       isTranslated = state?.enabled ?? false
+    }
+
+    // Asked as late as possible: it is the last thing awaited before the write.
+    if (isStillCurrent && !(await isStillCurrent())) {
+      return
     }
 
     await browser.contextMenus.update(MENU_ID_TRANSLATE, {
@@ -198,6 +238,7 @@ async function handleContextMenuClick(
  * Handle translate menu click - toggle page translation
  */
 async function handleTranslateClick(tabId: number, tabUrl?: string) {
+  const generation = bumpTitleGeneration(tabId)
   const isCurrentlyTranslated = await getPageTranslationEnabled(tabId)
   const newState = !isCurrentlyTranslated
 
@@ -227,10 +268,18 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
     },
   )
 
-  // Update the menu title once a manager heard the request. With no receiver in the tab
-  // nothing changed on the page, and the title keeps saying what is true.
+  // Update the menu title once a manager heard the request, but only if the answer is still
+  // about what is on screen: the tab must still be in front, and nothing newer (another click, a
+  // tab switch, a stored state change) may have set the title for it while this waited — the
+  // listener that ran has already set the right one, and the item is one global object. Both are
+  // asked right before the write. With no receiver in the tab the title is left as it is; after
+  // an OFF it already follows the stored refusal through the storage listener, delivered or not.
   if (delivered) {
-    await updateTranslateMenuTitle(tabId, newState)
+    await updateTranslateMenuTitle(
+      tabId,
+      newState,
+      async () => (await isFrontTab(tabId)) && getTitleGeneration(tabId) === generation,
+    )
   }
 }
 

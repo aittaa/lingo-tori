@@ -10,7 +10,7 @@
 // when the background talks to the tab (acknowledge, or reject like the browser).
 
 import type { Config } from "@/types/config/config"
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { createStore, Provider } from "jotai"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
@@ -297,6 +297,163 @@ describe("popup translate button: no page manager heard the toggle", () => {
 
     await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true))
     expect(askedTheTab(true)).toHaveLength(1)
+  })
+})
+
+describe("popup translate button: a toggle nobody answers", () => {
+  // The messaging library has no timeout of its own, so a channel that stays open and never
+  // replies would otherwise leave the button silently unusable. The popup bounds its own wait.
+  const DEADLINE_MS = 5_000
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** Every ask to the tab's manager waits for the test to answer it, in order. */
+  function holdReplies() {
+    const held: Array<{ resolve: () => void; reject: (error: Error) => void }> = []
+    mocks.deliver.mockImplementation((name: string) => {
+      if (name !== "askManagerToTogglePageTranslation") return Promise.resolve(undefined)
+      return new Promise<void>((resolve, reject) => held.push({ resolve, reject }))
+    })
+    return held
+  }
+
+  const settle = (ms = 0) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(ms)
+    })
+
+  it("shows the refresh hint once the deadline passes, and the button works again", async () => {
+    const held = holdReplies()
+    const jotaiStore = await renderButton()
+    vi.useFakeTimers()
+
+    fireEvent.click(translateButton())
+    await settle()
+    expect(askedTheTab(true)).toHaveLength(1)
+
+    await settle(DEADLINE_MS - 1)
+    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+
+    await settle(1)
+    expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+    expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+    expect(translateButton()).toBeEnabled()
+
+    // The guard is released: a second click sends a new request.
+    fireEvent.click(translateButton())
+    await settle()
+    expect(askedTheTab(true)).toHaveLength(2)
+    expect(held).toHaveLength(2)
+  })
+
+  it("ignores a late reply to the attempt it gave up on, while a newer attempt is waiting", async () => {
+    const held = holdReplies()
+    const jotaiStore = await renderButton()
+    vi.useFakeTimers()
+
+    fireEvent.click(translateButton())
+    await settle(DEADLINE_MS)
+    expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+    fireEvent.click(translateButton())
+    await settle()
+    expect(held).toHaveLength(2)
+    // A new attempt starts with a clean slate.
+    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+
+    // The first attempt's reply finally arrives, successful: it changes nothing on screen.
+    held[0]!.resolve()
+    await settle()
+    expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+
+    // The newer attempt's own reply is what counts.
+    held[1]!.resolve()
+    await settle()
+    expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
+    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    [
+      "acknowledged",
+      (held: Array<{ resolve: () => void; reject: (e: Error) => void }>) => held[0]!.resolve(),
+    ],
+    [
+      "rejected",
+      (held: Array<{ resolve: () => void; reject: (e: Error) => void }>) =>
+        held[0]!.reject(new Error(NO_RECEIVER)),
+    ],
+  ])(
+    "a reply that comes %s after the deadline does not change the screen",
+    async (_kind, reply) => {
+      const held = holdReplies()
+      const jotaiStore = await renderButton()
+      vi.useFakeTimers()
+
+      fireEvent.click(translateButton())
+      await settle(DEADLINE_MS)
+      expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+
+      reply(held)
+      await settle()
+
+      expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+      expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+      expect(translateButton()).toBeEnabled()
+    },
+  )
+
+  it("clears the hint when the next attempt starts, not when it ends", async () => {
+    holdReplies()
+    await renderButton()
+    vi.useFakeTimers()
+    fireEvent.click(translateButton())
+    await settle(DEADLINE_MS)
+    expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+
+    fireEvent.click(translateButton())
+    await settle()
+
+    // The second request is still pending, and the old hint is already gone.
+    expect(askedTheTab(true)).toHaveLength(2)
+    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+  })
+
+  it("a stop nobody answers also shows the hint, and the refusal stays recorded", async () => {
+    holdReplies()
+    const jotaiStore = await renderButton({ translated: true })
+    vi.useFakeTimers()
+
+    fireEvent.click(showOriginalButton())
+    await settle(DEADLINE_MS)
+
+    expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+    expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
+    expect(showOriginalButton()).toBeEnabled()
+    expect(tabState()).toEqual({ enabled: false, userDisabled: true, origin: TAB_ORIGIN })
+  })
+
+  it("an answer inside the deadline behaves as before, and the deadline never fires afterwards", async () => {
+    const held = holdReplies()
+    const jotaiStore = await renderButton()
+    vi.useFakeTimers()
+    const timersBefore = vi.getTimerCount()
+
+    fireEvent.click(translateButton())
+    await settle(1_000)
+    // The attempt's own deadline is armed while it waits…
+    expect(vi.getTimerCount()).toBeGreaterThan(timersBefore)
+    held[0]!.resolve()
+    await settle()
+    expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
+    // …and disarmed once it is answered.
+    expect(vi.getTimerCount()).toBeLessThanOrEqual(timersBefore)
+
+    await settle(DEADLINE_MS * 2)
+    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
   })
 })
 

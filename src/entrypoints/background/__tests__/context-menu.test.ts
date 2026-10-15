@@ -1,6 +1,7 @@
 import type { Config } from "@/types/config/config"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser, storage } from "#imports"
+import { getTranslationStateKey } from "@/utils/constants/storage-keys"
 import { i18n } from "@/utils/i18n"
 import {
   initializeContextMenu,
@@ -17,6 +18,11 @@ const { sendMessageMock, ensureInitializedConfigMock } = vi.hoisted(() => ({
   ensureInitializedConfigMock: vi.fn<(...args: any[]) => any>(),
 }))
 const storageGetItemMock = vi.fn<(...args: any[]) => any>()
+const menuUpdateMock = vi.fn<(...args: any[]) => any>()
+const onActivatedListenerMock = vi.fn<(...args: any[]) => any>()
+const onUpdatedListenerMock = vi.fn<(...args: any[]) => any>()
+const onStorageChangedListenerMock = vi.fn<(...args: any[]) => any>()
+const tabsQueryMock = vi.fn<(...args: any[]) => any>()
 const storageSetItemMock = vi.fn<(...args: any[]) => any>()
 const contextMenuClickListeners: Array<(info: any, tab?: any) => Promise<void> | void> = []
 
@@ -59,15 +65,17 @@ describe("background context menu", () => {
 
     browser.contextMenus.create = vi.fn<(...args: any[]) => any>()
     browser.contextMenus.removeAll = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined)
-    browser.contextMenus.update = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined)
+    browser.contextMenus.update = menuUpdateMock
+    menuUpdateMock.mockResolvedValue(undefined)
     browser.contextMenus.onClicked.addListener = vi.fn<(...args: any[]) => any>((listener) => {
       contextMenuClickListeners.push(listener as (info: any, tab?: any) => Promise<void> | void)
     })
 
-    browser.tabs.query = vi.fn<(...args: any[]) => any>().mockResolvedValue([{ id: 1 }])
-    browser.tabs.onActivated.addListener = vi.fn<(...args: any[]) => any>()
-    browser.tabs.onUpdated.addListener = vi.fn<(...args: any[]) => any>()
-    browser.storage.session.onChanged.addListener = vi.fn<(...args: any[]) => any>()
+    browser.tabs.query = tabsQueryMock
+    tabsQueryMock.mockResolvedValue([{ id: 1 }])
+    browser.tabs.onActivated.addListener = onActivatedListenerMock
+    browser.tabs.onUpdated.addListener = onUpdatedListenerMock
+    browser.storage.session.onChanged.addListener = onStorageChangedListenerMock
 
     storage.watch = vi.fn<(...args: any[]) => any>()
     storage.getItem = storageGetItemMock
@@ -177,6 +185,8 @@ describe("background context menu", () => {
     async function clickTranslateMenu(stored: { enabled: boolean }) {
       ensureInitializedConfigMock.mockResolvedValue(createConfig(true))
       storageGetItemMock.mockResolvedValue(stored)
+      // The tab clicked in is the one in front, as it is when a user opens the menu.
+      tabsQueryMock.mockResolvedValue([{ id: 5 }])
       registerContextMenuListeners()
       const clickHandler = contextMenuClickListeners[0]
       if (!clickHandler) {
@@ -210,6 +220,178 @@ describe("background context menu", () => {
       await clickTranslateMenu({ enabled: false })
 
       expect(browser.contextMenus.update).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("translate menu title when the acknowledgement is late", () => {
+    const TAB_PAGE = "https://example.com/articles/1"
+
+    function createDeferred() {
+      let resolve!: () => void
+      let reject!: (error: unknown) => void
+      const promise = new Promise<void>((innerResolve, innerReject) => {
+        resolve = innerResolve
+        reject = innerReject
+      })
+      return { promise, resolve, reject }
+    }
+
+    async function flush() {
+      for (let i = 0; i < 5; i++) {
+        await Promise.resolve()
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      }
+    }
+
+    const stateKey = (tabId: number) => getTranslationStateKey(tabId)
+    const storageEventKey = (tabId: number) => stateKey(tabId).replace("session:", "")
+    const titles = () => menuUpdateMock.mock.calls.map(([, props]) => props.title)
+
+    /** Every ask to a tab's manager waits for the next deferred, in order. */
+    function holdAcknowledgements() {
+      const held: Array<ReturnType<typeof createDeferred>> = []
+      sendMessageMock.mockImplementation((name: string) => {
+        if (name !== "askManagerToTogglePageTranslation") return Promise.resolve(undefined)
+        const next = createDeferred()
+        held.push(next)
+        return next.promise
+      })
+      return held
+    }
+
+    function setup(states: Record<string, unknown>) {
+      ensureInitializedConfigMock.mockResolvedValue(createConfig(true))
+      storageGetItemMock.mockImplementation(async (key: string) => states[key])
+      registerContextMenuListeners()
+      const click = contextMenuClickListeners[0]!
+      const activated = onActivatedListenerMock.mock.calls[0]![0] as (info: any) => Promise<void>
+      const storageChanged = onStorageChangedListenerMock.mock.calls[0]![0] as (
+        changes: any,
+      ) => Promise<void>
+      return {
+        clickIn: (tabId: number) =>
+          click({ menuItemId: MENU_ID_TRANSLATE }, { id: tabId, url: TAB_PAGE }) as Promise<void>,
+        activated,
+        storageChanged,
+      }
+    }
+
+    it("a tab switch while the acknowledgement is pending: the late acknowledgement leaves the new tab's title alone", async () => {
+      const held = holdAcknowledgements()
+      tabsQueryMock.mockResolvedValue([{ id: 5 }])
+      const { clickIn, activated } = setup({ [stateKey(5)]: { enabled: false } })
+
+      const clicking = clickIn(5)
+      await flush()
+      expect(held).toHaveLength(1)
+      // The user moves to a tab that was never translated; the activation listener sets its title.
+      tabsQueryMock.mockResolvedValue([{ id: 6 }])
+      await activated({ tabId: 6 })
+      expect(titles()).toEqual(["Translate"])
+
+      held[0]!.resolve()
+      await clicking
+      await flush()
+
+      expect(titles()).toEqual(["Translate"])
+    })
+
+    it("leaving the tab and coming back while the acknowledgement is pending: the activation already set its title, so the late acknowledgement does not", async () => {
+      const held = holdAcknowledgements()
+      tabsQueryMock.mockResolvedValue([{ id: 5 }])
+      const { clickIn, activated } = setup({ [stateKey(5)]: { enabled: false } })
+
+      const clicking = clickIn(5)
+      await flush()
+      tabsQueryMock.mockResolvedValue([{ id: 6 }])
+      await activated({ tabId: 6 })
+      tabsQueryMock.mockResolvedValue([{ id: 5 }])
+      await activated({ tabId: 5 })
+      // Both activations titled the item from the stored state, which has no translation yet.
+      expect(titles()).toEqual(["Translate", "Translate"])
+
+      held[0]!.resolve()
+      await clicking
+      await flush()
+
+      expect(titles()).toEqual(["Translate", "Translate"])
+    })
+
+    it("a newer off state for the tab while the acknowledgement is pending: the late acknowledgement does not bring Show Original back", async () => {
+      const held = holdAcknowledgements()
+      tabsQueryMock.mockResolvedValue([{ id: 5 }])
+      const states: Record<string, unknown> = { [stateKey(5)]: { enabled: false } }
+      const { clickIn, storageChanged } = setup(states)
+
+      const clicking = clickIn(5)
+      await flush()
+      // A newer state for this very tab arrives (the listener titles it from the new value).
+      states[stateKey(5)] = { enabled: false, userDisabled: true }
+      await storageChanged({
+        [storageEventKey(5)]: { newValue: { enabled: false, userDisabled: true } },
+      })
+      expect(titles()).toEqual(["Translate"])
+
+      held[0]!.resolve()
+      await clicking
+      await flush()
+
+      expect(titles()).toEqual(["Translate"])
+    })
+
+    it("a newer click on the same tab supersedes the older one: only the newer acknowledgement sets the title", async () => {
+      const held = holdAcknowledgements()
+      tabsQueryMock.mockResolvedValue([{ id: 5 }])
+      const { clickIn } = setup({ [stateKey(5)]: { enabled: false } })
+
+      const first = clickIn(5)
+      await flush()
+      const second = clickIn(5)
+      await flush()
+      expect(held).toHaveLength(2)
+
+      held[0]!.resolve()
+      await first
+      await flush()
+      expect(titles()).toEqual([])
+
+      held[1]!.resolve()
+      await second
+      await flush()
+      expect(titles()).toEqual(["Show Original"])
+    })
+
+    it("a state event for another tab does not supersede it", async () => {
+      const held = holdAcknowledgements()
+      tabsQueryMock.mockResolvedValue([{ id: 5 }])
+      const { clickIn, storageChanged } = setup({ [stateKey(5)]: { enabled: false } })
+
+      const clicking = clickIn(5)
+      await flush()
+      await storageChanged({ [storageEventKey(6)]: { newValue: { enabled: true } } })
+      held[0]!.resolve()
+      await clicking
+      await flush()
+
+      expect(titles()).toEqual(["Show Original"])
+    })
+
+    it("after an off that could not be delivered, the title follows the persisted state, not the failed delivery", async () => {
+      const held = holdAcknowledgements()
+      tabsQueryMock.mockResolvedValue([{ id: 5 }])
+      const { clickIn, storageChanged } = setup({ [stateKey(5)]: { enabled: true } })
+
+      const clicking = clickIn(5)
+      await flush()
+      // The refusal was written before the ask, which fires the storage listener.
+      await storageChanged({
+        [storageEventKey(5)]: { newValue: { enabled: false, userDisabled: true } },
+      })
+      held[0]!.reject(new Error("Could not establish connection. Receiving end does not exist."))
+      await clicking
+      await flush()
+
+      expect(titles()).toEqual(["Translate"])
     })
   })
 
