@@ -1,6 +1,6 @@
 import { IconSettings } from "@tabler/icons-react"
 import { useAtom, useAtomValue } from "jotai"
-import { useId, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { browser } from "#imports"
 import { Button } from "@/components/ui/base-ui/button"
 import { Kbd, KbdGroup } from "@/components/ui/base-ui/kbd"
@@ -56,6 +56,22 @@ export default function TranslateButton({ className }: { className?: string }) {
   // in late, successful or not, is ignored.
   const currentAttempt = useRef<number | null>(null)
   const attemptCount = useRef(0)
+  // The current attempt's deadline timer, kept here so that unmounting can disarm it.
+  const deadlineTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // When this button goes away, an attempt still waiting has nobody to report to: disarm its
+  // deadline and make it stale, so that a reply that comes later neither moves the shared
+  // translated-state atom nor, if the tab was not known yet, sends the request at all. This is about
+  // a React unmount under a store that stays alive; closing the real popup window destroys its
+  // whole context anyway.
+  useEffect(
+    () => () => {
+      if (deadlineTimer.current !== null) clearTimeout(deadlineTimer.current)
+      deadlineTimer.current = null
+      currentAttempt.current = null
+    },
+    [],
+  )
 
   const toggleTranslation = async () => {
     if (needsProvider || currentAttempt.current !== null) return
@@ -68,6 +84,7 @@ export default function TranslateButton({ className }: { className?: string }) {
       currentAttempt.current = null
       setDeliveryFailed(true)
     }, TOGGLE_ANSWER_TIMEOUT_MS)
+    deadlineTimer.current = deadline
     try {
       const [currentTab] = await browser.tabs.query({
         active: true,
@@ -107,6 +124,7 @@ export default function TranslateButton({ className }: { className?: string }) {
       }
     } finally {
       clearTimeout(deadline)
+      if (deadlineTimer.current === deadline) deadlineTimer.current = null
       if (currentAttempt.current === attempt) currentAttempt.current = null
     }
   }
