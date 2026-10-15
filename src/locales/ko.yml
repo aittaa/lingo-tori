@@ -18,9 +18,9 @@ popup:
   sourceLang: 원본
   targetLang: 대상
   providers:
-    title: Providers
-    description: Choose which provider to use for each feature
-    open: Open provider settings
+    title: 제공업체
+    description: 각 기능에 사용할 제공업체를 선택하세요
+    open: 제공업체 설정 열기
   translate: 번역
   showOriginal: 원문 보기
   enabledFloatingButton: 플로팅 버튼 활성화
