@@ -1,6 +1,5 @@
 import type { WebPagePromptContext } from "@/types/content"
 import { browser } from "#imports"
-import { isNoTranslationSentinel } from "@/utils/constants/prompt"
 import { cleanText } from "@/utils/content/utils"
 import { db } from "@/utils/db/dexie/db"
 import { Sha256Hex } from "@/utils/hash"
@@ -10,10 +9,7 @@ import {
   hasHtmlAttributeMarkerProtocol,
   isHtmlAttributeMarkerIntegrityError,
 } from "@/utils/host/translate/html-attribute-markers"
-import {
-  auditInlineAtomTokens,
-  hasInlineAtomTokens,
-} from "@/utils/host/translate/inline-atom-tokens"
+import { isInlineAtomResultCacheable } from "@/utils/host/translate/inline-atom-tokens"
 import { normalizePromptContextValue } from "@/utils/host/translate/translate-text"
 import { logger } from "@/utils/logger"
 import { onMessage } from "@/utils/message"
@@ -188,14 +184,10 @@ export function setupPageTranslationHandlers(): void {
     // A response that dropped, invented or duplicated an inline-atom
     // placeholder is still rendered by the content script (the formulas are
     // appended) but must not be persisted: the next visit deserves a fresh
-    // attempt instead of a permanently degraded paragraph. The sentinel is
-    // exempt — "no translation needed" carries no placeholders by definition,
-    // and auditing it as a total loss would make every already-in-target-language
-    // paragraph containing a formula re-hit the provider on every page load.
-    const inlineAtomTokensIntact =
-      !hasInlineAtomTokens(text) ||
-      isNoTranslationSentinel(result) ||
-      auditInlineAtomTokens(text, result).ok
+    // attempt instead of a permanently degraded paragraph. The content script
+    // applies the same rule (`isInlineAtomResultCacheable`) to its in-tab
+    // memory tier, so a tab does not keep re-serving what is not persisted here.
+    const inlineAtomTokensIntact = isInlineAtomResultCacheable(text, result)
     if (result && !inlineAtomTokensIntact) {
       logger.warn("Inline atom placeholders were not preserved; result not cached")
     }

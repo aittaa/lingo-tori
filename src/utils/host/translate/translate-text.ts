@@ -24,6 +24,7 @@ import { TranslationCancelledError } from "@/utils/request/cancellation"
 import { Sha256Hex } from "../../hash"
 import { sendMessage } from "../../message"
 import { getInMemoryTranslation, storeInMemoryTranslation } from "./in-memory-translation-cache"
+import { isInlineAtomResultCacheable } from "./inline-atom-tokens"
 import { prepareTranslationText } from "./text-preparation"
 import { getPageTranslationSessionId } from "./translation-session"
 
@@ -322,9 +323,12 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
     glossaryRevision,
     promptTemplate,
   })
-  if (sessionId !== undefined) {
-    // Raw result, sentinel included, so a "no translation needed" verdict is
-    // remembered too; the mapping below stays the single mapping point.
+  // Raw result, sentinel included, so a "no translation needed" verdict is
+  // remembered too; the mapping below stays the single mapping point. A result
+  // whose inline-atom placeholders were dropped, duplicated or invented is shown
+  // but not remembered — the background does not persist it either — so the next
+  // request for the same text asks the provider again.
+  if (sessionId !== undefined && isInlineAtomResultCacheable(preparedText, result)) {
     storeInMemoryTranslation(hash, result)
   }
   // The sentinel must be mapped here and only here: every batch-pipeline
