@@ -20,11 +20,18 @@ import { DEFAULT_CONFIG } from "@/utils/constants/config"
  */
 
 const messageHandlers = vi.hoisted(() => new Map<string, (message: unknown) => Promise<unknown>>())
+const loggerSpies = vi.hoisted(() => ({
+  log: vi.fn<(...args: any[]) => void>(),
+  info: vi.fn<(...args: any[]) => void>(),
+  warn: vi.fn<(...args: any[]) => void>(),
+  error: vi.fn<(...args: any[]) => void>(),
+}))
 const ensureInitializedConfigMock = vi.fn<(...args: any[]) => any>()
 const generateTextMock = vi.fn<(...args: any[]) => any>()
 const articleSummaryGetMock = vi.fn<(...args: any[]) => any>()
 const articleSummaryPutMock = vi.fn<(...args: any[]) => any>()
 
+vi.mock("@/utils/logger", () => ({ logger: loggerSpies }))
 vi.mock("@/utils/message", () => ({
   onMessage: (type: string, handler: (message: unknown) => Promise<unknown>) => {
     messageHandlers.set(type, handler)
@@ -495,6 +502,120 @@ describe("a page's smart-context summary request has an owner", () => {
       held.resolve("a summary")
       await settleStart()
       expect(other.outcome()).toEqual({ ok: true, value: "a summary" })
+    })
+  })
+
+  describe("stopping a summary on purpose is not a generation error", () => {
+    const FAILURE_LOG = "Failed to generate article summary:"
+    const failureLogs = () =>
+      loggerSpies.error.mock.calls.filter(([message]) => message === FAILURE_LOG)
+
+    it("in flight: the abort is logged as a cancellation, never as an error", async () => {
+      const { requestSummary, stopSession } = await setup()
+      heldProvider()
+      const summary = requestSummary("s1", TAB_1)
+      await settleStart()
+      expect(calls).toHaveLength(1)
+
+      await stopSession("s1", TAB_1)
+
+      expect(calls[0]!.signal!.aborted).toBe(true)
+      expect(summary.outcome()).toEqual({ ok: true, value: null })
+      expect(loggerSpies.error).not.toHaveBeenCalled()
+      expect(loggerSpies.warn).not.toHaveBeenCalled()
+      expect(loggerSpies.info).toHaveBeenCalledWith("Summary request cancelled")
+    })
+
+    it("in flight, two owners: only the last owner's stop is a cancellation, and neither is an error", async () => {
+      const { requestSummary, stopSession } = await setup()
+      heldProvider()
+      requestSummary("s1", TAB_1)
+      requestSummary("s2", TAB_2)
+      await settleStart()
+      expect(calls).toHaveLength(1)
+
+      await stopSession("s1", TAB_1)
+      expect(calls[0]!.signal!.aborted).toBe(false)
+      await stopSession("s2", TAB_2)
+
+      expect(calls[0]!.signal!.aborted).toBe(true)
+      expect(loggerSpies.error).not.toHaveBeenCalled()
+    })
+
+    it("a tab closing in flight is not an error either", async () => {
+      const { requestSummary, closeTab } = await setup()
+      heldProvider()
+      requestSummary("s1", TAB_1)
+      await settleStart()
+
+      await closeTab(1)
+
+      expect(calls[0]!.signal!.aborted).toBe(true)
+      expect(loggerSpies.error).not.toHaveBeenCalled()
+    })
+
+    it("suspended on the second cache lookup, inside the queued task: no error and no provider call", async () => {
+      const lookup = createDeferred<undefined>()
+      articleSummaryGetMock.mockResolvedValueOnce(undefined).mockReturnValueOnce(lookup.promise)
+      const { requestSummary, stopSession } = await setup()
+      requestSummary("s1", TAB_1)
+      await settleStart()
+      expect(articleSummaryGetMock).toHaveBeenCalledTimes(2)
+
+      await stopSession("s1", TAB_1)
+      lookup.resolve(undefined)
+      await vi.advanceTimersByTimeAsync(60_000)
+
+      expect(calls).toHaveLength(0)
+      expect(loggerSpies.error).not.toHaveBeenCalled()
+    })
+
+    describe("controls: what is still an error", () => {
+      it("a genuine provider error, with nobody having stopped anything", async () => {
+        const { requestSummary } = await setup()
+        answer = () => Promise.reject(new Error("provider down"))
+
+        const summary = requestSummary("s1", TAB_1)
+        await settleStart()
+
+        expect(summary.outcome()).toEqual({ ok: true, value: null })
+        expect(failureLogs()).toHaveLength(1)
+        expect(loggerSpies.info).not.toHaveBeenCalledWith("Article summary generation cancelled")
+      })
+
+      it("an error named AbortError from the provider while its request was not aborted", async () => {
+        const { requestSummary } = await setup()
+        answer = (call) => {
+          expect(call.signal!.aborted).toBe(false)
+          return Promise.reject(new DOMException("aborted", "AbortError"))
+        }
+
+        const summary = requestSummary("s1", TAB_1)
+        await settleStart()
+
+        expect(summary.outcome()).toEqual({ ok: true, value: null })
+        expect(failureLogs()).toHaveLength(1)
+      })
+
+      it("an attempt the queue aborted by its own timeout", async () => {
+        const { requestSummary } = await setup()
+        // Honours the abort like a real provider, but never answers: only the queue's 20 s timeout
+        // ends the attempt, and that aborts the signal with the timeout error, not a cancellation.
+        answer = (call) =>
+          new Promise<string>((_resolve, reject) => {
+            call.signal?.addEventListener("abort", () =>
+              reject(new DOMException("aborted", "AbortError")),
+            )
+          })
+        requestSummary("s1", TAB_1)
+        await settleStart()
+
+        await vi.advanceTimersByTimeAsync(20_500)
+
+        expect(calls[0]!.signal!.aborted).toBe(true)
+        expect(failureLogs()).toHaveLength(1)
+        expect(loggerSpies.info).not.toHaveBeenCalledWith("Article summary generation cancelled")
+      })
     })
   })
 
