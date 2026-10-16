@@ -185,6 +185,9 @@ async function translateWithTextStream({
       usageFeature: "selectionTranslation",
       providerKind: "local",
       providerId,
+      // The configuration the reasoning, provider options and temperature above were computed
+      // from: the background builds the model from it too, instead of reading the row again.
+      providerConfig,
       instructions: systemPrompt,
       prompt,
       providerOptions,
