@@ -135,6 +135,11 @@ interface ProtocolMap {
     data: ProviderRequestRouting<PromptableProviderRef> & {
       webTitle: string
       webContent: string
+      // The page-translation session that asked for the summary (the one captured when the
+      // paragraph that wanted it started); scopes the request for cancelPageTranslationRequests,
+      // like the paragraph requests of that session. Absent for a request that belongs to no page
+      // session (the selection toolbar, an older content script), which is never cancellable.
+      sessionId?: string
     },
   ) => Promise<string | null>
   enqueueSubtitlesTranslateRequest: (data: {

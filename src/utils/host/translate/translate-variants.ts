@@ -32,6 +32,8 @@ async function getWebPagePromptContext(
   providerConfig: ResolvedProviderRef<TranslateProviderConfig>,
   enableAIContentAware: boolean,
   includeSummary: boolean,
+  // The session captured at pipeline entry by the caller; the summary is owned by it.
+  sessionId?: string,
 ): Promise<
   { webTitle: string; webDescription?: string; webContent: string; webSummary?: string } | undefined
 > {
@@ -52,6 +54,7 @@ async function getWebPagePromptContext(
           webPageContext,
           await resolvePageProviderRef(providerConfig),
           enableAIContentAware,
+          sessionId,
         )
       : undefined
 
@@ -164,6 +167,7 @@ export async function translateTextForPage(
     providerConfig,
     config.pageTranslation.enableAIContentAware,
     true,
+    sessionId,
   )
 
   return translateTextUsingPageConfig(config, text, {

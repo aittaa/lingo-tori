@@ -3,6 +3,7 @@ import type { ProviderRequestRouting } from "@/types/hosted-request"
 import type { PromptableProviderRef } from "@/utils/providers/provider-ref"
 import { logger } from "@/utils/logger"
 import { getArticleSummaryPrompt } from "@/utils/prompts/summary"
+import { isAbortedByCancellation } from "@/utils/request/cancellation"
 import { MAX_TEXT_LENGTH } from "./utils"
 import { cleanText } from "./utils"
 
@@ -48,6 +49,13 @@ export async function generateArticleSummary(
 
     return cleanedSummary
   } catch (error) {
+    // The request's owner left and the queue aborted its signal: the provider's abort error is
+    // only the echo of that, not a failed generation. Any other error keeps its error log,
+    // whatever it is named.
+    if (isAbortedByCancellation(options.signal)) {
+      logger.info("Article summary generation cancelled")
+      return null
+    }
     logger.error("Failed to generate article summary:", error)
     return null
   }
