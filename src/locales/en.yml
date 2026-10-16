@@ -12,6 +12,8 @@ sidePanel:
   firefoxUserActionHint: In Firefox, open LingoTori from the browser sidebar.
   firefoxUserActionHelpText: Learn how to open the Firefox sidebar
   firefoxUserActionHelpUrl: https://support.mozilla.org/en-US/kb/use-sidebar-access-tools-and-vertical-tabs
+  unsupportedHint: This browser can't open or close the side panel from this button. Use the panel's own close button or the browser's side panel menu, or update your browser.
+  failedHint: Couldn't open or close the side panel. Try again, or use the browser's side panel menu or the panel's close button.
 popup:
   theme: Theme
   autoLang: Auto
