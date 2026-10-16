@@ -319,9 +319,10 @@ describe("selection owners in the background queue", () => {
     // The registry keeps a cancelled scope for ten minutes and at most 256 of them. The content side
     // sends nothing for an owner that cancelled before the send. It cannot stop a request that is
     // already inside the background awaiting its cache or queue configuration, though: that wait is
-    // not guaranteed to be short, and if the cancel is evicted before it ends (more than 256 later
-    // cancels, or the TTL), the background takes the request. It then still carries its tab/run scope,
-    // so a later tab close drains it. This is an inherited limit of the bounded registry, not
+    // not guaranteed to be short, and if the cancel is evicted before it ends (capacity eviction by
+    // 256 later unique cancels, or the TTL), the background takes the request. It still carries its
+    // tab/run scope, so if the tab is closed afterwards that close drains it; a close that already
+    // happened gives no such guarantee. This is an inherited limit of the bounded registry, not
     // something this change rules out. These tests pin both sides of it.
     it("refuses a late request while the cancel is still remembered, however many other owners cancelled since (under the cap)", async () => {
       const lookup = createDeferred<undefined>()
