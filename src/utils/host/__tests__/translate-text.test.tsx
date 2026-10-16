@@ -398,6 +398,107 @@ describe("translate-text", () => {
     })
   })
 
+  describe("translateTextCore with a request owner (a selection run)", () => {
+    function coreOptions(id: string) {
+      const config = DEFAULT_CONFIG.providersConfig.find((provider) => provider.id === id)!
+      return {
+        text: "hello world",
+        langConfig: DEFAULT_CONFIG.language,
+        providerConfig: { kind: "local" as const, id: config.id, name: config.name, config },
+      }
+    }
+
+    const enqueued = (): Array<{ sessionId?: string }> =>
+      mockSendMessage.mock.calls
+        .filter(([type]: [string]) => type === "enqueueTranslateRequest")
+        .map(([, payload]: [string, { sessionId?: string }]) => payload)
+
+    afterEach(() => {
+      endPageTranslationSession()
+    })
+
+    it("sends the owner's id as the request's cancellation scope", async () => {
+      mockSendMessage.mockResolvedValue("translated")
+      const controller = new AbortController()
+
+      await translateTextCore({
+        ...coreOptions("deeplx-default"),
+        owner: { id: "selection:run-a", signal: controller.signal },
+      })
+
+      expect(enqueued().map((payload) => payload.sessionId)).toEqual(["selection:run-a"])
+    })
+
+    it("is not a page request: a page session neither gates it nor is named by it, and nothing is served from memory", async () => {
+      mockSendMessage.mockResolvedValue("translated")
+      const pageSession = beginPageTranslationSession()
+      const controller = new AbortController()
+      const options = {
+        ...coreOptions("deeplx-default"),
+        owner: { id: "selection:run-a", signal: controller.signal },
+      }
+
+      await translateTextCore(options)
+      endPageTranslationSession()
+      await translateTextCore(options)
+
+      // Two requests for the same text: the in-tab memory tier is the page's, and stays off.
+      const scopes = enqueued().map((payload) => payload.sessionId)
+      expect(scopes).toEqual(["selection:run-a", "selection:run-a"])
+      expect(scopes).not.toContain(pageSession)
+    })
+
+    it("sends nothing for an owner that has already cancelled", async () => {
+      mockSendMessage.mockResolvedValue("translated")
+      const controller = new AbortController()
+      controller.abort()
+
+      let caught: unknown
+      try {
+        await translateTextCore({
+          ...coreOptions("deeplx-default"),
+          owner: { id: "selection:run-a", signal: controller.signal },
+        })
+      } catch (error) {
+        caught = error
+      }
+
+      expect(isTranslationCancelledError(caught)).toBe(true)
+      expect(mockSendMessage).not.toHaveBeenCalled()
+    })
+
+    it("sends nothing for an owner that cancels while the request is still being prepared", async () => {
+      mockSendMessage.mockResolvedValue("translated")
+      const controller = new AbortController()
+      // The prompt is built while the hash is prepared, before the send.
+      mockGetTranslatePrompt.mockImplementation(async () => {
+        controller.abort()
+        return { systemPrompt: "system", prompt: "prompt" }
+      })
+
+      let caught: unknown
+      try {
+        await translateTextCore({
+          ...coreOptions("openai-default"),
+          owner: { id: "selection:run-a", signal: controller.signal },
+        })
+      } catch (error) {
+        caught = error
+      }
+
+      expect(isTranslationCancelledError(caught)).toBe(true)
+      expect(mockSendMessage).not.toHaveBeenCalled()
+    })
+
+    it("leaves a request with neither a session nor an owner unscoped, as before", async () => {
+      mockSendMessage.mockResolvedValue("translated")
+
+      await translateTextCore(coreOptions("deeplx-default"))
+
+      expect(enqueued().map((payload) => payload.sessionId)).toEqual([undefined])
+    })
+  })
+
   describe("translateTextForPageTitle", () => {
     it("should use the latest original title instead of document.title when building webpage context", async () => {
       const llmConfig = {
