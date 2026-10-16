@@ -1,16 +1,20 @@
 import type { SubtitlePromptContext } from "@/types/content"
+import { browser } from "#imports"
 import { cleanText } from "@/utils/content/utils"
 import { db } from "@/utils/db/dexie/db"
 import { Sha256Hex } from "@/utils/hash"
 import { executeTranslate } from "@/utils/host/translate/execute-translate"
 import { normalizePromptContextValue } from "@/utils/host/translate/translate-text"
+import { logger } from "@/utils/logger"
 import { onMessage } from "@/utils/message"
 import { getSubtitlesTranslatePrompt } from "@/utils/prompts/subtitles"
 import { parsePromptTemplate } from "@/utils/prompts/template"
 import { canProviderRefGenerateText } from "@/utils/providers/provider-ref"
+import { CancelledScopeRegistry, TranslationCancelledError } from "@/utils/request/cancellation"
 import { getQueueIdentity, isPrivateSender } from "./private-sender"
 import { getOrGenerateTranslationContextSummary } from "./translation-context-summary"
 import {
+  buildTranslationScopeKey,
   createEphemeralQueueIdentity,
   createSubtitlesTranslationQueues,
   getLocalProviderConfig,
@@ -19,7 +23,11 @@ import {
 
 /** Register handlers synchronously while queue initialization runs in the background. */
 export function setupSubtitlesTranslationHandlers(): void {
-  const queuesPromise = createSubtitlesTranslationQueues()
+  // The runs that were ended, and the tabs that were closed, since this worker started. Consulted
+  // by the enqueue handler after its cache lookup and by the batch queue after a backoff sleep:
+  // both are windows where a request lives in no cancellable structure (#1881).
+  const cancelledScopes = new CancelledScopeRegistry()
+  const queuesPromise = createSubtitlesTranslationQueues(cancelledScopes)
 
   onMessage("enqueueSubtitlesTranslateRequest", async (message) => {
     const { requestQueue, batchQueue } = await queuesPromise
@@ -36,8 +44,13 @@ export function setupSubtitlesTranslationHandlers(): void {
         glossaryTerms,
         glossaryRevision,
         promptTemplate: rawPromptTemplate,
+        ownerId,
       },
     } = message
+    // The run that asked, as `${tab}:${run}`. Built here from the sender's tab, so a tab can only
+    // ever cancel its own requests. A request with no run (the export, an older content script)
+    // has no scope and is never cancellable — it also keeps alive any item it shares.
+    const scope = buildTranslationScopeKey(message.sender, ownerId)
     // See the page handler: anything but a well-formed template means "resolve
     // the stored selection at execution", as before.
     const promptTemplate = parsePromptTemplate(rawPromptTemplate)
@@ -50,6 +63,13 @@ export function setupSubtitlesTranslationHandlers(): void {
       if (cached) {
         return cached.translation
       }
+    }
+
+    // The cache lookup above yielded — the run may have ended, or its tab closed, while this
+    // handler was suspended. Enqueueing now would park a request on a dead scope that no later
+    // cancel will ever drain, so refuse instead (the content side swallows this error).
+    if (scope && cancelledScopes.has(scope)) {
+      throw new TranslationCancelledError(scope)
     }
 
     let result: string
@@ -99,6 +119,7 @@ export function setupSubtitlesTranslationHandlers(): void {
         // The prompt this request's `hash` was taken over. Part of the batch
         // key, so a batch never mixes two prompts.
         promptTemplate,
+        scope,
       }
       result = await batchQueue.enqueue(data)
     } else {
@@ -109,7 +130,7 @@ export function setupSubtitlesTranslationHandlers(): void {
           signal,
           glossaryTerms,
         })
-      result = await requestQueue.enqueue(thunk, scheduleAt, queueHash)
+      result = await requestQueue.enqueue(thunk, scheduleAt, queueHash, scope ? [scope] : undefined)
     }
 
     // Never cached for a private sender, nor for a request whose prompt its hash
@@ -123,6 +144,34 @@ export function setupSubtitlesTranslationHandlers(): void {
     }
 
     return result
+  })
+
+  onMessage("cancelSubtitlesTranslateRequests", async (message) => {
+    const scope = buildTranslationScopeKey(message.sender, message.data.ownerId)
+    if (!scope) return
+    // Remember the scope BEFORE any await so enqueue handlers suspended on the cache lookup
+    // refuse to enqueue after this drain.
+    cancelledScopes.markScope(scope)
+    const { requestQueue, batchQueue } = await queuesPromise
+    // Batch queue first so pending batches cannot flush new request-queue tasks between the two
+    // drains. Both only remove what no other owner still wants.
+    const cancelledBatch = batchQueue.cancelByScope(scope)
+    const cancelledRequests = requestQueue.cancelByScope(scope)
+    if (cancelledBatch + cancelledRequests > 0) {
+      logger.info(
+        `Cancelled ${cancelledBatch + cancelledRequests} subtitle requests (scope: ${scope})`,
+      )
+    }
+  })
+
+  // A closed tab can never send its cancel message — sweep every run the tab ever started.
+  browser.tabs.onRemoved.addListener((tabId) => {
+    const prefix = `${tabId}:`
+    cancelledScopes.markPrefix(prefix)
+    void queuesPromise.then(({ requestQueue, batchQueue }) => {
+      batchQueue.cancelWhere((scope) => scope.startsWith(prefix))
+      requestQueue.cancelWhere((scope) => scope.startsWith(prefix))
+    })
   })
 
   onMessage("getSubtitlesSummary", async (message) => {
