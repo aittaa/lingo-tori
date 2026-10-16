@@ -248,7 +248,7 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
   }
 
   // Notify content script in that specific tab
-  const delivered = await sendMessage(
+  const answered = await sendMessage(
     "askManagerToTogglePageTranslation",
     {
       enabled: newState,
@@ -261,10 +261,10 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
     },
     tabId,
   ).then(
-    () => true,
+    (answer) => ({ delivered: true, startRefused: newState && answer?.start === "rejected" }),
     (error) => {
       logger.warn("Failed to ask page translation manager to toggle", error)
-      return false
+      return { delivered: false, startRefused: false }
     },
   )
 
@@ -274,7 +274,8 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
   // listener that ran has already set the right one, and the item is one global object. Both are
   // asked right before the write. With no receiver in the tab the title is left as it is; after
   // an OFF it already follows the stored refusal through the storage listener, delivered or not.
-  if (delivered) {
+  // A start the manager refused (and told the user about) changed nothing, so the title stays too.
+  if (answered.delivered && !answered.startRefused) {
     await updateTranslateMenuTitle(
       tabId,
       newState,

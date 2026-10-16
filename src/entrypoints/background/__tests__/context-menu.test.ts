@@ -211,6 +211,24 @@ describe("background context menu", () => {
       })
     })
 
+    it("switches to Show Original when the manager's answer says it accepted the start", async () => {
+      sendMessageMock.mockResolvedValue({ start: "accepted" })
+
+      await clickTranslateMenu({ enabled: false })
+
+      expect(browser.contextMenus.update).toHaveBeenCalledWith(MENU_ID_TRANSLATE, {
+        title: "Show Original",
+      })
+    })
+
+    it("keeps the title when the manager received the start but refused it (it has told the user why)", async () => {
+      sendMessageMock.mockResolvedValue({ start: "rejected" })
+
+      await clickTranslateMenu({ enabled: false })
+
+      expect(browser.contextMenus.update).not.toHaveBeenCalled()
+    })
+
     it.each([
       "Could not establish connection. Receiving end does not exist.",
       "Extension context invalidated.",

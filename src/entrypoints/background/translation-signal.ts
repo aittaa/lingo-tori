@@ -1,6 +1,7 @@
 import type { LangCodeISO6393 } from "@/lib/languages"
 import type { FeatureUsageContext } from "@/types/analytics"
 import type { Config } from "@/types/config/config"
+import type { PageTranslationStartOutcome } from "@/utils/message"
 import { browser, storage } from "#imports"
 import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
 import { createFeatureUsageContext } from "@/utils/analytics"
@@ -30,25 +31,29 @@ function notifyPageTranslationStateChanged(tabId: number, enabled: boolean) {
 }
 
 /**
- * Asks the tab's page translation manager to switch. Resolves true once a manager
+ * Asks the tab's page translation manager to switch. `delivered` is true once a manager
  * acknowledged the request and false when none could be reached (no receiver, the
  * port closed without an answer, the extension context was invalidated): the tab is
  * then not doing what was asked, and a surface showing the state must not claim it is.
+ * For a start, `start` is how the manager decided it once it had: `rejected` means it received
+ * the request but refused to start (same language, no provider or key, cancelled first) and has
+ * already shown its own notice, so the page is not translating. It is absent for a stop and for a
+ * manager that predates it, which answered a start with nothing: that was taken as accepted.
  */
 function requestManagerToTogglePageTranslation(
   tabId: number,
   enabled: boolean,
   analyticsContext?: FeatureUsageContext<"page_translation">,
-): Promise<boolean> {
+): Promise<{ delivered: boolean; start?: PageTranslationStartOutcome }> {
   return sendMessage(
     "askManagerToTogglePageTranslation",
     { enabled, analyticsContext },
     tabId,
   ).then(
-    () => true,
+    (answer) => ({ delivered: true, start: enabled ? answer?.start : undefined }),
     (error) => {
       logger.warn("Failed to ask page translation manager to toggle", error)
-      return false
+      return { delivered: false }
     },
   )
 }
@@ -188,13 +193,11 @@ export function translationMessage() {
       await setPageTranslationEnabled(tabId, false, tabUrl, true)
       notifyPageTranslationStateChanged(tabId, false)
     }
-    // The popup flips its button only on a delivered request. What is persisted does not
-    // depend on it: a start writes nothing here (the manager records its own activation),
-    // and a stop's refusal is written above, before delivery, so a refresh after an
-    // undeliverable stop comes up untranslated as the user asked.
-    return {
-      delivered: await requestManagerToTogglePageTranslation(tabId, enabled, analyticsContext),
-    }
+    // The popup flips its button only on a delivered request, and for a start only if the manager
+    // accepted it. What is persisted does not depend on it: a start writes nothing here (the manager
+    // records its own activation), and a stop's refusal is written above, before delivery, so a
+    // refresh after an undeliverable stop comes up untranslated as the user asked.
+    return await requestManagerToTogglePageTranslation(tabId, enabled, analyticsContext)
   })
 
   onMessage("tryToSetEnablePageTranslationOnContentScript", async (msg) => {
