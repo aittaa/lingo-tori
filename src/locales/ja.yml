@@ -12,6 +12,8 @@ sidePanel:
   firefoxUserActionHint: Firefox では、ブラウザーのサイドバーから LingoTori を開いてください。
   firefoxUserActionHelpText: Firefox サイドバーの開き方を見る
   firefoxUserActionHelpUrl: https://support.mozilla.org/ja/kb/use-sidebar-access-tools-and-vertical-tabs
+  unsupportedHint: お使いのブラウザーでは、このボタンからサイドパネルを開閉できません。パネルの閉じるボタンかブラウザーのサイドパネルメニューをお使いいただくか、ブラウザーを更新してください。
+  failedHint: サイドパネルを開閉できませんでした。もう一度お試しいただくか、ブラウザーのサイドパネルメニューまたはパネルの閉じるボタンをお使いください。
 popup:
   theme: テーマ
   autoLang: 自動検出
