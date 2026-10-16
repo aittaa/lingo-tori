@@ -158,7 +158,14 @@ interface ProtocolMap {
     glossaryTerms?: MatchedTerm[]
     glossaryRevision?: number
     promptTemplate?: PromptTemplate
+    // The subtitle run (one coordinator start..stop) this request belongs to; scopes the request
+    // for cancelSubtitlesTranslateRequests. Absent for requests that are not tied to a live run
+    // (the translated-subtitles export, an older content script), which are never cancellable.
+    ownerId?: string
   }) => Promise<string>
+  // Drain the queued/in-flight subtitle requests of one run. The background composes the scope as
+  // `${sender.tab.id}:${ownerId}`, so a tab can only ever cancel its own requests.
+  cancelSubtitlesTranslateRequests: (data: { ownerId: string }) => void
   getSubtitlesSummary: (data: {
     videoTitle: string
     subtitlesContext: string
