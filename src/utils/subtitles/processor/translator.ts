@@ -24,6 +24,7 @@ import {
   serializeProviderRef,
 } from "@/utils/providers/provider-ref"
 import { resolveProviderRefForCapability } from "@/utils/providers/provider-registry"
+import { TranslationCancelledError } from "@/utils/request/cancellation"
 
 /**
  * What the resolved provider is being asked to do. Line translation is the
@@ -58,6 +59,16 @@ function toFriendlyErrorMessage(error: unknown): string {
   }
 
   return message
+}
+
+/**
+ * The subtitle run a request is made for. `id` travels with the request, so the background can end
+ * the request with the run; `isCurrent` says whether the run is still going. A cue is prepared
+ * across several awaits before it is sent, and a run that ended in between must not send it.
+ */
+export interface SubtitlesRequestOwner {
+  id: string
+  isCurrent: () => boolean
 }
 
 export interface SubtitlesVideoContext {
@@ -169,7 +180,12 @@ async function translateSingleSubtitle(
   enableAIContentAware: boolean,
   glossaryEnabled: boolean,
   videoContext: SubtitlesVideoContext,
+  owner?: SubtitlesRequestOwner,
 ): Promise<string> {
+  const refuseIfRunEnded = () => {
+    if (owner && !owner.isCurrent()) throw new TranslationCancelledError(owner.id)
+  }
+  refuseIfRunEnded()
   const subtitlePromptContext = normalizeSubtitlePromptContext(videoContext)
   // Resolved once on the page, where the URL says which glossaries apply, and
   // then carried by the request — the background serves every tab at once.
@@ -208,6 +224,9 @@ async function translateSingleSubtitle(
     hashComponents.push(summary ? "subtitleSummary=ready" : "subtitleSummary=missing")
   }
 
+  // The last step before the send: the awaits above are where a run that ended would otherwise
+  // slip one more request past its own cancel.
+  refuseIfRunEnded()
   return await sendMessage("enqueueSubtitlesTranslateRequest", {
     text,
     langConfig,
@@ -220,6 +239,7 @@ async function translateSingleSubtitle(
     glossaryTerms,
     glossaryRevision,
     promptTemplate,
+    ...(owner ? { ownerId: owner.id } : {}),
   })
 }
 
@@ -317,12 +337,16 @@ export async function fetchSubtitlesSummary(
  * `targetCode` pins the language of this batch and nothing else: the provider, glossary and the
  * rest still come from the settings as they stand, so a session can keep translating into the
  * language it was built for while those keep updating.
+ *
+ * `owner` is the live run the batch belongs to: its requests end with it. Left out (the export),
+ * the requests belong to no run and are never cancelled.
  */
 export async function translateSubtitles(
   fragments: SubtitlesFragment[],
   videoContext: SubtitlesVideoContext,
   configOverride?: Config,
   targetCode?: Config["language"]["targetCode"],
+  owner?: SubtitlesRequestOwner,
 ): Promise<SubtitlesFragment[]> {
   const config = configOverride ?? (await getLocalConfig())
   if (!config) {
@@ -345,6 +369,7 @@ export async function translateSubtitles(
       enableAIContentAware,
       config.glossary.enabled,
       videoContext,
+      owner,
     ),
   )
 

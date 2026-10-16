@@ -175,6 +175,16 @@ export async function resolvePageProviderRef<T extends TranslateProviderConfig>(
   return serializeProviderRef(provider)
 }
 
+/**
+ * Who owns a request that is not part of a page-translation session (a selection translation
+ * run). `id` is the cancellation scope the background drains it by, so it must come from a
+ * namespace of its own and never be a page session id; `signal` aborts when the owner cancels.
+ */
+export interface TranslationRequestOwner {
+  id: string
+  signal: AbortSignal
+}
+
 export interface TranslateTextOptions {
   usageFeature?: ApiUsageFeature
   text: string
@@ -193,6 +203,13 @@ export interface TranslateTextOptions {
   // Page-translation session id used for cancellation scoping. Deliberately
   // NOT part of the cache hash — cache identity must not vary per session.
   sessionId?: string
+  /**
+   * The owner of a request that has no page-translation session. It does not make the request a
+   * page request: the page-session gates and the in-tab memory tier stay off. Its `id` rides the
+   * wire as the request's cancellation scope, and an owner that has cancelled sends nothing more:
+   * the request is not dispatched, whichever wait of the preparation it was in.
+   */
+  owner?: TranslationRequestOwner
   forceRetranslation?: boolean
   /**
    * Whether the user's glossary is switched on. Supplied by the caller, which
@@ -218,6 +235,7 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
     textFormat = "plain",
     preserveLineBreaks = false,
     sessionId,
+    owner,
     forceRetranslation = false,
     glossaryEnabled = false,
   } = options
@@ -225,6 +243,11 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
   const preparedText = prepareTranslationText(text)
   if (preparedText === "") {
     return ""
+  }
+
+  // An owner that has already cancelled starts nothing.
+  if (owner?.signal.aborted) {
+    throw new TranslationCancelledError(owner.id)
   }
 
   // Early cancellation gate: a session stopped while this paragraph was still
@@ -279,12 +302,17 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
   // abort instead of enqueueing. Sending now would either be unscoped (if the
   // id had gone null) or re-populate the queue AFTER the session's cancel
   // message already drained it — both defeat cancellation (#1881). Callers on
-  // the page path swallow this error; input/selection requests carry no
-  // sessionId and skip the gate entirely. The gate must also precede the
-  // memory-tier read below: a cancelled session must not keep painting
-  // translations out of memory.
+  // the page path swallow this error; input requests carry no sessionId and
+  // skip the gate entirely (a selection run is gated by its owner, below).
+  // The gate must also precede the memory-tier read below: a cancelled
+  // session must not keep painting translations out of memory.
   if (sessionId !== undefined && getPageTranslationSessionId() !== sessionId) {
     throw new TranslationCancelledError(sessionId)
+  }
+  // The same gate for an owner of another kind (a selection run): its cancel message may already
+  // have drained the queues, and a request sent after it would wait there with nobody to cancel it.
+  if (owner?.signal.aborted) {
+    throw new TranslationCancelledError(owner.id)
   }
 
   const hash = Sha256Hex(...hashComponents)
@@ -317,7 +345,8 @@ export async function translateTextCore(options: TranslateTextOptions): Promise<
     webDescription: normalizedWebPageContext?.webDescription,
     webContent: normalizedWebPageContext?.webContent,
     webSummary: normalizedWebPageContext?.webSummary,
-    sessionId,
+    // The cancellation scope: the page session, or the selection run that owns the request.
+    sessionId: sessionId ?? owner?.id,
     forceRetranslation,
     glossaryTerms,
     glossaryRevision,
