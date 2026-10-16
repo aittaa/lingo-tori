@@ -245,6 +245,7 @@ describe("translation queue helpers", () => {
       "getOrGenerateWebPageSummary",
       "cancelPageTranslationRequests",
       "enqueueSubtitlesTranslateRequest",
+      "cancelSubtitlesTranslateRequests",
       "getSubtitlesSummary",
     ])
     resolveConfig(DEFAULT_CONFIG)

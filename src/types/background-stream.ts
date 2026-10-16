@@ -54,6 +54,12 @@ export type BackgroundStructuredObjectStreamSnapshot = BackgroundStreamSnapshot<
 export type BackgroundStreamStructuredObjectSerializablePayload =
   BaseBackgroundStreamSerializablePayload & {
     outputSchema: BackgroundStructuredObjectOutputField[]
+    /**
+     * The configuration the caller built this request from. The model and every call parameter come
+     * from it, so a row edited after the caller captured it cannot be mixed in. Without it (an older
+     * sender) the background looks the provider up by `providerId`.
+     */
+    providerConfig?: LLMProviderConfig
   }
 
 export type BackgroundStreamNoteSuggestionSerializablePayload =

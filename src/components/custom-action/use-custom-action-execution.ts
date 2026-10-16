@@ -8,7 +8,7 @@ import type {
   ThinkingSnapshot,
 } from "@/types/background-stream"
 import type { Config } from "@/types/config/config"
-import type { AISDKReasoning } from "@/types/config/provider"
+import type { AISDKReasoning, LLMProviderConfig } from "@/types/config/provider"
 import type { SelectionToolbarCustomAction } from "@/types/config/selection-toolbar"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { CachedWebPageContext } from "@/utils/host/translate/webpage-context"
@@ -85,6 +85,9 @@ interface CustomActionExecutionRequest {
     }>
     prompt: string
     providerId: string
+    // The configuration the parameters below were computed from: the background builds the model
+    // from it too, instead of reading the row again.
+    providerConfig: LLMProviderConfig
     providerOptions?: Record<string, Record<string, JSONValue>>
     reasoning?: AISDKReasoning
     instructions: string
@@ -309,6 +312,7 @@ function buildCustomActionExecutionRequest({
     payload: {
       usageFeature: isBuiltInActionId(action.id) ? BUILT_IN_ACTION_KEYS[action.id] : "customAction",
       providerId: provider.id,
+      providerConfig: provider.config,
       instructions: systemPrompt,
       prompt,
       outputSchema,

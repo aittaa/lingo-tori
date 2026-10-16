@@ -25,7 +25,11 @@ import { resolveLanguageCodeFromLocale } from "@/utils/content/page-language"
 import { waitForElement } from "@/utils/dom/wait-for-element"
 import { i18n } from "@/utils/i18n"
 import { buildFeatureProviderRoute, getFeatureProviderRowId } from "@/utils/navigation"
-import { canProviderRefGenerateText } from "@/utils/providers/provider-ref"
+import {
+  canProviderRefGenerateText,
+  getProviderCacheIdentity,
+  serializeProviderRef,
+} from "@/utils/providers/provider-ref"
 import { resolveProviderRefForCapability } from "@/utils/providers/provider-registry"
 import { removeReactShadowHost } from "@/utils/react-shadow-host/create-shadow-host"
 import { decideAutoTranslate } from "@/utils/subtitles/auto-translate"
@@ -146,6 +150,13 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
   private sessionTrackIdentity: string | null | undefined
   /** The translation language the session was built for; its cues are only reused for that one. */
   private sessionTargetCode: Config["language"]["targetCode"] | undefined
+  /**
+   * Which subtitles provider (and model) the session was built with, as the request and batch keys
+   * tell one from another; null when there was none. Segmentation keeps the ref it was built with
+   * for the whole session while line translation reads the settings per batch, so a session is only
+   * resumed for the provider it was built with. Undefined: none recorded, nothing to compare.
+   */
+  private sessionProviderIdentity: string | null | undefined
   private publishedTrackIdentity: string | null | undefined
 
   private isNativeSubtitlesHidden = false
@@ -524,6 +535,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
     this.sessionVideoId = null
     this.sessionTrackIdentity = undefined
     this.sessionTargetCode = undefined
+    this.sessionProviderIdentity = undefined
     this.publishedTrackIdentity = undefined
     this.subtitlesSummaryContextHash = null
     subtitlesStore.set(sourceTrackAtom, [])
@@ -1083,6 +1095,11 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
           )
         : null
       providerAnalytics = classifyResolvedProvider(requestedProvider)
+      // The same identity the line-translation key is hashed with. Taken here, with the other
+      // reads of the settings, so the resume decision below has no wait of its own.
+      const providerIdentity = requestedProvider
+        ? getProviderCacheIdentity(await serializeProviderRef(requestedProvider))
+        : null
       // The track is already in the target language: nothing to translate, so its cues stand as
       // their own translation. Asked again after the fetch, when the track's language is known.
       const isSameLanguage = () => this.shouldSkipTranslationForCurrentTrack(analyticsConfig)
@@ -1113,6 +1130,9 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       // fresh and a provider chosen later is picked up. An AI session keeps resuming as before.
       // Whatever its kind, a session resumes only for the language it was built for: its cues are
       // in that language. One that never recorded a language does not match a configured one.
+      // A translated session also resumes only for the provider (and model) it was built with: its
+      // segmentation goes on with that one, so one chosen since is picked up by building afresh,
+      // which also leaves nothing of the earlier run to land in the new one.
       const canResume =
         useSameTrack &&
         hasCurrentSession &&
@@ -1120,7 +1140,10 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
         (this.source !== SUBTITLES_SOURCE.NATIVE ||
           (this.translationCoordinator
             ? requestedProvider !== null && !isSameLanguage()
-            : isSameLanguage()))
+            : isSameLanguage())) &&
+        (!this.translationCoordinator ||
+          this.sessionProviderIdentity === undefined ||
+          this.sessionProviderIdentity === providerIdentity)
 
       if (canResume) {
         await assertWanted()
@@ -1158,6 +1181,7 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       this.sessionSubtitles = this.sourceSubtitles
       this.sessionTrackIdentity = this.fetcher.getTrackIdentity?.()
       this.sessionTargetCode = targetLanguage
+      this.sessionProviderIdentity = providerIdentity
 
       if (isSameLanguage()) {
         this.processPassthroughSubtitles()

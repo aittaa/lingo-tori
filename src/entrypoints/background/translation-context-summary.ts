@@ -8,6 +8,7 @@ import { db } from "@/utils/db/dexie/db"
 import { Sha256Hex } from "@/utils/hash"
 import { logger } from "@/utils/logger"
 import { getProviderCacheIdentity } from "@/utils/providers/provider-ref"
+import { isTranslationCancelledError } from "@/utils/request/cancellation"
 import { generateTextForProviderRef } from "./background-stream"
 import { getQueueIdentity } from "./private-sender"
 
@@ -18,6 +19,14 @@ import { getQueueIdentity } from "./private-sender"
  * `persist: false` (a private-window sender) generates the summary without
  * reading or writing the persistent summary cache, and keeps the request out of
  * any queue slot a persisting request could share.
+ *
+ * `scopes` are the owners of this request (a page-translation session, as
+ * `${tab}:${session}`). Every request for the same summary is one queue task, and the
+ * task is aborted only when its last owner leaves; a request with no scopes pins it.
+ * `isScopeCancelled` tells whether an owner has left already: the cache lookup below
+ * is an await during which that can happen, and a task enqueued afterwards would sit
+ * on a dead owner that nothing will cancel again. A summary is optional context, so a
+ * cancelled one answers `null` and the caller carries on without it.
  */
 export async function getOrGenerateTranslationContextSummary(
   args: ProviderRequestRouting<PromptableProviderRef> & {
@@ -27,9 +36,20 @@ export async function getOrGenerateTranslationContextSummary(
     usageFeature: ApiUsageFeature
     requestQueue: RequestQueue
     persist?: boolean
+    scopes?: readonly string[]
+    isScopeCancelled?: (scope: string) => boolean
   },
 ): Promise<string | null> {
-  const { title, textContent, providerRef, cacheKeyParts, requestQueue, persist = true } = args
+  const {
+    title,
+    textContent,
+    providerRef,
+    cacheKeyParts,
+    requestQueue,
+    persist = true,
+    scopes,
+    isScopeCancelled,
+  } = args
   const preparedText = cleanText(textContent)
   if (!preparedText) {
     return null
@@ -45,12 +65,20 @@ export async function getOrGenerateTranslationContextSummary(
     }
   }
 
+  if (scopes?.length && isScopeCancelled && scopes.every((scope) => isScopeCancelled(scope))) {
+    logger.info("Summary request cancelled before it was queued")
+    return null
+  }
+
   const thunk = async (signal?: AbortSignal) => {
     if (persist) {
       const cachedAgain = await db.articleSummaryCache.get(cacheKey)
       if (cachedAgain) {
         return cachedAgain.summary
       }
+      // The lookup was a window in which the last owner may have left: do not start the provider
+      // request for a task that was aborted meanwhile.
+      signal?.throwIfAborted()
     }
 
     const summary = await generateArticleSummary(
@@ -87,10 +115,15 @@ export async function getOrGenerateTranslationContextSummary(
       thunk,
       Date.now(),
       getQueueIdentity(cacheKey, !persist),
+      scopes,
     )
     return summary || null
   } catch (error) {
-    logger.warn("Failed to get/generate summary:", error)
+    if (isTranslationCancelledError(error)) {
+      logger.info("Summary request cancelled")
+    } else {
+      logger.warn("Failed to get/generate summary:", error)
+    }
     return null
   }
 }

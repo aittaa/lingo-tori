@@ -324,7 +324,12 @@ describe("translationOnly node-identity restore (#1846)", () => {
   })
 
   it("swaps translated human-visible attributes and restores them guardedly", async () => {
-    mockTranslateTextForPage.mockResolvedValue('前缀 <a href="/x" title="城市">链接</a> 后缀')
+    // The answer follows the marker protocol the request carries (the href is a protected attribute,
+    // so it is kept local behind marker 0 and restored from the page). It used to omit the marker
+    // and only passed through the full-HTML retry, which sent the href and took it back from the answer.
+    mockTranslateTextForPage.mockResolvedValue(
+      '前缀 <a data-rf-attr="0" title="城市">链接</a> 后缀',
+    )
     const p = document.createElement("p")
     const link = document.createElement("a")
     link.setAttribute("href", "/x")
