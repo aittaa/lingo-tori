@@ -212,7 +212,8 @@ function createStandardRunOwner(abortController: AbortController): TranslationRe
   abortController.signal.addEventListener(
     "abort",
     () => {
-      // A background that cannot be reached holds nothing of this run to drain.
+      // Best effort: a failed send is not proof that the background holds nothing of this run.
+      // Stale answers are still dropped locally by the run-ID check.
       sendMessage("cancelPageTranslationRequests", { sessionId: id }).catch(() => {})
     },
     { once: true },

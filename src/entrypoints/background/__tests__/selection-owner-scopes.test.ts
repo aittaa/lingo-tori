@@ -316,10 +316,13 @@ describe("selection owners in the background queue", () => {
   })
 
   describe("how long the background remembers a cancelled owner (registry capacity)", () => {
-    // The registry keeps a cancelled scope for ten minutes and at most 256 of them. That window is
-    // only ever needed for the span between an enqueue starting and its cache lookup returning
-    // (milliseconds), and the content side sends nothing for an owner that has cancelled, so a
-    // request for an evicted owner cannot arrive from a selection run. These pin both sides of it.
+    // The registry keeps a cancelled scope for ten minutes and at most 256 of them. The content side
+    // sends nothing for an owner that cancelled before the send. It cannot stop a request that is
+    // already inside the background awaiting its cache or queue configuration, though: that wait is
+    // not guaranteed to be short, and if the cancel is evicted before it ends (more than 256 later
+    // cancels, or the TTL), the background takes the request. It then still carries its tab/run scope,
+    // so a later tab close drains it. This is an inherited limit of the bounded registry, not
+    // something this change rules out. These tests pin both sides of it.
     it("refuses a late request while the cancel is still remembered, however many other owners cancelled since (under the cap)", async () => {
       const lookup = createDeferred<undefined>()
       translationCacheGetMock.mockReturnValueOnce(lookup.promise)
@@ -348,9 +351,10 @@ describe("selection owners in the background queue", () => {
       lookup.resolve(undefined)
       await vi.advanceTimersByTimeAsync(0)
 
-      // The scope was pushed out of the registry, so the background took the request. What keeps a
-      // cancelled selection run silent is therefore the content side's own gate (see the provider
-      // test "stays silent after the background has long forgotten its cancel"), not this registry.
+      // The scope was pushed out of the registry, so the background took the request. The content
+      // side's own gate (see the provider test "stays silent after the background has long forgotten
+      // its cancel") only covers a cancel that happened before the send. A request that was already
+      // waiting here, as this one was, runs once its cancel is evicted, and keeps its tab/run scope.
       expect(calls).toHaveLength(1)
     })
   })
