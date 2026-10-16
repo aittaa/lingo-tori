@@ -218,6 +218,7 @@ export function createPageTranslationRequest(
     const translatedHtml = await translateTextForAction(
       protectedHtml.fallbackRequestHtml,
       "html",
+      owner,
       options.forceRetranslation,
     )
     return translatedHtml ? protectedHtml.restoreFallback(translatedHtml) : translatedHtml
