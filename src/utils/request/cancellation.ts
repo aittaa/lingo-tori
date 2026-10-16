@@ -19,6 +19,17 @@ export function isTranslationCancelledError(error: unknown): boolean {
 }
 
 /**
+ * Whether `signal` was aborted because the request's owner left. The queue aborts a drained task's
+ * signal with the `TranslationCancelledError` it rejects the task with, so the reason is what ties
+ * an abort to a cancellation. An error that merely has the name AbortError proves nothing, and the
+ * queue's timeout aborts the same signal with its own error, which is a failure and not a
+ * cancellation.
+ */
+export function isAbortedByCancellation(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted === true && isTranslationCancelledError(signal.reason)
+}
+
+/**
  * Remembers cancelled scopes so an enqueue handler that was suspended on an
  * await (e.g. the IndexedDB cache lookup) when the cancel drained the queues
  * can refuse to enqueue afterwards — otherwise the request enters the queue
