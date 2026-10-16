@@ -7,6 +7,7 @@ import { ShadowWrapperContext } from "@/utils/react-shadow-host/create-shadow-ho
 import { cn } from "@/utils/styles/utils"
 
 const TOOLTIP_TRIGGER_PRESS_REASON = "trigger-press"
+const TOOLTIP_ESCAPE_KEY_REASON = "escape-key"
 
 interface SelectionTooltipOpenChangeDetails {
   reason: string
@@ -110,13 +111,31 @@ export function SelectionToolbarTooltip(
   )
 }
 
-export function SelectionPopoverTooltip(
-  props: Omit<SelectionTooltipProps, "container" | "positionerClassName">,
-) {
+export function SelectionPopoverTooltip({
+  onOpenChange,
+  ...props
+}: Omit<SelectionTooltipProps, "container" | "positionerClassName">) {
   const popoverOverlay = useSelectionPopoverOverlayProps()
+
+  // A hint tooltip handles Escape on its trigger and, by default, stops the event there. The
+  // popover listens on the document, so while a hint was open (after a press, or while its button
+  // had keyboard focus) the first Escape only hid the hint and the popover stayed. A hint is not a
+  // layer the viewer works in: let the same Escape go on to the popover. Layers that are (a menu,
+  // the context-details popover) still take their own Escape first, because the popover defers to
+  // them itself.
+  const handleOpenChange = useCallback<NonNullable<SelectionTooltipProps["onOpenChange"]>>(
+    (nextOpen, eventDetails) => {
+      if (!nextOpen && eventDetails.reason === TOOLTIP_ESCAPE_KEY_REASON) {
+        eventDetails.allowPropagation()
+      }
+      onOpenChange?.(nextOpen, eventDetails)
+    },
+    [onOpenChange],
+  )
 
   return (
     <SelectionTooltip
+      onOpenChange={handleOpenChange}
       // Keep this workaround scoped to selection-content popovers. Shared
       // Tooltip primitives are also used by options/popup pages, which do not
       // need the same browser-specific close-state fix.
