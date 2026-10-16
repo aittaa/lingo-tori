@@ -233,13 +233,18 @@ async function flush(): Promise<void> {
 
 /** The popup / floating button / context menu surface: the background records the choice first. */
 async function userToggles(enabled: boolean): Promise<void> {
-  await h.sendMessage("tryToSetEnablePageTranslationByTabId", {
+  const answer = h.sendMessage("tryToSetEnablePageTranslationByTabId", {
     tabId: TAB_ID,
     enabled,
     analyticsContext: enabled
       ? createFeatureUsageContext(ANALYTICS_FEATURE.PAGE_TRANSLATION, ANALYTICS_SURFACE.POPUP)
       : undefined,
   })
+  // An ON is answered once its start is decided (accepted or refused), so while a gate is held the
+  // answer is still pending by design. The tests here act on that pending start, so they do not
+  // wait for it; the answer settles when the held gate is released.
+  if (enabled && (held.config || held.availability)) void answer
+  else await answer
   await flush()
 }
 

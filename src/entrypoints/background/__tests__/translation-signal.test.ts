@@ -184,7 +184,7 @@ describe("translationMessage", () => {
         enabled: false,
         analyticsContext: undefined,
       },
-      42,
+      { tabId: 42, frameId: 0 },
     )
   })
 
@@ -403,7 +403,7 @@ describe("translationMessage", () => {
         enabled: true,
         analyticsContext: undefined,
       },
-      42,
+      { tabId: 42, frameId: 0 },
     )
   })
 
@@ -544,6 +544,40 @@ describe("translationMessage", () => {
       )
     })
 
+    it("addresses a content-script surface's toggle request to the top frame, never to the whole tab", async () => {
+      await setupSubject()
+      const sender = { tab: { id: 42, url: "https://example.com/articles/1" } }
+
+      await getHandler("tryToSetEnablePageTranslationOnContentScript")({
+        data: { enabled: false },
+        sender,
+      })
+      await getHandler("tryToSetEnablePageTranslationOnContentScript")({
+        data: { enabled: true },
+        sender,
+      })
+
+      // Every frame hears a stop, through the state broadcast; the request that gets an answer goes
+      // to the top frame alone, so no other frame's reply can stand for it.
+      expect(sendMessageMock).toHaveBeenCalledWith(
+        "notifyTranslationStateChanged",
+        { enabled: false },
+        42,
+      )
+      for (const enabled of [false, true]) {
+        expect(sendMessageMock).toHaveBeenCalledWith(
+          "askManagerToTogglePageTranslation",
+          { enabled, analyticsContext: undefined },
+          { tabId: 42, frameId: 0 },
+        )
+      }
+      expect(sendMessageMock).not.toHaveBeenCalledWith(
+        "askManagerToTogglePageTranslation",
+        expect.anything(),
+        42,
+      )
+    })
+
     it("records a user refusal from a user-initiated top-frame manager stop echo", async () => {
       await setupSubject()
 
@@ -622,7 +656,7 @@ describe("translationMessage", () => {
       expect(sendMessageMock).not.toHaveBeenCalledWith(
         "askManagerToTogglePageTranslation",
         expect.objectContaining({ enabled: true }),
-        42,
+        expect.anything(),
       )
     })
 
@@ -639,7 +673,7 @@ describe("translationMessage", () => {
       expect(sendMessageMock).toHaveBeenCalledWith(
         "askManagerToTogglePageTranslation",
         expect.objectContaining({ enabled: true }),
-        42,
+        { tabId: 42, frameId: 0 },
       )
     })
 
@@ -658,7 +692,7 @@ describe("translationMessage", () => {
       expect(sendMessageMock).toHaveBeenCalledWith(
         "askManagerToTogglePageTranslation",
         expect.objectContaining({ enabled: true }),
-        42,
+        { tabId: 42, frameId: 0 },
       )
     })
 

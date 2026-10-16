@@ -100,7 +100,11 @@ export default function TranslateButton({ className }: { className?: string }) {
         // the button does not flip and asks for a refresh. It is not synced to the page's real
         // state: what it shows is the last state a manager acknowledged, or the one the
         // background had recorded when the popup opened.
+        // A start the manager received but refused (same language, no provider or key, cancelled by
+        // an OFF) changed nothing either: the button stays on Translate, and the manager's own
+        // notice on the page is the explanation, not a refresh hint.
         let delivered = false
+        let startRefused = false
         try {
           const result = await sendMessage("tryToSetEnablePageTranslationByTabId", {
             tabId: currentTab!.id,
@@ -113,6 +117,7 @@ export default function TranslateButton({ className }: { className?: string }) {
               : undefined,
           })
           delivered = result.delivered
+          startRefused = result.start === "rejected"
         } catch (error) {
           logger.warn("Failed to deliver the page translation toggle", error)
         }
@@ -120,7 +125,7 @@ export default function TranslateButton({ className }: { className?: string }) {
         // Given up on while waiting (or replaced by a newer attempt): this reply is stale.
         if (currentAttempt.current !== attempt) return
         setDeliveryFailed(!delivered)
-        if (delivered) setIsPageTranslated(nextEnabled)
+        if (delivered && !startRefused) setIsPageTranslated(nextEnabled)
       }
     } finally {
       clearTimeout(deadline)

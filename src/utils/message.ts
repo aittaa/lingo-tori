@@ -16,6 +16,16 @@ import type { PromptTemplate } from "@/utils/prompts/template"
 import type { PromptableProviderRef, SerializableProviderRef } from "@/utils/providers/provider-ref"
 import { defineExtensionMessaging } from "@webext-core/messaging"
 
+/**
+ * What a page translation manager made of a request to START. The request is pending until the
+ * manager's precheck has decided it; then it is `accepted` (the precheck passed and the page is now
+ * translating: the walk of the page may still be running, it is not waited for) or `rejected` (the
+ * precheck refused it, for instance the same source and target language, a provider that is missing
+ * or has no key, or it was cancelled by an OFF before it began). A refusal has already been shown
+ * to the user by the manager itself.
+ */
+export type PageTranslationStartOutcome = "accepted" | "rejected"
+
 interface ProtocolMap {
   // navigation
   openPage: (data: { url: string; active?: boolean }) => void
@@ -50,11 +60,13 @@ interface ProtocolMap {
   getEnablePageTranslationFromContentScript: () => Promise<boolean>
   // `delivered` is true once a page translation manager in the tab acknowledged the
   // request; false when none could be reached (no receiver, context invalidated).
+  // `start` says how the manager decided a START it received; absent for a stop, and for a
+  // content script that predates it (treated as accepted, which is what its answer used to mean).
   tryToSetEnablePageTranslationByTabId: (data: {
     tabId: number
     enabled: boolean
     analyticsContext?: FeatureUsageContext<"page_translation">
-  }) => Promise<{ delivered: boolean }>
+  }) => Promise<{ delivered: boolean; start?: PageTranslationStartOutcome }>
   tryToSetEnablePageTranslationOnContentScript: (data: {
     enabled: boolean
     analyticsContext?: FeatureUsageContext<"page_translation">
@@ -75,11 +87,13 @@ interface ProtocolMap {
   refreshDetectedPageLanguage: () => void
   getDetectedCode: () => LangCodeISO6393
   detectedPageLanguageChanged: (data: { detectedCode: LangCodeISO6393 }) => void
-  // ask host to start page translation
+  // ask host to start page translation. A start is answered once the manager has decided it
+  // (see PageTranslationStartOutcome), not when the page walk has finished; a stop is answered
+  // with nothing.
   askManagerToTogglePageTranslation: (data: {
     enabled: boolean
     analyticsContext?: FeatureUsageContext<"page_translation">
-  }) => void
+  }) => { start: PageTranslationStartOutcome } | undefined
   openSelectionTranslationFromContextMenu: (data: { selectionText: string }) => void
   openSelectionCustomActionFromContextMenu: (data: {
     actionId: string
