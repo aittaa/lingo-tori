@@ -51,6 +51,9 @@ export default function TranslateButton({ className }: { className?: string }) {
   // Set when the toggle reached no page manager or got no answer in time; cleared when the next
   // attempt starts.
   const [deliveryFailed, setDeliveryFailed] = useState(false)
+  // Whether that was the deadline passing on a page that has not answered (it may only be slow),
+  // as opposed to a request that reached nobody or failed.
+  const [answerOverdue, setAnswerOverdue] = useState(false)
   // The attempt now waiting for its answer, if any. Only the current attempt may change the screen:
   // one the popup gave up on (its deadline passed) is not current any more, so a reply that comes
   // in late, successful or not, is ignored.
@@ -78,11 +81,13 @@ export default function TranslateButton({ className }: { className?: string }) {
     const attempt = ++attemptCount.current
     currentAttempt.current = attempt
     setDeliveryFailed(false)
+    setAnswerOverdue(false)
     const deadline = setTimeout(() => {
       if (currentAttempt.current !== attempt) return
       // Stop waiting: release the button and say so.
       currentAttempt.current = null
       setDeliveryFailed(true)
+      setAnswerOverdue(true)
     }, TOGGLE_ANSWER_TIMEOUT_MS)
     deadlineTimer.current = deadline
     try {
@@ -100,7 +105,11 @@ export default function TranslateButton({ className }: { className?: string }) {
         // the button does not flip and asks for a refresh. It is not synced to the page's real
         // state: what it shows is the last state a manager acknowledged, or the one the
         // background had recorded when the popup opened.
+        // A start the manager received but refused (same language, no provider or key, cancelled by
+        // an OFF) changed nothing either: the button stays on Translate, and the manager's own
+        // notice on the page is the explanation, not a refresh hint.
         let delivered = false
+        let startRefused = false
         try {
           const result = await sendMessage("tryToSetEnablePageTranslationByTabId", {
             tabId: currentTab!.id,
@@ -113,6 +122,7 @@ export default function TranslateButton({ className }: { className?: string }) {
               : undefined,
           })
           delivered = result.delivered
+          startRefused = result.start === "rejected"
         } catch (error) {
           logger.warn("Failed to deliver the page translation toggle", error)
         }
@@ -120,7 +130,7 @@ export default function TranslateButton({ className }: { className?: string }) {
         // Given up on while waiting (or replaced by a newer attempt): this reply is stale.
         if (currentAttempt.current !== attempt) return
         setDeliveryFailed(!delivered)
-        if (delivered) setIsPageTranslated(nextEnabled)
+        if (delivered && !startRefused) setIsPageTranslated(nextEnabled)
       }
     } finally {
       clearTimeout(deadline)
@@ -161,7 +171,7 @@ export default function TranslateButton({ className }: { className?: string }) {
 
   const refreshHint = deliveryFailed ? (
     <p role="alert" className="w-full text-xs text-destructive">
-      {i18n.t("popup.refreshNeeded")}
+      {answerOverdue ? i18n.t("popup.noAnswerYet") : i18n.t("popup.refreshNeeded")}
     </p>
   ) : null
 

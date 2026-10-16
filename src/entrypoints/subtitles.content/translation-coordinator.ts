@@ -1,9 +1,14 @@
 import type { SegmentationPipeline } from "./segmentation-pipeline"
 import type { Config } from "@/types/config/config"
-import type { SubtitlesVideoContext } from "@/utils/subtitles/processor/translator"
+import type {
+  SubtitlesRequestOwner,
+  SubtitlesVideoContext,
+} from "@/utils/subtitles/processor/translator"
 import type { SubtitlesFragment, SubtitlesState } from "@/utils/subtitles/types"
 import { getLocalConfig } from "@/utils/config/storage"
 import { TRANSLATE_LOOK_AHEAD_MS, TRANSLATION_BATCH_SIZE } from "@/utils/constants/subtitles"
+import { logger } from "@/utils/logger"
+import { sendMessage } from "@/utils/message"
 import { effectiveLookAheadMs } from "@/utils/subtitles/lookahead"
 import { translateSubtitles } from "@/utils/subtitles/processor/translator"
 import { adPlayingAtom, subtitlesStore } from "./atoms"
@@ -22,6 +27,18 @@ export interface TranslationCoordinatorOptions {
   targetCode?: Config["language"]["targetCode"]
 }
 
+let runCounter = 0
+
+/**
+ * A fresh identity for one run. A correlation key, not secret: the background scopes a request by
+ * tab id plus this, so the random part keeps runs of different frames of one tab apart, and a run
+ * that follows another never shares its identity (ending the old one cannot touch the new one).
+ */
+function createRunOwnerId(): string {
+  runCounter += 1
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}-${runCounter}`
+}
+
 function fragmentIdentity(fragment: Pick<SubtitlesFragment, "end" | "text">): string {
   return `${fragment.end}\0${fragment.text}`
 }
@@ -37,6 +54,12 @@ export class TranslationCoordinator {
   private active = false
   /** Bumped on stop() so in-flight batches cannot apply after stop/start. */
   private runId = 0
+  /**
+   * The identity the background knows this run by, from start() to stop()/reset(). Every request of
+   * the run carries it, so ending the run can drain them (queued, in flight, backing off) instead of
+   * only ignoring their answers.
+   */
+  private ownerId: string | null = null
   private lastEmittedState: SubtitlesState = "idle"
   private videoContext: SubtitlesVideoContext = { videoTitle: "", subtitlesTextContent: "" }
   private listenersAttached = false
@@ -68,6 +91,9 @@ export class TranslationCoordinator {
     if (!video) return
 
     this.active = true
+    // A start on a run that is already going keeps its owner: replacing it would leave the
+    // requests already sent with an identity nothing will ever end.
+    this.ownerId ??= createRunOwnerId()
     this.attachVideoListeners(video)
 
     if (this.segmentationPipeline) {
@@ -86,6 +112,20 @@ export class TranslationCoordinator {
     this.translatingStarts.clear()
     this.detachVideoListeners()
     this.segmentationPipeline?.stop()
+    this.endRun()
+  }
+
+  /**
+   * Ends the run's requests in the background. Fire and forget: the DOM side of stopping is
+   * already done, and a worker that restarted has no queue left to drain.
+   */
+  private endRun() {
+    const ownerId = this.ownerId
+    if (ownerId === null) return
+    this.ownerId = null
+    void sendMessage("cancelSubtitlesTranslateRequests", { ownerId }).catch((error) =>
+      logger.warn("Failed to cancel pending subtitle requests", error),
+    )
   }
 
   /** Kick a nearby pass without waiting for the next timeupdate (e.g. after an ad). */
@@ -105,6 +145,7 @@ export class TranslationCoordinator {
     this.isTranslating = false
     this.lastEmittedState = "idle"
     this.videoContext = { videoTitle: "", subtitlesTextContent: "" }
+    this.endRun()
   }
 
   private attachVideoListeners(video: HTMLVideoElement) {
@@ -222,6 +263,9 @@ export class TranslationCoordinator {
     }
 
     const runId = this.runId
+    const ownerId = this.ownerId
+    const owner: SubtitlesRequestOwner | undefined =
+      ownerId === null ? undefined : { id: ownerId, isCurrent: () => this.ownerId === ownerId }
     this.isTranslating = true
     batch.forEach((f) => {
       this.translatingStarts.add(f.start)
@@ -234,6 +278,7 @@ export class TranslationCoordinator {
         this.videoContext,
         undefined,
         this.targetCode,
+        owner,
       )
       // A newer generation owns the bookkeeping now; stop()/reset() already cleared this one's.
       if (!this.active || runId !== this.runId) return

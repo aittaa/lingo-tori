@@ -20,6 +20,9 @@ export const MENU_ID_TRANSLATE = "read-frog-translate"
 export const MENU_ID_SELECTION_TRANSLATE = "read-frog-selection-translate"
 export const MENU_ID_SELECTION_CUSTOM_ACTION_PREFIX = "read-frog-selection-custom-action:"
 
+/** The frame of a tab's own document; its page translation manager decides for the tab. */
+const TOP_FRAME_ID = 0
+
 function getSelectionCustomActionMenuId(actionId: string) {
   return `${MENU_ID_SELECTION_CUSTOM_ACTION_PREFIX}${actionId}`
 }
@@ -247,8 +250,10 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
     void sendMessage("notifyTranslationStateChanged", { enabled: false }, tabId)
   }
 
-  // Notify content script in that specific tab
-  const delivered = await sendMessage(
+  // Ask the top frame's manager, whose answer is the tab's: sent to the whole tab, the first frame
+  // to reply would decide, and a subframe can refuse (or accept) a start the top frame decides
+  // otherwise. The other frames follow it through the state broadcast.
+  const answered = await sendMessage(
     "askManagerToTogglePageTranslation",
     {
       enabled: newState,
@@ -259,12 +264,12 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
           )
         : undefined,
     },
-    tabId,
+    { tabId, frameId: TOP_FRAME_ID },
   ).then(
-    () => true,
+    (answer) => ({ delivered: true, startRefused: newState && answer?.start === "rejected" }),
     (error) => {
       logger.warn("Failed to ask page translation manager to toggle", error)
-      return false
+      return { delivered: false, startRefused: false }
     },
   )
 
@@ -274,7 +279,8 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
   // listener that ran has already set the right one, and the item is one global object. Both are
   // asked right before the write. With no receiver in the tab the title is left as it is; after
   // an OFF it already follows the stored refusal through the storage listener, delivered or not.
-  if (delivered) {
+  // A start the manager refused (and told the user about) changed nothing, so the title stays too.
+  if (answered.delivered && !answered.startRefused) {
     await updateTranslateMenuTitle(
       tabId,
       newState,

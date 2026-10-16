@@ -1,6 +1,7 @@
 import type { LangCodeISO6393 } from "@/lib/languages"
 import type { FeatureUsageContext } from "@/types/analytics"
 import type { Config } from "@/types/config/config"
+import type { PageTranslationStartOutcome } from "@/utils/message"
 import debounce from "debounce"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
@@ -95,8 +96,16 @@ interface IPageTranslationManager {
   /**
    * Starts the automatic page translation functionality
    * Registers observers, touch triggers and set storage
+   *
+   * `onDecision` hears, once, how the start was decided: `accepted` as soon as its precheck has
+   * passed and the manager is active (the walk of the page is not waited for), `rejected` when the
+   * precheck refused it or a stop cancelled it first. A start requested while another is still
+   * pending is decided with that one.
    */
-  start: (analyticsContext?: FeatureUsageContext<"page_translation">) => Promise<void>
+  start: (
+    analyticsContext?: FeatureUsageContext<"page_translation">,
+    onDecision?: (decision: PageTranslationStartOutcome) => void,
+  ) => Promise<void>
 
   /**
    * Stops the automatic page translation functionality
@@ -153,6 +162,11 @@ export class PageTranslationManager implements IPageTranslationManager {
   private isPageTranslating: boolean = false
   /** Non-null while a start() is between its guard and activation; see start(). */
   private pendingStart: symbol | null = null
+  /** Who wants to hear how a pending start was decided, by start; see start(). */
+  private startDecisionListeners = new Map<
+    symbol,
+    Array<(decision: PageTranslationStartOutcome) => void>
+  >()
   private intersectionObserver: IntersectionObserver | null = null
   private mutationObservers: MutationObserver[] = []
   private observedMutationRoots = new WeakSet<Node>()
@@ -206,13 +220,19 @@ export class PageTranslationManager implements IPageTranslationManager {
     return this.isPageTranslating
   }
 
-  async start(analyticsContext?: FeatureUsageContext<"page_translation">): Promise<void> {
+  async start(
+    analyticsContext?: FeatureUsageContext<"page_translation">,
+    onDecision?: (decision: PageTranslationStartOutcome) => void,
+  ): Promise<void> {
     if (this.isPageTranslating) {
       console.warn("PageTranslationManager is already active")
+      onDecision?.("accepted")
       return
     }
     if (this.pendingStart) {
       console.warn("PageTranslationManager start is already pending")
+      // The pending start answers for this request too.
+      if (onDecision) this.startDecisionListeners.get(this.pendingStart)?.push(onDecision)
       return
     }
 
@@ -222,9 +242,24 @@ export class PageTranslationManager implements IPageTranslationManager {
     // walk. stop() clears the slot to cancel a still-pending start.
     const startToken = Symbol("page-translation-start")
     this.pendingStart = startToken
+    const listeners: Array<(decision: PageTranslationStartOutcome) => void> = onDecision
+      ? [onDecision]
+      : []
+    this.startDecisionListeners.set(startToken, listeners)
+    // Told once. The start is `accepted` where runStart activates the manager; every other way out
+    // of the pre-activation span (a failed precheck, a stop that cancelled it, an error) is a
+    // refusal, and lands here.
+    let decided = false
+    const decide = (decision: PageTranslationStartOutcome) => {
+      if (decided) return
+      decided = true
+      this.startDecisionListeners.delete(startToken)
+      for (const listener of listeners) listener(decision)
+    }
     try {
-      await this.runStart(startToken, analyticsContext)
+      await this.runStart(startToken, analyticsContext, decide)
     } finally {
+      decide("rejected")
       if (this.pendingStart === startToken) {
         this.pendingStart = null
       }
@@ -233,7 +268,8 @@ export class PageTranslationManager implements IPageTranslationManager {
 
   private async runStart(
     startToken: symbol,
-    analyticsContext?: FeatureUsageContext<"page_translation">,
+    analyticsContext: FeatureUsageContext<"page_translation"> | undefined,
+    decide: (decision: PageTranslationStartOutcome) => void,
   ): Promise<void> {
     const trackedContext = window === window.top ? analyticsContext : undefined
 
@@ -325,6 +361,9 @@ export class PageTranslationManager implements IPageTranslationManager {
 
       beginPageTranslationSession()
       setPageTranslationSessionProviderRef(availability.providerRef)
+      // The precheck has passed and the manager is active: whoever asked for this start can be told
+      // so now, without waiting for the walk of the page.
+      decide("accepted")
 
       try {
         await sendMessage("setAndNotifyPageTranslationStateChangedByManager", {

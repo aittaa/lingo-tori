@@ -12,6 +12,8 @@ sidePanel:
   firefoxUserActionHint: Firefox では、ブラウザーのサイドバーから LingoTori を開いてください。
   firefoxUserActionHelpText: Firefox サイドバーの開き方を見る
   firefoxUserActionHelpUrl: https://support.mozilla.org/ja/kb/use-sidebar-access-tools-and-vertical-tabs
+  unsupportedHint: お使いのブラウザーでは、このボタンからサイドパネルを開閉できません。パネルの閉じるボタンかブラウザーのサイドパネルメニューをお使いいただくか、ブラウザーを更新してください。
+  failedHint: サイドパネルを開閉できませんでした。もう一度お試しいただくか、ブラウザーのサイドパネルメニューまたはパネルの閉じるボタンをお使いください。
 popup:
   theme: テーマ
   autoLang: 自動検出
@@ -24,6 +26,7 @@ popup:
   translate: 翻訳
   showOriginal: 原文を表示
   refreshNeeded: このページに接続できませんでした。再読み込みしてから、もう一度お試しください。
+  noAnswerYet: このページからまだ応答がありません。変化がない場合は、再読み込みしてからもう一度お試しください。
   enabledFloatingButton: フローティングボタンを有効化
   enabledSelectionToolbar: 選択ツールバーを有効化
   alwaysTranslate: このサイトを常に翻訳する
@@ -45,6 +48,8 @@ popup:
   more:
     title: その他
     bugReport: 不具合を報告
+toast:
+  region: 通知
 errorRecovery:
   title: 問題が発生しました
   description: 復旧モードが有効です。現在の設定をバックアップとしてエクスポートし、設定をリセットして再試行してください。

@@ -520,15 +520,21 @@ const selectSubtitlesQueueConfig = (config: Config) => ({
 })
 
 /**
- * Create subtitle translation queues and watch their configuration
+ * Create subtitle translation queues and watch their configuration.
+ *
+ * `cancelledScopes` is the registry of the runs that were ended or whose tab closed. The batch
+ * queue consults it for the same two windows the page queues do (a retry's backoff sleep, an
+ * individual fallback), so a run that left in either is not kept alive as a ghost owner. Left
+ * out, the queues behave as before: every request is uncancellable.
  */
-export function createSubtitlesTranslationQueues() {
+export function createSubtitlesTranslationQueues(cancelledScopes?: CancelledScopeRegistry) {
   const queuesPromise = loadQueueSetupConfig("subtitles", selectSubtitlesQueueConfig).then(
     ({ requestQueueConfig, batchQueueConfig, configSource }) =>
       createTranslationQueues({
         requestQueueConfig,
         batchQueueConfig,
         promptResolver: getSubtitlesTranslatePrompt,
+        isScopeCancelled: cancelledScopes ? (scopeKey) => cancelledScopes.has(scopeKey) : undefined,
         queueName: "subtitles",
         configSource,
       }),

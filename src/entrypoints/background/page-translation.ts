@@ -207,7 +207,7 @@ export function setupPageTranslationHandlers(): void {
 
   onMessage("getOrGenerateWebPageSummary", async (message) => {
     const { requestQueue } = await queuesPromise
-    const { webTitle, webContent, providerRef } = message.data
+    const { webTitle, webContent, providerRef, sessionId } = message.data
 
     if (!webTitle || !webContent) {
       return null
@@ -222,6 +222,7 @@ export function setupPageTranslationHandlers(): void {
       return null
     }
 
+    const scope = buildTranslationScopeKey(message.sender, sessionId)
     return await getOrGenerateTranslationContextSummary({
       ...message.data,
       title: webTitle,
@@ -230,6 +231,11 @@ export function setupPageTranslationHandlers(): void {
       usageFeature: "pageContext",
       requestQueue,
       persist: !isPrivateSender(message.sender),
+      // Owned by the session that asked, like that session's paragraph requests: its stop (or
+      // its tab closing) ends the summary unless another owner still wants it. No session, no
+      // owner: the summary then stays uncancellable and keeps any summary it shares alive.
+      scopes: scope ? [scope] : undefined,
+      isScopeCancelled: (scopeKey) => cancelledScopes.has(scopeKey),
     })
   })
 

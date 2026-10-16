@@ -71,6 +71,8 @@
     "options.videoSubtitles.preference.autoStart.description"
   ],
   "newEnglishKeys": [
+    "sidePanel.failedHint",
+    "sidePanel.unsupportedHint",
     "options.apiUsage.api",
     "options.apiUsage.billing",
     "options.apiUsage.byos",
@@ -183,7 +185,9 @@
     "onboarding.doneTitle",
     "onboarding.doneDescription",
     "onboarding.goSettings",
-    "popup.refreshNeeded"
+    "popup.refreshNeeded",
+    "popup.noAnswerYet",
+    "toast.region"
   ],
   "deferredHubKeys": [
     "popup.hub.tooltip",

@@ -31,6 +31,7 @@ const DRAG_START_DISTANCE_PX = 6
 const MIN_FLOATING_CONTAINER_TOP_PX = 30
 const FLOATING_CONTAINER_BOTTOM_CLEARANCE_PX = 200
 const FIREFOX_SIDEBAR_USER_ACTION_TOAST_ID = "firefox-sidebar-user-action"
+const SIDE_PANEL_UNAVAILABLE_TOAST_ID = "side-panel-unavailable"
 
 interface DragPoint {
   x: number
@@ -80,6 +81,17 @@ function FirefoxSidebarHelpToast() {
       >
         {i18n.t("sidePanel.firefoxUserActionHelpText")}
       </a>
+    </span>
+  )
+}
+
+/** Said when the browser cannot open or close the side panel, or the call failed: never silence. */
+function SidePanelUnavailableToast({ reason }: { reason: "unsupported" | "failed" }) {
+  return (
+    <span>
+      {reason === "unsupported"
+        ? i18n.t("sidePanel.unsupportedHint")
+        : i18n.t("sidePanel.failedHint")}
     </span>
   )
 }
@@ -196,20 +208,33 @@ export default function FloatingButton() {
     }
 
     void Promise.resolve(sendMessage("toggleSidePanel", undefined)).then((result) => {
-      if (result && !result.ok && result.reason === "requires-extension-user-action") {
-        if (!mainButtonRef.current) return
+      if (!result || result.ok || !mainButtonRef.current) return
 
+      const positionerProps = {
+        anchor: mainButtonRef.current,
+        side: floatingButtonSide === "right" ? "left" : "right",
+        sideOffset: 8,
+      } as const
+
+      if (result.reason === "requires-extension-user-action") {
         anchoredToastManager.add({
           id: FIREFOX_SIDEBAR_USER_ACTION_TOAST_ID,
-          positionerProps: {
-            anchor: mainButtonRef.current,
-            side: floatingButtonSide === "right" ? "left" : "right",
-            sideOffset: 8,
-          },
+          positionerProps,
           type: "info",
           title: <FirefoxSidebarHelpToast />,
         })
+        return
       }
+
+      // This browser has no way to do it from here, or the browser refused the call. Whether the
+      // panel opens or closes is decided in the background; this only says so when it did not.
+      const unsupported = result.reason === "unsupported"
+      anchoredToastManager.add({
+        id: SIDE_PANEL_UNAVAILABLE_TOAST_ID,
+        positionerProps,
+        type: unsupported ? "info" : "error",
+        title: <SidePanelUnavailableToast reason={unsupported ? "unsupported" : "failed"} />,
+      })
     })
   }
 

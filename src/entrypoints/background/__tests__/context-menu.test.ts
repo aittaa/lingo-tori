@@ -204,11 +204,51 @@ describe("background context menu", () => {
       expect(sendMessageMock).toHaveBeenCalledWith(
         "askManagerToTogglePageTranslation",
         expect.objectContaining({ enabled: true }),
-        5,
+        { tabId: 5, frameId: 0 },
       )
       expect(browser.contextMenus.update).toHaveBeenCalledWith(MENU_ID_TRANSLATE, {
         title: "Show Original",
       })
+    })
+
+    it("asks only the top frame's manager, for a stop as for a start, and never the whole tab", async () => {
+      await clickTranslateMenu({ enabled: true })
+
+      // Every frame hears the stop through the state broadcast; the request that gets an answer goes
+      // to the top frame alone, so no other frame's reply can decide the title.
+      expect(sendMessageMock).toHaveBeenCalledWith(
+        "notifyTranslationStateChanged",
+        { enabled: false },
+        5,
+      )
+      expect(sendMessageMock).toHaveBeenCalledWith(
+        "askManagerToTogglePageTranslation",
+        expect.objectContaining({ enabled: false }),
+        { tabId: 5, frameId: 0 },
+      )
+      expect(sendMessageMock).not.toHaveBeenCalledWith(
+        "askManagerToTogglePageTranslation",
+        expect.anything(),
+        5,
+      )
+    })
+
+    it("switches to Show Original when the manager's answer says it accepted the start", async () => {
+      sendMessageMock.mockResolvedValue({ start: "accepted" })
+
+      await clickTranslateMenu({ enabled: false })
+
+      expect(browser.contextMenus.update).toHaveBeenCalledWith(MENU_ID_TRANSLATE, {
+        title: "Show Original",
+      })
+    })
+
+    it("keeps the title when the manager received the start but refused it (it has told the user why)", async () => {
+      sendMessageMock.mockResolvedValue({ start: "rejected" })
+
+      await clickTranslateMenu({ enabled: false })
+
+      expect(browser.contextMenus.update).not.toHaveBeenCalled()
     })
 
     it.each([
