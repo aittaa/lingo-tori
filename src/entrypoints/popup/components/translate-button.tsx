@@ -51,6 +51,9 @@ export default function TranslateButton({ className }: { className?: string }) {
   // Set when the toggle reached no page manager or got no answer in time; cleared when the next
   // attempt starts.
   const [deliveryFailed, setDeliveryFailed] = useState(false)
+  // Whether that was the deadline passing on a page that has not answered (it may only be slow),
+  // as opposed to a request that reached nobody or failed.
+  const [answerOverdue, setAnswerOverdue] = useState(false)
   // The attempt now waiting for its answer, if any. Only the current attempt may change the screen:
   // one the popup gave up on (its deadline passed) is not current any more, so a reply that comes
   // in late, successful or not, is ignored.
@@ -78,11 +81,13 @@ export default function TranslateButton({ className }: { className?: string }) {
     const attempt = ++attemptCount.current
     currentAttempt.current = attempt
     setDeliveryFailed(false)
+    setAnswerOverdue(false)
     const deadline = setTimeout(() => {
       if (currentAttempt.current !== attempt) return
       // Stop waiting: release the button and say so.
       currentAttempt.current = null
       setDeliveryFailed(true)
+      setAnswerOverdue(true)
     }, TOGGLE_ANSWER_TIMEOUT_MS)
     deadlineTimer.current = deadline
     try {
@@ -166,7 +171,7 @@ export default function TranslateButton({ className }: { className?: string }) {
 
   const refreshHint = deliveryFailed ? (
     <p role="alert" className="w-full text-xs text-destructive">
-      {i18n.t("popup.refreshNeeded")}
+      {answerOverdue ? i18n.t("popup.noAnswerYet") : i18n.t("popup.refreshNeeded")}
     </p>
   ) : null
 

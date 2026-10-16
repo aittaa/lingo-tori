@@ -183,7 +183,9 @@
     "onboarding.doneTitle",
     "onboarding.doneDescription",
     "onboarding.goSettings",
-    "popup.refreshNeeded"
+    "popup.refreshNeeded",
+    "popup.noAnswerYet",
+    "toast.region"
   ],
   "deferredHubKeys": [
     "popup.hub.tooltip",
