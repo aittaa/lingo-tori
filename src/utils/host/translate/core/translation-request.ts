@@ -170,6 +170,8 @@ export function createPageTranslationRequest(
   // is re-rendered via innerHTML, so providers must treat it as HTML to keep
   // its tags intact.
   const deepLXProviderKey = getDeepLXHtmlAttributeProviderKey(config)
+  // Nothing in this paragraph needed protecting, so the page's own HTML holds nothing the protected
+  // request would have kept local: it is the request.
   const translateLegacyHtml = async () => {
     const translatedHtml = await translateTextForAction(
       protectedHtml.legacyRequestHtml,
@@ -178,13 +180,25 @@ export function createPageTranslationRequest(
     )
     return translatedHtml ? protectedHtml.restoreLegacy(translatedHtml) : translatedHtml
   }
+  // The request after a provider (or a remembered endpoint) could not keep the markers. It goes out
+  // without them and without the attributes they stood for: asking again must not widen what leaves
+  // the page. Its answer has no markers to restore from, so it is cut back to the readable attributes;
+  // the page's own elements and attributes are not touched by it either way.
+  const translateFallbackHtml = async () => {
+    const translatedHtml = await translateTextForAction(
+      protectedHtml.fallbackRequestHtml,
+      "html",
+      options.forceRetranslation,
+    )
+    return translatedHtml ? protectedHtml.restoreFallback(translatedHtml) : translatedHtml
+  }
   const translateRequest = async () => {
     if (!protectedHtml.hasPlaceholders) return translateLegacyHtml()
 
     let ownedDeepLXProbe: DeepLXHtmlAttributeProbe | undefined
     if (deepLXProviderKey) {
       const probeDecision = await acquireDeepLXHtmlAttributeProbe(deepLXProviderKey)
-      if (probeDecision.useLegacy) return translateLegacyHtml()
+      if (probeDecision.useLegacy) return translateFallbackHtml()
       ownedDeepLXProbe = probeDecision.probe
     }
 
@@ -220,8 +234,11 @@ export function createPageTranslationRequest(
         supportedDeepLXHtmlAttributeProviders.delete(deepLXProviderKey)
         finishDeepLXHtmlAttributeProbe(deepLXProviderKey, ownedDeepLXProbe, "unsupported")
       }
-      logger.warn("HTML attribute placeholders were not preserved; retrying full HTML", error)
-      return translateLegacyHtml()
+      logger.warn(
+        "HTML attribute placeholders were not preserved; retrying without the protected attributes",
+        error,
+      )
+      return translateFallbackHtml()
     }
   }
 
@@ -229,13 +246,22 @@ export function createPageTranslationRequest(
     sourceText: protectedHtml.sourceHtml,
     textFormat,
     translate: translateRequest,
-    getDisplayText: (translatedText) =>
-      translatedText
-        ? getDisplayTranslation(
-            protectedHtml.comparisonSourceHtml,
+    getDisplayText: (translatedText) => {
+      if (!translatedText) return translatedText
+      // An answer that only repeats the source is no translation, whichever request it answers:
+      // the protected one is compared with the page's HTML, the fallback one with its own request.
+      const comparison = protectedHtml.normalizeForComparison(translatedText)
+      return getDisplayTranslation(
+        protectedHtml.comparisonSourceHtml,
+        translatedText,
+        comparison,
+      ) === ""
+        ? ""
+        : getDisplayTranslation(
+            protectedHtml.fallbackComparisonSourceHtml,
             translatedText,
-            protectedHtml.normalizeForComparison(translatedText),
+            comparison,
           )
-        : translatedText,
+    },
   }
 }
