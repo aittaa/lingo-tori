@@ -8,6 +8,7 @@ import type { SelectionPopoverActions } from "@/components/ui/selection-popover"
 import type { SelectionToolbarInlineError } from "@/components/ui/selection-popover/inline-error"
 import type { BackgroundTextStreamSnapshot, ThinkingSnapshot } from "@/types/background-stream"
 import type { LLMProviderConfig, TranslateProviderConfig } from "@/types/config/provider"
+import type { TranslationRequestOwner } from "@/utils/host/translate/translate-text"
 import type { PromptableProviderRef } from "@/utils/providers/provider-ref"
 import type { ResolvedProviderRef } from "@/utils/providers/provider-registry"
 import { useAtomValue, useSetAtom } from "jotai"
@@ -42,19 +43,21 @@ import { configFieldsAtomMap, writeConfigAtom } from "@/utils/atoms/config"
 import { buildFeatureProviderPatch } from "@/utils/constants/feature-providers"
 import { streamBackgroundText } from "@/utils/content-script/background-stream-client"
 import { getSourceDocumentTitle } from "@/utils/content/document-title"
+import { getRandomUUID } from "@/utils/crypto-polyfill"
 import { resolveGlossaryTermsFromCache } from "@/utils/glossary/active-matcher"
 import { trackGlossaryUsed } from "@/utils/glossary/analytics"
 import { prepareTranslationText } from "@/utils/host/translate/text-preparation"
 import { translateTextCore } from "@/utils/host/translate/translate-text"
 import { getOrCreateWebPageContext } from "@/utils/host/translate/webpage-context"
 import { getOrGenerateWebPageSummary } from "@/utils/host/translate/webpage-summary"
-import { onMessage } from "@/utils/message"
+import { onMessage, sendMessage } from "@/utils/message"
 import { getFeatureProviderRowId } from "@/utils/navigation"
 import { getTranslatePromptFromConfig } from "@/utils/prompts/translate"
 import { resolveModelId } from "@/utils/providers/model-id"
 import { getProviderOptionsWithOverride } from "@/utils/providers/options"
 import { getSelectableProvidersForCapability } from "@/utils/providers/provider-registry"
 import { getTopLevelReasoning } from "@/utils/providers/reasoning"
+import { isTranslationCancelledError } from "@/utils/request/cancellation"
 import { shadowWrapper } from "../.."
 import {
   isSelectionToolbarOpenAtom,
@@ -200,14 +203,37 @@ async function translateWithTextStream({
   return translatedText
 }
 
+/**
+ * The owner of one standard-provider run. Its id is a cancellation scope of the background's queue,
+ * in a namespace of its own (`selection:` — a page session id never contains a colon), so a page
+ * stop cannot reach it and cancelling it cannot reach the page. Aborting the run's controller is
+ * what cancels it: the signal stops the request from being prepared or sent, and one message drains
+ * what the background already holds for the owner.
+ */
+function createStandardRunOwner(abortController: AbortController): TranslationRequestOwner {
+  const id = `selection:${getRandomUUID()}`
+  abortController.signal.addEventListener(
+    "abort",
+    () => {
+      // Best effort: a failed send is not proof that the background holds nothing of this run.
+      // Stale answers are still dropped locally by the run-ID check.
+      sendMessage("cancelPageTranslationRequests", { sessionId: id }).catch(() => {})
+    },
+    { once: true },
+  )
+  return { id, signal: abortController.signal }
+}
+
 async function translateWithStandardProvider({
   text,
   provider,
   translateRequest,
+  owner,
 }: {
   text: string
   provider: ResolvedProviderRef<TranslateProviderConfig>
   translateRequest: SelectionToolbarTranslateRequestSlice
+  owner: TranslationRequestOwner
 }) {
   // This path is reached only for pure translate providers (the dispatch sends
   // system refs to the hosted stream and local LLMs to the text stream), and
@@ -217,6 +243,10 @@ async function translateWithStandardProvider({
     null,
     translateRequest.enableAIContentAware,
   )
+  // Cancelled while the page context was being prepared: nothing is sent.
+  if (owner.signal.aborted) {
+    throw new DOMException("aborted", "AbortError")
+  }
   const translatedText = await translateTextCore({
     text,
     langConfig: translateRequest.language,
@@ -226,6 +256,7 @@ async function translateWithStandardProvider({
     extraHashTags: ["selectionTranslation"],
     usageFeature: "selectionTranslation",
     webPageContext,
+    owner,
   })
 
   return translatedText
@@ -496,10 +527,14 @@ export function SelectionTranslationProvider({ children }: { children: ReactNode
           }
         } else {
           setThinking(null)
+          // Registered before anything is awaited, so cancelling the run reaches every wait of it.
+          const runController = new AbortController()
+          abortControllerRef.current = runController
           nextTranslatedText = await translateWithStandardProvider({
             text: preparedText,
             provider,
             translateRequest,
+            owner: createStandardRunOwner(runController),
           })
         }
 
@@ -515,12 +550,17 @@ export function SelectionTranslationProvider({ children }: { children: ReactNode
           outcome: "success",
         })
       } catch (caughtError) {
-        if (!isAbortError(caughtError) && runIdRef.current === runId) {
+        // A run that was cancelled or restarted (the run id moved on) and had its request drained
+        // by the background is an abort like the stream's, not a failure.
+        const wasCancelled =
+          isAbortError(caughtError) ||
+          (isTranslationCancelledError(caughtError) && runIdRef.current !== runId)
+        if (!wasCancelled && runIdRef.current === runId) {
           setThinking((prev) => (prev?.text ? { ...prev, status: "complete" } : null))
           setError(createSelectionToolbarRuntimeError("translate", caughtError))
         }
 
-        if (!isAbortError(caughtError)) {
+        if (!wasCancelled) {
           void trackFeatureUsed({
             ...analyticsContext,
             ...providerAnalytics,
