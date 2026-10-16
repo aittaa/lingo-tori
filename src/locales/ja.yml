@@ -24,6 +24,7 @@ popup:
   translate: 翻訳
   showOriginal: 原文を表示
   refreshNeeded: このページに接続できませんでした。再読み込みしてから、もう一度お試しください。
+  noAnswerYet: このページからまだ応答がありません。変化がない場合は、再読み込みしてからもう一度お試しください。
   enabledFloatingButton: フローティングボタンを有効化
   enabledSelectionToolbar: 選択ツールバーを有効化
   alwaysTranslate: このサイトを常に翻訳する
@@ -45,6 +46,8 @@ popup:
   more:
     title: その他
     bugReport: 不具合を報告
+toast:
+  region: 通知
 errorRecovery:
   title: 問題が発生しました
   description: 復旧モードが有効です。現在の設定をバックアップとしてエクスポートし、設定をリセットして再試行してください。

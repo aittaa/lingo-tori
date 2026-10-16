@@ -9,6 +9,7 @@ import {
   IconX,
 } from "@tabler/icons-react"
 import { Button } from "@/components/ui/base-ui/button"
+import { i18n } from "@/utils/i18n"
 import { cn } from "@/utils/styles/utils"
 
 // The design system's toast (`@repo/ui`'s toast.tsx: shadcn base-nova's toast on Base UI),
@@ -150,6 +151,8 @@ function Toasts({
   return (
     <Toast.Portal data-slot="toast-portal" {...portalProps}>
       <Toast.Viewport
+        // Base UI names the region "Notifications" itself, in English; a caller may still override.
+        aria-label={i18n.t("toast.region")}
         {...restViewportProps}
         data-position={position}
         data-slot="toast-viewport"
@@ -233,6 +236,7 @@ function AnchoredToasts({
   return (
     <Toast.Portal data-slot="toast-portal-anchored" {...portalProps}>
       <Toast.Viewport
+        aria-label={i18n.t("toast.region")}
         className="notranslate font-sans antialiased outline-none"
         data-slot="toast-viewport-anchored"
       >
