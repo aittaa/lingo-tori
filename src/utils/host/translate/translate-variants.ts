@@ -129,6 +129,16 @@ export interface PageTranslationRequestOptions {
   forceRetranslation?: boolean
 }
 
+export interface PageTranslationSendOptions extends PageTranslationRequestOptions {
+  /**
+   * The session that owns this request, for a caller that fixed it earlier than this call because
+   * the request had to wait before it could be sent (see `createPageTranslationRequest`). A string
+   * is that session; `null` means the request deliberately has none and stays unscoped. Left out,
+   * the current session is read at entry, as for every other caller.
+   */
+  sessionId?: string | null
+}
+
 /**
  * Page translation — uses FEATURE_PROVIDER_DEFS['translate'].
  * Includes skip-language logic (page translation only).
@@ -136,13 +146,18 @@ export interface PageTranslationRequestOptions {
 export async function translateTextForPage(
   text: string,
   textFormat: TranslationTextFormat = "plain",
-  options?: PageTranslationRequestOptions,
+  options?: PageTranslationSendOptions,
 ): Promise<string> {
   // Capture the session id synchronously at pipeline entry. Reading it later
   // (after the awaits below, e.g. the network-backed page summary) could see
   // null if the user cancelled mid-request — the request would then be sent
-  // unscoped and stay permanently uncancellable, re-creating #1881.
-  const sessionId = getPageTranslationSessionId() ?? undefined
+  // unscoped and stay permanently uncancellable, re-creating #1881. A caller
+  // that already waited before this call passes the owner it captured before
+  // waiting: the session current NOW is not the one that made the request.
+  const sessionId =
+    options?.sessionId !== undefined
+      ? (options.sessionId ?? undefined)
+      : (getPageTranslationSessionId() ?? undefined)
   const config = await getConfigOrThrow()
   const providerConfig = resolvePageTranslationProvider(config)
   const webPageContext = await getWebPagePromptContext(
