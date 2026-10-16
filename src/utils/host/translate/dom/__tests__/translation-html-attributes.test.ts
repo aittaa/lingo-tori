@@ -262,4 +262,124 @@ describe("translation HTML attribute protection", () => {
       expect.objectContaining({ code: "HTML_ATTR_MARKER_INTEGRITY" }),
     )
   })
+
+  describe("fallback request (SEC3-01: asking again must not widen what leaves the page)", () => {
+    const SECRET = "SECRET-VALUE"
+
+    it("is the protected request without its markers: no protected attribute value, the readable ones kept", () => {
+      const protectedHtml = protectTranslationHtmlAttributes(
+        createNodes(
+          `Go <a id="${SECRET}-id" class="${SECRET}-class" style="color:${SECRET}" href="https://x.invalid/${SECRET}" data-t="${SECRET}-data" onclick="${SECRET}()" title="Open profile" aria-label="Profile">there</a> now.`,
+        ),
+        document,
+      )
+
+      expect(protectedHtml.hasPlaceholders).toBe(true)
+      expect(protectedHtml.fallbackRequestHtml).toBe(
+        `Go <a title="Open profile" aria-label="Profile">there</a> now.`,
+      )
+      expect(protectedHtml.fallbackRequestHtml).not.toContain(SECRET)
+      expect(protectedHtml.fallbackRequestHtml).not.toContain(HTML_ATTRIBUTE_MARKER)
+      // The first request still carries the marker, and the raw legacy HTML still holds the page's
+      // attributes: it is only ever sent when there is nothing to protect (see the request module).
+      expect(protectedHtml.requestHtml).toContain(`${HTML_ATTRIBUTE_MARKER}="0"`)
+      expect(protectedHtml.legacyRequestHtml).toContain(SECRET)
+    })
+
+    it("keeps the constant no-translate hints and drops everything else, nested template contents included", () => {
+      const protectedHtml = protectTranslationHtmlAttributes(
+        createNodes(
+          `<span class="notranslate ${"x".repeat(5)}-${SECRET}" translate="no" data-a="${SECRET}">Keep</span> <template><b class="${SECRET}" data-rf-attr="page">hidden</b></template>`,
+        ),
+        document,
+      )
+
+      expect(protectedHtml.fallbackRequestHtml).toContain(
+        `<span class="notranslate" translate="no">Keep</span>`,
+      )
+      expect(protectedHtml.fallbackRequestHtml).toContain(`<template><b>hidden</b></template>`)
+      expect(protectedHtml.fallbackRequestHtml).not.toContain(SECRET)
+      expect(protectedHtml.fallbackRequestHtml).not.toContain(HTML_ATTRIBUTE_MARKER)
+    })
+
+    it("drops namespaced and framework-syntax attributes too", () => {
+      const protectedHtml = protectTranslationHtmlAttributes(
+        createNodes(
+          `<button @click="${SECRET}()" x-on:keydown="${SECRET}" wire:click="${SECRET}">Open</button><svg><use xlink:href="#${SECRET}"></use></svg>`,
+        ),
+        document,
+      )
+
+      expect(protectedHtml.fallbackRequestHtml).not.toContain(SECRET)
+      expect(protectedHtml.fallbackRequestHtml).toContain(`<button>Open</button>`)
+    })
+
+    it("does not carry a page-owned attribute that uses the internal marker name", () => {
+      const protectedHtml = protectTranslationHtmlAttributes(
+        createNodes(`<span data-rf-attr="${SECRET}" class="badge">Hello</span>`),
+        document,
+      )
+
+      expect(protectedHtml.fallbackRequestHtml).toBe(`<span>Hello</span>`)
+    })
+
+    it("is the same string whatever the page's attribute values are (nothing of them can reach it)", () => {
+      const first = protectTranslationHtmlAttributes(
+        createNodes(`<a href="https://a.invalid/1" data-k="1" title="Go">Link</a>`),
+        document,
+      )
+      const second = protectTranslationHtmlAttributes(
+        createNodes(`<a href="https://b.invalid/2" data-k="2" title="Go">Link</a>`),
+        document,
+      )
+
+      expect(first.fallbackRequestHtml).toBe(second.fallbackRequestHtml)
+    })
+
+    it("restoreFallback keeps only the readable attributes of an answer, markers and invented attributes included", () => {
+      const protectedHtml = protectTranslationHtmlAttributes(
+        createNodes(`<a href="/x" title="Open">Link</a>`),
+        document,
+      )
+
+      const restored = protectedHtml.restoreFallback(
+        `<a data-rf-attr="0" href="https://evil.invalid/" onclick="evil()" class="c" title="打开" aria-label="链接">链接</a><template><i style="x" alt="图">图</i></template>`,
+      )
+
+      expect(restored).toBe(
+        `<a title="打开" aria-label="链接">链接</a><template><i alt="图">图</i></template>`,
+      )
+      expect(protectedHtml.restoreFallback("")).toBe("")
+    })
+
+    it("fallbackComparisonSourceHtml is the fallback request cut back the same way, so a mere echo can be recognised", () => {
+      const protectedHtml = protectTranslationHtmlAttributes(
+        createNodes(`<span class="notranslate" translate="no" title="Hi" data-x="1">Code</span>`),
+        document,
+      )
+
+      expect(protectedHtml.fallbackRequestHtml).toBe(
+        `<span title="Hi" class="notranslate" translate="no">Code</span>`,
+      )
+      expect(protectedHtml.fallbackComparisonSourceHtml).toBe(`<span title="Hi">Code</span>`)
+      expect(
+        protectedHtml.normalizeForComparison(
+          protectedHtml.restoreFallback(protectedHtml.fallbackRequestHtml),
+        ),
+      ).toBe(protectedHtml.fallbackComparisonSourceHtml)
+    })
+
+    it("a source with nothing to protect needs no fallback of its own: it is the request", () => {
+      const protectedHtml = protectTranslationHtmlAttributes(
+        createNodes(`<b>Hello world</b> and <i title="Hi">Welcome</i>`),
+        document,
+      )
+
+      expect(protectedHtml.hasPlaceholders).toBe(false)
+      expect(protectedHtml.legacyRequestHtml).toBe(
+        `<b>Hello world</b> and <i title="Hi">Welcome</i>`,
+      )
+      expect(protectedHtml.fallbackRequestHtml).toBe(protectedHtml.legacyRequestHtml)
+    })
+  })
 })
