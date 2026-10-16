@@ -126,7 +126,9 @@ export async function bootstrapHostContent(
     // stop(), which cancels a pending start as well as a live session.
     // A start is answered once the manager has decided it (its precheck passed or refused it), not
     // when the page has been walked: whoever asked can then tell a start that was accepted from one
-    // that was only received. A redundant ON is accepted: the page is translating.
+    // that was only received. A redundant ON is accepted: the page is translating. The background
+    // addresses this request to the top frame, whose answer is the tab's; the other frames follow
+    // that frame through notifyTranslationStateChanged (below).
     if (enabled && manager.isActive) return { start: "accepted" as const }
     if (enabled) {
       return new Promise<{ start: PageTranslationStartOutcome }>((resolve) => {

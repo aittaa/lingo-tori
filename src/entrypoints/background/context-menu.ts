@@ -20,6 +20,9 @@ export const MENU_ID_TRANSLATE = "read-frog-translate"
 export const MENU_ID_SELECTION_TRANSLATE = "read-frog-selection-translate"
 export const MENU_ID_SELECTION_CUSTOM_ACTION_PREFIX = "read-frog-selection-custom-action:"
 
+/** The frame of a tab's own document; its page translation manager decides for the tab. */
+const TOP_FRAME_ID = 0
+
 function getSelectionCustomActionMenuId(actionId: string) {
   return `${MENU_ID_SELECTION_CUSTOM_ACTION_PREFIX}${actionId}`
 }
@@ -247,7 +250,9 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
     void sendMessage("notifyTranslationStateChanged", { enabled: false }, tabId)
   }
 
-  // Notify content script in that specific tab
+  // Ask the top frame's manager, whose answer is the tab's: sent to the whole tab, the first frame
+  // to reply would decide, and a subframe can refuse (or accept) a start the top frame decides
+  // otherwise. The other frames follow it through the state broadcast.
   const answered = await sendMessage(
     "askManagerToTogglePageTranslation",
     {
@@ -259,7 +264,7 @@ async function handleTranslateClick(tabId: number, tabUrl?: string) {
           )
         : undefined,
     },
-    tabId,
+    { tabId, frameId: TOP_FRAME_ID },
   ).then(
     (answer) => ({ delivered: true, startRefused: newState && answer?.start === "rejected" }),
     (error) => {

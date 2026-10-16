@@ -16,6 +16,12 @@
 // the real PageTranslationManager run here through an in-memory message bus. Only the transport, the
 // stored config and tab state, the provider availability, and the DOM work the manager would start
 // after it has accepted a start (walk, title request, observers) are test doubles.
+//
+// The bus knows frames, as the browser does: a message to a tab reaches the listeners of every frame
+// and the first reply wins, a message to one frame reaches only that frame (and fails when it has no
+// receiver). The page's own host runtime is the top frame; `addSubframe` adds the host listeners of
+// another frame, backed by a real manager of its own. The last describe pins that only the top
+// frame's answer decides what the popup shows.
 
 import type { ContentScriptContext } from "#imports"
 import type { Config } from "@/types/config/config"
@@ -28,6 +34,7 @@ import { toastManager } from "@/components/ui/base-ui/toast"
 import { TooltipProvider } from "@/components/ui/base-ui/tooltip"
 import { translationMessage } from "@/entrypoints/background/translation-signal"
 import { bootstrapHostContent } from "@/entrypoints/host.content/runtime"
+import { PageTranslationManager } from "@/entrypoints/host.content/translation-control/page-translation"
 import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
 import { createFeatureUsageContext } from "@/utils/analytics"
 import { configAtom } from "@/utils/atoms/config"
@@ -44,8 +51,13 @@ import TranslateButton from "../translate-button"
 
 const h = vi.hoisted(() => {
   type Handler = (msg: any) => any
+  // The top frame's listeners (and, for messages to the background, the background's).
   const handlers = new Map<string, Handler>()
-  const sent: Array<{ name: string; data: any; tabId?: number }> = []
+  // The host listeners of the other frames, by frame id.
+  const subframes = new Map<number, Map<string, Handler>>()
+  // Which frame's listener is running right now, so a shared double can tell the frames apart.
+  const running = { frame: 0 }
+  const sent: Array<{ name: string; data: any; tabId?: number; frameId?: number }> = []
   // Messages sent to the background: the popup's toggle and what a content script reports. Every
   // other message goes the other way, from the background to the tab.
   const backgroundBound = new Set([
@@ -63,20 +75,51 @@ const h = vi.hoisted(() => {
     holdTabReplies: false,
     heldTabReplies: [] as Array<() => void>,
   }
-  function sendMessage(name: string, data?: any, tabId?: number): Promise<any> {
-    sent.push({ name, data, tabId })
-    const toTab = !backgroundBound.has(name) && tabId !== undefined
+  const NO_RECEIVER = "Could not establish connection. Receiving end does not exist."
+  function sendMessage(
+    name: string,
+    data?: any,
+    target?: number | { tabId: number; frameId?: number },
+  ): Promise<any> {
+    const tabId = typeof target === "object" ? target.tabId : target
+    const frameId = typeof target === "object" ? target.frameId : undefined
+    sent.push({ name, data, tabId, frameId })
+    const toTab = !backgroundBound.has(name) && target !== undefined
     if (toTab && !transport.hostPresent) {
-      return Promise.reject(
-        new Error("Could not establish connection. Receiving end does not exist."),
-      )
+      return Promise.reject(new Error(NO_RECEIVER))
     }
-    const handler = handlers.get(name)
-    if (!handler) return Promise.resolve(undefined)
+    // Who hears it: a message to the tab reaches every frame that listens; one to a frame, that frame.
+    const listeners: Array<{ frame: number; handler: Handler }> = []
+    const topHandler = handlers.get(name)
+    if (topHandler && (frameId === undefined || frameId === 0)) {
+      listeners.push({ frame: 0, handler: topHandler })
+    }
+    for (const [frame, frameHandlers] of subframes) {
+      const handler = frameHandlers.get(name)
+      if (handler && toTab && (frameId === undefined || frameId === frame)) {
+        listeners.push({ frame, handler })
+      }
+    }
+    if (listeners.length === 0) {
+      return toTab && frameId !== undefined
+        ? Promise.reject(new Error(NO_RECEIVER))
+        : Promise.resolve(undefined)
+    }
     const msg = backgroundBound.has(name)
       ? { data, sender: { tab: { id: 7, url: window.location.href }, frameId: 0 } }
       : { data }
-    const result = Promise.resolve().then(() => handler(msg))
+    const answers = listeners.map(({ frame, handler }) =>
+      Promise.resolve().then(() => {
+        running.frame = frame
+        try {
+          return handler(msg)
+        } finally {
+          running.frame = 0
+        }
+      }),
+    )
+    // The first reply wins, as in the browser; with one listener that is its reply.
+    const result = answers.length === 1 ? answers[0]! : Promise.race(answers)
     if (toTab && transport.holdTabReplies) {
       return new Promise((resolve, reject) => {
         transport.heldTabReplies.push(() => result.then(resolve, reject))
@@ -92,6 +135,8 @@ const h = vi.hoisted(() => {
   }
   return {
     handlers,
+    subframes,
+    running,
     sent,
     transport,
     sendMessage,
@@ -248,7 +293,13 @@ function makeConfig({
 }
 
 /** What the page's manager reads when it validates a start (the stored config). */
-const hostSide = { config: makeConfig(), configGate: null as Deferred<Config> | null }
+const hostSide = {
+  config: makeConfig(),
+  configGate: null as Deferred<Config> | null,
+  // The same reads in a subframe's manager, which has its own page and its own timing.
+  subframeConfig: makeConfig(),
+  subframeConfigGate: null as Deferred<Config> | null,
+}
 
 // Only the background's per-tab state is kept in memory; the popup's config still comes from the fake
 // browser storage, as in the other popup tests.
@@ -321,6 +372,9 @@ beforeEach(async () => {
   memory.clear()
   hostSide.config = makeConfig()
   hostSide.configGate = null
+  hostSide.subframeConfig = makeConfig()
+  hostSide.subframeConfigGate = null
+  h.subframes.clear()
   walkGate.held = null
   vi.clearAllMocks()
 
@@ -330,9 +384,13 @@ beforeEach(async () => {
   delete window.__READ_FROG_TRANSLATED_DOCUMENT_TITLE__
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver)
 
-  h.mockGetLocalConfig.mockImplementation(() =>
-    hostSide.configGate ? hostSide.configGate.promise : Promise.resolve(hostSide.config),
-  )
+  h.mockGetLocalConfig.mockImplementation(() => {
+    const inSubframe = h.running.frame !== 0
+    const gate = inSubframe ? hostSide.subframeConfigGate : hostSide.configGate
+    return gate
+      ? gate.promise
+      : Promise.resolve(inSubframe ? hostSide.subframeConfig : hostSide.config)
+  })
   h.mockCheckProviderAvailability.mockImplementation((provider: { config: unknown }) =>
     Promise.resolve({ available: true, providerRef: { kind: "local", config: provider.config } }),
   )
@@ -647,9 +705,162 @@ describe("the host listener's answer to a start", () => {
     expectPageUntouched()
   })
 
+  it("a stop and a new start while the first is held: the new one stays active and the old listeners hear only a rejection", async () => {
+    // Start A waits on its config read; a duplicate ON attaches to it.
+    hostSide.configGate = createDeferred<Config>()
+    const gateOfA = hostSide.configGate
+    const firstOfA = ask(true)
+    await flush()
+    const duplicateOfA = ask(true)
+    await flush()
+
+    // The user stops it, and a new start (B) is made and accepted before A's read lands.
+    await ask(false)
+    hostSide.configGate = null
+    expect(await ask(true)).toEqual({ start: "accepted" })
+    expect(getPageTranslationSessionId()).not.toBeNull()
+
+    // A's read finally lands with settings that would refuse it.
+    gateOfA.resolve(makeConfig({ sameLanguage: true }))
+
+    expect(await firstOfA).toEqual({ start: "rejected" })
+    expect(await duplicateOfA).toEqual({ start: "rejected" })
+    // B was not disturbed: still active, activated once, and A's cancelled start said nothing.
+    expect(getPageTranslationSessionId()).not.toBeNull()
+    expect(activations()).toHaveLength(1)
+    expect(notices()).toEqual([])
+  })
+
   it("an OFF itself carries no start outcome", async () => {
     await ask(true)
 
     expect(await ask(false)).toBeUndefined()
+  })
+})
+
+/**
+ * The host listeners another frame of the tab registers (a frame that is not the top one), backed by
+ * a real manager of its own: its own config read, its own timing, its own precheck. The ask listener
+ * is the host runtime's, for a frame whose analytics context is dropped.
+ */
+function addSubframe(frameId: number) {
+  const manager = new PageTranslationManager()
+  const asked: boolean[] = []
+  h.subframes.set(
+    frameId,
+    new Map([
+      [
+        "askManagerToTogglePageTranslation",
+        (msg: any) => {
+          const { enabled } = msg.data as { enabled: boolean }
+          asked.push(enabled)
+          if (enabled && manager.isActive) return { start: "accepted" }
+          if (enabled) {
+            return new Promise((resolve) => {
+              void manager.start(undefined, (start) => resolve({ start }))
+            })
+          }
+          manager.stop({ userInitiated: true })
+          return undefined
+        },
+      ],
+    ]),
+  )
+  return { manager, asked }
+}
+
+describe("popup: only the top frame's manager decides what the popup shows", () => {
+  const SUBFRAME = 5
+
+  it("asks the top frame, for a start and for a stop", async () => {
+    const jotaiStore = await renderPopup()
+
+    fireEvent.click(translateButton())
+    await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true))
+    fireEvent.click(showOriginalButton())
+    await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false))
+
+    expect(askedTheTab(true).map((message) => message.frameId)).toEqual([0])
+    expect(askedTheTab(false).map((message) => message.frameId)).toEqual([0])
+  })
+
+  it("the top frame accepts after a subframe has already refused: the popup shows ON", async () => {
+    // The top frame's config read is still on its way; the subframe's lands at once, same language.
+    hostSide.configGate = createDeferred<Config>()
+    hostSide.subframeConfig = makeConfig({ sameLanguage: true })
+    addSubframe(SUBFRAME)
+    const jotaiStore = await renderPopup()
+
+    fireEvent.click(translateButton())
+    await flush()
+    hostSide.configGate.resolve(makeConfig())
+
+    // The top frame activated and the popup says so, whatever the subframe made of the same request.
+    await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true))
+    expect(showOriginalButton()).toBeEnabled()
+    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expect(activations()).toHaveLength(1)
+    expect(getPageTranslationSessionId()).not.toBeNull()
+    expect(tabState()).toEqual({ enabled: true, origin: PAGE_ORIGIN })
+  })
+
+  it("the top frame refuses after a subframe has already accepted: the popup stays on Translate and the top frame's notice stays", async () => {
+    // The top frame's config read is still on its way (it will say same language); the subframe's
+    // valid one lands at once and its manager accepts first.
+    hostSide.configGate = createDeferred<Config>()
+    hostSide.subframeConfig = makeConfig()
+    addSubframe(SUBFRAME)
+    const jotaiStore = await renderPopup()
+
+    fireEvent.click(translateButton())
+    await flush()
+    hostSide.configGate.resolve(makeConfig({ sameLanguage: true }))
+    await waitFor(() => expect(notices()).toContain(SAME_LANGUAGE_NOTICE))
+    await flush()
+
+    expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+    expect(translateButton()).toBeEnabled()
+    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+  })
+
+  it("no receiver in the top frame while a subframe could answer: stays on Translate and shows the refresh hint", async () => {
+    // A tab whose own document has no host runtime (opened before the install, context invalidated)
+    // while an injected subframe has one: a subframe's answer is not the tab's.
+    h.handlers.delete("askManagerToTogglePageTranslation")
+    addSubframe(SUBFRAME)
+    const jotaiStore = await renderPopup()
+
+    fireEvent.click(translateButton())
+
+    await waitFor(() => expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument())
+    expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+    expect(translateButton()).toBeEnabled()
+  })
+
+  it("the other frames still follow the top frame: a start and a stop reach a subframe through the state broadcast", async () => {
+    const heard: boolean[] = []
+    h.subframes.set(
+      SUBFRAME,
+      new Map([
+        [
+          "notifyTranslationStateChanged",
+          (msg: any) => {
+            heard.push(msg.data.enabled)
+          },
+        ],
+      ]),
+    )
+    const jotaiStore = await renderPopup()
+
+    fireEvent.click(translateButton())
+    await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true))
+    await flush()
+    expect(heard).toContain(true)
+    expect(heard).not.toContain(false)
+
+    fireEvent.click(showOriginalButton())
+    await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false))
+    await flush()
+    expect(heard.at(-1)).toBe(false)
   })
 })

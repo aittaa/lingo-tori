@@ -24,6 +24,9 @@ import {
   setPageTranslationEnabled,
 } from "./page-translation-state"
 
+/** The frame of a tab's own document; its page translation manager decides for the tab. */
+const TOP_FRAME_ID = 0
+
 function notifyPageTranslationStateChanged(tabId: number, enabled: boolean) {
   void sendMessage("notifyTranslationStateChanged", { enabled }, tabId).catch((error) =>
     logger.warn("Failed to notify page translation state change", error),
@@ -39,6 +42,13 @@ function notifyPageTranslationStateChanged(tabId: number, enabled: boolean) {
  * the request but refused to start (same language, no provider or key, cancelled first) and has
  * already shown its own notice, so the page is not translating. It is absent for a stop and for a
  * manager that predates it, which answered a start with nothing: that was taken as accepted.
+ *
+ * The request goes to the top frame only, and its manager's answer is the answer: sent to the whole
+ * tab, every frame replies and the first reply wins, so a subframe whose own precheck refused (or
+ * accepted) could stand for a top frame that decided the other way. The other frames follow the top
+ * frame through `notifyTranslationStateChanged` (a stop is broadcast before this request on every
+ * user surface; a start is broadcast when the top frame's manager activates). With no receiver in
+ * the top frame the request fails as undelivered, whatever a subframe could have answered.
  */
 function requestManagerToTogglePageTranslation(
   tabId: number,
@@ -48,7 +58,7 @@ function requestManagerToTogglePageTranslation(
   return sendMessage(
     "askManagerToTogglePageTranslation",
     { enabled, analyticsContext },
-    tabId,
+    { tabId, frameId: TOP_FRAME_ID },
   ).then(
     (answer) => ({ delivered: true, start: enabled ? answer?.start : undefined }),
     (error) => {
@@ -59,7 +69,7 @@ function requestManagerToTogglePageTranslation(
 }
 
 function isIframe(frameId: number | undefined): boolean {
-  return frameId !== undefined && frameId !== 0
+  return frameId !== undefined && frameId !== TOP_FRAME_ID
 }
 
 async function getDetectedCodeForTab(tabId: number): Promise<LangCodeISO6393> {

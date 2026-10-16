@@ -202,7 +202,7 @@ describe("popup translate button: the toggle reached a page manager", () => {
 
     await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true))
     expect(askedTheTab(true)).toHaveLength(1)
-    expect(askedTheTab(true)[0]![2]).toBe(TAB_ID)
+    expect(askedTheTab(true)[0]![2]).toEqual({ tabId: TAB_ID, frameId: 0 })
     expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
     expect(showOriginalButton()).toBeEnabled()
     // A start persists nothing on request: the manager records it itself once it activates.
