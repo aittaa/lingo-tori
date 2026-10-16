@@ -18,7 +18,7 @@ import type {
   StreamRuntimeOptions,
   ThinkingSnapshot,
 } from "@/types/background-stream"
-import type { TranslateProviderConfig } from "@/types/config/provider"
+import type { LLMProviderConfig, TranslateProviderConfig } from "@/types/config/provider"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { ErrorAction } from "@/utils/error-action"
 import { generateText, Output, parsePartialJson, streamText } from "ai"
@@ -89,10 +89,21 @@ const structuredObjectPayloadSchema = z
   .object({
     providerId: z.string().trim().min(1),
     usageFeature: apiUsageFeatureSchema.catch("sharedRequests").optional(),
+    // Validated exactly as the text stream's configuration: a known LLM provider shape whose id is
+    // the request's provider id.
+    providerConfig: llmProviderConfigItemSchema.optional(),
     outputSchema: z.array(structuredObjectFieldSchema).min(1),
   })
   .loose()
   .superRefine((payload, ctx) => {
+    if (payload.providerConfig && payload.providerConfig.id !== payload.providerId) {
+      ctx.addIssue({
+        code: "custom",
+        message: "providerConfig.id must equal providerId.",
+        path: ["providerConfig", "id"],
+      })
+    }
+
     const nameSet = new Set<string>()
 
     payload.outputSchema.forEach((field, index) => {
@@ -628,22 +639,31 @@ export async function runStreamTextInBackground(
 async function createLocalStructuredObjectPartStream<TOutput extends Record<string, unknown>>(
   serializablePayload: BackgroundStreamNoteSuggestionSerializablePayload & {
     outputSchema?: BackgroundStructuredObjectOutputField[]
+    providerConfig?: LLMProviderConfig
   },
   objectSchema: z.ZodType<TOutput>,
   options: StreamRuntimeOptions<BackgroundStructuredObjectStreamSnapshot> = {},
 ): Promise<MeteredPartStream> {
   const {
     providerId,
+    providerConfig,
     outputSchema: _outputSchema,
     usageFeature = "sharedRequests",
     ...streamParams
   } = serializablePayload
   const { signal, onError } = options
 
-  const model = await getModelById(providerId, usageFeature)
+  // With a configuration the model and the call parameters come from that one configuration, as in
+  // the text stream; looking the row up again would pair the stored row's model and endpoint with
+  // parameters computed from the configuration the caller held. Without one (an older sender) the
+  // provider is looked up by id.
+  const model = providerConfig
+    ? getLanguageModelForConfig(providerConfig, usageFeature)
+    : await getModelById(providerId, usageFeature)
   const reporter = createApiUsageReporter(model, usageFeature)
   const result = streamText({
     ...(streamParams as Parameters<typeof streamText>[0]),
+    ...(providerConfig ? buildLocalGenerateTextParams(providerConfig) : {}),
     model,
     output: Output.object({
       schema: objectSchema,
@@ -702,8 +722,12 @@ export async function runNoteSuggestionStreamInBackground(
     )
   }
 
+  // The note-suggestion port validates no configuration, so it keeps the provider-id lookup: drop
+  // any `providerConfig` key a loose payload carries rather than build a model from unvalidated data.
+  const { providerConfig: _unvalidatedConfig, ...noteSuggestionPayload } =
+    serializablePayload as typeof serializablePayload & { providerConfig?: unknown }
   const { stream: partStream, reporter } = await createLocalStructuredObjectPartStream(
-    { ...serializablePayload, usageFeature: "noteSuggestion" },
+    { ...noteSuggestionPayload, usageFeature: "noteSuggestion" },
     noteSuggestionEnvelopeSchema,
     { signal, onError },
   )

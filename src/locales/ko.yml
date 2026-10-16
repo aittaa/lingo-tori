@@ -26,6 +26,7 @@ popup:
   translate: 번역
   showOriginal: 원문 보기
   refreshNeeded: 이 페이지에 연결하지 못했어요. 새로고침한 뒤 다시 시도해 주세요.
+  noAnswerYet: 이 페이지가 아직 응답하지 않았어요. 달라지는 게 없으면 새로고침한 뒤 다시 시도해 주세요.
   enabledFloatingButton: 플로팅 버튼 활성화
   enabledSelectionToolbar: 선택 툴바 활성화
   alwaysTranslate: 이 사이트 항상 번역
@@ -47,6 +48,8 @@ popup:
   more:
     title: 더보기
     bugReport: 버그 신고
+toast:
+  region: 알림
 errorRecovery:
   title: 문제가 발생했습니다
   description: 복구 모드가 활성화되었습니다. 현재 설정을 백업으로 내보낸 뒤 설정을 초기화하고 다시 시도하세요.

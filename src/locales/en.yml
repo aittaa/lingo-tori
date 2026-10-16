@@ -26,6 +26,7 @@ popup:
   translate: Translate
   showOriginal: Show Original
   refreshNeeded: Couldn't reach this page. Refresh it, then try again.
+  noAnswerYet: This page hasn't answered yet. If nothing changes, refresh it and try again.
   enabledFloatingButton: Enable floating button
   enabledSelectionToolbar: Enable selection toolbar
   alwaysTranslate: Always translate this site
@@ -47,6 +48,8 @@ popup:
   more:
     title: More
     bugReport: Report a bug
+toast:
+  region: Notifications
 errorRecovery:
   title: Something went wrong
   description: Recovery mode is active. You can export your current settings as a backup, then reset settings and try again.

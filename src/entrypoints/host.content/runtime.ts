@@ -1,6 +1,7 @@
 import type { ContentScriptContext } from "#imports"
 import type { LangCodeISO6393 } from "@/lib/languages"
 import type { Config } from "@/types/config/config"
+import type { PageTranslationStartOutcome } from "@/utils/message"
 import { storage } from "#imports"
 import { configSchema } from "@/types/config/config"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
@@ -123,16 +124,25 @@ export async function bootstrapHostContent(
     // switch translation on after the user turned it off — and its ON notice
     // would overwrite the background's manual-off record. An OFF always goes to
     // stop(), which cancels a pending start as well as a live session.
-    if (enabled && manager.isActive) return
+    // A start is answered once the manager has decided it (its precheck passed or refused it), not
+    // when the page has been walked: whoever asked can then tell a start that was accepted from one
+    // that was only received. A redundant ON is accepted: the page is translating. The background
+    // addresses this request to the top frame, whose answer is the tab's; the other frames follow
+    // that frame through notifyTranslationStateChanged (below).
+    if (enabled && manager.isActive) return { start: "accepted" as const }
     if (enabled) {
-      void manager.start(window === window.top ? analyticsContext : undefined)
-    } else {
-      // Invariant: every sender of askManagerToTogglePageTranslation with
-      // enabled=false is a user surface (popup button, floating button,
-      // context menu) — the auto-translation path only ever sends
-      // enabled=true — so a disable here is always user-initiated.
-      manager.stop({ userInitiated: true })
+      return new Promise<{ start: PageTranslationStartOutcome }>((resolve) => {
+        void manager.start(window === window.top ? analyticsContext : undefined, (start) =>
+          resolve({ start }),
+        )
+      })
     }
+    // Invariant: every sender of askManagerToTogglePageTranslation with
+    // enabled=false is a user surface (popup button, floating button,
+    // context menu) — the auto-translation path only ever sends
+    // enabled=true — so a disable here is always user-initiated.
+    manager.stop({ userInitiated: true })
+    return undefined
   })
 
   const cleanupFrameTranslationStateListener =

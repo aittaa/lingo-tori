@@ -16,6 +16,16 @@ import type { PromptTemplate } from "@/utils/prompts/template"
 import type { PromptableProviderRef, SerializableProviderRef } from "@/utils/providers/provider-ref"
 import { defineExtensionMessaging } from "@webext-core/messaging"
 
+/**
+ * What a page translation manager made of a request to START. The request is pending until the
+ * manager's precheck has decided it; then it is `accepted` (the precheck passed and the page is now
+ * translating: the walk of the page may still be running, it is not waited for) or `rejected` (the
+ * precheck refused it, for instance the same source and target language, a provider that is missing
+ * or has no key, or it was cancelled by an OFF before it began). A refusal has already been shown
+ * to the user by the manager itself.
+ */
+export type PageTranslationStartOutcome = "accepted" | "rejected"
+
 interface ProtocolMap {
   // navigation
   openPage: (data: { url: string; active?: boolean }) => void
@@ -50,11 +60,13 @@ interface ProtocolMap {
   getEnablePageTranslationFromContentScript: () => Promise<boolean>
   // `delivered` is true once a page translation manager in the tab acknowledged the
   // request; false when none could be reached (no receiver, context invalidated).
+  // `start` says how the manager decided a START it received; absent for a stop, and for a
+  // content script that predates it (treated as accepted, which is what its answer used to mean).
   tryToSetEnablePageTranslationByTabId: (data: {
     tabId: number
     enabled: boolean
     analyticsContext?: FeatureUsageContext<"page_translation">
-  }) => Promise<{ delivered: boolean }>
+  }) => Promise<{ delivered: boolean; start?: PageTranslationStartOutcome }>
   tryToSetEnablePageTranslationOnContentScript: (data: {
     enabled: boolean
     analyticsContext?: FeatureUsageContext<"page_translation">
@@ -75,11 +87,13 @@ interface ProtocolMap {
   refreshDetectedPageLanguage: () => void
   getDetectedCode: () => LangCodeISO6393
   detectedPageLanguageChanged: (data: { detectedCode: LangCodeISO6393 }) => void
-  // ask host to start page translation
+  // ask host to start page translation. A start is answered once the manager has decided it
+  // (see PageTranslationStartOutcome), not when the page walk has finished; a stop is answered
+  // with nothing.
   askManagerToTogglePageTranslation: (data: {
     enabled: boolean
     analyticsContext?: FeatureUsageContext<"page_translation">
-  }) => void
+  }) => { start: PageTranslationStartOutcome } | undefined
   openSelectionTranslationFromContextMenu: (data: { selectionText: string }) => void
   openSelectionCustomActionFromContextMenu: (data: {
     actionId: string
@@ -103,9 +117,11 @@ interface ProtocolMap {
       webDescription?: string | null
       webContent?: string | null
       webSummary?: string | null
-      // Page-translation session this request belongs to; scopes the request
-      // for cancelPageTranslationRequests. Absent for non-page requests
-      // (input/selection translation), which are never cancellable.
+      // Cancellation scope this request belongs to; scopes the request for
+      // cancelPageTranslationRequests. Either a page-translation session id or the
+      // owner of one selection translation run (`selection:<random>`, a namespace
+      // that is never a page session id). Absent for requests with no owner (input
+      // translation, an older content script), which are never cancellable.
       sessionId?: string
       forceRetranslation?: boolean
       // Glossary terms the SENDER found in `text`. Resolved where the page URL
@@ -127,14 +143,20 @@ interface ProtocolMap {
       promptTemplate?: PromptTemplate
     },
   ) => Promise<string>
-  // Drain queued/in-flight page-translation requests of one session (#1881).
-  // The background composes the scope as `${sender.tab.id}:${sessionId}`, so a
-  // tab can only ever cancel its own requests.
+  // Drain queued/in-flight requests of one owner: a page-translation session
+  // (#1881) or a selection translation run. The background composes the scope
+  // as `${sender.tab.id}:${sessionId}`, so a tab can only ever cancel its own
+  // requests, and a request another owner still wants keeps running.
   cancelPageTranslationRequests: (data: { sessionId: string }) => void
   getOrGenerateWebPageSummary: (
     data: ProviderRequestRouting<PromptableProviderRef> & {
       webTitle: string
       webContent: string
+      // The page-translation session that asked for the summary (the one captured when the
+      // paragraph that wanted it started); scopes the request for cancelPageTranslationRequests,
+      // like the paragraph requests of that session. Absent for a request that belongs to no page
+      // session (the selection toolbar, an older content script), which is never cancellable.
+      sessionId?: string
     },
   ) => Promise<string | null>
   enqueueSubtitlesTranslateRequest: (data: {
@@ -150,7 +172,14 @@ interface ProtocolMap {
     glossaryTerms?: MatchedTerm[]
     glossaryRevision?: number
     promptTemplate?: PromptTemplate
+    // The subtitle run (one coordinator start..stop) this request belongs to; scopes the request
+    // for cancelSubtitlesTranslateRequests. Absent for requests that are not tied to a live run
+    // (the translated-subtitles export, an older content script), which are never cancellable.
+    ownerId?: string
   }) => Promise<string>
+  // Drain the queued/in-flight subtitle requests of one run. The background composes the scope as
+  // `${sender.tab.id}:${ownerId}`, so a tab can only ever cancel its own requests.
+  cancelSubtitlesTranslateRequests: (data: { ownerId: string }) => void
   getSubtitlesSummary: (data: {
     videoTitle: string
     subtitlesContext: string

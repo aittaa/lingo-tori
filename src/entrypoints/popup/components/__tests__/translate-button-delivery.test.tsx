@@ -87,7 +87,16 @@ const TAB_ID = 7
 const TAB_URL = "https://example.com/articles/1"
 const TAB_ORIGIN = getPageTranslationOriginScope(TAB_URL)
 const PROVIDER_ID = "page-provider"
+// For a page nothing could be reached on (no receiver, or the request failed).
 const REFRESH_HINT = "popup.refreshNeeded"
+// For a page that was still silent when the popup's deadline passed, which may only be slow.
+const SLOW_HINT = "popup.noAnswerYet"
+
+/** Neither hint is on screen: the attempt is pending or answered, or its hint was cleared. */
+function expectNoHint() {
+  expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+  expect(screen.queryByText(SLOW_HINT)).not.toBeInTheDocument()
+}
 
 // What @webext-core/messaging throws for a tab message nobody answered: it resolves the
 // browser callback with undefined (without reading lastError) and turns that into this error.
@@ -202,7 +211,7 @@ describe("popup translate button: the toggle reached a page manager", () => {
 
     await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true))
     expect(askedTheTab(true)).toHaveLength(1)
-    expect(askedTheTab(true)[0]![2]).toBe(TAB_ID)
+    expect(askedTheTab(true)[0]![2]).toEqual({ tabId: TAB_ID, frameId: 0 })
     expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
     expect(showOriginalButton()).toBeEnabled()
     // A start persists nothing on request: the manager records it itself once it activates.
@@ -282,6 +291,17 @@ describe("popup translate button: no page manager heard the toggle", () => {
     expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
   })
 
+  it("shows the refresh hint, not the slow-page hint, when nothing could be reached", async () => {
+    mocks.deliver.mockRejectedValue(new Error(NO_RECEIVER))
+    const jotaiStore = await renderButton()
+
+    fireEvent.click(translateButton())
+
+    await waitFor(() => expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument())
+    expect(screen.queryByText(SLOW_HINT)).not.toBeInTheDocument()
+    expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+  })
+
   it("treats an unreachable background the same way", async () => {
     mocks.sendMessage.mockRejectedValue(new Error(CONTEXT_INVALIDATED))
     const jotaiStore = await renderButton()
@@ -347,10 +367,10 @@ describe("popup translate button: a toggle nobody answers", () => {
     expect(askedTheTab(true)).toHaveLength(1)
 
     await settle(DEADLINE_MS - 1)
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
 
     await settle(1)
-    expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+    expect(screen.getByText(SLOW_HINT)).toBeInTheDocument()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
     expect(translateButton()).toBeEnabled()
 
@@ -361,6 +381,20 @@ describe("popup translate button: a toggle nobody answers", () => {
     expect(held).toHaveLength(2)
   })
 
+  it("says the page has not answered yet, not that it could not be reached", async () => {
+    holdReplies()
+    await renderButton()
+    vi.useFakeTimers()
+
+    fireEvent.click(translateButton())
+    await settle(DEADLINE_MS)
+
+    // A slow page may still translate moments later: the hint must not claim it is unreachable.
+    expect(screen.getByText(SLOW_HINT)).toBeInTheDocument()
+    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent(SLOW_HINT)
+  })
+
   it("ignores a late reply to the attempt it gave up on, while a newer attempt is waiting", async () => {
     const held = holdReplies()
     const jotaiStore = await renderButton()
@@ -368,24 +402,24 @@ describe("popup translate button: a toggle nobody answers", () => {
 
     fireEvent.click(translateButton())
     await settle(DEADLINE_MS)
-    expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+    expect(screen.getByText(SLOW_HINT)).toBeInTheDocument()
     fireEvent.click(translateButton())
     await settle()
     expect(held).toHaveLength(2)
     // A new attempt starts with a clean slate.
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
 
     // The first attempt's reply finally arrives, successful: it changes nothing on screen.
     held[0]!.resolve()
     await settle()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
 
     // The newer attempt's own reply is what counts.
     held[1]!.resolve()
     await settle()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
   })
 
   it.each([
@@ -407,13 +441,13 @@ describe("popup translate button: a toggle nobody answers", () => {
 
       fireEvent.click(translateButton())
       await settle(DEADLINE_MS)
-      expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+      expect(screen.getByText(SLOW_HINT)).toBeInTheDocument()
 
       reply(held)
       await settle()
 
       expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
-      expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+      expect(screen.getByText(SLOW_HINT)).toBeInTheDocument()
       expect(translateButton()).toBeEnabled()
     },
   )
@@ -424,14 +458,14 @@ describe("popup translate button: a toggle nobody answers", () => {
     vi.useFakeTimers()
     fireEvent.click(translateButton())
     await settle(DEADLINE_MS)
-    expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+    expect(screen.getByText(SLOW_HINT)).toBeInTheDocument()
 
     fireEvent.click(translateButton())
     await settle()
 
     // The second request is still pending, and the old hint is already gone.
     expect(askedTheTab(true)).toHaveLength(2)
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
   })
 
   it("a stop nobody answers also shows the hint, and the refusal stays recorded", async () => {
@@ -442,7 +476,7 @@ describe("popup translate button: a toggle nobody answers", () => {
     fireEvent.click(showOriginalButton())
     await settle(DEADLINE_MS)
 
-    expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+    expect(screen.getByText(SLOW_HINT)).toBeInTheDocument()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
     expect(showOriginalButton()).toBeEnabled()
     expect(tabState()).toEqual({ enabled: false, userDisabled: true, origin: TAB_ORIGIN })
@@ -465,7 +499,7 @@ describe("popup translate button: a toggle nobody answers", () => {
     expect(vi.getTimerCount()).toBeLessThanOrEqual(timersBefore)
 
     await settle(DEADLINE_MS * 2)
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
   })
 
@@ -602,12 +636,12 @@ describe("popup translate button: a toggle nobody answers", () => {
       held[0]!.resolve()
       await settle()
       expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
-      expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+      expectNoHint()
 
       held[1]!.resolve()
       await settle()
       expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
-      expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+      expectNoHint()
       expect(vi.getTimerCount()).toBe(0)
     })
 
@@ -631,7 +665,7 @@ describe("popup translate button: a toggle nobody answers", () => {
       await settle()
 
       expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
-      expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+      expectNoHint()
     })
 
     describe("under StrictMode, which the popup uses and which runs a mount cleanup once", () => {
@@ -647,7 +681,7 @@ describe("popup translate button: a toggle nobody answers", () => {
         await settle()
 
         expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
-        expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+        expectNoHint()
       })
 
       it("still gives up after the deadline and allows another click", async () => {
@@ -657,7 +691,7 @@ describe("popup translate button: a toggle nobody answers", () => {
 
         fireEvent.click(translateButton())
         await settle(DEADLINE_MS)
-        expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+        expect(screen.getByText(SLOW_HINT)).toBeInTheDocument()
 
         fireEvent.click(translateButton())
         await settle()
