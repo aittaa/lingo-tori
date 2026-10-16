@@ -1,8 +1,14 @@
+import type {
+  FakeChromeSidePanel,
+  SidePanelLevel,
+} from "@/entrypoints/background/__tests__/fake-side-panel"
 // @vitest-environment jsdom
 import type { FloatingButtonConfig } from "@/types/config/floating-button"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { atom, createStore, Provider } from "jotai"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
+import { createFakeChromeSidePanel } from "@/entrypoints/background/__tests__/fake-side-panel"
+import { setupSidePanelMessageHandler } from "@/entrypoints/background/side-panel"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { sendMessage } from "@/utils/message"
 import FloatingButton from ".."
@@ -685,5 +691,321 @@ describe("floatingButton controls", () => {
     for (const hiddenButton of hiddenButtons) {
       expect(hiddenButton).toHaveClass("translate-x-0")
     }
+  })
+
+  describe("guidance when the side panel cannot be opened or closed", () => {
+    const WINDOW_ID = 456
+    const originalGlobalChrome = (globalThis as { chrome?: unknown }).chrome
+    const originalGlobalBrowser = (globalThis as { browser?: unknown }).browser
+
+    afterEach(() => {
+      // The test environment supplies a global `chrome.sidePanel`; a case that needs a browser
+      // without one hides it, and puts it back here (the file's own stubs are left alone).
+      vi.stubGlobal("chrome", originalGlobalChrome)
+      vi.stubGlobal("browser", originalGlobalBrowser)
+    })
+
+    async function flush() {
+      await act(async () => {
+        for (let i = 0; i < 20; i += 1) await Promise.resolve()
+      })
+    }
+
+    async function clickMainButton(clientX = 900) {
+      const mainButton = getMainButton()
+      fireEvent.pointerDown(mainButton, {
+        pointerId: 1,
+        pointerType: "mouse",
+        button: 0,
+        clientX,
+        clientY: 500,
+      })
+      vi.advanceTimersByTime(349)
+      fireEvent.pointerUp(mainButton, {
+        pointerId: 1,
+        pointerType: "mouse",
+        button: 0,
+        clientX,
+        clientY: 500,
+      })
+      await flush()
+      return mainButton
+    }
+
+    function toastCopy(callIndex = 0) {
+      const { unmount } = render(<>{toastAddMock.mock.calls[callIndex]?.[0]?.title}</>)
+      return unmount
+    }
+
+    /** The button talks to the REAL background handler, which talks to a fake `chrome.sidePanel`. */
+    function connectBackground(
+      browser: unknown,
+      { windowId = WINDOW_ID }: { windowId?: number | null } = {},
+    ) {
+      const logger = {
+        error: vi.fn<(...args: any[]) => any>(),
+        warn: vi.fn<(...args: any[]) => any>(),
+      }
+      const handlers = new Map<string, (message: unknown) => Promise<unknown>>()
+      const start = () =>
+        setupSidePanelMessageHandler({
+          extensionBrowser: browser as any,
+          logger,
+          registerMessageHandler: ((
+            type: string,
+            handler: (message: unknown) => Promise<unknown>,
+          ) => {
+            handlers.set(type, handler)
+          }) as any,
+        })
+      start()
+      vi.mocked(sendMessage).mockImplementation(((type: string, data: unknown) =>
+        handlers.get(type)?.({
+          data,
+          sender: { tab: { id: 123, ...(windowId === null ? {} : { windowId }) } },
+        })) as never)
+      return { logger, restartWorker: start }
+    }
+
+    function connectChrome(level: SidePanelLevel, options?: { windowId?: number | null }) {
+      const chrome: FakeChromeSidePanel = createFakeChromeSidePanel(level)
+      const background = connectBackground({ sidePanel: chrome.api }, options)
+      return {
+        chrome,
+        ...background,
+        restartWorker: () => {
+          chrome.workerDies()
+          background.restartWorker()
+        },
+      }
+    }
+
+    describe("the answer, as the background sends it", () => {
+      async function clickWith(result: unknown, side: "left" | "right" = "right") {
+        vi.useFakeTimers()
+        vi.mocked(sendMessage).mockResolvedValue(result as never)
+        renderFloatingButton({ clickAction: "panel", side })
+        return clickMainButton(side === "right" ? 900 : 20)
+      }
+
+      it.each([
+        ["unsupported", "info", "sidePanel.unsupportedHint"],
+        ["toggle-failed", "error", "sidePanel.failedHint"],
+        ["missing-window", "error", "sidePanel.failedHint"],
+      ])("a %s answer is explained next to the button (%s)", async (reason, type, copyKey) => {
+        const mainButton = await clickWith({ ok: false, reason })
+
+        expect(toastAddMock).toHaveBeenCalledTimes(1)
+        expect(toastAddMock).toHaveBeenCalledWith({
+          id: "side-panel-unavailable",
+          positionerProps: { anchor: mainButton, side: "left", sideOffset: 8 },
+          type,
+          title: expect.anything(),
+        })
+        toastCopy()
+        expect(screen.getByText(copyKey)).toBeInTheDocument()
+      })
+
+      it("the explanation sits on the inner side of a left-side button", async () => {
+        const mainButton = await clickWith({ ok: false, reason: "toggle-failed" }, "left")
+
+        expect(toastAddMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            positionerProps: { anchor: mainButton, side: "right", sideOffset: 8 },
+          }),
+        )
+      })
+
+      it.each([
+        { ok: true, action: "opened" },
+        { ok: true, action: "closed" },
+      ])("a successful answer shows nothing (%j)", async (result) => {
+        await clickWith(result)
+
+        expect(toastAddMock).not.toHaveBeenCalled()
+      })
+
+      it("Firefox keeps its own explanation, and only that one", async () => {
+        const mainButton = await clickWith({ ok: false, reason: "requires-extension-user-action" })
+
+        expect(toastAddMock).toHaveBeenCalledTimes(1)
+        expect(toastAddMock).toHaveBeenCalledWith({
+          id: "firefox-sidebar-user-action",
+          positionerProps: { anchor: mainButton, side: "left", sideOffset: 8 },
+          type: "info",
+          title: expect.anything(),
+        })
+      })
+    })
+
+    describe("against the real background handler and a fake chrome.sidePanel", () => {
+      it("Chrome 116 to 140: the first click opens quietly, the second says the browser cannot close it", async () => {
+        vi.useFakeTimers()
+        const { chrome } = connectChrome("open-only")
+        renderFloatingButton({ clickAction: "panel" })
+
+        await clickMainButton()
+        expect(chrome.isOpen(WINDOW_ID)).toBe(true)
+        expect(toastAddMock).not.toHaveBeenCalled()
+
+        await clickMainButton()
+        // Opening and closing are exactly as before: nothing was reopened, the panel is untouched.
+        expect(chrome.api.open).toHaveBeenCalledTimes(1)
+        expect(chrome.isOpen(WINDOW_ID)).toBe(true)
+        expect(toastAddMock).toHaveBeenCalledTimes(1)
+        expect(toastAddMock.mock.calls[0]?.[0]).toMatchObject({
+          id: "side-panel-unavailable",
+          type: "info",
+        })
+        toastCopy()
+        expect(screen.getByText("sidePanel.unsupportedHint")).toBeInTheDocument()
+      })
+
+      it("a browser with no side panel at all says it cannot", async () => {
+        vi.useFakeTimers()
+        vi.stubGlobal("chrome", {})
+        vi.stubGlobal("browser", {})
+        connectBackground({})
+        renderFloatingButton({ clickAction: "panel" })
+
+        await clickMainButton()
+
+        expect(toastAddMock).toHaveBeenCalledTimes(1)
+        expect(toastAddMock.mock.calls[0]?.[0]).toMatchObject({ type: "info" })
+        toastCopy()
+        expect(screen.getByText("sidePanel.unsupportedHint")).toBeInTheDocument()
+      })
+
+      it.each(["open-only", "events", "full"] as SidePanelLevel[])(
+        "a rejected open says so, and the retry is not scolded (%s)",
+        async (level) => {
+          vi.useFakeTimers()
+          const { chrome } = connectChrome(level)
+          chrome.api.open.mockRejectedValueOnce(
+            new Error("may only be called in response to a user action"),
+          )
+          renderFloatingButton({ clickAction: "panel" })
+
+          await clickMainButton()
+          expect(toastAddMock).toHaveBeenCalledTimes(1)
+          expect(toastAddMock.mock.calls[0]?.[0]).toMatchObject({
+            id: "side-panel-unavailable",
+            type: "error",
+          })
+          toastCopy()
+          expect(screen.getByText("sidePanel.failedHint")).toBeInTheDocument()
+
+          await clickMainButton()
+          expect(chrome.isOpen(WINDOW_ID)).toBe(true)
+          expect(toastAddMock).toHaveBeenCalledTimes(1)
+        },
+      )
+
+      it.each(["events", "full"] as SidePanelLevel[])(
+        "a rejected close says so (%s)",
+        async (level) => {
+          vi.useFakeTimers()
+          const { chrome } = connectChrome(level)
+          renderFloatingButton({ clickAction: "panel" })
+          await clickMainButton()
+          expect(toastAddMock).not.toHaveBeenCalled()
+          chrome.api.close.mockRejectedValueOnce(new Error("no such window"))
+
+          await clickMainButton()
+
+          expect(chrome.api.close).toHaveBeenCalledTimes(1)
+          expect(toastAddMock).toHaveBeenCalledTimes(1)
+          expect(toastAddMock.mock.calls[0]?.[0]).toMatchObject({ type: "error" })
+          toastCopy()
+          expect(screen.getByText("sidePanel.failedHint")).toBeInTheDocument()
+        },
+      )
+
+      it("a click from a page with no window to act on says so", async () => {
+        vi.useFakeTimers()
+        const { chrome } = connectChrome("full", { windowId: null })
+        renderFloatingButton({ clickAction: "panel" })
+
+        await clickMainButton()
+
+        expect(chrome.api.open).not.toHaveBeenCalled()
+        expect(toastAddMock).toHaveBeenCalledTimes(1)
+        expect(toastAddMock.mock.calls[0]?.[0]).toMatchObject({ type: "error" })
+        toastCopy()
+        expect(screen.getByText("sidePanel.failedHint")).toBeInTheDocument()
+      })
+
+      describe("close behaviour is unchanged, and quiet when it works", () => {
+        it("Chrome 141: the button still closes the panel it opened, with no message", async () => {
+          vi.useFakeTimers()
+          const { chrome } = connectChrome("events")
+          renderFloatingButton({ clickAction: "panel" })
+
+          await clickMainButton()
+          expect(chrome.isOpen(WINDOW_ID)).toBe(true)
+
+          await clickMainButton()
+          expect(chrome.api.close).toHaveBeenCalledTimes(1)
+          expect(chrome.isOpen(WINDOW_ID)).toBe(false)
+
+          await clickMainButton()
+          expect(chrome.isOpen(WINDOW_ID)).toBe(true)
+          expect(toastAddMock).not.toHaveBeenCalled()
+        })
+
+        it("Chrome 142 after a worker restart: the first click opens, the second closes, with no message", async () => {
+          vi.useFakeTimers()
+          const { chrome, restartWorker } = connectChrome("full")
+          renderFloatingButton({ clickAction: "panel" })
+          await clickMainButton()
+          expect(chrome.isOpen(WINDOW_ID)).toBe(true)
+
+          restartWorker()
+          chrome.api.open.mockClear()
+
+          await clickMainButton()
+          expect(chrome.api.open).toHaveBeenCalledTimes(1)
+          expect(chrome.api.close).not.toHaveBeenCalled()
+
+          await clickMainButton()
+          expect(chrome.api.close).toHaveBeenCalledTimes(1)
+          expect(chrome.isOpen(WINDOW_ID)).toBe(false)
+          expect(toastAddMock).not.toHaveBeenCalled()
+        })
+
+        it("Chrome 142: open, close, then open again after the viewer's own X, with no message", async () => {
+          vi.useFakeTimers()
+          const { chrome } = connectChrome("full")
+          renderFloatingButton({ clickAction: "panel" })
+
+          await clickMainButton()
+          await clickMainButton()
+          expect(chrome.isOpen(WINDOW_ID)).toBe(false)
+          await clickMainButton()
+          expect(chrome.isOpen(WINDOW_ID)).toBe(true)
+          chrome.userClosesPanel(WINDOW_ID)
+          await clickMainButton()
+
+          expect(chrome.isOpen(WINDOW_ID)).toBe(true)
+          expect(toastAddMock).not.toHaveBeenCalled()
+        })
+      })
+
+      it("Firefox, asked from the page, keeps its own explanation and only that one", async () => {
+        vi.useFakeTimers()
+        vi.stubGlobal("chrome", {})
+        const sidebarAction = {
+          open: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        }
+        connectBackground({ sidebarAction })
+        renderFloatingButton({ clickAction: "panel" })
+
+        await clickMainButton()
+
+        expect(sidebarAction.open).not.toHaveBeenCalled()
+        expect(toastAddMock).toHaveBeenCalledTimes(1)
+        expect(toastAddMock.mock.calls[0]?.[0]?.id).toBe("firefox-sidebar-user-action")
+      })
+    })
   })
 })

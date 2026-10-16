@@ -12,6 +12,8 @@ sidePanel:
   firefoxUserActionHint: Firefox에서는 브라우저 사이드바에서 LingoTori를 열어 주세요.
   firefoxUserActionHelpText: Firefox 사이드바 여는 방법 보기
   firefoxUserActionHelpUrl: https://support.mozilla.org/ko/kb/use-sidebar-access-tools-and-vertical-tabs
+  unsupportedHint: 이 브라우저에서는 이 버튼으로 사이드 패널을 열거나 닫을 수 없습니다. 패널의 닫기 버튼이나 브라우저의 사이드 패널 메뉴를 사용하거나, 브라우저를 업데이트해 주세요.
+  failedHint: 사이드 패널을 열거나 닫지 못했습니다. 다시 시도하거나, 브라우저의 사이드 패널 메뉴 또는 패널의 닫기 버튼을 사용해 주세요.
 popup:
   theme: 테마
   autoLang: 자동
