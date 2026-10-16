@@ -12,6 +12,7 @@
 import type { Config } from "@/types/config/config"
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { createStore, Provider } from "jotai"
+import { StrictMode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { browser, storage } from "#imports"
@@ -102,7 +103,16 @@ const tabState = () => store.get(getTranslationStateKey(TAB_ID))
 async function renderButton({
   translated = false,
   edit,
-}: { translated?: boolean; edit?: (config: Config) => void } = {}) {
+  store: existingStore,
+  strict = false,
+}: {
+  translated?: boolean
+  edit?: (config: Config) => void
+  // Mount again under a store that is still alive, as when only the React subtree below it is
+  // re-created.
+  store?: ReturnType<typeof createStore>
+  strict?: boolean
+} = {}) {
   const config = structuredClone(DEFAULT_CONFIG)
   config.providersConfig = [
     { ...structuredClone(DEFAULT_PROVIDER_CONFIG.openai), id: PROVIDER_ID, enabled: true },
@@ -110,16 +120,19 @@ async function renderButton({
   config.pageTranslation.providerId = PROVIDER_ID
   edit?.(config)
   await fakeBrowser.storage.local.set({ [CONFIG_STORAGE_KEY]: config })
-  const jotaiStore = createStore()
-  jotaiStore.set(configAtom, config)
-  jotaiStore.set(isPageTranslatedAtom, translated)
-  render(
+  const jotaiStore = existingStore ?? createStore()
+  if (!existingStore) {
+    jotaiStore.set(configAtom, config)
+    jotaiStore.set(isPageTranslatedAtom, translated)
+  }
+  const tree = (
     <Provider store={jotaiStore}>
       <TooltipProvider>
         <TranslateButton />
       </TooltipProvider>
-    </Provider>,
+    </Provider>
   )
+  render(strict ? <StrictMode>{tree}</StrictMode> : tree)
   return jotaiStore
 }
 
@@ -454,6 +467,203 @@ describe("popup translate button: a toggle nobody answers", () => {
     await settle(DEADLINE_MS * 2)
     expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
+  })
+
+  describe("when the popup's React tree unmounts while a toggle is waiting", () => {
+    // Closing the real toolbar popup destroys the whole page, JavaScript included. What these cases
+    // cover is the narrower thing a React unmount does: the component goes away while the store
+    // above it (and the messaging callbacks it started) stay alive, as when a boundary re-keys its
+    // children. `cleanup()` is the unmount.
+    const unmount = () => cleanup()
+
+    it("leaves no deadline timer armed", async () => {
+      holdReplies()
+      await renderButton()
+      vi.useFakeTimers()
+      const timersBefore = vi.getTimerCount()
+
+      fireEvent.click(translateButton())
+      await settle()
+      expect(vi.getTimerCount()).toBeGreaterThan(timersBefore)
+
+      unmount()
+
+      expect(vi.getTimerCount()).toBeLessThanOrEqual(timersBefore)
+    })
+
+    it.each([
+      [
+        "acknowledged",
+        (held: Array<{ resolve: () => void; reject: (e: Error) => void }>) => held[0]!.resolve(),
+      ],
+      [
+        "rejected",
+        (held: Array<{ resolve: () => void; reject: (e: Error) => void }>) =>
+          held[0]!.reject(new Error(NO_RECEIVER)),
+      ],
+    ])(
+      "a reply that comes %s after the unmount, and the deadline passing, change nothing",
+      async (_kind, reply) => {
+        const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+        const held = holdReplies()
+        const jotaiStore = await renderButton()
+        vi.useFakeTimers()
+
+        fireEvent.click(translateButton())
+        await settle()
+        expect(held).toHaveLength(1)
+        unmount()
+
+        // The five seconds go by with nobody left to show a hint, then the reply arrives.
+        await settle(DEADLINE_MS * 2)
+        reply(held)
+        await settle()
+
+        expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+        expect(consoleError).not.toHaveBeenCalled()
+        expect(vi.getTimerCount()).toBe(0)
+      },
+    )
+
+    it("a reply that comes inside the deadline but after the unmount does not flip the shared state", async () => {
+      const held = holdReplies()
+      const jotaiStore = await renderButton()
+      vi.useFakeTimers()
+
+      fireEvent.click(translateButton())
+      await settle(1_000)
+      unmount()
+      held[0]!.resolve()
+      await settle()
+
+      expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+    })
+
+    it("still disarms the newer attempt's deadline after an older attempt's late reply settled", async () => {
+      const held = holdReplies()
+      await renderButton()
+      vi.useFakeTimers()
+      const timersBefore = vi.getTimerCount()
+
+      fireEvent.click(translateButton())
+      await settle(DEADLINE_MS)
+      fireEvent.click(translateButton())
+      await settle()
+      expect(held).toHaveLength(2)
+      // The first attempt, given up on long ago, finishes now. It must not forget the second one's timer.
+      held[0]!.reject(new Error(NO_RECEIVER))
+      await settle()
+      expect(vi.getTimerCount()).toBeGreaterThan(timersBefore)
+
+      unmount()
+
+      expect(vi.getTimerCount()).toBeLessThanOrEqual(timersBefore)
+    })
+
+    it("sends nothing when the tree unmounts before the active tab is known", async () => {
+      const held = holdReplies()
+      const jotaiStore = await renderButton()
+      vi.useFakeTimers()
+      let tabKnown!: () => void
+      browser.tabs.query = vi.fn<(...args: any[]) => any>().mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            tabKnown = () => resolve([{ id: TAB_ID }])
+          }),
+      )
+
+      fireEvent.click(translateButton())
+      await settle()
+      unmount()
+      tabKnown()
+      await settle()
+
+      expect(askedTheTab(true)).toHaveLength(0)
+      expect(held).toHaveLength(0)
+      expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+    })
+
+    it("a button mounted afterwards works normally, and the old attempt's reply cannot answer for it", async () => {
+      const held = holdReplies()
+      const jotaiStore = await renderButton()
+      vi.useFakeTimers()
+
+      fireEvent.click(translateButton())
+      await settle()
+      unmount()
+
+      await renderButton({ store: jotaiStore })
+      expect(translateButton()).toBeEnabled()
+      fireEvent.click(translateButton())
+      await settle()
+      expect(held).toHaveLength(2)
+
+      // The first instance's reply comes while the new button's own request is still waiting.
+      held[0]!.resolve()
+      await settle()
+      expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+      expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+
+      held[1]!.resolve()
+      await settle()
+      expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
+      expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it("a button mounted after a settled attempt and an unmount works normally", async () => {
+      const held = holdReplies()
+      const jotaiStore = await renderButton()
+      vi.useFakeTimers()
+
+      fireEvent.click(translateButton())
+      await settle()
+      held[0]!.resolve()
+      await settle()
+      expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
+      unmount()
+
+      await renderButton({ store: jotaiStore })
+      fireEvent.click(showOriginalButton())
+      await settle()
+      expect(held).toHaveLength(2)
+      held[1]!.resolve()
+      await settle()
+
+      expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
+      expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    })
+
+    describe("under StrictMode, which the popup uses and which runs a mount cleanup once", () => {
+      it("still sends, waits and flips on an acknowledged answer", async () => {
+        const held = holdReplies()
+        const jotaiStore = await renderButton({ strict: true })
+        vi.useFakeTimers()
+
+        fireEvent.click(translateButton())
+        await settle()
+        expect(held).toHaveLength(1)
+        held[0]!.resolve()
+        await settle()
+
+        expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true)
+        expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+      })
+
+      it("still gives up after the deadline and allows another click", async () => {
+        const held = holdReplies()
+        await renderButton({ strict: true })
+        vi.useFakeTimers()
+
+        fireEvent.click(translateButton())
+        await settle(DEADLINE_MS)
+        expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+
+        fireEvent.click(translateButton())
+        await settle()
+        expect(held).toHaveLength(2)
+      })
+    })
   })
 })
 
