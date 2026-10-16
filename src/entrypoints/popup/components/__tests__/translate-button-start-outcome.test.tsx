@@ -267,10 +267,19 @@ const PAGE_URL = window.location.href
 const PAGE_ORIGIN = getPageTranslationOriginScope(PAGE_URL)
 const PROVIDER_ID = "page-provider"
 const REFRESH_HINT = "popup.refreshNeeded"
+const NO_ANSWER_HINT = "popup.noAnswerYet"
 const SAME_LANGUAGE_NOTICE = "translation.sameLanguage"
 const NO_KEY_NOTICE = "noAPIKeyConfig.warning"
 const PROVIDER_REQUIRED_NOTICE = "providerRequired.message"
 const DEADLINE_MS = 5_000
+
+// The two hints are different states: the refresh hint is for a page nobody answered for (no
+// receiver, or a toggle that failed), the other one for a page that is only slow to answer. A start
+// that was answered, or has not run out of time yet, shows neither.
+function expectNoHint() {
+  expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+  expect(screen.queryByText(NO_ANSWER_HINT)).not.toBeInTheDocument()
+}
 
 function makeConfig({
   sameLanguage = false,
@@ -447,7 +456,7 @@ describe("popup: the page manager accepted the start", () => {
 
     await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true))
     expect(showOriginalButton()).toBeEnabled()
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
     // The manager really is translating, and its walk really has not returned.
     expect(activations()).toHaveLength(1)
     expect(getPageTranslationSessionId()).not.toBeNull()
@@ -474,7 +483,7 @@ describe("popup: the page manager accepted the start", () => {
     await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false))
     expect(askedTheTab(false)).toHaveLength(1)
     expect(tabState()).toEqual({ enabled: false, userDisabled: true, origin: PAGE_ORIGIN })
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
   })
 })
 
@@ -494,7 +503,7 @@ describe("popup: the page manager received the start but refused it", () => {
     expect(translateButton()).toBeEnabled()
     expect(screen.queryByRole("button", { name: /^popup\.showOriginal/ })).not.toBeInTheDocument()
     // The manager's own error is the surface: the generic refresh hint does not cover it.
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
     expect(notices()).toEqual([SAME_LANGUAGE_NOTICE])
     expectPageUntouched()
   })
@@ -511,7 +520,7 @@ describe("popup: the page manager received the start but refused it", () => {
     await flush()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
     expect(translateButton()).toBeEnabled()
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
     expectPageUntouched()
   })
 
@@ -524,7 +533,7 @@ describe("popup: the page manager received the start but refused it", () => {
     await waitFor(() => expect(notices()).toContain(NO_KEY_NOTICE))
     await flush()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
     expectPageUntouched()
   })
 
@@ -540,7 +549,7 @@ describe("popup: the page manager received the start but refused it", () => {
     await waitFor(() => expect(notices()).toContain("Provider is not available"))
     await flush()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
     expectPageUntouched()
   })
 
@@ -556,7 +565,7 @@ describe("popup: the page manager received the start but refused it", () => {
     await flush()
 
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
     // The user's explicit OFF stays recorded and nothing was activated.
     expect(tabState()).toEqual({ enabled: false, userDisabled: true, origin: PAGE_ORIGIN })
     expect(activations()).toHaveLength(0)
@@ -589,6 +598,7 @@ describe("popup: the delivery contract is unchanged", () => {
     fireEvent.click(translateButton())
 
     await waitFor(() => expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument())
+    expect(screen.queryByText(NO_ANSWER_HINT)).not.toBeInTheDocument()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
     expect(translateButton()).toBeEnabled()
     expect(tabState()).toBeUndefined()
@@ -609,9 +619,10 @@ describe("popup: the delivery contract is unchanged", () => {
       await settle()
       expect(askedTheTab(true)).toHaveLength(1)
       await settle(DEADLINE_MS - 1)
-      expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+      expectNoHint()
       await settle(1)
-      expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+      expect(screen.getByText(NO_ANSWER_HINT)).toBeInTheDocument()
+      expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
       expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
       expect(translateButton()).toBeEnabled()
 
@@ -620,7 +631,8 @@ describe("popup: the delivery contract is unchanged", () => {
       h.transport.heldTabReplies[0]!()
       await settle()
       expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
-      expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument()
+      expect(screen.getByText(NO_ANSWER_HINT)).toBeInTheDocument()
+      expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
     })
 
     it("a reply that comes after the button was unmounted changes nothing", async () => {
@@ -798,7 +810,7 @@ describe("popup: only the top frame's manager decides what the popup shows", () 
     // The top frame activated and the popup says so, whatever the subframe made of the same request.
     await waitFor(() => expect(jotaiStore.get(isPageTranslatedAtom)).toBe(true))
     expect(showOriginalButton()).toBeEnabled()
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
     expect(activations()).toHaveLength(1)
     expect(getPageTranslationSessionId()).not.toBeNull()
     expect(tabState()).toEqual({ enabled: true, origin: PAGE_ORIGIN })
@@ -820,7 +832,7 @@ describe("popup: only the top frame's manager decides what the popup shows", () 
 
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
     expect(translateButton()).toBeEnabled()
-    expect(screen.queryByText(REFRESH_HINT)).not.toBeInTheDocument()
+    expectNoHint()
   })
 
   it("no receiver in the top frame while a subframe could answer: stays on Translate and shows the refresh hint", async () => {
@@ -833,6 +845,7 @@ describe("popup: only the top frame's manager decides what the popup shows", () 
     fireEvent.click(translateButton())
 
     await waitFor(() => expect(screen.getByText(REFRESH_HINT)).toBeInTheDocument())
+    expect(screen.queryByText(NO_ANSWER_HINT)).not.toBeInTheDocument()
     expect(jotaiStore.get(isPageTranslatedAtom)).toBe(false)
     expect(translateButton()).toBeEnabled()
   })
