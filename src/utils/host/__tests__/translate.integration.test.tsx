@@ -2966,7 +2966,7 @@ describe("translate", () => {
       expect(node.querySelector("strong")).toBe(originalStrong)
     })
 
-    it("retries the canonical full HTML once when a marker contract is corrupted", async () => {
+    it("retries once with the attribute-free skeleton when a marker contract is corrupted", async () => {
       vi.mocked(translateTextForPage)
         .mockResolvedValueOnce(`<strong>损坏的 marker</strong>`)
         .mockResolvedValueOnce("完整 HTML 回退译文")
@@ -2987,14 +2987,16 @@ describe("translate", () => {
       expect(translateTextForPage).toHaveBeenCalledTimes(2)
       expect(vi.mocked(translateTextForPage).mock.calls[0]![0]).toContain(`data-rf-attr="0"`)
       expect(vi.mocked(translateTextForPage).mock.calls[0]![0]).not.toContain(`class="place"`)
-      expect(vi.mocked(translateTextForPage).mock.calls[1]![0]).toContain(`class="place"`)
+      // SEC3-01: the retry no longer re-sends the attributes the first request kept local.
+      expect(vi.mocked(translateTextForPage).mock.calls[1]![0]).not.toContain(`class="place"`)
+      expect(vi.mocked(translateTextForPage).mock.calls[1]![0]).not.toContain("data-place")
       expect(vi.mocked(translateTextForPage).mock.calls[1]![0]).not.toContain("data-rf-attr")
       expect(expectTranslationWrapper(node, "translationOnly")?.textContent).toBe(
         "完整 HTML 回退译文",
       )
     })
 
-    it("escapes and restores a page-owned numeric marker during full HTML fallback", async () => {
+    it("keeps a page-owned numeric marker off the wire during the skeleton fallback", async () => {
       vi.mocked(translateTextForPage)
         .mockResolvedValueOnce(`<strong>损坏的 marker</strong>`)
         .mockResolvedValueOnce(`<strong class="place" data-rf-attr="rf-page-0">温哥华</strong>`)
@@ -3013,9 +3015,10 @@ describe("translate", () => {
       await removeOrShowPageTranslation("translationOnly", true)
 
       expect(translateTextForPage).toHaveBeenCalledTimes(2)
-      expect(vi.mocked(translateTextForPage).mock.calls[1]![0]).toContain(
-        `data-rf-attr="rf-page-0"`,
-      )
+      // SEC3-01: the page's own marker-named attribute is a protected attribute like any other;
+      // the fallback request carries neither it nor a marker of ours.
+      expect(vi.mocked(translateTextForPage).mock.calls[1]![0]).not.toContain("data-rf-attr")
+      expect(vi.mocked(translateTextForPage).mock.calls[1]![0]).not.toContain(`class="place"`)
       // The response drops the surrounding text, so it cannot be paired with the
       // page's own nodes and the wrapper fallback shows its text only: no provider
       // element is written into the page. The numeric-marker restore itself is
@@ -3025,7 +3028,7 @@ describe("translate", () => {
       expect(wrapper?.querySelector("strong")).toBeNull()
     })
 
-    it("keeps the source DOM and existing error UI when the full HTML fallback fails", async () => {
+    it("keeps the source DOM and existing error UI when the fallback request fails", async () => {
       vi.mocked(translateTextForPage)
         .mockResolvedValueOnce(`<strong>损坏的 marker</strong>`)
         .mockRejectedValueOnce(new Error("Fallback failed"))
@@ -3087,7 +3090,8 @@ describe("translate", () => {
       expect(vi.mocked(translateTextForPage).mock.calls[0]![0]).toContain("data-rf-attr")
       expect(vi.mocked(translateTextForPage).mock.calls[1]![0]).not.toContain("data-rf-attr")
       expect(vi.mocked(translateTextForPage).mock.calls[2]![0]).not.toContain("data-rf-attr")
-      expect(vi.mocked(translateTextForPage).mock.calls[2]![0]).toContain(`class="place"`)
+      // SEC3-01: later paragraphs for the endpoint are asked without the protected attributes too.
+      expect(vi.mocked(translateTextForPage).mock.calls[2]![0]).not.toContain(`class="place"`)
     })
 
     it("shares the first DeepLX capability probe across concurrent paragraphs", async () => {
@@ -3153,11 +3157,12 @@ describe("translate", () => {
       expect(vi.mocked(translateTextForPage).mock.calls[0]![0]).toContain("data-rf-attr")
       const fallbackRequests = vi.mocked(translateTextForPage).mock.calls.slice(1)
       expect(fallbackRequests.every(([request]) => !request.includes("data-rf-attr"))).toBe(true)
+      // SEC3-01: the fallback requests carry no protected attribute (class here) of either paragraph.
       expect(fallbackRequests.some(([request]) => request.includes(`class="first-place"`))).toBe(
-        true,
+        false,
       )
       expect(fallbackRequests.some(([request]) => request.includes(`class="second-place"`))).toBe(
-        true,
+        false,
       )
     })
 

@@ -6,6 +6,8 @@ export async function getOrGenerateWebPageSummary(
   webPageContext: CachedWebPageContext | null,
   providerRef: PromptableProviderRef,
   enableAIContentAware: boolean,
+  // The page-translation session the summary is for. Left out, the summary belongs to no session.
+  sessionId?: string,
 ): Promise<string | null> {
   if (!enableAIContentAware || !webPageContext) {
     return null
@@ -20,6 +22,7 @@ export async function getOrGenerateWebPageSummary(
     webTitle,
     webContent,
     providerRef,
+    ...(sessionId === undefined ? {} : { sessionId }),
   })
 
   return summary || null

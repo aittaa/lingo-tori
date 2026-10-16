@@ -103,9 +103,11 @@ interface ProtocolMap {
       webDescription?: string | null
       webContent?: string | null
       webSummary?: string | null
-      // Page-translation session this request belongs to; scopes the request
-      // for cancelPageTranslationRequests. Absent for non-page requests
-      // (input/selection translation), which are never cancellable.
+      // Cancellation scope this request belongs to; scopes the request for
+      // cancelPageTranslationRequests. Either a page-translation session id or the
+      // owner of one selection translation run (`selection:<random>`, a namespace
+      // that is never a page session id). Absent for requests with no owner (input
+      // translation, an older content script), which are never cancellable.
       sessionId?: string
       forceRetranslation?: boolean
       // Glossary terms the SENDER found in `text`. Resolved where the page URL
@@ -127,14 +129,20 @@ interface ProtocolMap {
       promptTemplate?: PromptTemplate
     },
   ) => Promise<string>
-  // Drain queued/in-flight page-translation requests of one session (#1881).
-  // The background composes the scope as `${sender.tab.id}:${sessionId}`, so a
-  // tab can only ever cancel its own requests.
+  // Drain queued/in-flight requests of one owner: a page-translation session
+  // (#1881) or a selection translation run. The background composes the scope
+  // as `${sender.tab.id}:${sessionId}`, so a tab can only ever cancel its own
+  // requests, and a request another owner still wants keeps running.
   cancelPageTranslationRequests: (data: { sessionId: string }) => void
   getOrGenerateWebPageSummary: (
     data: ProviderRequestRouting<PromptableProviderRef> & {
       webTitle: string
       webContent: string
+      // The page-translation session that asked for the summary (the one captured when the
+      // paragraph that wanted it started); scopes the request for cancelPageTranslationRequests,
+      // like the paragraph requests of that session. Absent for a request that belongs to no page
+      // session (the selection toolbar, an older content script), which is never cancellable.
+      sessionId?: string
     },
   ) => Promise<string | null>
   enqueueSubtitlesTranslateRequest: (data: {

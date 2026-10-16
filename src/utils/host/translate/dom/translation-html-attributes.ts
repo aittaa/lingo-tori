@@ -40,11 +40,28 @@ interface ElementAttributeSnapshot {
 
 export interface ProtectedTranslationHtml {
   comparisonSourceHtml: string
+  /** `fallbackRequestHtml` reduced to what a response may carry (see `restoreFallback`). */
+  fallbackComparisonSourceHtml: string
+  /**
+   * The request to send when the protected request cannot be used: a provider that mangled its
+   * markers, or an endpoint known not to keep them. It is the protected request with the markers
+   * left out, so it carries exactly what the first request carried (text, readable attributes, the
+   * constant `notranslate` / `translate="no"` hints) and none of the attributes that request kept
+   * local. Built from the protected container, never from the page's raw HTML.
+   */
+  fallbackRequestHtml: string
   hasPlaceholders: boolean
+  /**
+   * The page's own HTML, attributes included. Only meaningful, and only to be sent, when
+   * `hasPlaceholders` is false (nothing to protect, so nothing in it that the first request
+   * would have kept local). Never a retry payload: use `fallbackRequestHtml`.
+   */
   legacyRequestHtml: string
   normalizeForComparison: (html: string) => string
   requestHtml: string
   restore: (translatedHtml: string) => string
+  /** A fallback answer, cut back to the readable attributes: there is nothing to restore it from. */
+  restoreFallback: (translatedHtml: string) => string
   restoreLegacy: (translatedHtml: string) => string
   sourceHtml: string
 }
@@ -200,6 +217,18 @@ function stripUnexpectedAttributes(
 }
 
 /**
+ * Cut an HTML string back to the attributes the protected contract lets through: the readable ones.
+ * The same rule `restore` applies to every element the provider did not mark, by DOM operations on
+ * an inert template, not by pattern matching on the string.
+ */
+function keepOnlyTranslatableAttributes(html: string, ownerDoc: Document): string {
+  const template = ownerDoc.createElement("template")
+  template.innerHTML = html
+  getAllElements(template.content).forEach((element) => stripUnexpectedAttributes(element))
+  return template.innerHTML
+}
+
+/**
  * `noTranslateSelector` names elements whose text must reach the provider
  * untranslated (inline atoms such as formulas and inline code). They go out
  * marked `class="notranslate" translate="no"`, which HTML translators honor,
@@ -282,8 +311,22 @@ export function protectTranslationHtmlAttributes(
 
   const requestHtml = container.innerHTML
 
+  // The fallback request: the protected container once more, without the markers. The attributes
+  // were taken out of `container` above, so nothing the first request kept local is in it.
+  const fallbackContainer = ownerDoc.createElement("template")
+  fallbackContainer.content.append(container.content.cloneNode(true))
+  getElementsWithAttribute(fallbackContainer.content, HTML_ATTRIBUTE_MARKER).forEach((element) =>
+    element.removeAttribute(HTML_ATTRIBUTE_MARKER),
+  )
+  const fallbackRequestHtml = fallbackContainer.innerHTML
+
   return {
     comparisonSourceHtml,
+    fallbackComparisonSourceHtml: normalizeHtmlForComparison(
+      keepOnlyTranslatableAttributes(fallbackRequestHtml, ownerDoc),
+      ownerDoc,
+    ),
+    fallbackRequestHtml,
     hasPlaceholders: snapshots.size > 0,
     legacyRequestHtml,
     normalizeForComparison: (html) => normalizeHtmlForComparison(html, ownerDoc),
@@ -341,6 +384,11 @@ export function protectTranslationHtmlAttributes(
       })
 
       return template.innerHTML
+    },
+    restoreFallback(translatedHtml: string): string {
+      return translatedHtml === ""
+        ? translatedHtml
+        : keepOnlyTranslatableAttributes(translatedHtml, ownerDoc)
     },
     restoreLegacy(translatedHtml: string): string {
       if (translatedHtml === "") return translatedHtml
