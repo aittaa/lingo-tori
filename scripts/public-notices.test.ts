@@ -221,9 +221,7 @@ describe("the privacy notice", () => {
   })
 
   it("says a cancelled, replaced or expired sign-in does not open its page", () => {
-    expect(privacy).toMatch(
-      /cancelled, replaced or expires while the permission is being read does not open the sign-in page/,
-    )
+    expect(privacy).toMatch(/cancelled, replaced or expires[^.]*does not open the sign-in page/)
     expect(privacy).toContain("Cancelling a sign-in")
   })
 
@@ -325,5 +323,140 @@ describe("the privacy notice", () => {
   it("names the public hosts that see the IP address and the slug", () => {
     expect(privacy).toContain("unpkg.com")
     expect(privacy).toContain("api.iconify.design")
+  })
+})
+
+/** The text of one `##` or `###` section, up to the next heading of those levels. */
+function sectionOf(text: string, heading: string) {
+  const lines = text.split("\n")
+  const start = lines.findIndex((line) => /^#{2,3} /.test(line) && line.endsWith(` ${heading}`))
+  if (start === -1) return ""
+  const length = lines.slice(start + 1).findIndex((line) => /^#{2,3} /.test(line))
+  return lines.slice(start + 1, length === -1 ? undefined : start + 1 + length).join("\n")
+}
+
+describe("the Firefox note about a secret in an endpoint", () => {
+  const firefox = sectionOf(privacy, "Firefox data consent")
+
+  it("says the declaration makes authentication consent required and opens no prompt itself", () => {
+    expect(firefox).toContain("makes authentication consent required for that provider")
+    expect(firefox).toContain("does not open a Firefox prompt by itself")
+  })
+
+  it("tells the user to click the separate Allow button, and that requests wait until then", () => {
+    expect(firefox).toContain("click the separate **Allow** button")
+    expect(firefox).toContain("until you do, requests to that endpoint are not sent")
+  })
+
+  it("says what LingoTori cannot detect or gate", () => {
+    expect(firefox).toContain("cannot detect or gate an undeclared secret")
+  })
+
+  it("does not promise that Firefox asks first", () => {
+    expect(firefox).not.toMatch(/Firefox asks first/i)
+    expect(firefox).not.toContain("so that Firefox asks")
+  })
+})
+
+describe("the notice about settings that cannot be read", () => {
+  const recovery = sectionOf(privacy, "Preserved originals and recovery copies")
+
+  it("is a section that exists and carries no unverified marker any more", () => {
+    expect(recovery).not.toBe("")
+    expect(privacy).not.toMatch(/<!--[\s\S]*?TODO[\s\S]*?-->/)
+  })
+
+  it("says a copy is tried at start-up and is not always possible", () => {
+    expect(recovery).toContain("tries to keep an **exact copy of the stored original**")
+    expect(recovery).toContain("best effort")
+    expect(recovery).toContain("With five copies already kept")
+    expect(recovery).toContain("no copy is made")
+    expect(recovery).toContain("the stored settings are still left exactly as they are")
+  })
+
+  it("does not say a copy is always kept first", () => {
+    expect(recovery).not.toContain("It first keeps an **exact copy")
+    expect(recovery).not.toContain("only after the original has been verified as preserved")
+    expect(readme).not.toContain("it keeps an exact copy of the original")
+  })
+
+  it("says starting from defaults and restoring over unreadable settings wait for a kept copy", () => {
+    expect(recovery).toContain("keep an exact copy of them first")
+    expect(recovery).toContain("refused, with the stored settings left exactly as they are")
+    expect(recovery).toContain("until a copy can be kept")
+  })
+
+  it("says restoring over readable settings backs them up first, unless the latest backup has them", () => {
+    expect(recovery).toContain("restoring backs them up first")
+    expect(recovery).toContain("unless the latest backup already holds the same settings")
+  })
+
+  it("uses the labels of the screen and says both exports hold credentials", () => {
+    expect(recovery).toContain("**Export exact copy**")
+    expect(recovery).toContain("**Export as found**")
+    expect(recovery).toContain("**Recovery options**")
+    expect(recovery).toContain("**Start from defaults**")
+    expect(recovery).toContain("**Try restore**")
+    expect(recovery).toContain("API keys and other credentials exactly as stored")
+    expect(recovery).toContain("warns before each download")
+    expect(privacy).not.toContain("Export exact JSON")
+  })
+
+  it("says what happens to changes while the settings cannot be read", () => {
+    expect(recovery).toContain("A change made in the settings page or the popup is not saved")
+    expect(recovery).toContain("Your saved settings can't be read")
+    expect(recovery).toContain("Your last change was not saved")
+    expect(recovery).toContain("show no banner")
+    expect(recovery).toContain("shows a short notice")
+  })
+
+  it("says the hourly backup skips them and Back up now is refused", () => {
+    expect(recovery).toContain("The hourly backup skips settings that cannot be read")
+    expect(recovery).toContain("**Back up now** is refused while they cannot be read")
+  })
+
+  it("keeps the limits and adds the failed-upgrade case", () => {
+    expect(recovery).toContain("may still need your recovery")
+    expect(recovery).toContain("does not claim that the browser's storage is crash-proof")
+    expect(recovery).toContain("relies on the extension having one background context")
+    expect(recovery).toContain("If a failed upgrade cannot even be recorded")
+    expect(recovery).toContain("as being upgraded")
+    expect(recovery).toContain("so nothing is replaced")
+  })
+
+  it("keeps secrets, the five-copy limit and the user-only removal", () => {
+    expect(recovery).toContain("at most five preserved originals")
+    expect(recovery).toContain("It never deletes one by itself")
+    expect(recovery).toContain("when you uninstall the extension")
+  })
+
+  it("is summarised in the readme without claiming a copy is always kept", () => {
+    expect(readme).toContain("tries to keep an exact copy")
+    expect(readme).toContain("not always possible")
+    expect(readme).toContain("**Export as found**")
+  })
+})
+
+describe("the sign-in that waits for the Firefox permission", () => {
+  it("also does not open the page when its session is invalidated", () => {
+    const text = sectionOf(privacy, "Firefox data consent")
+
+    expect(text).toMatch(
+      /cancelled, replaced or expires, or whose session is invalidated \(for example by a token refresh that fails for good\), while the permission is being read does not open the sign-in page/,
+    )
+    expect(sectionOf(privacy, "Signing in with ChatGPT (experimental)")).toContain(
+      "or its session is invalidated (for example by a token refresh that fails for good)",
+    )
+  })
+})
+
+describe("the readme upgrade paragraph", () => {
+  it("still points to the version notes and claims no check of the version reset", () => {
+    const paragraph = readme
+      .split("\n")
+      .find((line) => line.includes("Already using a development copy"))
+
+    expect(paragraph).toContain("[installation and version notes](docs/versioning.md)")
+    expect(paragraph).not.toMatch(/validated|verified|tested|confirmed/i)
   })
 })
