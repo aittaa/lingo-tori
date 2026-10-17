@@ -490,6 +490,26 @@ describe("the notice about settings that cannot be read", () => {
   })
 })
 
+describe("the notice about backups", () => {
+  const backups = sectionOf(privacy, "Backups")
+
+  it("says the newest eight are normally kept, and that a backup can briefly add to them", () => {
+    expect(backups).toContain("normally keeps the newest eight")
+    expect(backups).toContain(
+      "a backup taken just before a restore that could not be confirmed is kept, so there can briefly be more until the next backup",
+    )
+  })
+
+  it("does not promise exactly eight", () => {
+    expect(backups).not.toMatch(/\band keeps the newest eight\b/)
+    expect(backups).not.toMatch(/\bnever (?:more|keeps more) than eight\b/i)
+  })
+
+  it("does not list internal request hashes as backup contents", () => {
+    expect(backups).not.toMatch(/opDigest|request hash|operation (?:id|digest)/i)
+  })
+})
+
 describe("the sign-in that waits for the Firefox permission", () => {
   it("also does not open the page when its session is invalidated", () => {
     const text = sectionOf(privacy, "Firefox data consent")
