@@ -22,6 +22,7 @@ import {
 } from "../errors"
 import { assertCurrentConfigExportable, getConfigStatus } from "../status"
 import {
+  backgroundRemembersAFailure,
   backupEntries,
   corruptConfig,
   CURRENT_META,
@@ -38,6 +39,7 @@ import {
   seedPreserved,
   seedPrimary,
   snapshot,
+  touchesPrimary,
   validConfig,
 } from "./preservation-test-kit"
 
@@ -359,6 +361,8 @@ describe("the outcome of a failed upgrade, and when it stops applying", () => {
     await failedStartWithNoRoomForACopy()
     expect(await getConfigStatus()).toMatchObject({ kind: "suspect" })
 
+    expect(backgroundRemembersAFailure()).toBe(true)
+
     migration.hook = null
     await startBackground()
 
@@ -368,6 +372,56 @@ describe("the outcome of a failed upgrade, and when it stops applying", () => {
     expect(
       Object.keys(await snapshot()).filter((key) => key.startsWith("configInitFailure")),
     ).toEqual([])
+    expect(backgroundRemembersAFailure()).toBe(false)
+  })
+
+  // The record goes only when the upgraded pair is stored. A retry whose upgrade works but whose
+  // write is refused leaves the very pair that failed, so it is still a failed upgrade to everyone.
+  it.each([
+    { name: "the write of the pair is rejected", fails: touchesPrimary },
+    { name: "every write is rejected", fails: () => true },
+  ])("is kept when a later start upgrades the pair but $name", async ({ fails }) => {
+    await failedStartWithNoRoomForACopy()
+    const before = await readRawPrimary()
+    migration.hook = null
+    failWrites(fails)
+
+    await expect(startBackground()).rejects.toThrow("simulated write failure")
+    vi.restoreAllMocks()
+
+    expect(sameRaw(await readRawPrimary(), before)).toBe(true)
+    expect(preservedCopiesOf(await snapshot(), before)).toHaveLength(0)
+    expect(backgroundRemembersAFailure()).toBe(true)
+    expect(Object.keys(await snapshot())).toContain("configInitFailure")
+    expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason: "migration-failed" })
+
+    forgetWhatTheBackgroundRemembers()
+    expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason: "migration-failed" })
+
+    const stored = await snapshot()
+    await expect(
+      replaceStoredConfig(replacement(), { ...OPTIONS, backupCurrent: true }),
+    ).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
+    await expect(backUpCurrentConfig("0.0.1")).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
+    await expect(assertCurrentConfigExportable()).rejects.toMatchObject({
+      reason: "migration-failed",
+    })
+    expect(await snapshot()).toEqual(stored)
+  })
+
+  it("is dropped by the retry once its write has gone through, after a rejected one", async () => {
+    await failedStartWithNoRoomForACopy()
+    migration.hook = null
+    failWrites(touchesPrimary, 1)
+    await expect(startBackground()).rejects.toThrow("simulated write failure")
+    vi.restoreAllMocks()
+    expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason: "migration-failed" })
+
+    await startBackground()
+
+    expect((await getConfigStatus()).kind).toBe("usable")
+    expect(Object.keys(await snapshot())).not.toContain("configInitFailure")
+    expect(backgroundRemembersAFailure()).toBe(false)
   })
 
   it("is dropped by a start that finds the stored config unusable for another reason", async () => {

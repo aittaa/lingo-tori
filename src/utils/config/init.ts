@@ -116,8 +116,9 @@ export async function initializeConfig(): Promise<InitializeConfigResult> {
     }
     config = outcome.config
   }
-  // The pair is usable, was just upgraded, or there was none: no failed upgrade is pending.
-  await clearInitFailure()
+  // A usable pair or none has no failed upgrade pending. An upgraded pair is only the pair that
+  // failed until it is stored: its record is dropped after the write below, not before it.
+  if (status.kind !== "upgrading") await clearInitFailure()
 
   let didConfigChange = status.kind === "absent" || status.kind === "upgrading"
 
@@ -137,6 +138,10 @@ export async function initializeConfig(): Promise<InitializeConfigResult> {
   } else if (status.kind === "usable" && (status.metaMissing || lastModifiedAt === undefined)) {
     await writePrimaryMeta({ lastModifiedAt })
   }
+
+  // The record clears only once the upgraded pair is persisted: a write that throws leaves the pair
+  // that failed in place, and it must keep reading as a failed upgrade.
+  if (status.kind === "upgrading") await clearInitFailure()
 
   return { isFreshInstall: status.kind === "absent", hadStoredConfig }
 }

@@ -19,8 +19,9 @@ import { findKeptReason, pairDigestOf } from "./preservation"
  *   could be written.
  *
  * A marker applies only to the pair whose digest it names: when the stored pair changes it simply
- * stops matching, and a later start that upgrades the pair, or starts over a pair that is not
- * upgrading, removes it. There is at most one marker.
+ * stops matching, and a later start that has stored the upgraded pair, or that starts over a pair
+ * that is not upgrading, removes it. A later upgrade whose write fails removes nothing: the pair
+ * that failed is still the stored one. There is at most one marker.
  *
  * Honest limit: when even the marker cannot be written, only the background knows. Another context
  * (the settings page, the popup) can still read the pair as "upgrading"; every action that would
