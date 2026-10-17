@@ -6,6 +6,7 @@ import { Sidebar, SidebarContent, SidebarHeader } from "@/components/ui/base-ui/
 import { i18n } from "@/utils/i18n"
 import { getCommandPaletteShortcutHint } from "@/utils/os"
 import { commandPaletteOpenAtom } from "../command-palette/atoms"
+import { AboutLinks } from "./about-links"
 import { CollapseToggle } from "./collapse-toggle"
 import { FeaturesNav } from "./features-nav"
 import { SettingsNav } from "./settings-nav"
@@ -36,6 +37,7 @@ export function AppSidebar() {
         <SettingsNav />
         <FeaturesNav />
       </SidebarContent>
+      <AboutLinks />
       <CollapseToggle />
     </Sidebar>
   )

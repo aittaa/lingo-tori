@@ -67,6 +67,10 @@ errorRecovery:
     description: 現在の設定はデフォルト値で上書きされます。
     confirm: リセット
     cancel: キャンセル
+about:
+  title: このアプリについて
+  privacyNotice: プライバシーに関するお知らせ
+  thirdPartyNotices: サードパーティの通知
 options:
   autosave:
     invalid: 移動する前に、エラーのある項目を修正してください。

@@ -71,6 +71,9 @@
     "options.videoSubtitles.preference.autoStart.description"
   ],
   "newEnglishKeys": [
+    "about.title",
+    "about.privacyNotice",
+    "about.thirdPartyNotices",
     "sidePanel.failedHint",
     "sidePanel.unsupportedHint",
     "options.apiUsage.api",
