@@ -9,7 +9,12 @@
 //   sign-in send credentials to the user's provider, and only configurations that use them do.
 // - `browsingActivity` is optional: a custom action whose prompt, system prompt or output-field
 //   description uses `{{webUrl}}` (and the note suggestion built from it) sends the full page URL.
-// Nothing else is transmitted: there is no telemetry and no error reporting.
+//
+// These assertions pin the DECLARATION: which categories the manifest lists. They do not establish
+// what the extension does or does not transmit. Other content can pass through a provider request
+// (selected webmail text is personal communications, for example, and the settings pages load logos
+// and icons from public hosts); the public privacy notice describes those flows, and the approved
+// declaration does not list a category for each of them.
 
 import { describe, expect, it } from "vitest"
 import config from "../../../../wxt.config"
@@ -35,7 +40,7 @@ describe("Firefox data collection declaration", () => {
     expect(dataCollection?.required).toEqual(["websiteContent"])
   })
 
-  it("does not declare that nothing is transmitted", () => {
+  it("does not use the `none` declaration, which would contradict the categories it declares", () => {
     expect(dataCollection?.required).not.toContain("none")
     expect(dataCollection?.optional ?? []).not.toContain("none")
   })
@@ -54,10 +59,10 @@ describe("Firefox data collection declaration", () => {
     "websiteActivity",
     "bookmarksInfo",
     "technicalAndInteraction",
-  ])("does not declare %s, which is not transmitted", (untransmitted) => {
+  ])("is not among the declared categories: %s", (undeclared) => {
     const declared = [...(dataCollection?.required ?? []), ...(dataCollection?.optional ?? [])]
 
-    expect(declared).not.toContain(untransmitted)
+    expect(declared).not.toContain(undeclared)
   })
 
   it("keeps the Firefox 140 floor that built-in consent needs", () => {
@@ -67,13 +72,13 @@ describe("Firefox data collection declaration", () => {
 })
 
 describe("Chrome manifest", () => {
-  it("has no Firefox-specific settings, so no data collection declaration", () => {
+  it("has no Firefox-specific settings, and so declares no data collection categories", () => {
     expect(chrome.browser_specific_settings).toBeUndefined()
   })
 })
 
-describe("no new browser API permission", () => {
-  it("keeps the Firefox permissions exactly as they are", () => {
+describe("browser API permissions", () => {
+  it("lists the Firefox permissions exactly as before the consent work", () => {
     expect(firefox.permissions).toEqual([
       "storage",
       "unlimitedStorage",
@@ -88,7 +93,7 @@ describe("no new browser API permission", () => {
     expect(firefox.host_permissions).toEqual(["*://*/*"])
   })
 
-  it("keeps the Chrome permissions exactly as they are", () => {
+  it("lists the Chrome permissions exactly as before the consent work", () => {
     expect(chrome.permissions).toEqual([
       "storage",
       "unlimitedStorage",
