@@ -496,8 +496,16 @@ describe("the notice about backups", () => {
   it("says the newest eight are normally kept, and when one extra backup can remain", () => {
     expect(backups).toContain("normally keeps the newest eight")
     expect(backups).toContain(
-      "after a restore, import or reset whose saving could not be confirmed, one extra backup can remain until the next backup, restore, import or reset that finds the settings readable",
+      "after a restore, an import or a start from the defaults in the recovery options whose saving could not be confirmed, one extra backup can remain until a later backup, restore, import or start from the defaults manages to trim the list",
     )
+  })
+
+  it("does not name the plain Reset, nor say that a readable config is enough to trim", () => {
+    // The Reset buttons replace the settings without backing them up, so they neither add the
+    // extra backup nor trim the list; and a job whose trim fails leaves the copy where it is.
+    expect(backups).not.toContain("restore, import or reset whose saving")
+    expect(backups).not.toContain("that finds the settings readable")
+    expect(backups).not.toMatch(/\breset\b/i)
   })
 
   it("promises no duration for the extra backup, and does not call it brief", () => {
