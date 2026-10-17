@@ -67,6 +67,27 @@ errorRecovery:
     description: 現在の設定はデフォルト値で上書きされます。
     confirm: リセット
     cancel: キャンセル
+recoveryExport:
+  title: このバージョンでは読み込めない設定
+  description: 保存されている設定は変更も削除もされていません。設定の正確なコピーをファイルに保存できます。
+  keptCopy: $1 に保管したコピー
+  keptBy: バージョン $1 が保管しました。
+  reason:
+    invalid-schema: 設定がこのバージョンの想定する形式と一致しませんでした。
+    migration-failed: 設定をこのバージョンにアップグレードできませんでした。
+    newer-version: より新しいバージョンで保存された設定です。
+    incoherent: 設定を説明する記録を読み取れませんでした。
+  exportCopy: 正確なコピーを書き出す
+  storedTitle: 保存されている設定をそのまま
+  storedDescription: 現在保存されている内容を変更せずに保存します。上に保管されたコピーがない場合に使います。
+  exportStored: そのまま書き出す
+  warning:
+    title: このファイルには設定が平文で含まれます
+    description: API キーなどの認証情報が保存されたとおりに含まれます。ファイルは非公開で保管し、共有やアップロードはしないでください。
+    confirm: ダウンロード
+    cancel: キャンセル
+  saved: 正確なコピーを保存しました
+  failed: 正確なコピーを保存できませんでした
 options:
   autosave:
     invalid: 移動する前に、エラーのある項目を修正してください。

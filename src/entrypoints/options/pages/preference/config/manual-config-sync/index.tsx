@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react"
 import { useMutation } from "@tanstack/react-query"
 import { useAtomValue } from "jotai"
 import { useState } from "react"
+import { RecoveryExport } from "@/components/recovery/recovery-export"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +55,7 @@ export function ManualConfigSyncConfigItems() {
       <ConfigItem description={i18n.t("options.preference.config.viewConfig.description")}>
         <ViewConfig config={config} size="sm" />
       </ConfigItem>
+      <RecoveryExport />
     </div>
   )
 }
@@ -124,8 +126,9 @@ function ImportConfig() {
         )
       }
 
-      // Backs up the config as it is STORED (or keeps an exact copy of it when it cannot be
-      // used), not the settings screen's view of it, then replaces it with the file's config.
+      // Backs up the config as it is STORED, not the settings screen's view of it, then replaces
+      // it with the file's config. A stored config that cannot be used is not replaced: the
+      // import is refused and says so.
       await replaceStoredConfig(newConfig, {
         backupCurrent: true,
         extensionVersion: EXTENSION_VERSION,

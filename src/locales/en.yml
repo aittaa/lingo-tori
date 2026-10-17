@@ -67,6 +67,27 @@ errorRecovery:
     description: This will replace your current settings with the default values.
     confirm: Reset
     cancel: Cancel
+recoveryExport:
+  title: Settings this version cannot read
+  description: Your saved settings were not changed or deleted. You can save an exact copy of them to a file.
+  keptCopy: Copy kept on $1
+  keptBy: Kept by version $1.
+  reason:
+    invalid-schema: The settings did not match the format this version expects.
+    migration-failed: Upgrading the settings to this version failed.
+    newer-version: The settings were saved by a newer version.
+    incoherent: The record that describes the settings could not be read.
+  exportCopy: Export exact copy
+  storedTitle: Stored settings as found
+  storedDescription: Saves what is stored right now without changing it. Use this if no kept copy is listed above.
+  exportStored: Export as found
+  warning:
+    title: This file contains your settings in plain text
+    description: It includes API keys and other credentials exactly as they are stored. Keep the file private and do not share or upload it.
+    confirm: Download
+    cancel: Cancel
+  saved: The exact copy was saved
+  failed: Could not save the exact copy
 options:
   autosave:
     invalid: Please correct the highlighted fields before leaving.

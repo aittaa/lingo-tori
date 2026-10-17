@@ -28,7 +28,9 @@ import {
   corruptConfig,
   CURRENT_META,
   holdFirstCall,
+  PREVIOUS_META,
   preservedCopiesOf,
+  previousVersionConfig,
   readRawPrimary,
   resetStorage,
   sameRaw,
@@ -36,6 +38,8 @@ import {
   snapshot,
   validConfig,
 } from "@/utils/config/__tests__/preservation-test-kit"
+import { decodeLossless } from "@/utils/config/preservation"
+import { parseRecoveryExport } from "@/utils/config/recovery-export"
 import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { queryClient } from "@/utils/tanstack-query"
 import { ManualConfigSyncConfigItems } from "../manual-config-sync"
@@ -205,6 +209,103 @@ describe("Export current settings while the primary config is not valid", () => 
     await untilToasted()
 
     expect(saveAsMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("Export current settings after a startup that could not upgrade the config", () => {
+  // The stored config keeps its older label when startup cannot upgrade it. The settings screen
+  // shows the defaults for it; the export must not hand them over as the user's settings.
+  beforeEach(async () => {
+    const stored: any = previousVersionConfig()
+    stored.contextMenu = { enabled: "yes" }
+    await seedPrimary(stored, PREVIOUS_META)
+    await startBackground()
+  })
+
+  it.each([
+    { name: "with API keys", label: EXPORT_WITH_KEYS },
+    { name: "without API keys", label: EXPORT_WITHOUT_KEYS },
+  ])("downloads nothing and shows an error ($name)", async ({ label }) => {
+    await renderSettledSyncItems()
+
+    fireEvent.click(screen.getByText(EXPORT))
+    await waitFor(() => screen.getByText(label))
+    fireEvent.click(screen.getByText(label))
+    await untilToasted()
+
+    expect(saveAsMock).not.toHaveBeenCalled()
+    expect(toastTypes()).toContain("error")
+    expect(toastTypes()).not.toContain("success")
+  })
+
+  it("is blocked on the error screen too", async () => {
+    renderInProviders(<RecoveryFallback error={new Error("boom")} onRecovered={() => {}} />)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    fireEvent.click(screen.getByText(RECOVERY_EXPORT_WITH_KEYS))
+    await untilToasted()
+
+    expect(saveAsMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("the recovery export next to the ordinary export", () => {
+  const RECOVERY_EXPORT = "recovery-export"
+  const EXPORT_COPY = "recoveryExport.exportCopy"
+  const EXPORT_STORED = "recoveryExport.exportStored"
+  const WARNING_CONFIRM = "recoveryExport.warning.confirm"
+
+  async function startupKeepsOriginal() {
+    await seedPrimary(SUSPECT.value, SUSPECT.meta)
+    await startBackground()
+  }
+
+  it("is on the settings page when the stored config cannot be used, and saves it exactly", async () => {
+    await startupKeepsOriginal()
+    await renderSettledSyncItems()
+
+    await waitFor(() => screen.getByText(EXPORT_COPY))
+    fireEvent.click(screen.getByText(EXPORT_COPY))
+    await waitFor(() => screen.getByText(WARNING_CONFIRM))
+    fireEvent.click(screen.getByText(WARNING_CONFIRM))
+    await waitFor(() => expect(saveAsMock).toHaveBeenCalledOnce())
+
+    const file = parseRecoveryExport(await readBlob(saveAsMock.mock.calls[0]![0]))
+    expect(decodeLossless(file.encodedValue)).toEqual(SUSPECT.value)
+  })
+
+  it("is on the error screen, where the ordinary export is blocked", async () => {
+    await startupKeepsOriginal()
+    renderInProviders(<RecoveryFallback error={new Error("boom")} onRecovered={() => {}} />)
+
+    await waitFor(() => screen.getByTestId(RECOVERY_EXPORT))
+    fireEvent.click(screen.getByText(EXPORT_COPY))
+    await waitFor(() => screen.getByText(WARNING_CONFIRM))
+    fireEvent.click(screen.getByText(WARNING_CONFIRM))
+    await waitFor(() => expect(saveAsMock).toHaveBeenCalledOnce())
+
+    const file = parseRecoveryExport(await readBlob(saveAsMock.mock.calls[0]![0]))
+    expect(decodeLossless(file.encodedValue)).toEqual(SUSPECT.value)
+  })
+
+  it("offers the stored config as found on both screens when no copy could be kept", async () => {
+    // Startup has not run, so there is no kept copy, as when the store of copies is full.
+    await seedPrimary(SUSPECT.value, SUSPECT.meta)
+    await renderSettledSyncItems()
+    expect(await screen.findByText(EXPORT_STORED)).toBeVisible()
+    cleanup()
+
+    renderInProviders(<RecoveryFallback error={new Error("boom")} onRecovered={() => {}} />)
+
+    expect(await screen.findByText(EXPORT_STORED)).toBeVisible()
+  })
+
+  it("is not shown for a usable config with nothing kept (a control)", async () => {
+    await seedPrimary(validConfig(), CURRENT_META)
+    await renderSettledSyncItems()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    expect(screen.queryByTestId(RECOVERY_EXPORT)).not.toBeInTheDocument()
   })
 })
 
