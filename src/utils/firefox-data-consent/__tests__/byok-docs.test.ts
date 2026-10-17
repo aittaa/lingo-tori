@@ -4,6 +4,10 @@
 // really does: ticking the declaration saves it and makes authentication consent required for that
 // provider, and the user then grants the permission with the separate Allow button. Neither the
 // checkbox nor a refused request opens a Firefox prompt by itself.
+//
+// The Firefox sign-in note must also name everything that stops a sign-in that is waiting for the
+// permission from opening the sign-in page, including the end of the session by a failed token
+// refresh.
 
 import { readFileSync } from "node:fs"
 import path from "node:path"
@@ -34,5 +38,26 @@ describe("the BYOK note about a secret LingoTori cannot recognise", () => {
 
   it("says what LingoTori cannot do about an undeclared secret", () => {
     expect(paragraph).toContain("cannot detect or gate an undeclared secret")
+  })
+})
+
+const firefoxSignIn = readFileSync(path.resolve("docs/byos-firefox.md"), "utf8")
+const waiting = firefoxSignIn
+  .split(". ")
+  .find((sentence) => sentence.includes("while the permission is being read"))
+
+describe("the Firefox sign-in note about a sign-in that waits for the permission", () => {
+  it("exists", () => {
+    expect(waiting).toBeDefined()
+  })
+
+  it("says the sign-in page stays closed when the sign-in is cancelled, replaced or expires", () => {
+    expect(waiting).toContain("cancelled, replaced or expires")
+    expect(waiting).toContain("does not open the sign-in page")
+  })
+
+  it("adds the sign-in whose session is invalidated, with a failed token refresh as the example", () => {
+    expect(waiting).toContain("whose session is invalidated")
+    expect(waiting).toContain("token refresh that fails for good")
   })
 })
