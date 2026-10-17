@@ -62,7 +62,12 @@ describe("the third-party notices", () => {
     .slice(indexStart, textsStart)
     .map((line) => /^ {2}(\S+) (\S+)\s+(\S+)\s+(T\d{3})$/.exec(line))
     .filter((match): match is RegExpExecArray => match !== null)
-    .map(([, name, version, license, text]) => ({ name, version, license, text }))
+    .map(([, name, version, license, text]) => ({
+      name: name!,
+      version: version!,
+      license: license!,
+      text: text!,
+    }))
   const textIds = new Set(
     lines.map((line) => /^(T\d{3}) {2}/.exec(line)?.[1]).filter((id): id is string => !!id),
   )
