@@ -231,17 +231,8 @@ describe("the permission switched off while the last vault read is pending", () 
 })
 
 describe("the sign-in cancelled while the final consent read is pending", () => {
-  it("does not navigate", async () => {
-    const run = signIn({ holdConsentRead: 2 })
-    await waitFor(run.events, "consent:held")
-
-    await run.service.cancelAuth(ATTEMPT)
-    run.releaseConsent()
-
-    expect(await run.started).toMatchObject({ code: "session_changed" })
-    expect(run.transport.navigate).not.toHaveBeenCalled()
-  })
-
+  // A plain cancellation during this read is pinned by byos-cancel-during-consent.test.ts, which
+  // holds the same read of the same service; the cases here are the ones it does not cover.
   it("does not navigate when the user signed out meanwhile", async () => {
     const run = signIn({ holdConsentRead: 2 })
     await waitFor(run.events, "consent:held")
