@@ -266,6 +266,9 @@ export function createByosService(
       // none starts without the user's consent, read now rather than remembered. Metering and the
       // fetch come after admission.
       await assertDataConsent("authenticationInfo")
+      // The read was asynchronous: a cancellation, a sign-out or a timeout that landed meanwhile
+      // has aborted this request, and an aborted request is not sent.
+      signal.throwIfAborted()
       if (!signal.aborted) {
         try {
           onDispatch?.()
@@ -710,9 +713,23 @@ export function createByosService(
           }).toString()
           await ensureGeneration(pending.generation)
           if (ownIntent !== intent) fail("session_changed")
-          // The navigation sends the authorization request: check again, now that the setup awaits
-          // are behind us, so a revocation in between stops it.
+          // The navigation sends the authorization request: check the consent again, now that the
+          // setup awaits are behind us, so a revocation in between stops it.
           await assertDataConsent("authenticationInfo")
+          // That read was asynchronous too. Whatever the attempt owned before it must still be
+          // true now: the intent, the pending record (this attempt's, same state, same generation)
+          // and the expiry. A cancelled attempt cannot navigate while its cleanup is still running.
+          // Nothing is awaited between these checks and the call that navigates.
+          const current = await vault.read()
+          if (
+            ownIntent !== intent ||
+            signingOut ||
+            current.generation !== pending.generation ||
+            current.pending?.state !== pending.state ||
+            current.pending?.attemptId !== attemptId ||
+            pending.expires <= now()
+          )
+            fail("session_changed")
           await transport.navigate(tabId, url.href)
         } catch (error) {
           await vault.update((current) => {

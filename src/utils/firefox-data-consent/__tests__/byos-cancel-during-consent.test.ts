@@ -11,7 +11,13 @@
 
 import type { Mock } from "vitest"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { memoryVault, mockTransport } from "@/utils/byos/__tests__/auth-fixtures"
+import {
+  credentials,
+  fetchUrl,
+  memoryVault,
+  mockTransport,
+} from "@/utils/byos/__tests__/auth-fixtures"
+import { RESOURCE } from "@/utils/byos/oidc"
 import { createByosService } from "@/utils/byos/service"
 import { installFirefox, removePermissionsDouble, WITH_CREDENTIALS } from "./firefox-permissions"
 
@@ -134,5 +140,62 @@ describe("a sign-in nobody touches while the navigation consent read is pending"
       pending!.tabId,
       expect.stringContaining(`state=${pending!.state}`),
     )
+  })
+})
+
+describe("a ChatGPT request whose consent read is pending when the session ends", () => {
+  /** A connected account; the first consent read is held, the later ones answer at once. */
+  async function connectedHoldingFirstRead() {
+    const permissions = installFirefox(WITH_CREDENTIALS)
+    const consent = deferred()
+    let reads = 0
+    permissions.getAll.mockImplementation(async () => {
+      reads++
+      if (reads === 1) await consent.promise
+      return { permissions: [], origins: [], data_collection: [...WITH_CREDENTIALS] }
+    })
+    const vault = memoryVault()
+    await vault.update((record) => {
+      record.credentials = credentials()
+      record.registration = { clientId: "synthetic-client", subject: "synthetic-subject" }
+    })
+    // Answers every call, and ignores the abort signal like a double does.
+    const fetcher = vi.fn<typeof fetch>(async () => Response.json({ models: [] }))
+    const service = createByosService(
+      vault,
+      mockTransport(),
+      target.extensionId,
+      target.callbackUrl,
+      fetcher,
+    )
+    const models = service.models().then(
+      () => "listed" as const,
+      (error: unknown) => error,
+    )
+    await vi.waitFor(() => expect(reads).toBe(1))
+    return { service, fetcher, models, releaseConsent: consent.resolve }
+  }
+
+  const modelListCalls = (fetcher: ReturnType<typeof vi.fn<typeof fetch>>) =>
+    fetcher.mock.calls.filter(([input]) => fetchUrl(input) === `${RESOURCE}/models`)
+
+  it("is not sent when the user signed out meanwhile", async () => {
+    const { service, fetcher, models, releaseConsent } = await connectedHoldingFirstRead()
+
+    const signedOut = service.signout()
+    releaseConsent()
+    await signedOut
+
+    expect(await models).toMatchObject({ code: "session_changed" })
+    expect(modelListCalls(fetcher)).toHaveLength(0)
+  })
+
+  it("is sent when nothing happened", async () => {
+    const { fetcher, models, releaseConsent } = await connectedHoldingFirstRead()
+
+    releaseConsent()
+
+    expect(await models).toBe("listed")
+    expect(modelListCalls(fetcher)).toHaveLength(1)
   })
 })
