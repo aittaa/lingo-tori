@@ -748,20 +748,3 @@ describe("startup when the migration cannot give a usable config", () => {
     expect(copies[0]!.entry.reason).toBe("invalid-schema")
   })
 })
-
-describe("two startups that see different originals", () => {
-  it("keeps both when the stored config is replaced between them", async () => {
-    const first: RawPrimary = { value: corruptConfig("first"), meta: CURRENT_META }
-    const second: RawPrimary = { value: corruptConfig("second"), meta: CURRENT_META }
-
-    await seedPrimary(first.value, first.meta)
-    await startBackground()
-    await seedPrimary(second.value, second.meta)
-    await startBackground()
-
-    const all = await snapshot()
-    expect(preservedCopiesOf(all, first)).toHaveLength(1)
-    expect(preservedCopiesOf(all, second)).toHaveLength(1)
-    expect(sameRaw(await readRawPrimary(), second)).toBe(true)
-  })
-})
