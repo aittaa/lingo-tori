@@ -31,8 +31,19 @@ const baseConfig = {
   baseRetryDelayMs: 100,
 } as const
 
-// Restore timers after each test so later suites aren't affected.
+// Retry and pause delays add up to 10% of `Math.random()` jitter. A test that needs an exact boundary
+// pins the jitter to zero here; the spy is restored after the test (a failing one included), so no
+// later test inherits a fixed Math.random.
+const jitterSpies: Array<{ mockRestore: () => void }> = []
+function pinJitterToZero() {
+  jitterSpies.push(vi.spyOn(Math, "random").mockReturnValue(0))
+}
+
+// After each test: drop the timers its queues left on the fake clock (schedule and timeout timers),
+// restore every pinned Math.random, and put the real timers back so later suites aren't affected.
 afterEach(() => {
+  if (vi.isFakeTimers()) vi.clearAllTimers()
+  for (const spy of jitterSpies.splice(0)) spy.mockRestore()
   vi.useRealTimers()
 })
 
@@ -253,14 +264,55 @@ describe("requestQueue – high volume", () => {
       })
     }
 
+    const timersAtStart = vi.getTimerCount()
+
+    // The consumers' side. A thunk having run (`completed`) is dispatch; the promise a caller
+    // awaits settles only once the queue has taken the thunk's result, so every public promise gets
+    // an observer here, as it is returned and before the clock moves, and is checked below.
+    const outcomes = new Map<number, PromiseSettledResult<unknown>>()
     for (let i = 0; i < count; i++) {
-      void q.enqueue(trackingThunk(i), Date.now(), `task-${i}`)
+      void q.enqueue(trackingThunk(i), Date.now(), `task-${i}`).then(
+        (value) => outcomes.set(i, { status: "fulfilled", value }),
+        (reason: unknown) => outcomes.set(i, { status: "rejected", reason }),
+      )
     }
 
     // Advance time enough: 100 tasks, initial 5 tokens, then 5 per sec
     // First 5 tasks execute immediately, remaining 95 tasks need 95/5 = 19 seconds
-    vi.advanceTimersByTime(19_000)
+    await vi.advanceTimersByTimeAsync(19_000)
     expect(completed).toHaveLength(count)
+
+    // Every caller's promise has settled, each with its own task's value.
+    const unsettled = Array.from({ length: count }, (_, i) => i)
+      .filter((i) => !outcomes.has(i))
+      .map((i) => `task-${i}`)
+    expect(unsettled, "public promises still pending after the drain").toEqual([])
+    expect(Array.from({ length: count }, (_, i) => outcomes.get(i))).toEqual(
+      Array.from({ length: count }, (_, i) => ({ status: "fulfilled", value: i })),
+    )
+    // Nothing is left armed: no schedule timer, no request timeout.
+    expect(vi.getTimerCount()).toBe(timersAtStart)
+
+    // Completion frees the hash: a new request under a hash that already finished runs its own
+    // thunk and gets its own result (it is neither answered with the old value nor dropped).
+    await vi.advanceTimersByTimeAsync(1_000) // a token has refilled by now
+    let reuseRuns = 0
+    let reusedValue: unknown
+    void q
+      .enqueue(
+        () => {
+          reuseRuns++
+          return Promise.resolve("again")
+        },
+        Date.now(),
+        "task-0",
+      )
+      .then((value) => {
+        reusedValue = value
+      })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(reuseRuns, "a new request under a finished hash must run its own thunk").toBe(1)
+    expect(reusedValue, "and be answered with its own result").toBe("again")
   })
 })
 
@@ -641,7 +693,7 @@ describe("requestQueue – retry policy and queue fail-fast drain", () => {
 
   it("pauses instead of draining the backlog on a 429", async () => {
     vi.useFakeTimers()
-    vi.spyOn(Math, "random").mockReturnValue(0) // deterministic pause (no jitter)
+    pinJitterToZero() // deterministic pause (no jitter)
 
     const q = new RequestQueue({
       ...baseConfig,
@@ -693,7 +745,7 @@ describe("requestQueue – retry policy and queue fail-fast drain", () => {
 
   it("honors a Retry-After header longer than the base pause", async () => {
     vi.useFakeTimers()
-    vi.spyOn(Math, "random").mockReturnValue(0)
+    pinJitterToZero()
 
     const q = new RequestQueue({
       ...baseConfig,
@@ -731,7 +783,7 @@ describe("requestQueue – retry policy and queue fail-fast drain", () => {
 
   it("counts one pause window for concurrent 429s and resets on success", async () => {
     vi.useFakeTimers()
-    vi.spyOn(Math, "random").mockReturnValue(0)
+    pinJitterToZero()
 
     const q = new RequestQueue({
       ...baseConfig,
@@ -774,7 +826,7 @@ describe("requestQueue – retry policy and queue fail-fast drain", () => {
 
   it("fails the whole backlog only after the consecutive pause cap", async () => {
     vi.useFakeTimers()
-    vi.spyOn(Math, "random").mockReturnValue(0)
+    pinJitterToZero()
 
     const q = new RequestQueue({
       ...baseConfig,
@@ -816,7 +868,7 @@ describe("requestQueue – retry policy and queue fail-fast drain", () => {
 
   it("cancels a 429-parked task during the pause via cancelByScope", async () => {
     vi.useFakeTimers()
-    vi.spyOn(Math, "random").mockReturnValue(0)
+    pinJitterToZero()
 
     const q = new RequestQueue({
       ...baseConfig,
@@ -1279,7 +1331,7 @@ describe("requestQueue – reconfigure the request queue", () => {
 describe("requestQueue – dispatch ETA and per-task timeout", () => {
   it("nextDispatchEtaMs reflects tokens, backlog depth, and pause", async () => {
     vi.useFakeTimers()
-    vi.spyOn(Math, "random").mockReturnValue(0)
+    pinJitterToZero()
 
     const q = new RequestQueue({ ...baseConfig, rate: 1, capacity: 1 })
 
@@ -1306,7 +1358,7 @@ describe("requestQueue – dispatch ETA and per-task timeout", () => {
 
   it("includes the rate-limit pause in the ETA", async () => {
     vi.useFakeTimers()
-    vi.spyOn(Math, "random").mockReturnValue(0)
+    pinJitterToZero()
 
     const q = new RequestQueue({
       ...baseConfig,
@@ -1369,11 +1421,24 @@ describe("requestQueue – resuming after a 429", () => {
     })
   }
 
-  function setup() {
+  // These tests are about the pause alone, so the requests they hold open must not run into the
+  // request timeout while they are observed: it is far beyond the longest observation here (a 30 s
+  // Retry-After and the drain after it), and `finish()` checks that nothing was aborted. What
+  // happens when the timeout and the pause meet is its own test, at the end of this block.
+  const PAUSE_ONLY_TIMEOUT_MS = 10 * 60_000
+  const DEFAULT_TIMEOUT_MS = baseConfig.timeoutMs
+  // A drain that has not settled every request after this many steps has hung: it fails and names them.
+  const MAX_DRAIN_STEPS = 200
+
+  function setup(options: { timeoutMs?: number; abortedByTimeout?: string[] } = {}) {
+    const timeoutMs = options.timeoutMs ?? PAUSE_ONLY_TIMEOUT_MS
+    // Requests that this test lets run into the timeout; none when the timeout is out of play.
+    const abortedByTimeout = options.abortedByTimeout ?? []
     vi.useFakeTimers()
-    vi.spyOn(Math, "random").mockReturnValue(0) // no jitter: the pause is exactly what it says
+    pinJitterToZero() // no jitter: the pause is exactly what it says
     const q = new RequestQueue({
       ...baseConfig,
+      timeoutMs,
       rate: RATE,
       capacity: CAPACITY,
       maxRetries: 2,
@@ -1381,41 +1446,58 @@ describe("requestQueue – resuming after a 429", () => {
     })
     const t0 = Date.now()
     const starts: Array<{ id: string; at: number }> = []
+    const aborted: string[] = []
     const held: Array<ReturnType<typeof createDeferred<string>>> = []
-    const promises: Array<Promise<string>> = []
+    const requests: Array<{ id: string; settled: boolean; promise: Promise<string> }> = []
 
     // A request that starts, is recorded, and then waits for the test to answer: "before the first
     // response" is the whole point.
     const holdOpen = (id: string, first429?: Error) => {
       let attempts = 0
-      promises.push(
-        q.enqueue(
-          () => {
-            starts.push({ id, at: Date.now() - t0 })
-            if (first429 && ++attempts === 1) return Promise.reject(first429)
-            const deferred = createDeferred<string>()
-            held.push(deferred)
-            return deferred.promise
-          },
-          Date.now(),
-          id,
-        ),
+      const promise = q.enqueue(
+        (signal) => {
+          starts.push({ id, at: Date.now() - t0 })
+          signal?.addEventListener("abort", () => aborted.push(id), { once: true })
+          if (first429 && ++attempts === 1) return Promise.reject(first429)
+          const deferred = createDeferred<string>()
+          held.push(deferred)
+          return deferred.promise
+        },
+        Date.now(),
+        id,
       )
+      const request = { id, settled: false, promise }
+      // Observed from the moment it is returned: settled means the caller's promise is settled.
+      const markSettled = () => {
+        request.settled = true
+      }
+      promise.then(markSettled, markSettled)
+      requests.push(request)
     }
 
     const startedSince = (atMs: number) => starts.filter((start) => start.at >= atMs).length
 
-    // Answers everything that starts, step by step, until every request has settled.
+    // Answers everything that starts, step by step, until every public promise has settled (and no
+    // longer than MAX_DRAIN_STEPS steps: if some never settle, it fails and says which).
     const finish = async () => {
-      for (let i = 0; i < 200; i++) {
+      for (let i = 0; i < MAX_DRAIN_STEPS && requests.some((request) => !request.settled); i++) {
         held.splice(0).forEach((deferred) => deferred.resolve("ok"))
         await vi.advanceTimersByTimeAsync(STEP_MS)
       }
       held.splice(0).forEach((deferred) => deferred.resolve("ok"))
-      await Promise.all(promises)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(
+        requests.filter((request) => !request.settled).map((request) => request.id),
+        `requests still pending after ${MAX_DRAIN_STEPS} drain steps (${starts.length} attempts started)`,
+      ).toEqual([])
+      await Promise.all(requests.map((request) => request.promise))
+      expect(
+        aborted.toSorted(),
+        "only the requests this test lets time out may have been aborted",
+      ).toEqual(abortedByTimeout)
     }
 
-    return { q, t0, starts, holdOpen, startedSince, finish }
+    return { q, t0, starts, aborted, holdOpen, startedSince, finish }
   }
 
   /**
@@ -1497,6 +1579,29 @@ describe("requestQueue – resuming after a 429", () => {
 
     await vi.advanceTimersByTimeAsync(29_999)
     expect(starts).toHaveLength(CAPACITY)
+    await vi.advanceTimersByTimeAsync(1)
+
+    await expectNormalRateAfter(30_000, startedSince)
+    await finish()
+  })
+
+  // The combination, on its own: the requests held open run into the default request timeout in the
+  // middle of the pause. They time out and wait to be retried, but nothing starts before the pause
+  // ends, and the rate after it is still the normal one.
+  it("stays within one request after a long Retry-After when the held requests time out during it", async () => {
+    const { holdOpen, startedSince, starts, aborted, finish } = setup({
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+      abortedByTimeout: ["backlog-1", "backlog-2", "backlog-3"],
+    })
+    holdOpen("limited", rateLimited({ "retry-after": "30" }))
+    for (let i = 1; i <= 7; i++) holdOpen(`backlog-${i}`)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(starts).toHaveLength(CAPACITY)
+
+    await vi.advanceTimersByTimeAsync(29_999)
+    // The three requests that were started and held open timed out (the 429 one had already failed).
+    expect(aborted.toSorted()).toEqual(["backlog-1", "backlog-2", "backlog-3"])
+    expect(starts).toHaveLength(CAPACITY) // and none of their retries started inside the pause
     await vi.advanceTimersByTimeAsync(1)
 
     await expectNormalRateAfter(30_000, startedSince)
