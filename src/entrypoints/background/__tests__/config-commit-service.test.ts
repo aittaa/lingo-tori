@@ -784,12 +784,47 @@ describe("an explicit replacement (restore, import, reset)", () => {
     const request = await replaceOf(validConfig())
     // An earlier attempt of this operation made a backup; the latest backup does not hold what is
     // stored now, so only the operation id says it is already there.
-    const id = await seedBackup(validConfig(), 5_000, `configBackup_5000_${request.opId}`)
+    const id = await seedBackup(
+      validConfig(),
+      5_000,
+      `configBackup_5000_${request.opId}`,
+      request.opDigest,
+    )
 
     const response = await newService().handle(request, PAGE)
 
     expect(response.status).toBe("committed")
     expect(backupEntries(await snapshot()).map((entry) => entry.id)).toEqual([id])
+  })
+
+  it("rejects an operation id that already has a backup made for a different operation", async () => {
+    const stored = { ...validConfig(), contextMenu: { enabled: false } }
+    await seedPrimary(stored, committedMeta(stored))
+    const request = await replaceOf(validConfig())
+    await seedBackup(
+      validConfig(),
+      5_000,
+      `configBackup_5000_${request.opId}`,
+      "digest-of-another-operation",
+    )
+    const before = await snapshot()
+
+    const response = await newService().handle(request, PAGE)
+
+    expect(response).toEqual({ status: "rejected", reason: "op-digest-mismatch" })
+    expect(await snapshot()).toEqual(before)
+  })
+
+  it("does not take a backup made without any operation digest for the one it is asked about", async () => {
+    const stored = { ...validConfig(), contextMenu: { enabled: false } }
+    await seedPrimary(stored, committedMeta(stored))
+    const request = await replaceOf(validConfig())
+    await seedBackup(validConfig(), 5_000, `configBackup_5000_${request.opId}`)
+
+    const response = await newService().handle(request, PAGE)
+
+    expect(response).toEqual({ status: "rejected", reason: "op-digest-mismatch" })
+    expect((await readRawPrimary()).value).toEqual(stored)
   })
 })
 
@@ -911,6 +946,41 @@ describe("backups", () => {
       schemaVersion: CONFIG_SCHEMA_VERSION,
       config: stored,
     })
+  })
+
+  it("keeps the digest of the operation beside the backup, and the backup itself unchanged", async () => {
+    const stored = { ...validConfig(), keyKeptAsStored: 1 }
+    await seedPrimary(stored, committedMeta(stored))
+    const request = operation({ kind: "backup-now", extensionVersion: "0.0.1" })
+
+    const response = await newService().handle(request, PAGE)
+
+    const { backupId } = response as { backupId: string }
+    const all = await snapshot()
+    expect(all[backupId]).toEqual({ schemaVersion: CONFIG_SCHEMA_VERSION, config: stored })
+    expect(all[`${backupId}$`]).toEqual({
+      createdAt: expect.any(Number),
+      extensionVersion: "0.0.1",
+      opDigest: request.opDigest,
+    })
+  })
+
+  it("rejects an operation id that is used again for a different backup request", async () => {
+    await seedPrimary(validConfig(), committedMeta(validConfig()))
+    const service = newService()
+    const first = operation({ kind: "backup-now", extensionVersion: "0.0.1" })
+    expect((await service.handle(first, PAGE)).status).toBe("committed")
+    const reused = operation(
+      { kind: "backup-now", extensionVersion: "another-payload" },
+      { opId: first.opId, attempt: "uncertain-retry" },
+    )
+    expect(reused.opDigest).not.toBe(first.opDigest)
+    const before = await snapshot()
+
+    const response = await service.handle(reused, PAGE)
+
+    expect(response).toEqual({ status: "rejected", reason: "op-digest-mismatch" })
+    expect(await snapshot()).toEqual(before)
   })
 
   it.each([

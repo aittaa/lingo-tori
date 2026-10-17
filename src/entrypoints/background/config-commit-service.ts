@@ -245,6 +245,13 @@ export function createConfigCommitService(
       return { status: "committed", token }
     }
 
+    // The backup a replacement takes first is answered by the operation id like the primary pair
+    // is, and under the same rule: an id that comes with another digest is another operation.
+    const already = request.kind === "replace" ? await findBackupMadeBy(request.opId) : undefined
+    if (already && already.opDigest !== request.opDigest) {
+      return { status: "rejected", reason: "op-digest-mismatch" }
+    }
+
     if (request.kind === "edit") {
       // An edit computed from the defaults that stand in for an unusable config is never committed.
       if (request.base.kind !== "usable" && request.base.kind !== "absent") {
@@ -291,10 +298,10 @@ export function createConfigCommitService(
         }
       } else if (request.backupCurrent && status.kind === "usable") {
         const stored = status.raw.value as Config
-        const already = await findBackupMadeBy(request.opId)
         if (!already && !(await isSameAsLatestBackup(stored, CONFIG_SCHEMA_VERSION))) {
           addedBackupId = await addBackup(stored, request.extensionVersion, CONFIG_SCHEMA_VERSION, {
             backupId: backupIdFor(now(), request.opId),
+            opDigest: request.opDigest,
             prune: false,
           })
         }
@@ -331,9 +338,14 @@ export function createConfigCommitService(
   async function executeBackupNow(
     request: Extract<OperationRequest, { kind: "backup-now" }>,
   ): Promise<CommitResponse> {
-    // Already made by this operation: done, whichever attempt this is.
+    // Already made by this operation: done, whichever attempt this is. The same id with another
+    // digest is another operation and is not answered with this one's backup.
     const existing = await findBackupMadeBy(request.opId)
-    if (existing) return { status: "committed", backupId: existing }
+    if (existing) {
+      return existing.opDigest === request.opDigest
+        ? { status: "committed", backupId: existing.id }
+        : { status: "rejected", reason: "op-digest-mismatch" }
+    }
     // A retry never makes it again: the first attempt either did it (found above) or the answer
     // cannot be explained.
     if (request.attempt === "uncertain-retry") return { status: "outcome-unknown" }
@@ -345,7 +357,7 @@ export function createConfigCommitService(
       status.raw.value as Config,
       request.extensionVersion,
       CONFIG_SCHEMA_VERSION,
-      { backupId: backupIdFor(now(), request.opId) },
+      { backupId: backupIdFor(now(), request.opId), opDigest: request.opDigest },
     )
     return { status: "committed", backupId }
   }
@@ -364,6 +376,9 @@ export function createConfigCommitService(
         return executePrimary(request, senderClass)
       case "backup-now":
         return executeBackupNow(request)
+      // The operations below are idempotent by the id or key they name, so they are not answered
+      // by looking an operation id up: repeating one removes the same thing, or finds it gone.
+      // (Clearing uses the list fixed in the request, never the primary revision or the list now.)
       case "remove-backup":
         await removeBackup(request.backupId)
         return { status: "committed" }

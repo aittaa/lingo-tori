@@ -66,15 +66,27 @@ export function backupIdFor(timestamp: number, opId: string): string {
   return `${BACKUP_ID_PREFIX}_${timestamp}_${opId}`
 }
 
-/** The backup an operation already made, if any (its id ends with the operation id). */
-export async function findBackupMadeBy(opId: string): Promise<string | undefined> {
+/**
+ * The backup an operation already made, if any (its id ends with the operation id), with the digest
+ * of the operation that made it. That digest is what tells a request that is sent again from a
+ * different request that reuses the id; a backup that carries none cannot be told and is not
+ * matched by any operation.
+ */
+export async function findBackupMadeBy(
+  opId: string,
+): Promise<{ id: string; opDigest: string | undefined } | undefined> {
   const backupIds = (await storage.getItem<string[]>("local:backup_ids")) ?? []
-  return backupIds.find((id) => id.endsWith(`_${opId}`))
+  const id = backupIds.find((candidate) => candidate.endsWith(`_${opId}`))
+  if (id === undefined) return undefined
+  const metadata = await storage.getMeta<ConfigBackupMetadata>(`local:${id}`)
+  return { id, opDigest: typeof metadata.opDigest === "string" ? metadata.opDigest : undefined }
 }
 
 export interface AddBackupOptions {
   /** Use this id instead of a new random one (see {@link backupIdFor}). */
   backupId?: string
+  /** The digest of the operation making the backup, kept in its metadata (see {@link findBackupMadeBy}). */
+  opDigest?: string
   /** Set to false to leave rotation to a later {@link pruneBackups}. */
   prune?: boolean
 }
@@ -102,7 +114,11 @@ export async function addBackup(
 
     // Save the backup with metadata, then add it to the list (newest first).
     await storage.setItem(`local:${backupId}`, backup)
-    await storage.setMeta(`local:${backupId}`, { createdAt: timestamp, extensionVersion })
+    await storage.setMeta(`local:${backupId}`, {
+      createdAt: timestamp,
+      extensionVersion,
+      ...(options.opDigest === undefined ? {} : { opDigest: options.opDigest }),
+    })
     const backupIds = (await storage.getItem<string[]>("local:backup_ids")) ?? []
     await storage.setItem("local:backup_ids", [
       backupId,
