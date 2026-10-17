@@ -68,9 +68,11 @@ async function expectYieldToWaitForEventLoop(options: {
   afterTurn?: () => void
 }) {
   const log: string[] = []
+  let resolvedWith: unknown = "not resolved"
   options.queueInputEvent(log)
 
-  void yieldToMain().then(() => {
+  void yieldToMain().then((value) => {
+    resolvedWith = value
     log.push("resumed")
   })
   await flushMicrotasks()
@@ -83,6 +85,7 @@ async function expectYieldToWaitForEventLoop(options: {
     "input event",
     "resumed",
   ])
+  expect(resolvedWith, "a yield resolves with nothing").toBeUndefined()
   options.afterTurn?.()
 }
 
