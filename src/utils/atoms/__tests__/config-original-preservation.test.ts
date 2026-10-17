@@ -8,8 +8,8 @@
 // config that is still being upgraded when startup has finished without upgrading it, which would
 // otherwise be stored under its old label.
 //
-// Real code: `writeConfigAtom` through a Jotai store, `setLocalConfig` (the content-script
-// shortcut's writer), `initializeConfig`, over the extension's in-memory browser storage, with the
+// Real code: `writeConfigAtom` through a Jotai store, `editConfig` (the writer a content script's
+// shortcut uses), `initializeConfig`, over the extension's in-memory browser storage, with the
 // settings service answering through the test setup's message seam. Separate module instances over
 // the same storage stand in for separate extension contexts (background, options page).
 
@@ -57,7 +57,7 @@ async function openBackgroundContext() {
 
 async function openContentScriptContext() {
   vi.resetModules()
-  return import("../../config/storage")
+  return import("../../config/write-guard")
 }
 
 interface SuspectCase {
@@ -106,18 +106,18 @@ describe("an ordinary edit over a primary config that is not valid", () => {
       await expect(options.edit()).rejects.toMatchObject({ name: "ConfigRecoveryRequiredError" })
     })
 
-    it("through setLocalConfig (the content-script shortcut) writes nothing", async () => {
+    it("through editConfig (the content-script shortcut) writes nothing", async () => {
       const content = await openContentScriptContext()
 
-      await content.setLocalConfig(validConfig()).catch(() => undefined)
+      await content.editConfig(() => validConfig()).catch(() => undefined)
 
       expect(sameRaw(await readRawPrimary(), before)).toBe(true)
     })
 
-    it("through setLocalConfig is refused with a ConfigRecoveryRequiredError", async () => {
+    it("through editConfig is refused with a ConfigRecoveryRequiredError", async () => {
       const content = await openContentScriptContext()
 
-      await expect(content.setLocalConfig(validConfig())).rejects.toMatchObject({
+      await expect(content.editConfig(() => validConfig())).rejects.toMatchObject({
         name: "ConfigRecoveryRequiredError",
       })
     })
@@ -140,12 +140,12 @@ describe("controls: an ordinary edit over a valid config", () => {
     expect(await readPreserved()).toEqual([])
   })
 
-  it("stores the edit through setLocalConfig and keeps the version label", async () => {
+  it("stores the edit through editConfig and keeps the version label", async () => {
     await seedPrimary(validConfig(), CURRENT_META)
     const content = await openContentScriptContext()
     const edited = { ...validConfig(), contextMenu: { enabled: false } }
 
-    await content.setLocalConfig(edited)
+    await content.editConfig(() => edited)
 
     const stored = await readRawPrimary()
     expect((stored.value as Config).contextMenu.enabled).toBe(false)

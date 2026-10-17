@@ -1,12 +1,12 @@
 // The page-translation mode shortcut over a stored config that cannot be used.
 //
-// The shortcut runs in the page and flips the mode with `setLocalConfig`. When the stored config
+// The shortcut runs in the page and flips the mode with an edit. When the stored config
 // cannot be validated, `getLocalConfig` returns the DEFAULTS, so the shortcut used to write defaults
 // plus the flipped mode over the user's real settings, with no copy kept. The write is refused now,
 // the original stays exactly as stored, the shortcut does not throw out of the page, and the user
 // is told rather than left to think the shortcut did nothing.
 //
-// Real: `bindTranslationModeShortcutKey`, `getLocalConfig`, `setLocalConfig`, over the extension's
+// Real: `bindTranslationModeShortcutKey`, `getLocalConfig`, `editConfig`, over the extension's
 // in-memory browser storage. Replaced: the hotkey manager (to fire the registered handler by hand)
 // and the toast manager (to read the messages).
 
