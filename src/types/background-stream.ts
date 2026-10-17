@@ -22,6 +22,13 @@ interface BaseBackgroundStreamSerializablePayload {
   stopSequences?: string[]
   reasoning?: AISDKReasoning
   providerOptions?: Record<string, Record<string, JSONValue>>
+  /**
+   * Optional Firefox data categories this request sends beyond the provider credentials. The
+   * caller declares them (a prompt that carries `{{webUrl}}` sends the page URL: browsingActivity);
+   * the background asks Firefox's built-in consent before it starts. It is a consent aid, not a
+   * security boundary: it is declared by our own content script.
+   */
+  dataCategories?: Array<"browsingActivity">
 }
 
 export type BackgroundStreamTextSerializablePayload = BaseBackgroundStreamSerializablePayload & {

@@ -24,6 +24,7 @@ import type { LLMProviderConfig } from "@/types/config/provider"
 import { generateText } from "ai"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
+import { findDataConsentError } from "@/utils/firefox-data-consent"
 import { deeplTranslate } from "@/utils/host/translate/api/deepl"
 import { deeplxTranslate } from "@/utils/host/translate/api/deeplx"
 import { getLanguageModelForConfig } from "@/utils/providers/model"
@@ -342,7 +343,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
     // A key typed into the path cannot be told from a path segment: the user says so.
     const declared = openAICompatible({
       baseURL: `${ORIGIN}/v1/KEY-IN-PATH-123`,
-      endpointCarriesCredential: true,
+      endpointNeedsConsent: true,
     })
 
     const outcome = await attempt(llm(declared))
@@ -358,7 +359,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
       llm(
         openAICompatible({
           baseURL: `${ORIGIN}/v1/KEY-IN-PATH-123`,
-          endpointCarriesCredential: true,
+          endpointNeedsConsent: true,
         }),
       )(),
     ).resolves.toBeDefined()
@@ -370,7 +371,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
     installFirefox(NOTHING_GRANTED)
 
     const outcome = await attempt(
-      llm(openAICompatible({ apiKey: "sk-test-123", endpointCarriesCredential: false })),
+      llm(openAICompatible({ apiKey: "sk-test-123", endpointNeedsConsent: false })),
     )
 
     expect(fetchMock).not.toHaveBeenCalled()
@@ -481,7 +482,8 @@ describe("revoked in about:addons during the session", () => {
     await vi.advanceTimersByTimeAsync(30_000)
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(await outcome).toMatchObject({ name: "DataConsentRequiredError" })
+    // The SDK wraps the error of a later attempt in its retry error; the refusal is inside it.
+    expect(findDataConsentError(await outcome)).toMatchObject({ category: "authenticationInfo" })
   })
 })
 

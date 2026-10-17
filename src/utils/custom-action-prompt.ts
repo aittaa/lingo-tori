@@ -26,6 +26,24 @@ export function replaceSelectionToolbarCustomActionPromptTokens(
     .replaceAll(getSelectionToolbarCustomActionTokenCellText("webContent"), tokens.webContent)
 }
 
+/**
+ * Whether running the action sends the full page URL to the provider: its prompt, its system prompt
+ * or an output-field description uses the `{{webUrl}}` token. That is browsingActivity for Firefox's
+ * data consent, and nothing else in an action's request is.
+ */
+export function customActionUsesWebUrl(action: {
+  prompt: string
+  systemPrompt: string
+  outputSchema: ReadonlyArray<{ description: string }>
+}): boolean {
+  const token = getSelectionToolbarCustomActionTokenCellText("webUrl")
+  return [
+    action.prompt,
+    action.systemPrompt,
+    ...action.outputSchema.map((f) => f.description),
+  ].some((text) => typeof text === "string" && text.includes(token))
+}
+
 export type StructuredOutputField = Pick<
   SelectionToolbarCustomActionOutputField,
   "name" | "type" | "description"

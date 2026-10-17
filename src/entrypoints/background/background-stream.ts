@@ -31,6 +31,7 @@ import { classifyFailureReason } from "@/utils/analytics-failure-reason"
 import { apiUsageFeatureSchema } from "@/utils/api-usage"
 import { createApiUsageReporter } from "@/utils/api-usage-tracking"
 import { extractAISDKErrorMessage } from "@/utils/error/extract-message"
+import { assertDataConsent, findDataConsentError } from "@/utils/firefox-data-consent"
 import { logger } from "@/utils/logger"
 import { noteSuggestionEnvelopeSchema } from "@/utils/note-suggestion/types"
 import { buildLocalGenerateTextParams } from "@/utils/providers/generate-params"
@@ -66,10 +67,16 @@ const streamPortStartEnvelopeSchema = z.object({
   payload: z.unknown(),
 })
 
+const streamDataCategoriesSchema = z
+  .array(z.enum(["browsingActivity"]))
+  .max(4)
+  .optional()
+
 const baseStreamPayloadSchema = z
   .object({
     providerId: z.string().trim().min(1),
     usageFeature: apiUsageFeatureSchema.catch("sharedRequests").optional(),
+    dataCategories: streamDataCategoriesSchema,
   })
   .loose()
 
@@ -89,6 +96,7 @@ const structuredObjectPayloadSchema = z
   .object({
     providerId: z.string().trim().min(1),
     usageFeature: apiUsageFeatureSchema.catch("sharedRequests").optional(),
+    dataCategories: streamDataCategoriesSchema,
     // Validated exactly as the text stream's configuration: a known LLM provider shape whose id is
     // the request's provider id.
     providerConfig: llmProviderConfigItemSchema.optional(),
@@ -231,7 +239,15 @@ function createStreamPortHandler<TSerializablePayload, TResponse>(
       let streamError: unknown
 
       try {
-        const result = await streamFn(startMessage.payload, {
+        // The payload names the optional Firefox data categories it sends (the page URL, say). Ask
+        // for them before anything starts, and keep the field out of the model call.
+        const { dataCategories, ...streamPayload } =
+          startMessage.payload as TSerializablePayload & {
+            dataCategories?: Array<"browsingActivity">
+          }
+        for (const category of dataCategories ?? []) await assertDataConsent(category)
+
+        const result = await streamFn(streamPayload as TSerializablePayload, {
           signal: abortController.signal,
           onChunk: (snapshot) => {
             safePost({ type: "chunk", data: snapshot })
@@ -253,7 +269,10 @@ function createStreamPortHandler<TSerializablePayload, TResponse>(
           safePost({ type: "done", data: result })
         }
       } catch (error) {
-        const finalError = streamError ?? error
+        // A refusal for missing consent may come back wrapped (a stream error, an SDK retry error):
+        // report the refusal itself.
+        const thrown = streamError ?? error
+        const finalError = findDataConsentError(thrown) ?? thrown
         if (abortController.signal.aborted || isAbortLikeError(finalError)) {
           return
         }

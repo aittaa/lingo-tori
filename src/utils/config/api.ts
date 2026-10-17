@@ -20,7 +20,7 @@ const CREDENTIAL_PATTERNS = [
 // Short enough to be a whole word only: `sig` is a signature, `design` and `assign` are not.
 const CREDENTIAL_WORD_SUFFIXES = ["sig", "pwd"]
 
-function isCredentialName(name: string): boolean {
+export function isCredentialName(name: string): boolean {
   const words = name
     .toLowerCase()
     .split(/[^a-z0-9]+/)

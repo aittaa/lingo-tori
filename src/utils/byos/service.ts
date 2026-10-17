@@ -3,6 +3,7 @@ import type { AuthVault, Credentials, PendingAuth, VaultRecord } from "./vault"
 import type { ReportedTokens } from "@/utils/api-usage-tokens"
 import { z } from "zod"
 import { readResponsesTokens } from "@/utils/api-usage-tokens"
+import { assertDataConsent, isDataConsentRequiredError } from "@/utils/firefox-data-consent"
 import { isByosConnectionRefused } from "./browser"
 import {
   abortable,
@@ -261,6 +262,10 @@ export function createByosService(
       ...(options.signal ? [options.signal] : []),
     ])
     try {
+      // Every request carries or establishes a credential, sign-out revocation included. On Firefox
+      // none starts without the user's consent, read now rather than remembered. Metering and the
+      // fetch come after admission.
+      await assertDataConsent("authenticationInfo")
       if (!signal.aborted) {
         try {
           onDispatch?.()
@@ -279,6 +284,8 @@ export function createByosService(
         signal,
       )
     } catch (error) {
+      // A refusal for missing consent is not an upstream failure: report it as it is.
+      if (isDataConsentRequiredError(error)) throw error
       const timedOut =
         (signal.reason instanceof DOMException && signal.reason.name === "TimeoutError") ||
         (error instanceof DOMException && error.name === "TimeoutError")
@@ -343,6 +350,8 @@ export function createByosService(
   async function refresh() {
     if (refreshing) return refreshing
     refreshing = (async () => {
+      // Without consent the refresh token is not sent. Refuse before any state is touched.
+      await assertDataConsent("authenticationInfo")
       const previous = await vault.update((record) => {
         if (!record.credentials || record.refreshUncertain || record.refreshing)
           return fail("reconnect-required")
@@ -394,6 +403,18 @@ export function createByosService(
           delete record.blocked
         })
       } catch (error) {
+        if (isDataConsentRequiredError(error)) {
+          // The grant went away after the refresh began. That says nothing about the session:
+          // leave it as it was, with no failure, cooldown or reconnect state recorded.
+          await vault.update((record) => {
+            if (
+              record.generation === previous.generation &&
+              record.tokenVersion === previous.version
+            )
+              delete record.refreshing
+          })
+          throw error
+        }
         const failure =
           error instanceof ByosBridgeError ? error : new ByosBridgeError("upstream_unavailable")
         await vault.update((record) => {
@@ -643,6 +664,8 @@ export function createByosService(
       startingAttemptId = attemptId
       const ownIntent = ++intent
       try {
+        // No tab is opened for a sign-in that cannot be started.
+        await assertDataConsent("authenticationInfo")
         await initialize()
         if (!(await transport.available())) fail(BYOS_UNAVAILABLE_CODE)
         if (ownIntent !== intent) fail("session_changed")
@@ -687,6 +710,9 @@ export function createByosService(
           }).toString()
           await ensureGeneration(pending.generation)
           if (ownIntent !== intent) fail("session_changed")
+          // The navigation sends the authorization request: check again, now that the setup awaits
+          // are behind us, so a revocation in between stops it.
+          await assertDataConsent("authenticationInfo")
           await transport.navigate(tabId, url.href)
         } catch (error) {
           await vault.update((current) => {

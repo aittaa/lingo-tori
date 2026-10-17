@@ -9,6 +9,7 @@ import { classifyResolvedProvider } from "@/utils/analytics-provider"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { streamBackgroundNoteSuggestion } from "@/utils/content-script/background-stream-client"
 import { STREAM_PORT_DISCONNECTED_MESSAGE } from "@/utils/content-script/port-streaming"
+import { customActionUsesWebUrl } from "@/utils/custom-action-prompt"
 import { resolveNoteSuggestionAction } from "@/utils/custom-actions"
 import { getOrCreateWebPageContext } from "@/utils/host/translate/webpage-context"
 import { logger } from "@/utils/logger"
@@ -151,6 +152,10 @@ export function useNoteSuggestion() {
         ),
         reasoning: getTopLevelReasoning(provider.config),
         temperature: provider.config.temperature,
+        // The page URL goes out when a template of the action uses {{webUrl}}.
+        ...(customActionUsesWebUrl(actionSnapshot) && {
+          dataCategories: ["browsingActivity" as const],
+        }),
       }
 
       const snapshot = await streamBackgroundNoteSuggestion(payload, { signal })

@@ -4,8 +4,8 @@ import type { TranslationTextFormat } from "@/types/config/translate"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { ApiUsageIdentity } from "@/utils/api-usage-identity"
 import { createApiUsageIdentity } from "@/utils/api-usage-identity"
-import { withApiUsage } from "@/utils/api-usage-tracking"
-import { noStoreFetch } from "@/utils/providers/no-store-fetch"
+import { isDataConsentRequiredError } from "@/utils/firefox-data-consent"
+import { createProviderFetch } from "@/utils/providers/provider-fetch"
 
 type DeepLProviderConfig = Extract<ProviderConfig, { provider: "deepl" }>
 
@@ -87,9 +87,12 @@ async function fetchDirect(
   usageFeature?: ApiUsageFeature,
   identity?: ApiUsageIdentity,
 ): Promise<Response> {
-  const resp = await (
-    usageFeature ? withApiUsage(usageFeature, noStoreFetch, identity) : noStoreFetch
-  )(url, {
+  // Every DeepL request carries the key.
+  const resp = await createProviderFetch({
+    feature: usageFeature,
+    identity,
+    credentialed: true,
+  })(url, {
     method: "POST",
     headers: {
       Authorization: `DeepL-Auth-Key ${apiKey}`,
@@ -98,6 +101,8 @@ async function fetchDirect(
     body,
     signal,
   }).catch((error) => {
+    // A refusal for missing consent is not a network failure: say what it is.
+    if (isDataConsentRequiredError(error)) throw error
     throw new Error(`Network error during DeepL translation: ${error.message}`)
   })
 

@@ -37,13 +37,13 @@ import {
 } from "@/types/config/provider"
 import { compactObject } from "@/types/utils"
 import { createApiUsageIdentity, registerApiUsageModel } from "@/utils/api-usage-identity"
-import { withApiUsage } from "@/utils/api-usage-tracking"
 import { createByosModel } from "@/utils/byos/model"
+import { providerConfigCarriesCredentials } from "@/utils/firefox-data-consent"
 import { getLLMProvidersConfig, getProviderConfigById } from "../config/helpers"
 import { CONFIG_STORAGE_KEY } from "../constants/config"
 import { getProviderHeadersWithOverride } from "./headers"
 import { resolveModelId } from "./model-id"
-import { noStoreFetch } from "./no-store-fetch"
+import { createProviderFetch } from "./provider-fetch"
 import { ProviderSetupError } from "./provider-setup-error"
 
 const DEDICATED_PROVIDER_FACTORY_BY_TYPE = {
@@ -147,7 +147,11 @@ export function getLanguageModelForConfig(
   const providerSpecificSettings = getProviderSpecificSettings(providerConfig)
 
   const providerFetch = {
-    fetch: usageFeature ? withApiUsage(usageFeature, noStoreFetch, identity) : noStoreFetch,
+    fetch: createProviderFetch({
+      feature: usageFeature,
+      identity,
+      credentialed: providerConfigCarriesCredentials(providerConfig, headers),
+    }),
   }
   const provider = match(providerConfig)
     .when(isOpenAICompatibleLLMProviderConfig, (matchedConfig) =>
