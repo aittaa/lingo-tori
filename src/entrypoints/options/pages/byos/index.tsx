@@ -676,7 +676,8 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       {!supportedBrowser && !connected && (
         <p className="mt-3 text-[13px] text-muted-foreground">{t.browser}</p>
       )}
-      <DataConsentRow category="authenticationInfo" className="mt-4" />
+      {/* Signing in asks in the click itself; the row is for an account that is already connected. */}
+      {(connected || recovery) && <DataConsentRow category="authenticationInfo" className="mt-4" />}
       {notice && (
         <p role="status" className="mt-3 text-[13px] leading-5 text-muted-foreground">
           {notice}

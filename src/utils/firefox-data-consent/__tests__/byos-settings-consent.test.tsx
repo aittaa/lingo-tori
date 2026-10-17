@@ -96,12 +96,26 @@ describe("the sign-in button on Firefox", () => {
     expect(sentAuthStart()).toBe(false)
   })
 
-  it("shows where the consent stands, with its own button", async () => {
+  it("shows where the consent stands for a connected account, with its own button", async () => {
     installFirefox(NOTHING_GRANTED)
+    messages.send.mockImplementation(async (type) => {
+      if (type === "lingotoriByosSession")
+        return { state: "plan-enabled", account: { email: "a@b.test" } }
+      if (type === "lingotoriByosModels") return { models: [] }
+      return undefined
+    })
     mount()
 
     expect(await screen.findByText("dataConsent.status.denied")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "dataConsent.allow" })).toBeInTheDocument()
+  })
+
+  it("keeps the row out of the way before an account is connected: the sign-in click asks", async () => {
+    installFirefox(NOTHING_GRANTED)
+    mount()
+    await screen.findByRole("button", { name: SIGN_IN })
+
+    expect(screen.queryByText("dataConsent.status.denied")).not.toBeInTheDocument()
   })
 
   it("starts the sign-in when the consent is already granted", async () => {
