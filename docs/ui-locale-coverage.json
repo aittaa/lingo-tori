@@ -239,7 +239,15 @@
     "configHealth.failure.conflict",
     "configHealth.failure.preservation",
     "configHealth.failure.other",
-    "configHealth.failure.dismiss"
+    "configHealth.failure.dismiss",
+    "recoveryExport.failure.invalid",
+    "recoveryExport.failure.newerVersion",
+    "recoveryExport.failure.unreadable",
+    "recoveryExport.failure.gone",
+    "recoveryExport.failure.noRoom",
+    "recoveryExport.failure.notKept",
+    "recoveryExport.failure.unavailable",
+    "recoveryExport.failure.other"
   ],
   "deferredHubKeys": [
     "popup.hub.tooltip",

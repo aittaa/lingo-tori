@@ -114,6 +114,15 @@ recoveryExport:
   deleteFailed: Could not delete the kept copy
   defaultsApplied: Settings reset to the defaults
   defaultsFailed: Could not start from the defaults
+  failure:
+    invalid: The kept copy doesn't pass this version's checks, or couldn't be upgraded, so nothing was restored.
+    newerVersion: The kept copy was saved by a newer version of the extension, so nothing was restored. Update the extension to use it.
+    unreadable: The kept copy could not be read back, so nothing was changed.
+    gone: That kept copy no longer exists, so nothing was changed.
+    noRoom: Too many copies of unusable settings are already kept. Delete one, then try again. Nothing was replaced.
+    notKept: A copy of your saved settings could not be kept first, so nothing was replaced.
+    unavailable: The settings could not be saved right now, and they may or may not have changed. Check them, then try again.
+    other: Something went wrong. Check your settings, then try again.
 configHealth:
   unusable:
     title: Your saved settings can't be read

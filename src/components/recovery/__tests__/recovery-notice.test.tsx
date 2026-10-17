@@ -15,6 +15,7 @@ import { configSchema } from "@/types/config/config"
 import {
   corruptConfig,
   CURRENT_META,
+  failWrites,
   MAX_PRESERVED,
   preservedCopiesOf,
   PREVIOUS_META,
@@ -29,6 +30,7 @@ import {
 import { decodeLossless } from "@/utils/config/preservation"
 import { parseRecoveryExport } from "@/utils/config/recovery-export"
 import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
+import { getBuiltInDictionaryAction } from "@/utils/custom-actions"
 import { RECOVERY_NOTICE_SECTION_ID } from "@/utils/navigation"
 import { queryClient } from "@/utils/tanstack-query"
 import { RecoveryNotice } from "../recovery-notice"
@@ -580,5 +582,209 @@ describe("the stored config that the shared status semantics call unusable", () 
     const decoded = decodeLossless(file.encodedMeta!) as Record<string, unknown>
     expect(Object.hasOwn(decoded, "lastModifiedAt")).toBe(true)
     expect(decoded.lastModifiedAt).toBeUndefined()
+  })
+})
+
+// A recovery action that fails says why in a few fixed words. Nothing the failure carries is shown:
+// the text of a validation error quotes the stored values (a provider id, an action name), and a
+// secret saved in the wrong field would be shown by the same path. Every sentinel below is synthetic.
+describe("a recovery action that fails", () => {
+  const TRY_RESTORE = "recoveryExport.tryRestore"
+  const DELETE = "recoveryExport.delete"
+  const DEFAULTS = "recoveryExport.startFromDefaults"
+  const RESTORE_CONFIRM = "recoveryExport.restoreDialog.confirm"
+  const DELETE_CONFIRM = "recoveryExport.deleteDialog.confirm"
+  const DEFAULTS_CONFIRM = "recoveryExport.defaultsDialog.confirm"
+
+  const untilToasted = () => waitFor(() => expect(toastAdd).toHaveBeenCalled())
+  const lastToast = () => toastAdd.mock.calls.at(-1)![0]
+
+  function keptCopy(change: (config: any) => void, meta: unknown = CURRENT_META): RawPrimary {
+    const value: any = validConfig()
+    change(value)
+    return { value, meta }
+  }
+
+  async function confirmRestore(kept: RawPrimary) {
+    await seedPrimary(corruptConfig("stored"), CURRENT_META)
+    const key = await seedPreserved(kept)
+    renderExport()
+    fireEvent.click(await screen.findByText(TRY_RESTORE))
+    await waitFor(() => screen.getByText(RESTORE_CONFIRM))
+    return { key, confirm: () => fireEvent.click(screen.getByText(RESTORE_CONFIRM)) }
+  }
+
+  it.each([
+    {
+      name: "a provider assignment that is not valid",
+      kept: () =>
+        keptCopy((config) => {
+          config.pageTranslation.providerId = SECRET
+        }),
+      category: "recoveryExport.failure.invalid",
+    },
+    {
+      name: "two custom actions with the same name",
+      kept: () =>
+        keptCopy((config) => {
+          const action = getBuiltInDictionaryAction(config.selectionToolbar)
+          config.selectionToolbar.customActions = [
+            { ...action, id: "one", name: SECRET },
+            { ...action, id: "two", name: SECRET },
+          ]
+        }),
+      category: "recoveryExport.failure.invalid",
+    },
+    {
+      name: "a copy made by a newer version",
+      kept: () =>
+        keptCopy(
+          (config) => {
+            config.pageTranslation.providerId = SECRET
+          },
+          { schemaVersion: CONFIG_SCHEMA_VERSION + 1 },
+        ),
+      category: "recoveryExport.failure.newerVersion",
+    },
+  ])("shows no stored value when a restore fails over $name", async ({ kept, category }) => {
+    const { confirm } = await confirmRestore(kept())
+    const before = await snapshot()
+
+    confirm()
+    await untilToasted()
+
+    expect(lastToast()).toMatchObject({
+      type: "error",
+      title: "recoveryExport.restoreFailed",
+      description: category,
+    })
+    expect(JSON.stringify(toastAdd.mock.calls)).not.toContain(SECRET)
+    expect(document.body.innerHTML).not.toContain(SECRET)
+    expect(await snapshot()).toEqual(before)
+  })
+
+  it("says the copy is gone when it was deleted before the restore was confirmed", async () => {
+    const { key, confirm } = await confirmRestore(keptCopy(() => {}))
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    await fakeBrowser.storage.local.remove(key)
+
+    confirm()
+    await untilToasted()
+
+    expect(lastToast()).toMatchObject({ type: "error", description: "recoveryExport.failure.gone" })
+  })
+
+  it("says the copy could not be read back when its text is broken", async () => {
+    await seedPrimary(corruptConfig("stored"), CURRENT_META)
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    await fakeBrowser.storage.local.set({
+      configOriginal_broken: {
+        v: 1,
+        encodedValue: "{not json",
+        reason: "invalid-schema",
+        capturedAt: 1,
+        extensionVersion: "0.0.1",
+      },
+    })
+    renderExport()
+    fireEvent.click(await screen.findByText(TRY_RESTORE))
+    await waitFor(() => screen.getByText(RESTORE_CONFIRM))
+
+    fireEvent.click(screen.getByText(RESTORE_CONFIRM))
+    await untilToasted()
+
+    expect(lastToast()).toMatchObject({
+      type: "error",
+      description: "recoveryExport.failure.unreadable",
+    })
+  })
+
+  it("says the settings could not be saved when the saving part fails", async () => {
+    const { confirm } = await confirmRestore(keptCopy(() => {}))
+    failWrites((keys) => keys.includes("config"))
+
+    confirm()
+    await untilToasted()
+
+    expect(lastToast()).toMatchObject({
+      type: "error",
+      description: "recoveryExport.failure.unavailable",
+    })
+  })
+
+  it("says there is no room for a copy of the saved settings when starting from the defaults", async () => {
+    for (let n = 0; n < MAX_PRESERVED; n++) {
+      await seedPreserved({ value: corruptConfig(`other-${n}`), meta: CURRENT_META })
+    }
+    await seedPrimary(corruptConfig("stored"), CURRENT_META)
+    renderExport()
+    fireEvent.click(await screen.findByText(DEFAULTS))
+    await waitFor(() => screen.getByText(DEFAULTS_CONFIRM))
+
+    fireEvent.click(screen.getByText(DEFAULTS_CONFIRM))
+    await untilToasted()
+
+    expect(lastToast()).toMatchObject({
+      type: "error",
+      title: "recoveryExport.defaultsFailed",
+      description: "recoveryExport.failure.noRoom",
+    })
+  })
+
+  it("says a copy of the saved settings could not be kept when that write fails", async () => {
+    await seedPrimary(corruptConfig("stored"), CURRENT_META)
+    renderExport()
+    fireEvent.click(await screen.findByText(DEFAULTS))
+    await waitFor(() => screen.getByText(DEFAULTS_CONFIRM))
+    failWrites((keys) => keys.some((key) => key.startsWith("configOriginal_")))
+
+    fireEvent.click(screen.getByText(DEFAULTS_CONFIRM))
+    await untilToasted()
+
+    expect(lastToast()).toMatchObject({
+      type: "error",
+      description: "recoveryExport.failure.notKept",
+    })
+  })
+
+  it("says the settings could not be saved when a delete fails", async () => {
+    await seedPrimary(corruptConfig("stored"), CURRENT_META)
+    await seedPreserved(keptCopy(() => {}))
+    renderExport()
+    fireEvent.click(await screen.findByText(DELETE))
+    await waitFor(() => screen.getByText(DELETE_CONFIRM))
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    vi.spyOn(fakeBrowser.storage.local, "remove" as any).mockRejectedValue(
+      new Error("simulated removal failure"),
+    )
+
+    fireEvent.click(screen.getByText(DELETE_CONFIRM))
+    await untilToasted()
+
+    expect(lastToast()).toMatchObject({
+      type: "error",
+      title: "recoveryExport.deleteFailed",
+      description: "recoveryExport.failure.unavailable",
+    })
+  })
+
+  it("says the copy is gone when an export finds it deleted", async () => {
+    await seedPrimary(corruptConfig("stored"), CURRENT_META)
+    await seedPreserved(keptCopy(() => {}))
+    renderExport()
+    fireEvent.click(await screen.findByText(EXPORT_COPY))
+    await waitFor(() => screen.getByText(WARNING_TITLE))
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    const keys = Object.keys(await snapshot()).filter((key) => key.startsWith("configOriginal_"))
+    await fakeBrowser.storage.local.remove(keys)
+
+    fireEvent.click(screen.getByText(CONFIRM))
+    await untilToasted()
+
+    expect(lastToast()).toMatchObject({
+      type: "error",
+      title: "recoveryExport.failed",
+      description: "recoveryExport.failure.gone",
+    })
   })
 })

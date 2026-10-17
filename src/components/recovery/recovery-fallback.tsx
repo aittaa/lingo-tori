@@ -1,6 +1,7 @@
 import { IconAlertCircle } from "@tabler/icons-react"
 import { useAtomValue } from "jotai"
 import { useState } from "react"
+import { recoveryFailureText } from "@/components/recovery/recovery-failure-text"
 import { RecoveryNotice } from "@/components/recovery/recovery-notice"
 import {
   AlertDialog,
@@ -50,7 +51,7 @@ export function RecoveryFallback({ error, onRecovered }: RecoveryFallbackProps) 
       toastManager.add({
         type: "error",
         title: i18n.t("errorRecovery.resetFailed"),
-        description: resetError instanceof Error ? resetError.message : undefined,
+        description: recoveryFailureText(resetError),
       })
     } finally {
       setIsResetting(false)

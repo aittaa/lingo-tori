@@ -30,6 +30,7 @@ import { CONFIG_STORAGE_KEY } from "@/utils/constants/config"
 import { i18n } from "@/utils/i18n"
 import { logger } from "@/utils/logger"
 import { RECOVERY_NOTICE_SECTION_ID } from "@/utils/navigation"
+import { recoveryFailureText } from "./recovery-failure-text"
 
 type Action =
   | { kind: "export-kept"; key: string }
@@ -147,7 +148,8 @@ export function RecoveryNotice() {
       toastManager.add({
         type: "error",
         title: i18n.t(FAILURE_KEYS[chosen.kind]),
-        description: error.message || undefined,
+        // A fixed sentence for the kind of failure; the error's own message can quote stored values.
+        description: recoveryFailureText(error),
       })
     },
     // The notice shows its own error toast with the reason; the global one would show a second.

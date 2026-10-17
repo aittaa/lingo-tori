@@ -27,6 +27,28 @@ export class ConfigExportBlockedError extends Error {
   }
 }
 
+/**
+ * A kept copy could not be used, and nothing was changed. `code` says why, in words that carry
+ * nothing from the copy: it is gone, its text cannot be read back, or it does not pass this
+ * version's checks (it fails the schema, or an upgrade step failed). The message is fixed text,
+ * never built from what the copy holds, because a validation error quotes the values it rejected.
+ */
+export class KeptCopyRestoreError extends Error {
+  readonly code: "gone" | "unreadable" | "invalid"
+
+  constructor(code: "gone" | "unreadable" | "invalid") {
+    super(
+      {
+        gone: "That kept copy no longer exists, so nothing was changed.",
+        unreadable: "That kept copy could not be read back, so nothing was changed.",
+        invalid: "That kept copy does not pass this version's checks, so nothing was changed.",
+      }[code],
+    )
+    this.name = "KeptCopyRestoreError"
+    this.code = code
+  }
+}
+
 export type PreservationFailure = "full" | "unrepresentable" | "write-failed" | "verify-failed"
 
 /**

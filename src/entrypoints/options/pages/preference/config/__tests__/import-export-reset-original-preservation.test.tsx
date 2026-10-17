@@ -28,12 +28,14 @@ import {
   corruptConfig,
   CURRENT_META,
   holdFirstCall,
+  MAX_PRESERVED,
   PREVIOUS_META,
   preservedCopiesOf,
   previousVersionConfig,
   readRawPrimary,
   resetStorage,
   sameRaw,
+  seedPreserved,
   seedPrimary,
   snapshot,
   validConfig,
@@ -503,6 +505,25 @@ describe("Reset to defaults", () => {
     expect(preservedCopiesOf(await snapshot(), SUSPECT)).toHaveLength(1)
   })
 
+  it("says in fixed words that there is no room for a copy, and quotes nothing, when it cannot be kept", async () => {
+    for (let n = 0; n < MAX_PRESERVED; n++) {
+      await seedPreserved({ value: corruptConfig(`other-${n}`), meta: CURRENT_META })
+    }
+    await seedPrimary(SUSPECT.value, SUSPECT.meta)
+    renderInProviders(<ResetConfigItem />)
+    const before = await snapshot()
+
+    await confirmReset()
+    await untilToasted()
+
+    expect(toastAdd).toHaveBeenCalledWith({
+      type: "error",
+      title: "errorRecovery.resetFailed",
+      description: "recoveryExport.failure.noRoom",
+    })
+    expect(await snapshot()).toEqual(before)
+  })
+
   it("replaces a valid config with the defaults (a control)", async () => {
     await seedPrimary(validConfig(), CURRENT_META)
     renderInProviders(<ResetConfigItem />)
@@ -521,6 +542,30 @@ describe("Reset to defaults", () => {
 })
 
 describe("the error screen's reset", () => {
+  it("says in fixed words that there is no room for a copy, and quotes nothing, when it cannot be kept", async () => {
+    for (let n = 0; n < MAX_PRESERVED; n++) {
+      await seedPreserved({ value: corruptConfig(`other-${n}`), meta: CURRENT_META })
+    }
+    await seedPrimary(SUSPECT.value, SUSPECT.meta)
+    renderInProviders(
+      <RecoveryFallback error={new Error("boom")} onRecovered={vi.fn<() => void>()} />,
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const before = await snapshot()
+
+    fireEvent.click(screen.getByText(RECOVERY_RESET))
+    await waitFor(() => screen.getByText(RECOVERY_RESET_CONFIRM))
+    fireEvent.click(screen.getByText(RECOVERY_RESET_CONFIRM))
+    await untilToasted()
+
+    expect(toastAdd).toHaveBeenCalledWith({
+      type: "error",
+      title: "errorRecovery.resetFailed",
+      description: "recoveryExport.failure.noRoom",
+    })
+    expect(await snapshot()).toEqual(before)
+  })
+
   it("keeps an exact copy of a stored config that cannot be used, then stores fresh defaults", async () => {
     await seedPrimary(SUSPECT.value, SUSPECT.meta)
     const onRecovered = vi.fn<() => void>()

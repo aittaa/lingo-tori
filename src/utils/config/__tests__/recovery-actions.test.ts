@@ -92,6 +92,19 @@ describe("restoreFromKeptCopy", () => {
     expect(await snapshot()).toEqual(before)
   })
 
+  it("fails with a typed error that quotes no stored value when the copy fails the schema", async () => {
+    const sentinel = "sk-synthetic-sentinel-0000"
+    const kept: any = validConfig()
+    kept.pageTranslation.providerId = sentinel
+    await seedPrimary(corruptConfig("stored"), CURRENT_META)
+    const key = await seedPreserved({ value: kept, meta: CURRENT_META })
+
+    const failure = await restoreFromKeptCopy(key, VERSION).catch((error: unknown) => error)
+
+    expect(failure).toMatchObject({ name: "KeptCopyRestoreError", code: "invalid" })
+    expect((failure as Error).message).not.toContain(sentinel)
+  })
+
   it("writes nothing when the copy was made by a newer version", async () => {
     await seedPrimary(corruptConfig("stored"), CURRENT_META)
     const key = await seedPreserved({
