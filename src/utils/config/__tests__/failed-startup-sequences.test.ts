@@ -422,10 +422,12 @@ describe("the outcome of a failed upgrade, and when it stops applying", () => {
     views.length = 0
 
     await startBackground()
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    // The watcher reads again after each notification; wait for the read that follows the record.
+    await vi.waitFor(() =>
+      expect(views.at(-1)?.status).toMatchObject({ kind: "suspect", reason: "migration-failed" }),
+    )
     stop()
 
-    expect(views.at(-1)?.status).toMatchObject({ kind: "suspect", reason: "migration-failed" })
     expect((await readPreserved()).length).toBe(MAX_PRESERVED)
   })
 })
