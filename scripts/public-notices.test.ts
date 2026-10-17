@@ -493,11 +493,22 @@ describe("the notice about settings that cannot be read", () => {
 describe("the notice about backups", () => {
   const backups = sectionOf(privacy, "Backups")
 
-  it("says the newest eight are normally kept, and that a backup can briefly add to them", () => {
+  it("says the newest eight are normally kept, and when one extra backup can remain", () => {
     expect(backups).toContain("normally keeps the newest eight")
     expect(backups).toContain(
-      "a backup taken just before a restore that could not be confirmed is kept, so there can briefly be more until the next backup",
+      "after a restore, import or reset whose saving could not be confirmed, one extra backup can remain until the next backup, restore, import or reset that finds the settings readable",
     )
+  })
+
+  it("promises no duration for the extra backup, and does not call it brief", () => {
+    expect(backups).toContain("there is no promise how long that takes")
+    expect(backups).not.toMatch(/\bbrief(?:ly)?\b/i)
+    expect(privacy).not.toMatch(/\bbrief(?:ly)?\b/i)
+    expect(backups).not.toContain("just before a restore that could not be confirmed")
+  })
+
+  it("does not say an ordinary settings change removes the extra backup", () => {
+    expect(backups).not.toMatch(/until the next (?:backup or )?settings change/i)
   })
 
   it("does not promise exactly eight", () => {
