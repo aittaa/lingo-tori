@@ -20,6 +20,23 @@ import {
   validConfig,
 } from "@/utils/config/__tests__/preservation-test-kit"
 
+// The health atom's own first read of the stored config can be made to answer late: it reads when it
+// is called and answers once the gate opens. Every other read is the real one, and the status
+// watcher (which reads through its own module-internal reader) is not held.
+const firstRead = vi.hoisted(() => ({ gate: undefined as Promise<void> | undefined }))
+
+vi.mock("@/utils/config/status", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils/config/status")>()
+  return {
+    ...actual,
+    getConfigView: async () => {
+      const view = await actual.getConfigView()
+      await firstRead.gate
+      return view
+    },
+  }
+})
+
 const TITLE_UNUSABLE = "configHealth.unusable.title"
 const ACTION = "configHealth.unusable.action"
 const TITLE_FAILURE = "configHealth.failure.title"
@@ -28,7 +45,16 @@ const EDIT = { language: { sourceCode: "auto", targetCode: "kor", level: "beginn
 
 beforeEach(() => {
   resetStorage()
+  firstRead.gate = undefined
 })
+
+function holdTheFirstRead() {
+  let release!: () => void
+  firstRead.gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  return release
+}
 
 afterEach(() => {
   cleanup()
@@ -80,6 +106,35 @@ describe("the banner", () => {
 
     await seedPrimary(validConfig(), CURRENT_META)
     await waitFor(() => expect(screen.queryByText(TITLE_UNUSABLE)).not.toBeInTheDocument())
+  })
+
+  it("stays when the config became unusable while the page's first read of it was on its way", async () => {
+    await seedPrimary(validConfig(), CURRENT_META)
+    const release = holdTheFirstRead()
+    await renderBanner()
+    await settle()
+
+    await seedPrimary(corruptConfig(), CURRENT_META)
+    await waitFor(() => screen.getByText(TITLE_UNUSABLE))
+    release()
+    await settle()
+
+    expect(screen.getByText(TITLE_UNUSABLE)).toBeInTheDocument()
+  })
+
+  it("is gone when the config became usable while the page's first read of it was on its way", async () => {
+    await seedPrimary(corruptConfig(), CURRENT_META)
+    const release = holdTheFirstRead()
+    await renderBanner()
+    await settle()
+    expect(screen.queryByText(TITLE_UNUSABLE)).not.toBeInTheDocument()
+
+    await seedPrimary(validConfig(), CURRENT_META)
+    await settle()
+    release()
+    await settle()
+
+    expect(screen.queryByText(TITLE_UNUSABLE)).not.toBeInTheDocument()
   })
 
   it("says so when an ordinary change over an unusable config is refused (nothing is dropped silently)", async () => {

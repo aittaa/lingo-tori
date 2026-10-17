@@ -15,17 +15,25 @@ export const configViewAtom = atom<ConfigView | null>(null)
 
 configViewAtom.onMount = (set) => {
   let active = true
+  // The first read and the watcher both publish a view, and a read can answer late. A view the
+  // watcher has delivered is newer than any read that was still on its way, so such a read is
+  // dropped instead of replacing it (otherwise the banner would vanish while every change is still
+  // refused, or stay after the config is usable again). The watcher is subscribed first: whatever
+  // changes after its baseline was read is delivered to it, so nothing can fall between that
+  // baseline and the first read.
+  let superseded = false
+  const stop = watchConfigStatus((view) => {
+    superseded = true
+    if (active) set(view)
+  })
   void getConfigView().then(
     (view) => {
-      if (active) set(view)
+      if (active && !superseded) set(view)
     },
     () => {
       // The next change notification reads again.
     },
   )
-  const stop = watchConfigStatus((view) => {
-    if (active) set(view)
-  })
   return () => {
     active = false
     stop()

@@ -22,6 +22,23 @@ import { configWriteFailureAtom, describeWriteFailure } from "../config-health"
 
 const warn = vi.hoisted(() => vi.fn<(...args: unknown[]) => void>())
 
+// The health atom's own first read of the stored config can be made to answer late: it reads when
+// it is called and answers once `release()` is called. Every other read is the real one, and the
+// status watcher (which reads through its own module-internal reader) is not held.
+const firstRead = vi.hoisted(() => ({ gate: undefined as Promise<void> | undefined }))
+
+vi.mock("@/utils/config/status", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils/config/status")>()
+  return {
+    ...actual,
+    getConfigView: async () => {
+      const view = await actual.getConfigView()
+      await firstRead.gate
+      return view
+    },
+  }
+})
+
 vi.mock("@/utils/logger", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/utils/logger")>()
   return { ...actual, logger: { ...actual.logger, warn } }
@@ -32,7 +49,17 @@ const EDIT = { language: { sourceCode: "auto", targetCode: "kor", level: "beginn
 beforeEach(() => {
   resetStorage()
   warn.mockReset()
+  firstRead.gate = undefined
 })
+
+/** Holds the atoms' first read of the stored config until `release()`. */
+function holdTheFirstRead() {
+  let release!: () => void
+  firstRead.gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  return release
+}
 
 async function openAtoms() {
   vi.resetModules()
@@ -162,6 +189,73 @@ describe("whether the stored config can be used", () => {
     unsubscribe()
 
     await seedPrimary(corruptConfig(), CURRENT_META)
+    await settle()
+
+    expect(store.get(health.configUnusableReasonAtom)).toBeNull()
+  })
+})
+
+// The first read of the stored config and the watcher both publish a view. A read that answers
+// after the watcher has delivered a newer view describes an older state and must not replace it:
+// otherwise the banner disappears while every change is still refused, or stays after recovery.
+describe("a first read of the stored config that answers late", () => {
+  async function mounted() {
+    const { health, store } = await openAtoms()
+    const unsubscribe = store.sub(health.configUnusableReasonAtom, () => {})
+    await settle()
+    return { store, health, unsubscribe }
+  }
+
+  it("does not hide the banner of a config that became unusable while it was being read", async () => {
+    await seedPrimary(validConfig(), CURRENT_META)
+    const release = holdTheFirstRead()
+    const { store, health, unsubscribe } = await mounted()
+
+    await seedPrimary(corruptConfig(), CURRENT_META)
+    await settle()
+    expect(store.get(health.configUnusableReasonAtom)).toBe("invalid-schema")
+    release()
+    await settle()
+
+    expect(store.get(health.configUnusableReasonAtom)).toBe("invalid-schema")
+    unsubscribe()
+  })
+
+  it("does not keep the banner of a config that became usable while it was being read", async () => {
+    await seedPrimary(corruptConfig(), CURRENT_META)
+    const release = holdTheFirstRead()
+    const { store, health, unsubscribe } = await mounted()
+
+    await seedPrimary(validConfig(), CURRENT_META)
+    await settle()
+    expect(store.get(health.configUnusableReasonAtom)).toBeNull()
+    release()
+    await settle()
+
+    expect(store.get(health.configUnusableReasonAtom)).toBeNull()
+    unsubscribe()
+  })
+
+  it("still shows what it read when nothing newer arrived (a control)", async () => {
+    await seedPrimary(corruptConfig(), CURRENT_META)
+    const release = holdTheFirstRead()
+    const { store, health, unsubscribe } = await mounted()
+    expect(store.get(health.configUnusableReasonAtom)).toBeNull()
+
+    release()
+    await settle()
+
+    expect(store.get(health.configUnusableReasonAtom)).toBe("invalid-schema")
+    unsubscribe()
+  })
+
+  it("shows nothing after it is unmounted, whatever it reads (a control)", async () => {
+    await seedPrimary(corruptConfig(), CURRENT_META)
+    const release = holdTheFirstRead()
+    const { store, health, unsubscribe } = await mounted()
+
+    unsubscribe()
+    release()
     await settle()
 
     expect(store.get(health.configUnusableReasonAtom)).toBeNull()
