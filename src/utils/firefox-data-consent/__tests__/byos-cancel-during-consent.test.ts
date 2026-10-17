@@ -114,16 +114,21 @@ describe("a sign-in whose pending record changes while the navigation consent re
     expect(transport.navigate).not.toHaveBeenCalled()
   })
 
-  it("does not navigate for an attempt that another record replaced", async () => {
-    const { vault, transport, started, releaseConsent } = await holdingBeforeNavigation()
+  it("cannot be replaced by a second sign-in: that one is refused, and this one still navigates", async () => {
+    // Every change of the attempt that the service makes moves the in-memory intent, and a second
+    // sign-in is refused while one is starting, so a replacement through the service is not
+    // possible in this window. A record rewritten from outside the service during the final
+    // consent read is out of the model; it is covered while the vault is read, before that read
+    // (see byos-navigation-window.test.ts).
+    const { transport, service, started, releaseConsent } = await holdingBeforeNavigation()
 
-    await vault.update((record) => {
-      if (record.pending) record.pending = { ...record.pending, state: "another-attempt-state" }
+    await expect(service.authStart("0b9f2d1c-3a44-4f6e-9a55-2f1c8e7d6b10")).rejects.toMatchObject({
+      code: "auth_in_progress",
     })
     releaseConsent()
 
-    expect(await started).toBeDefined()
-    expect(transport.navigate).not.toHaveBeenCalled()
+    expect(await started).toBe("navigated")
+    expect(transport.navigate).toHaveBeenCalledTimes(1)
   })
 })
 

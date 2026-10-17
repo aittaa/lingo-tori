@@ -723,15 +723,10 @@ export function createByosService(
             code_challenge: await challenge(pending.verifier),
             ...(!pending.clientId ? { agent_name_hint: "LingoTori" } : {}),
           }).toString()
-          await ensureGeneration(pending.generation)
-          if (ownIntent !== intent) fail("session_changed")
-          // The navigation sends the authorization request: check the consent again, now that the
-          // setup awaits are behind us, so a revocation in between stops it.
-          await assertDataConsent("authenticationInfo")
-          // That read was asynchronous too. Whatever the attempt owned before it must still be
-          // true now: the intent, the pending record (this attempt's, same state, same generation)
-          // and the expiry. A cancelled attempt cannot navigate while its cleanup is still running.
-          // Nothing is awaited between these checks and the call that navigates.
+          // What this attempt owns is read from the vault now, before the final consent read, so
+          // that no vault or storage wait is left between that read and the navigation: the vault
+          // is a database transaction whose wait is not bounded, and the user can switch the
+          // permission off during any wait.
           const current = await vault.read()
           if (
             ownIntent !== intent ||
@@ -741,6 +736,16 @@ export function createByosService(
             current.pending?.attemptId !== attemptId ||
             pending.expires <= now()
           )
+            fail("session_changed")
+          // The navigation sends the authorization request: the consent is read once more, now that
+          // the setup awaits are behind us, so a revocation in between stops it.
+          await assertDataConsent("authenticationInfo")
+          // That read was asynchronous too, and what can still change during it is in memory: a
+          // cancellation, a replacement or a sign-out moves the intent (before they write anything,
+          // so even a write that fails is noticed), and the expiry is a clock. They are checked now,
+          // with nothing awaited between these checks and the call that navigates. A cancelled
+          // attempt cannot navigate while its cleanup is still running.
+          if (ownIntent !== intent || signingOut || pending.expires <= now())
             fail("session_changed")
           await transport.navigate(tabId, url.href)
         } catch (error) {
