@@ -5,18 +5,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { browser } from "#imports"
 import {
+  committedMeta,
   CURRENT_META,
   holdFirstCall,
   readRawPrimary,
   resetStorage,
   seedPrimary,
 } from "@/utils/config/__tests__/preservation-test-kit"
+import { getConfigView } from "@/utils/config/status"
 import { editConfig } from "@/utils/config/write-guard"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { configAtom, writeConfigAtom } from "../config"
 import { patchActionConfigAtom, patchProviderConfigAtom } from "../entity-config"
-import { storageAdapter } from "../storage-adapter"
 
 // The config lives in the in-memory browser storage, and every write goes through the settings
 // service (attached by the shared test setup). "Another context changed the settings" is another
@@ -102,13 +103,25 @@ describe("config persistence and invalidation", () => {
   })
 
   it("does not let an initial read overwrite a newer local write", async () => {
-    const staleRead = deferred<Config>()
-    const stale = await stored()
-    vi.spyOn(storageAdapter, "get").mockImplementationOnce(() => staleRead.promise)
+    const released = deferred<void>()
+    const real = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local) as (
+      ...args: unknown[]
+    ) => Promise<unknown>
+    let holding = true
+    // Every read of the config that starts while `holding` answers late, with what it found.
+    vi.spyOn(fakeBrowser.storage.local, "get" as any).mockImplementation(((...args: unknown[]) => {
+      const result = real(...args)
+      const keys = args[0]
+      if (holding && Array.isArray(keys) && keys.includes("config")) {
+        return result.then((value) => released.promise.then(() => value))
+      }
+      return result
+    }) as any)
     const store = await mountStore()
     await tick()
+    holding = false
     await store.set(writeConfigAtom, { uiLanguage: "ko" })
-    staleRead.resolve(stale)
+    released.resolve()
     await tick()
     expect(store.get(configAtom).uiLanguage).toBe("ko")
   })
@@ -204,5 +217,91 @@ describe("config persistence and invalidation", () => {
     expect((await stored()).providersConfig.some((provider) => provider.id === source.id)).toBe(
       false,
     )
+  })
+})
+
+// What the mounted settings show follows the session view of the stored config (the status reader),
+// not the stored value alone: a pair whose meta no longer matches its value is unusable, and the
+// screens run on the defaults for it, like every other consumer of the config.
+describe("the mounted settings and the status of the stored config", () => {
+  let custom: Config
+
+  beforeEach(async () => {
+    resetStorage()
+    custom = structuredClone(DEFAULT_CONFIG)
+    custom.contextMenu.enabled = !DEFAULT_CONFIG.contextMenu.enabled
+    await seedPrimary(custom, committedMeta(custom))
+  })
+  afterEach(() => {
+    unsubs.splice(0).forEach((unsubscribe) => unsubscribe())
+    fakeBrowser.reset()
+  })
+
+  async function tearThePair() {
+    const meta = (await readRawPrimary()).meta as Record<string, unknown>
+    await browser.storage.local.set({ config$: { ...meta, valueDigest: "not-the-digest" } })
+  }
+
+  it("shows the usable config as stored", async () => {
+    const store = await mountStore()
+    await tick()
+
+    expect(store.get(configAtom)).toEqual(custom)
+    expect((await getConfigView()).status.kind).toBe("usable")
+  })
+
+  it("switches to the status view when only the meta changes so that the pair is torn", async () => {
+    const store = await mountStore()
+    await tick()
+
+    await tearThePair()
+    await tick()
+    await tick()
+
+    const view = await getConfigView()
+    expect(view.status).toMatchObject({ kind: "suspect", reason: "incoherent" })
+    expect(store.get(configAtom)).toEqual(view.config)
+    expect(store.get(configAtom)).toEqual(DEFAULT_CONFIG)
+  })
+
+  it("shows the status view on a fresh mount over a torn pair", async () => {
+    await tearThePair()
+
+    const store = await mountStore()
+    await tick()
+    await tick()
+
+    expect(store.get(configAtom)).toEqual((await getConfigView()).config)
+    expect(store.get(configAtom)).toEqual(DEFAULT_CONFIG)
+  })
+
+  it("shows the status view again when the page becomes visible", async () => {
+    await tearThePair()
+    const store = await mountStore()
+    await tick()
+    await tick()
+    store.set(configAtom, custom)
+
+    document.dispatchEvent(new Event("visibilitychange"))
+    await tick()
+    await tick()
+
+    expect(store.get(configAtom)).toEqual(DEFAULT_CONFIG)
+  })
+
+  it("returns to the stored config once the pair is coherent again", async () => {
+    const store = await mountStore()
+    await tick()
+    const meta = (await readRawPrimary()).meta as Record<string, unknown>
+    await tearThePair()
+    await tick()
+    await tick()
+    expect(store.get(configAtom)).toEqual(DEFAULT_CONFIG)
+
+    await browser.storage.local.set({ config$: meta })
+    await tick()
+    await tick()
+
+    expect(store.get(configAtom)).toEqual(custom)
   })
 })

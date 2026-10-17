@@ -6,7 +6,6 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { TooltipProvider } from "@/components/ui/base-ui/tooltip"
 import { configAtom, configFieldsAtomMap } from "@/utils/atoms/config"
-import { storageAdapter } from "@/utils/atoms/storage-adapter"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { getBuiltInDictionaryAction } from "@/utils/custom-actions"
@@ -22,6 +21,22 @@ const mocks = vi.hoisted(() => ({
   openToolbarCustomAction: vi.fn<(actionId: string, anchor: HTMLElement | null) => void>(),
   toggleSpeech: vi.fn<() => boolean>(() => true),
 }))
+
+// The settings atom reads the session view of the stored config. A test can have the next read
+// answer with a view of its own (see the stale assignment below); every other read is the real one.
+const nextView = vi.hoisted(() => ({ value: undefined as unknown }))
+
+vi.mock("@/utils/config/status", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils/config/status")>()
+  return {
+    ...actual,
+    getConfigView: async () => {
+      const view = nextView.value
+      nextView.value = undefined
+      return view ?? actual.getConfigView()
+    },
+  }
+})
 
 vi.mock("@/utils/message", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/message")>()),
@@ -297,7 +312,7 @@ describe("SelectionToolbarMoreMenu", () => {
         DEFAULT_PROVIDER_CONFIG.deepl.id
       // Simulate the UI's stale assignment directly. The storage schema rejects this
       // snapshot and otherwise replaces every feature with defaults on mount.
-      vi.spyOn(storageAdapter, "get").mockResolvedValueOnce(config)
+      nextView.value = { config, status: { kind: "usable" } }
     })
     await openMenu()
 
