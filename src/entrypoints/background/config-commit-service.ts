@@ -175,18 +175,40 @@ async function storedPairIsStill(original: RawConfigPair) {
  * `executePrimary`), which leaves the list one entry above its limit. Every job that may add a
  * backup - a replacement (restore, import or reset alike), Back up now and the hourly backup -
  * first rotates the list down to its limit, newest first, when the primary it has just read is
- * usable and coherent. So between two jobs the list holds at most MAX_BACKUPS_COUNT + 1 entries,
- * however many replacements were left unconfirmed, and the extra entry is the most recent copy
- * taken before a replacement.
+ * usable and coherent.
  *
- * That is a bound on the count, not on the time: the extra entry stays until the next such job
- * runs, and it stays for as long as writes keep failing or nothing else runs. Nothing is rotated
- * while the primary is not usable and coherent (a replacement of such a config keeps a preserved
- * copy instead of a backup, and the other jobs add nothing).
+ * The rotation REPORTS a failure (it throws), and a job adds its backup only when the list can take
+ * one more: because the rotation worked now, or because there was no excess. See
+ * {@link roomForOneMoreBackup}. A rotation that keeps failing therefore never lets the list grow: a
+ * replacement is refused before it writes anything, Back up now is refused, and the hourly backup
+ * is skipped. So between two jobs the list holds at most MAX_BACKUPS_COUNT + 1 entries, however
+ * many replacements were left unconfirmed, and the extra entry is the most recent copy taken before
+ * a replacement. The only entries the rotation removes are the oldest ones beyond the limit.
+ *
+ * That is a bound on the count, not on the time: the extra entry stays until a rotation succeeds,
+ * and it stays for as long as writes keep failing or nothing else runs. Nothing is rotated while
+ * the primary is not usable and coherent (a replacement of such a config keeps a preserved copy
+ * instead of a backup, and the other jobs add nothing).
  */
 async function finishDeferredRotation(status: ConfigStatus) {
   if (status.kind !== "usable") return
-  await pruneBackups().catch(() => undefined)
+  await pruneBackups()
+}
+
+/**
+ * Whether a job that is about to add a backup may do so: the list holds at most MAX_BACKUPS_COUNT
+ * entries, because the rotation worked now or because there was nothing to rotate. When the
+ * rotation fails it is `false` and the job adds nothing. The error is a storage failure; it carries
+ * no stored settings.
+ */
+async function roomForOneMoreBackup(status: ConfigStatus) {
+  try {
+    await finishDeferredRotation(status)
+    return true
+  } catch (error) {
+    logger.error("Could not rotate the backups, so no backup is added", error)
+    return false
+  }
 }
 
 function sameToken(a: { kind: string; revision: number; valueHash: string }, b: typeof a) {
@@ -263,7 +285,8 @@ export function createConfigCommitService(
     if (receipt === "done") {
       // A replacement found done may have left the rotation it deferred unfinished (its first
       // answer was lost or unconfirmed): finish it now.
-      if (request.kind === "replace") await finishDeferredRotation(status)
+      // Nothing is added on this path, so a rotation that fails here is only tried again later.
+      if (request.kind === "replace") await finishDeferredRotation(status).catch(() => undefined)
       return { status: "committed", token }
     }
 
@@ -320,7 +343,11 @@ export function createConfigCommitService(
         }
       } else if (request.backupCurrent && status.kind === "usable") {
         const stored = status.raw.value as Config
-        await finishDeferredRotation(status)
+        // A backup is added only while the list can take one more. If it cannot be made to, the
+        // replacement is refused here, before the backup and before the primary are written.
+        if (!(await roomForOneMoreBackup(status))) {
+          return { status: "unavailable", reason: "storage-failed" }
+        }
         if (!already && !(await isSameAsLatestBackup(stored, CONFIG_SCHEMA_VERSION))) {
           addedBackupId = await addBackup(stored, request.extensionVersion, CONFIG_SCHEMA_VERSION, {
             backupId: backupIdFor(now(), request.opId),
@@ -352,7 +379,7 @@ export function createConfigCommitService(
       // confirms it failed): then the backup is the only copy of what was replaced and it stays. The
       // rotation it deferred is finished by the next job that may add a backup (see
       // `finishDeferredRotation`), or by this replacement sent again; until then the list is at most
-      // one entry above its limit.
+      // one entry above its limit, and no job adds to it while that rotation fails.
       if (addedBackupId !== undefined && (await storedPairIsStill(status.raw))) {
         await removeBackup(addedBackupId).catch(() => undefined)
       }
@@ -378,7 +405,9 @@ export function createConfigCommitService(
     const { status } = await currentStatus()
     if (status.kind === "suspect") return refused(status.reason)
     if (status.kind !== "usable") return refused("nothing-to-back-up")
-    await finishDeferredRotation(status)
+    if (!(await roomForOneMoreBackup(status))) {
+      return { status: "unavailable", reason: "storage-failed" }
+    }
     const backupId = await addBackup(
       status.raw.value as Config,
       request.extensionVersion,
@@ -470,7 +499,8 @@ export function createConfigCommitService(
       return enqueue(async () => {
         const { status } = await currentStatus()
         if (status.kind !== "usable") return undefined
-        await finishDeferredRotation(status)
+        // Skipped, like any hourly backup that cannot be made, when the list cannot take one more.
+        if (!(await roomForOneMoreBackup(status))) return undefined
         const stored = status.raw.value as Config
         if (await isSameAsLatestBackup(stored, CONFIG_SCHEMA_VERSION)) return undefined
         return addBackup(stored, extensionVersion, CONFIG_SCHEMA_VERSION)

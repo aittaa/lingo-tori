@@ -1,5 +1,6 @@
 import type { SenderEnvironment, SenderInfo } from "../config-commit-service"
 import type { OperationRequest, Snapshot } from "@/utils/config/commit-protocol"
+import { dequal } from "dequal"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { configSchema } from "@/types/config/config"
@@ -783,6 +784,97 @@ describe("an explicit replacement (restore, import, reset)", () => {
     expect(newestMatchesWhatWasReplaced.every(Boolean)).toBe(true)
   })
 
+  // The rotation of an earlier excess can fail too. A job that cannot make room does not add another
+  // backup: a replacement is refused before it writes anything, so the list cannot grow on the back
+  // of a rotation that keeps failing.
+  it("adds no backup and writes nothing when the rotation of an earlier excess fails", async () => {
+    const initial = edited(validConfig(), false)
+    await seedPrimary(initial, committedMeta(initial))
+    for (let n = 0; n < MAX_BACKUPS_COUNT; n++) await seedBackup(validConfig(), 1_000 + n)
+    const service = newService()
+    const realSet = fakeBrowser.storage.local.set.bind(fakeBrowser.storage.local)
+    const realGet = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local)
+    let readBackFails = false
+    let rotationFails = false
+    vi.spyOn(fakeBrowser.storage.local, "set" as any).mockImplementation((async (
+      items: Record<string, unknown>,
+    ) => {
+      if (rotationFails && Object.hasOwn(items, "backup_ids")) {
+        rotationFails = false
+        throw new Error("simulated rotation write failure")
+      }
+      await realSet(items)
+      if (Object.hasOwn(items, "config")) readBackFails = true
+    }) as any)
+    vi.spyOn(fakeBrowser.storage.local, "get" as any).mockImplementation((async (keys: unknown) => {
+      if (readBackFails && Array.isArray(keys) && keys.includes("config")) {
+        readBackFails = false
+        throw new Error("simulated read failure")
+      }
+      return realGet(keys as string[])
+    }) as any)
+
+    const counts: number[] = []
+    const primaryUnchangedWhenRefused: boolean[] = []
+    const newestCopies: unknown[] = []
+    for (let n = 0; n < 12; n++) {
+      const before = await readRawPrimary()
+      // The first replacement finds no excess; every later one finds the excess it left, and its
+      // rotation fails once.
+      rotationFails = n > 0
+      const response = await service.handle(
+        await replaceOf(edited(validConfig(), n % 2 === 0)),
+        PAGE,
+      )
+      expect(response).toEqual({ status: "unavailable", reason: "storage-failed" })
+      const backups = backupEntries(await snapshot())
+      counts.push(backups.length)
+      newestCopies.push(backups[0]!.backup.config)
+      if (n > 0) primaryUnchangedWhenRefused.push(sameRaw(await readRawPrimary(), before))
+    }
+    vi.restoreAllMocks()
+
+    expect(Math.max(...counts)).toBeLessThanOrEqual(MAX_BACKUPS_COUNT + 1)
+    expect(primaryUnchangedWhenRefused.every(Boolean)).toBe(true)
+    // The copy of the config the first replacement replaced is still the newest one: refusing
+    // deletes nothing.
+    expect(newestCopies.every((copy) => dequal(copy, initial))).toBe(true)
+  })
+
+  it("refuses a replacement before it writes anything when the rotation of an excess fails once", async () => {
+    const stored = edited(validConfig(), false)
+    await seedPrimary(stored, committedMeta(stored))
+    for (let n = 0; n <= MAX_BACKUPS_COUNT; n++) await seedBackup(validConfig(), 1_000 + n)
+    const request = await replaceOf(edited(validConfig(), true))
+    failWrites((keys) => keys.includes("backup_ids"), 1)
+    const before = await snapshot()
+
+    const response = await newService().handle(request, PAGE)
+    vi.restoreAllMocks()
+
+    expect(response).toEqual({ status: "unavailable", reason: "storage-failed" })
+    expect(await snapshot()).toEqual(before)
+  })
+
+  it("carries on with the same replacement once the rotation works, keeping the newest copies", async () => {
+    const stored = edited(validConfig(), false)
+    await seedPrimary(stored, committedMeta(stored))
+    const oldest = await seedBackup(validConfig(), 999)
+    for (let n = 0; n < MAX_BACKUPS_COUNT; n++) await seedBackup(validConfig(), 1_000 + n)
+    const request = await replaceOf(edited(validConfig(), true))
+    failWrites((keys) => keys.includes("backup_ids"), 1)
+    expect((await newService().handle(request, PAGE)).status).toBe("unavailable")
+    vi.restoreAllMocks()
+
+    const retry = await newService().handle(request, PAGE)
+
+    expect(retry.status).toBe("committed")
+    const ids = backupEntries(await snapshot()).map(({ id }) => id)
+    expect(ids).toHaveLength(MAX_BACKUPS_COUNT)
+    expect(ids).not.toContain(oldest)
+    expect(ids[0]).toBe((retry as { backupId: string }).backupId)
+  })
+
   it("does not rotate anything out for a replacement of a config that cannot be used", async () => {
     await seedPrimary(corruptConfig(), CURRENT_META)
     for (let n = 0; n <= MAX_BACKUPS_COUNT; n++) await seedBackup(validConfig(), 1_000 + n)
@@ -1082,6 +1174,22 @@ describe("backups", () => {
     expect(backupEntries(await snapshot())).toHaveLength(MAX_BACKUPS_COUNT)
   })
 
+  it("adds no backup when the rotation of an earlier excess fails", async () => {
+    await seedPrimary(validConfig(), committedMeta(validConfig()))
+    for (let n = 0; n <= MAX_BACKUPS_COUNT; n++) await seedBackup(edited(), 1_000 + n)
+    failWrites((keys) => keys.includes("backup_ids"), 1)
+    const before = await snapshot()
+
+    const response = await newService().handle(
+      operation({ kind: "backup-now", extensionVersion: "0.0.1" }),
+      PAGE,
+    )
+    vi.restoreAllMocks()
+
+    expect(response).toEqual({ status: "unavailable", reason: "storage-failed" })
+    expect(await snapshot()).toEqual(before)
+  })
+
   it("rotates nothing out when the config cannot be used", async () => {
     await seedPrimary(corruptConfig(), CURRENT_META)
     for (let n = 0; n <= MAX_BACKUPS_COUNT; n++) await seedBackup(edited(), 1_000 + n)
@@ -1194,6 +1302,19 @@ describe("the hourly backup", () => {
     expect(await service.backUpIfChanged("0.0.1")).toEqual(expect.any(String))
     expect(await service.backUpIfChanged("0.0.1")).toBeUndefined()
     expect(backupEntries(await snapshot())).toHaveLength(1)
+  })
+
+  it("adds no backup, and writes nothing, when the rotation of an earlier excess fails", async () => {
+    await seedPrimary(validConfig(), committedMeta(validConfig()))
+    for (let n = 0; n <= MAX_BACKUPS_COUNT; n++) await seedBackup(edited(), 1_000 + n)
+    failWrites((keys) => keys.includes("backup_ids"), 1)
+    const before = await snapshot()
+
+    const made = await newService().backUpIfChanged("0.0.1")
+    vi.restoreAllMocks()
+
+    expect(made).toBeUndefined()
+    expect(await snapshot()).toEqual(before)
   })
 
   it("finishes an earlier deferred rotation even when it has nothing to add", async () => {
