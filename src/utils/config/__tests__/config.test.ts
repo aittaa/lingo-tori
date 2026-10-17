@@ -1,7 +1,40 @@
+import type { TestSeriesObject } from "./example/types"
 import { describe, expect, it } from "vitest"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { getObjectWithoutAPIKeys, hasAPIKey } from "../api"
 import { LATEST_SCHEMA_VERSION } from "../migration"
+
+/**
+ * Reads a fixture without the code under test: every property named `apiKey` (whatever its value,
+ * even `undefined`; its subtree is not read) and every other value by path. A value that is
+ * `undefined` counts as a value too (v043's `baseURL: undefined`): the property exists, and
+ * dropping it would be noticed. An empty object or array counts as a value, and so does an
+ * object that holds nothing but `apiKey` (v004's `providersConfig.deepseek`): redaction leaves
+ * it as `{}`, and losing it would be noticed.
+ */
+function readConfig(root: unknown) {
+  const secrets: { path: string; value: unknown }[] = []
+  const ordinary = new Map<string, unknown>()
+  const visit = (node: unknown, path: string) => {
+    if (node === null || typeof node !== "object") {
+      ordinary.set(path, node)
+      return
+    }
+    let kept = 0
+    for (const [key, child] of Object.entries(node)) {
+      const childPath = Array.isArray(node) ? `${path}[${key}]` : `${path}.${key}`
+      if (key === "apiKey") {
+        secrets.push({ path: childPath, value: child })
+        continue
+      }
+      kept++
+      visit(child, childPath)
+    }
+    if (kept === 0) ordinary.set(path, Array.isArray(node) ? [] : {})
+  }
+  visit(root, "$")
+  return { secrets, ordinary: Object.fromEntries(ordinary) }
+}
 
 describe("config utilities", () => {
   describe("getObjectWithoutAPIKeys", () => {
@@ -9,11 +42,61 @@ describe("config utilities", () => {
       const currentVersionStr = String(version).padStart(3, "0")
 
       it(`should remove api keys from config v${currentVersionStr}`, async () => {
-        const currentConfigModule = await import(`./example/v${currentVersionStr}.ts`)
-        const currentConfig = currentConfigModule.configExample
+        const versionLabel = `v${currentVersionStr}`
+        // These version modules export `testSeries` (named scenarios, each with a `config`).
+        const { testSeries } = (await import(`./example/v${currentVersionStr}.ts`)) as {
+          testSeries?: TestSeriesObject
+        }
+        expect(testSeries, `${versionLabel} must export testSeries`).toBeDefined()
+        const seriesEntries = Object.entries(testSeries!)
+        expect(
+          seriesEntries.length,
+          `${versionLabel} testSeries must hold at least one series`,
+        ).toBeGreaterThan(0)
 
-        const result = getObjectWithoutAPIKeys(currentConfig)
-        expect(hasAPIKey(result)).toBe(false)
+        let secretsBeforeRedaction = 0
+        for (const [seriesName, series] of seriesEntries) {
+          const label = `${versionLabel} series "${seriesName}"`
+          const input = series.config
+          expect(
+            input !== null && typeof input === "object",
+            `${label}: the fixture config must be an object, not ${String(input)}`,
+          ).toBe(true)
+
+          const snapshot = structuredClone(input)
+          const before = readConfig(input)
+          const planted = before.secrets.filter(({ value }) => Boolean(value))
+          secretsBeforeRedaction += planted.length
+          expect(
+            Object.values(before.ordinary).filter((value) => value !== undefined).length,
+            `${label}: the fixture must hold non-secret values to preserve`,
+          ).toBeGreaterThan(0)
+          // The detector must see what is planted, or `hasAPIKey(result) === false` below proves nothing.
+          expect(hasAPIKey(input), `${label}: hasAPIKey on the unredacted fixture`).toBe(
+            planted.length > 0,
+          )
+
+          const result = getObjectWithoutAPIKeys(input)
+          const after = readConfig(result)
+
+          expect(
+            after.secrets.map(({ path }) => path),
+            `${label}: apiKey properties left after redaction`,
+          ).toEqual([])
+          expect(hasAPIKey(result), `${label}: hasAPIKey after redaction`).toBe(false)
+          // Strict, so a property whose value is `undefined` has to survive as a property.
+          expect(after.ordinary, `${label}: non-secret values lost or changed`).toStrictEqual(
+            before.ordinary,
+          )
+          expect(result, `${label}: the result must be a copy`).not.toBe(input)
+          expect(input, `${label}: the fixture was changed by the redaction`).toStrictEqual(
+            snapshot,
+          )
+        }
+        expect(
+          secretsBeforeRedaction,
+          `${versionLabel} must plant at least one non-empty apiKey before redaction`,
+        ).toBeGreaterThan(0)
       })
     }
 
