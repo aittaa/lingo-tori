@@ -11,6 +11,12 @@ Distributed under the GNU General Public License, version 3.
 The unmodified license text is included in LICENSE.
 Third-party dependency notices embedded in generated files remain intact.
 
+Third-party notices:
+The packages compiled into this extension and the license notices they require
+are listed in THIRD_PARTY_NOTICES.txt. The interface font Inter is licensed
+under the SIL Open Font License, Version 1.1; its full text is in
+licenses/Inter-OFL-1.1.txt.
+
 LingoTori bird branding:
 The selected white long-tailed tit candidate A was newly generated for
 LingoTori with OpenAI image generation. The original selected raster and its
