@@ -162,7 +162,11 @@ describe("a ChatGPT request whose consent read is pending when the session ends"
     const vault = memoryVault()
     await vault.update((record) => {
       record.credentials = credentials()
-      record.registration = { clientId: "synthetic-client", subject: "synthetic-subject" }
+      record.registration = {
+        clientId: "synthetic-client",
+        subject: "synthetic-subject",
+        email: "person@example.test",
+      }
     })
     // Answers every call, and ignores the abort signal like a double does.
     const fetcher = vi.fn<typeof fetch>(async () => Response.json({ models: [] }))

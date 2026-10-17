@@ -98,7 +98,7 @@ export function removePermissionsDouble() {
 export const KEY_ABSENT: ReportedDataCollection = null
 
 /** The state after install: the key is there, no optional category is granted. */
-export const NOTHING_GRANTED: ReportedDataCollection = []
-export const WITH_CREDENTIALS: ReportedDataCollection = ["authenticationInfo"]
-export const WITH_PAGE_URL: ReportedDataCollection = ["browsingActivity"]
-export const WITH_ALL: ReportedDataCollection = ["authenticationInfo", "browsingActivity"]
+export const NOTHING_GRANTED: readonly string[] = []
+export const WITH_CREDENTIALS: readonly string[] = ["authenticationInfo"]
+export const WITH_PAGE_URL: readonly string[] = ["browsingActivity"]
+export const WITH_ALL: readonly string[] = ["authenticationInfo", "browsingActivity"]
