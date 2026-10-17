@@ -2,41 +2,23 @@ import type { Config } from "@/types/config/config"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { isAPIProviderConfig } from "@/types/config/provider"
 import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "@/utils/constants/config"
-const UNCONFIGURED_PROVIDER_ID = "unconfigured"
+import {
+  ABSENT,
+  CURRENT_META,
+  readPreserved,
+  readRawPrimary,
+  resetStorage,
+  seedPrimary,
+  trackPrimaryWrites,
+} from "./preservation-test-kit"
 
-const getItemMock = vi.fn<(...args: any[]) => any>()
-const getMetaMock = vi.fn<(...args: any[]) => any>()
-const setItemMock = vi.fn<(...args: any[]) => any>()
-const setMetaMock = vi.fn<(...args: any[]) => any>()
+// Startup is driven over the extension's in-memory browser storage; only the migration step is a
+// stand-in, so that a test decides what it returns. What startup does to a config it cannot use is
+// covered in `original-preservation-init.test.ts`.
 const runMigrationMock = vi.fn<(...args: any[]) => any>()
-const loggerWarnMock = vi.fn<(...args: any[]) => any>()
-
-vi.mock("#imports", () => ({
-  storage: {
-    getItem: getItemMock,
-    getMeta: getMetaMock,
-    setItem: setItemMock,
-    setMeta: setMetaMock,
-  },
-}))
-
-vi.mock("wxt/utils/storage", () => ({
-  storage: {
-    getItem: getItemMock,
-    getMeta: getMetaMock,
-    setItem: setItemMock,
-    setMeta: setMetaMock,
-  },
-}))
 
 vi.mock("../migration", () => ({
   runMigration: runMigrationMock,
-}))
-
-vi.mock("@/utils/logger", () => ({
-  logger: {
-    warn: loggerWarnMock,
-  },
 }))
 
 function buildStableConfig(): Config {
@@ -62,14 +44,20 @@ function buildStableConfig(): Config {
   return config
 }
 
+const UP_TO_DATE_META = { schemaVersion: CONFIG_SCHEMA_VERSION, lastModifiedAt: 123 }
+
 describe("initializeConfig", () => {
   beforeEach(() => {
     vi.resetModules()
-    vi.clearAllMocks()
-    setItemMock.mockResolvedValue(undefined)
-    setMetaMock.mockResolvedValue(undefined)
+    resetStorage()
+    runMigrationMock.mockReset()
     runMigrationMock.mockImplementation(async (_nextVersion: number, config: Config) => config)
   })
+
+  async function initialize() {
+    const { initializeConfig } = await import("../init")
+    return initializeConfig()
+  }
 
   function translateProviderIdsOf(config: Config) {
     return [
@@ -80,147 +68,101 @@ describe("initializeConfig", () => {
   }
 
   it("does not write when config and meta are already up to date", async () => {
-    const config = buildStableConfig()
-    getItemMock.mockResolvedValueOnce(config)
-    getMetaMock.mockResolvedValueOnce({
-      schemaVersion: CONFIG_SCHEMA_VERSION,
-      lastModifiedAt: 123,
-    })
+    await seedPrimary(buildStableConfig(), UP_TO_DATE_META)
+    const tracker = trackPrimaryWrites()
 
-    const { initializeConfig } = await import("../init")
-    await initializeConfig()
+    await initialize()
 
     expect(runMigrationMock).not.toHaveBeenCalled()
-    expect(setItemMock).not.toHaveBeenCalled()
-    expect(setMetaMock).not.toHaveBeenCalled()
+    expect(tracker.writes).toEqual([])
   })
 
-  it("writes config and meta when config is missing", async () => {
-    getItemMock.mockResolvedValueOnce(null)
-    getMetaMock.mockResolvedValueOnce(null)
+  it("writes config and meta, in one call, when config is missing", async () => {
+    const tracker = trackPrimaryWrites()
 
-    const { initializeConfig } = await import("../init")
-    await initializeConfig()
+    await initialize()
 
-    expect(setItemMock).toHaveBeenCalledTimes(1)
-    expect(setItemMock).toHaveBeenCalledWith("local:config", expect.any(Object))
-    const freshConfig = setItemMock.mock.calls[0]?.[1] as Config
-    expect(freshConfig.providersConfig).toEqual([])
-    expect(setMetaMock).toHaveBeenCalledTimes(1)
-    expect(setMetaMock).toHaveBeenCalledWith(
-      "local:config",
-      expect.objectContaining({
-        schemaVersion: CONFIG_SCHEMA_VERSION,
-        lastModifiedAt: expect.any(Number),
-      }),
-    )
+    expect(tracker.writes).toEqual([{ method: "set", keys: ["config", "config$"] }])
+    const stored = await readRawPrimary()
+    expect((stored.value as Config).providersConfig).toEqual([])
+    expect(stored.meta).toEqual({
+      schemaVersion: CONFIG_SCHEMA_VERSION,
+      lastModifiedAt: expect.any(Number),
+    })
   })
 
   it("starts every translate feature unconfigured", async () => {
-    getItemMock.mockResolvedValueOnce(null)
-    getMetaMock.mockResolvedValueOnce(null)
-
-    const { initializeConfig } = await import("../init")
-    const { isFreshInstall } = await initializeConfig()
+    const { isFreshInstall } = await initialize()
 
     expect(isFreshInstall).toBe(true)
-    const freshConfig = setItemMock.mock.calls[0]?.[1] as Config
-    expect(translateProviderIdsOf(freshConfig)).toEqual([
-      UNCONFIGURED_PROVIDER_ID,
-      UNCONFIGURED_PROVIDER_ID,
-      UNCONFIGURED_PROVIDER_ID,
+    expect(translateProviderIdsOf((await readRawPrimary()).value as Config)).toEqual([
+      "unconfigured",
+      "unconfigured",
+      "unconfigured",
     ])
   })
 
   it("does not report a fresh install when a stored config is reused", async () => {
-    const config = buildStableConfig()
-    getItemMock.mockResolvedValueOnce(config)
-    getMetaMock.mockResolvedValueOnce({
-      schemaVersion: CONFIG_SCHEMA_VERSION,
-      lastModifiedAt: 123,
-    })
+    await seedPrimary(buildStableConfig(), UP_TO_DATE_META)
 
-    const { initializeConfig } = await import("../init")
-    const { isFreshInstall } = await initializeConfig()
+    const { isFreshInstall } = await initialize()
 
     expect(isFreshInstall).toBe(false)
   })
 
-  it("reports recovery from an unparseable config as a fresh install so the provider probe reruns", async () => {
-    getItemMock.mockResolvedValueOnce({ not: "a config" })
-    getMetaMock.mockResolvedValueOnce({
-      schemaVersion: CONFIG_SCHEMA_VERSION,
-      lastModifiedAt: 123,
-    })
+  it("does not rebuild an unparseable config, so it is not reported as a fresh install", async () => {
+    await seedPrimary({ not: "a config" }, CURRENT_META)
 
-    const { initializeConfig } = await import("../init")
-    const { isFreshInstall } = await initializeConfig()
+    const { isFreshInstall } = await initialize()
 
-    expect(isFreshInstall).toBe(true)
+    expect(isFreshInstall).toBe(false)
+    expect((await readRawPrimary()).value).toEqual({ not: "a config" })
   })
 
   it("reports that storage held no config only when nothing was stored", async () => {
-    getItemMock.mockResolvedValueOnce(null)
-    getMetaMock.mockResolvedValueOnce(null)
-
-    const { initializeConfig } = await import("../init")
-    const { hadStoredConfig } = await initializeConfig()
+    const { hadStoredConfig } = await initialize()
 
     expect(hadStoredConfig).toBe(false)
   })
 
   it("reports a reused config as stored", async () => {
-    getItemMock.mockResolvedValueOnce(buildStableConfig())
-    getMetaMock.mockResolvedValueOnce({
-      schemaVersion: CONFIG_SCHEMA_VERSION,
-      lastModifiedAt: 123,
-    })
+    await seedPrimary(buildStableConfig(), UP_TO_DATE_META)
 
-    const { initializeConfig } = await import("../init")
-    const { hadStoredConfig } = await initializeConfig()
+    const { hadStoredConfig } = await initialize()
 
     expect(hadStoredConfig).toBe(true)
   })
 
-  it("keeps an unparseable stored config reported as stored although it is rebuilt as fresh", async () => {
-    getItemMock.mockResolvedValueOnce({ not: "a config" })
-    getMetaMock.mockResolvedValueOnce({
-      schemaVersion: CONFIG_SCHEMA_VERSION,
-      lastModifiedAt: 123,
-    })
+  it("reports an unparseable stored config as stored, and as not fresh", async () => {
+    await seedPrimary({ not: "a config" }, CURRENT_META)
 
-    const { initializeConfig } = await import("../init")
-    const result = await initializeConfig()
+    const result = await initialize()
 
-    expect(result).toEqual({ isFreshInstall: true, hadStoredConfig: true })
+    expect(result).toEqual({ isFreshInstall: false, hadStoredConfig: true })
   })
 
   it.each([false, 0, ""])(
-    "counts a corrupted falsy stored value %j as an existing config, though it is still rebuilt as fresh",
+    "counts a corrupted falsy stored value %j as an existing config and keeps it as it is",
     async (corrupted) => {
-      getItemMock.mockResolvedValueOnce(corrupted)
-      getMetaMock.mockResolvedValueOnce(null)
+      await seedPrimary(corrupted, ABSENT)
+      const tracker = trackPrimaryWrites()
 
-      const { initializeConfig } = await import("../init")
-      const result = await initializeConfig()
+      const result = await initialize()
 
-      // Recovery is unchanged: the unusable value is replaced by defaults like a missing one.
-      expect(result).toEqual({ isFreshInstall: true, hadStoredConfig: true })
-      expect(setItemMock).toHaveBeenCalledTimes(1)
+      expect(result).toEqual({ isFreshInstall: false, hadStoredConfig: true })
+      expect(tracker.writes).toEqual([])
+      expect((await readRawPrimary()).value).toBe(corrupted)
+      expect(await readPreserved()).toHaveLength(1)
     },
   )
 
-  it("treats an undefined read as absence, like null", async () => {
-    getItemMock.mockResolvedValueOnce(undefined)
-    getMetaMock.mockResolvedValueOnce(null)
-
-    const { initializeConfig } = await import("../init")
-    const result = await initializeConfig()
+  it("treats a key that was never stored as absence", async () => {
+    const result = await initialize()
 
     expect(result).toEqual({ isFreshInstall: true, hadStoredConfig: false })
   })
 
-  it("runs migration and persists migrated config once", async () => {
+  it("runs migration and persists the migrated config once, with its meta in the same call", async () => {
     const config = buildStableConfig()
     const migrated = {
       ...config,
@@ -229,24 +171,17 @@ describe("initializeConfig", () => {
         enabled: false,
       },
     }
-    getItemMock.mockResolvedValueOnce(config)
-    getMetaMock.mockResolvedValueOnce({
-      schemaVersion: CONFIG_SCHEMA_VERSION - 1,
-      lastModifiedAt: 888,
-    })
+    await seedPrimary(config, { schemaVersion: CONFIG_SCHEMA_VERSION - 1, lastModifiedAt: 888 })
     runMigrationMock.mockResolvedValueOnce(migrated)
+    const tracker = trackPrimaryWrites()
 
-    const { initializeConfig } = await import("../init")
-    await initializeConfig()
+    await initialize()
 
     expect(runMigrationMock).toHaveBeenCalledWith(CONFIG_SCHEMA_VERSION, config)
-    expect(setItemMock).toHaveBeenCalledTimes(1)
-    expect(setItemMock).toHaveBeenCalledWith("local:config", migrated)
-    expect(setMetaMock).toHaveBeenCalledTimes(1)
-    expect(setMetaMock).toHaveBeenCalledWith("local:config", {
-      schemaVersion: CONFIG_SCHEMA_VERSION,
-      lastModifiedAt: 888,
-    })
+    expect(tracker.writes).toEqual([{ method: "set", keys: ["config", "config$"] }])
+    const stored = await readRawPrimary()
+    expect(stored.value).toEqual(migrated)
+    expect(stored.meta).toEqual({ schemaVersion: CONFIG_SCHEMA_VERSION, lastModifiedAt: 888 })
   })
 
   it("stores the migrated config as parsed, with the toolbar's order and pins in step", async () => {
@@ -259,17 +194,12 @@ describe("initializeConfig", () => {
         unpinned: ["gone", "speak"],
       },
     }
-    getItemMock.mockResolvedValueOnce(config)
-    getMetaMock.mockResolvedValueOnce({
-      schemaVersion: CONFIG_SCHEMA_VERSION - 1,
-      lastModifiedAt: 888,
-    })
+    await seedPrimary(config, { schemaVersion: CONFIG_SCHEMA_VERSION - 1, lastModifiedAt: 888 })
     runMigrationMock.mockResolvedValueOnce(migrated)
 
-    const { initializeConfig } = await import("../init")
-    await initializeConfig()
+    await initialize()
 
-    const stored = setItemMock.mock.calls[0]?.[1] as Config
+    const stored = (await readRawPrimary()).value as Config
     expect(stored.selectionToolbar.order).toEqual([
       "translate",
       "default-dictionary",
@@ -280,22 +210,17 @@ describe("initializeConfig", () => {
 
   it("only updates meta when config is unchanged but lastModifiedAt is missing", async () => {
     const config = buildStableConfig()
-    getItemMock.mockResolvedValueOnce(config)
-    getMetaMock.mockResolvedValueOnce({
+    await seedPrimary(config, { schemaVersion: CONFIG_SCHEMA_VERSION })
+    const tracker = trackPrimaryWrites()
+
+    await initialize()
+
+    expect(tracker.writes).toEqual([{ method: "set", keys: ["config$"] }])
+    const stored = await readRawPrimary()
+    expect(stored.value).toEqual(config)
+    expect(stored.meta).toEqual({
       schemaVersion: CONFIG_SCHEMA_VERSION,
+      lastModifiedAt: expect.any(Number),
     })
-
-    const { initializeConfig } = await import("../init")
-    await initializeConfig()
-
-    expect(setItemMock).not.toHaveBeenCalled()
-    expect(setMetaMock).toHaveBeenCalledTimes(1)
-    expect(setMetaMock).toHaveBeenCalledWith(
-      "local:config",
-      expect.objectContaining({
-        schemaVersion: CONFIG_SCHEMA_VERSION,
-        lastModifiedAt: expect.any(Number),
-      }),
-    )
   })
 })
