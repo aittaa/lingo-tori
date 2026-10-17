@@ -1,5 +1,6 @@
 import { createStore } from "jotai"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { fakeBrowser } from "wxt/testing/fake-browser"
 import {
   ConfigConflictError,
   ConfigOutcomeUnknownError,
@@ -19,10 +20,18 @@ import {
 } from "../../config/__tests__/preservation-test-kit"
 import { configWriteFailureAtom, describeWriteFailure } from "../config-health"
 
+const warn = vi.hoisted(() => vi.fn<(...args: unknown[]) => void>())
+
+vi.mock("@/utils/logger", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils/logger")>()
+  return { ...actual, logger: { ...actual.logger, warn } }
+})
+
 const EDIT = { language: { sourceCode: "auto", targetCode: "kor", level: "beginner" } } as const
 
 beforeEach(() => {
   resetStorage()
+  warn.mockReset()
 })
 
 async function openAtoms() {
@@ -64,6 +73,19 @@ describe("the last change that was not saved", () => {
     vi.restoreAllMocks()
     await store.set(atoms.writeConfigAtom, EDIT)
     expect(store.get(health.configWriteFailureAtom)).toBeNull()
+  })
+
+  it("is logged, so that a screen with no banner still leaves a trace", async () => {
+    await seedPrimary(validConfig(), CURRENT_META)
+    const { atoms, store } = await openAtoms()
+    failWrites((keys) => keys.includes("config"))
+
+    await store.set(atoms.writeConfigAtom, EDIT).catch(() => undefined)
+
+    expect(warn).toHaveBeenCalledWith(
+      "A change to the settings was not saved",
+      expect.objectContaining({ name: "ConfigUnavailableError" }),
+    )
   })
 
   it("is not recorded for an unusable stored config, which has its own banner", async () => {
@@ -122,6 +144,16 @@ describe("whether the stored config can be used", () => {
     await settle()
     expect(store.get(health.configUnusableReasonAtom)).toBeNull()
     unsubscribe()
+  })
+
+  it("leaves no listener on the browser's storage once nothing watches it", async () => {
+    await seedPrimary(validConfig(), CURRENT_META)
+    const { unsubscribe } = await mounted()
+    expect(fakeBrowser.storage.onChanged.hasListeners()).toBe(true)
+
+    unsubscribe()
+
+    expect(fakeBrowser.storage.onChanged.hasListeners()).toBe(false)
   })
 
   it("stops following once nothing watches it", async () => {

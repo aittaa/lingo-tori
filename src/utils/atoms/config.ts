@@ -7,6 +7,7 @@ import { configSchema } from "@/types/config/config"
 import { getConfigView } from "../config/status"
 import { editConfig } from "../config/write-guard"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "../constants/config"
+import { logger } from "../logger"
 import { configWriteFailureAtom, describeWriteFailure } from "./config-health"
 import { storageAdapter } from "./storage-adapter"
 
@@ -60,7 +61,9 @@ export const writeConfigAtom = atom(null, async (get, set, update: ConfigUpdate)
         if (view?.config) set(configAtom, view.config)
       }
       // A change that is not saved is never dropped silently: the banner says so (an unusable
-      // stored config has its own banner and needs no second line).
+      // stored config has its own banner and needs no second line), and the console has it for the
+      // screens that have no banner (a page's own controls).
+      logger.warn("A change to the settings was not saved", error)
       set(configWriteFailureAtom, describeWriteFailure(error))
       throw error
     } finally {
