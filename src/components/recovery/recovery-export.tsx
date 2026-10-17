@@ -3,6 +3,7 @@ import type { SuspectReason } from "@/utils/config/status"
 import { useMutation } from "@tanstack/react-query"
 import { saveAs } from "file-saver"
 import { useEffect, useState } from "react"
+import { browser } from "#imports"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,12 +16,14 @@ import {
 } from "@/components/ui/base-ui/alert-dialog"
 import { Button } from "@/components/ui/base-ui/button"
 import { toastManager } from "@/components/ui/base-ui/toast"
+import { PRESERVED_ORIGINAL_PREFIX } from "@/utils/config/preservation"
 import {
   buildKeptCopyExport,
   buildStoredAsFoundExport,
   listKeptCopies,
 } from "@/utils/config/recovery-export"
-import { getConfigStatus } from "@/utils/config/status"
+import { CONFIG_META_STORAGE_KEY, getConfigStatus } from "@/utils/config/status"
+import { CONFIG_STORAGE_KEY } from "@/utils/constants/config"
 import { i18n } from "@/utils/i18n"
 import { logger } from "@/utils/logger"
 
@@ -54,16 +57,34 @@ export function RecoveryExport() {
   const [state, setState] = useState<RecoveryExportState>()
   const [target, setTarget] = useState<Target>()
 
+  // Read when the screen mounts, and again whenever the stored config, its meta or a kept copy changes: a screen that was showing nothing must offer recovery as
+  // soon as the stored config stops being usable. A read that answers after a newer one started is
+  // ignored, and the listener goes with the screen.
   useEffect(() => {
-    let active = true
-    loadState().then(
-      (loaded) => {
-        if (active) setState(loaded)
-      },
-      (error: unknown) => logger.error("Could not look for kept copies of the settings", error),
-    )
+    let alive = true
+    let latest = 0
+    const refresh = () => {
+      const mine = ++latest
+      loadState().then(
+        (loaded) => {
+          if (alive && mine === latest) setState(loaded)
+        },
+        (error: unknown) => logger.error("Could not look for kept copies of the settings", error),
+      )
+    }
+    const onChanged = (changes: Record<string, unknown>, area: string) => {
+      if (area !== "local") return
+      const relevant =
+        CONFIG_STORAGE_KEY in changes ||
+        CONFIG_META_STORAGE_KEY in changes ||
+        Object.keys(changes).some((key) => key.startsWith(PRESERVED_ORIGINAL_PREFIX))
+      if (relevant) refresh()
+    }
+    refresh()
+    browser.storage.onChanged.addListener(onChanged)
     return () => {
-      active = false
+      alive = false
+      browser.storage.onChanged.removeListener(onChanged)
     }
   }, [])
 

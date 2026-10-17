@@ -81,9 +81,18 @@ export function committedMeta(value: unknown, revision = 1) {
 
 // ----- raw storage -----
 
+/** Where a failed startup keeps its outcome in memory (see `init-failure.ts`); shared by module graphs. */
+const INIT_FAILURE_MEMORY = Symbol.for("lingotori.configInitFailure")
+
 export function resetStorage() {
   fakeBrowser.reset()
   vi.restoreAllMocks()
+  Reflect.deleteProperty(globalThis, INIT_FAILURE_MEMORY)
+}
+
+/** Drops only what the background remembers, as a context that never saw the failure would. */
+export function forgetWhatTheBackgroundRemembers() {
+  Reflect.deleteProperty(globalThis, INIT_FAILURE_MEMORY)
 }
 
 /** The `storage.local.set` payload that stores `value` and `meta` as a raw primary. */

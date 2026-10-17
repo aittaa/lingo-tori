@@ -243,3 +243,106 @@ describe("the credential warning", () => {
     expect(await snapshot()).toEqual(before)
   })
 })
+
+describe("a screen that is already showing", () => {
+  it("offers recovery when the stored config becomes unusable and a copy is kept, without a reload", async () => {
+    await seedPrimary(validConfig(), CURRENT_META)
+    renderExport()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(screen.queryByTestId("recovery-export")).not.toBeInTheDocument()
+
+    const original = suspectWithSecret()
+    await seedPrimary(original.value, original.meta)
+    await seedPreserved(original, "invalid-schema")
+
+    await waitFor(() => expect(screen.getByText(EXPORT_STORED)).toBeVisible())
+    expect(screen.getAllByText(EXPORT_COPY)).toHaveLength(1)
+  })
+
+  it("lists a copy that is added later, and stops offering the stored config once it is usable again", async () => {
+    const original = suspectWithSecret()
+    await seedPrimary(original.value, original.meta)
+    renderExport()
+    await waitFor(() => screen.getByText(EXPORT_STORED))
+    expect(screen.queryByText(EXPORT_COPY)).not.toBeInTheDocument()
+
+    await seedPreserved(original, "invalid-schema")
+    await waitFor(() => expect(screen.getAllByText(EXPORT_COPY)).toHaveLength(1))
+
+    await seedPrimary(validConfig(), CURRENT_META)
+    await waitFor(() => expect(screen.queryByText(EXPORT_STORED)).not.toBeInTheDocument())
+    expect(screen.getAllByText(EXPORT_COPY)).toHaveLength(1)
+  })
+
+  it.each([
+    {
+      name: "only its value changes",
+      change: (fakeBrowser: any) => fakeBrowser.storage.local.set({ config: corruptConfig() }),
+    },
+    {
+      name: "only its meta changes",
+      change: (fakeBrowser: any) => fakeBrowser.storage.local.set({ config$: "not-a-meta" }),
+    },
+  ])("offers recovery when $name", async ({ change }) => {
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    await seedPrimary(validConfig(), CURRENT_META)
+    renderExport()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(screen.queryByTestId("recovery-export")).not.toBeInTheDocument()
+
+    await change(fakeBrowser)
+
+    await waitFor(() => expect(screen.getByText(EXPORT_STORED)).toBeVisible())
+  })
+
+  it("shows the outcome of the latest read when an older read answers late", async () => {
+    await seedPrimary(validConfig(), CURRENT_META)
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    const realGet = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local) as (
+      ...args: any[]
+    ) => Promise<Record<string, unknown>>
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let firstStatusRead = true
+    vi.spyOn(fakeBrowser.storage.local, "get").mockImplementation((async (...args: any[]) => {
+      const keys = args[0]
+      const isStatusRead =
+        Array.isArray(keys) && keys.includes("config") && keys.includes("config$")
+      const result = await realGet(...args)
+      if (isStatusRead && firstStatusRead) {
+        firstStatusRead = false
+        // The first read answers late, with what was stored when it started.
+        await held
+      }
+      return result
+    }) as any)
+    renderExport()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    const original = suspectWithSecret()
+    await seedPrimary(original.value, original.meta)
+    await waitFor(() => expect(screen.getByText(EXPORT_STORED)).toBeVisible())
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    expect(screen.getByText(EXPORT_STORED)).toBeVisible()
+  })
+
+  it("leaves no listener on the browser's storage once it is gone", async () => {
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    await seedPrimary(validConfig(), CURRENT_META)
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <RecoveryExport />
+      </QueryClientProvider>,
+    )
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(fakeBrowser.storage.onChanged.hasListeners()).toBe(true)
+
+    view.unmount()
+
+    expect(fakeBrowser.storage.onChanged.hasListeners()).toBe(false)
+  })
+})

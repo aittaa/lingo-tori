@@ -5,7 +5,8 @@ import { configSchema } from "@/types/config/config"
 import { Sha256Hex } from "@/utils/hash"
 import { CONFIG_SCHEMA_VERSION, CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "../constants/config"
 import { ConfigExportBlockedError } from "./errors"
-import { findKeptReason, PRESERVED_ORIGINAL_PREFIX } from "./preservation"
+import { findFailedUpgradeReason, INIT_FAILURE_KEY } from "./init-failure"
+import { PRESERVED_ORIGINAL_PREFIX } from "./preservation"
 import { stableStringify } from "./stable-json"
 
 /** Where the meta of the config lives (WXT keeps a value's meta next to it under `<key>$`). */
@@ -85,14 +86,21 @@ function readMetaLabel(raw: RawConfigPair): MetaLabel {
   if (!raw.hasMeta) return { kind: "none" }
   if (!isPlainObject(raw.meta)) return { kind: "malformed" }
   const meta = raw.meta
+  // A field is judged by whether the property is there, not by its value: a property that is there
+  // and set to `undefined` is malformed, like any other value that is not what the field holds.
+  const hasVersion = Object.hasOwn(meta, "schemaVersion")
   const version = meta.schemaVersion
-  if (version !== undefined && !isWholeNumber(version, 1)) return { kind: "malformed" }
-  if (version !== undefined && version > CONFIG_SCHEMA_VERSION) return { kind: "label", version }
-  if (meta.revision !== undefined && !isWholeNumber(meta.revision, 0)) return { kind: "malformed" }
-  for (const field of ["valueDigest", "lastOpId", "lastOpDigest"]) {
-    if (meta[field] !== undefined && typeof meta[field] !== "string") return { kind: "malformed" }
+  if (hasVersion && !isWholeNumber(version, 1)) return { kind: "malformed" }
+  if (hasVersion && isWholeNumber(version, 1) && version > CONFIG_SCHEMA_VERSION) {
+    return { kind: "label", version }
   }
-  return version === undefined ? { kind: "none" } : { kind: "label", version }
+  if (Object.hasOwn(meta, "revision") && !isWholeNumber(meta.revision, 0)) {
+    return { kind: "malformed" }
+  }
+  for (const field of ["valueDigest", "lastOpId", "lastOpDigest"]) {
+    if (Object.hasOwn(meta, field) && typeof meta[field] !== "string") return { kind: "malformed" }
+  }
+  return hasVersion && isWholeNumber(version, 1) ? { kind: "label", version } : { kind: "none" }
 }
 
 function isWholeNumber(value: unknown, minimum: number): value is number {
@@ -124,13 +132,16 @@ export function readReceipt(raw: RawConfigPair): MetaReceipt {
 }
 
 /**
- * A `lastModifiedAt` that is present and is not a finite number. A MISSING one is an older
- * writer's meta and is completed; a malformed one is data nobody should overwrite unread.
+ * A `lastModifiedAt` that is present and is not a finite number. A MISSING one (the property is not
+ * there) is an older writer's meta and is completed; a present one that is malformed is data nobody
+ * should overwrite unread - including a property that is there and set to `undefined`, which a
+ * browser that keeps such properties hands over as it is.
  */
 function hasMalformedModifiedAt(raw: RawConfigPair): boolean {
   if (!raw.hasMeta || !isPlainObject(raw.meta)) return false
+  if (!Object.hasOwn(raw.meta, "lastModifiedAt")) return false
   const value = raw.meta.lastModifiedAt
-  return value !== undefined && !(typeof value === "number" && Number.isFinite(value))
+  return !(typeof value === "number" && Number.isFinite(value))
 }
 
 /** `lastModifiedAt` of a raw meta when it is a usable time, so a rewrite can keep it. */
@@ -231,17 +242,18 @@ export function fingerprintOf(status: ConfigStatus): BaseToken {
 
 /**
  * The status of what is stored right now. A pair with an older label is `upgrading` until startup
- * has run; when startup could not upgrade it, it leaves the pair as it is, label included, and keeps
- * an exact copy. That copy is what tells "cannot be upgraded" from "not upgraded yet": a pair that a
- * kept copy holds is `suspect` with the reason startup recorded, so a failed upgrade is never
- * described as a pending one. (Startup itself classifies the pair without this lookup, and so tries
- * the upgrade again on every start.)
+ * has run; when startup could not upgrade it, it leaves the pair as it is, label included, keeps an
+ * exact copy when it can, and records the outcome for this exact pair (see `init-failure.ts`). That
+ * is what tells "cannot be upgraded" from "not upgraded yet": a pair that a kept copy holds, or that
+ * startup recorded as failed, is `suspect` with the reason startup found, so a failed upgrade is
+ * never described as a pending one. (Startup itself classifies the pair without this lookup, and so
+ * tries the upgrade again on every start.)
  */
 export async function getConfigStatus(): Promise<ConfigStatus> {
   const raw = await readRawConfigPair()
   const status = classifyConfigPair(raw)
   if (status.kind !== "upgrading") return status
-  const reason = await findKeptReason(raw)
+  const reason = await findFailedUpgradeReason(raw)
   return reason ? { kind: "suspect", raw, reason } : status
 }
 
@@ -302,10 +314,12 @@ export function watchConfigStatus(callback: (view: ConfigView) => void): () => v
 
   const onChanged = (changes: Record<string, unknown>, area: string) => {
     if (area !== "local") return
-    // A kept copy appearing can change what an older-labelled pair is (see getConfigStatus).
+    // A kept copy or the record of a failed upgrade appearing can change what an older-labelled
+    // pair is (see getConfigStatus).
     const relevant =
       CONFIG_STORAGE_KEY in changes ||
       CONFIG_META_STORAGE_KEY in changes ||
+      INIT_FAILURE_KEY in changes ||
       Object.keys(changes).some((key) => key.startsWith(PRESERVED_ORIGINAL_PREFIX))
     if (!relevant) return
     const mine = ++generation
