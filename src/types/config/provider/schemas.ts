@@ -46,6 +46,11 @@ export const baseProviderConfigSchema = z.strictObject({
 export const baseAPIProviderConfigSchema = baseProviderConfigSchema.extend({
   apiKey: z.string().optional(),
   baseURL: z.string().optional(),
+  // The user's own statement that the endpoint URL or its options hold a secret the extension
+  // cannot recognise (a key in the path, say). On Firefox such an endpoint is treated like one with
+  // an API key. It only adds to what is detected. Its name must not look like a credential name,
+  // or the settings export would delete it (`isCredentialName`); a test keeps that true.
+  endpointNeedsConsent: z.boolean().optional(),
   temperature: z.number().min(0).optional(),
   providerOptions: z.record(z.string(), z.any()).optional(),
   headers: z.record(z.string(), z.any()).optional(),
@@ -70,6 +75,7 @@ const byosProviderConfigSchema = baseAPIProviderConfigSchema.extend({
   apiKey: z.never().optional(),
   baseURL: z.never().optional(),
   headers: z.never().optional(),
+  endpointNeedsConsent: z.never().optional(),
   model: z.object({
     model: z.literal("use-custom-model"),
     isCustomModel: z.literal(true),

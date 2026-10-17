@@ -1,7 +1,7 @@
 import type { SelectionToolbarCustomAction } from "@/types/config/selection-toolbar"
 import type { SelectionToolbarCustomActionPromptTokens } from "@/utils/custom-action-prompt"
 import {
-  buildStructuredOutputFieldList,
+  formatResolvedStructuredOutputFieldList,
   replaceSelectionToolbarCustomActionPromptTokens,
 } from "@/utils/custom-action-prompt"
 import { NOTE_SUGGESTION_MAX_NOTES } from "@/utils/note-suggestion/types"
@@ -131,7 +131,8 @@ export function buildNoteSuggestionPrompts(input: NoteSuggestionPromptInput): {
     replaceSelectionToolbarCustomActionPromptTokens(action.prompt, tokens),
     NOTE_SUGGESTION_MAX_ACTION_PROMPT_CHARS,
   )
-  const outputFields = buildStructuredOutputFieldList(action.outputSchema, tokens)
+  // The descriptions were expanded and capped above; they are written as they are.
+  const outputFields = formatResolvedStructuredOutputFieldList(action.outputSchema)
 
   return {
     systemPrompt: buildNoteSuggestionSystemPrompt(actionSystemPrompt),

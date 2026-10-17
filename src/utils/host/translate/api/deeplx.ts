@@ -4,9 +4,12 @@ import type { TranslationTextFormat } from "@/types/config/translate"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { ApiUsageIdentity } from "@/utils/api-usage-identity"
 import { createApiUsageIdentity } from "@/utils/api-usage-identity"
-import { withApiUsage } from "@/utils/api-usage-tracking"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
-import { noStoreFetch } from "@/utils/providers/no-store-fetch"
+import {
+  isDataConsentRequiredError,
+  providerConfigCarriesCredentials,
+} from "@/utils/firefox-data-consent"
+import { createProviderFetch } from "@/utils/providers/provider-fetch"
 
 type DeepLXProviderConfig = Extract<ProviderConfig, { provider: "deeplx" }>
 const API_KEY_PLACEHOLDER_RE = /\{\{apiKey\}\}/g
@@ -52,6 +55,13 @@ export async function deeplxTranslate(
     options?.signal,
     options?.usageFeature,
     options?.usageFeature ? createApiUsageIdentity(providerConfig) : undefined,
+    // DeepLX sends the key only inside the URL (the `{{apiKey}}` placeholder), where the request
+    // itself does not show it, so the configuration has to say so.
+    providerConfigCarriesCredentials({
+      baseURL,
+      apiKey: baseURL.includes("{{apiKey}}") ? apiKey : undefined,
+      endpointNeedsConsent: providerConfig.endpointNeedsConsent,
+    }),
   )
 
   return parseDeepLXResponse(fetchResponse)
@@ -60,18 +70,23 @@ export async function deeplxTranslate(
 async function fetchDirect(
   url: string,
   body: string,
-  signal?: AbortSignal,
-  usageFeature?: ApiUsageFeature,
-  identity?: ApiUsageIdentity,
+  signal: AbortSignal | undefined,
+  usageFeature: ApiUsageFeature | undefined,
+  identity: ApiUsageIdentity | undefined,
+  credentialed: boolean,
 ) {
-  const resp = await (
-    usageFeature ? withApiUsage(usageFeature, noStoreFetch, identity) : noStoreFetch
-  )(url, {
+  const resp = await createProviderFetch({
+    feature: usageFeature,
+    identity,
+    credentialed,
+  })(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body,
     signal,
   }).catch((error) => {
+    // A refusal for missing consent is not a network failure: say what it is.
+    if (isDataConsentRequiredError(error)) throw error
     throw new Error(`Network error during DeepLX translation: ${error.message}`)
   })
 

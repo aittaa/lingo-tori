@@ -1269,6 +1269,22 @@ noAPIKeyConfig:
 providerRequired:
   message: 제공자를 선택해 주세요
   openSettings: 설정 열기
+dataConsent:
+  allow: 허용
+  allowFailed: Firefox에서 권한이 허용되지 않았습니다. 다시 시도할 수 있습니다.
+  status:
+    granted: 허용됨
+    denied: 아직 허용되지 않음
+    unsupported: 이 Firefox에서는 사용할 수 없습니다 (140 이상 버전이 필요합니다)
+  authenticationInfo:
+    title: 제공자에게 인증 정보 보내기
+    description: 이 제공자에는 API 키, 인증 헤더 또는 다른 인증 정보가 있습니다. 여기서 허용한 뒤에만 LingoTori가 이를 보내며, 허용하면 Firefox가 확인을 요청합니다.
+  browsingActivity:
+    title: 페이지 주소 보내기
+    description: 이 동작은 현재 페이지의 주소(URL)를 제공자에게 보냅니다. 여기서 허용한 뒤에만 LingoTori가 이를 보내며, 허용하면 Firefox가 확인을 요청합니다.
+  endpointNeedsConsent:
+    label: 이 엔드포인트 URL 또는 옵션에 비밀 값이 들어 있습니다
+    hint: 예를 들어 URL 경로에 들어 있는 키입니다. LingoTori는 이를 스스로 알아낼 수 없으므로, 이 옵션을 켜면 인증 정보 전송을 허용한 뒤에만 이 엔드포인트로 요청을 보냅니다.
 onboarding:
   title: 어떤 언어로 번역할까요?
   description: LingoTori가 기본으로 이 언어로 번역해요. 설정에서 언제든 바꿀 수 있어요.

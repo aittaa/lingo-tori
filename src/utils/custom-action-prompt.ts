@@ -1,5 +1,6 @@
 import type { SelectionToolbarCustomActionOutputField } from "@/types/config/selection-toolbar"
-import { getSelectionToolbarCustomActionTokenCellText } from "@/utils/constants/custom-action"
+import type { SelectionToolbarCustomActionToken } from "@/utils/constants/custom-action"
+import { SELECTION_TOOLBAR_CUSTOM_ACTION_TOKENS } from "@/utils/constants/custom-action"
 
 export interface SelectionToolbarCustomActionPromptTokens {
   selection: string
@@ -10,20 +11,55 @@ export interface SelectionToolbarCustomActionPromptTokens {
   webContent: string
 }
 
+/**
+ * The one definition of what a token is: `{{name}}` for a name in the token list. Expansion and the
+ * question "does this template use that token" both read it, so they cannot disagree.
+ */
+const TOKEN_PATTERN = new RegExp(
+  `\\{\\{(${SELECTION_TOOLBAR_CUSTOM_ACTION_TOKENS.join("|")})\\}\\}`,
+  "g",
+)
+
+/**
+ * Expands the tokens of one template in a single pass. A value that is put in is final: if it looks
+ * like a token (a page that contains the text `{{webUrl}}`, say) it stays text and is not expanded,
+ * and a `$&`-style sequence in it stays as typed. That is what lets the data consent decision be
+ * made from the template alone: a token is expanded exactly where the user's template wrote it.
+ */
 export function replaceSelectionToolbarCustomActionPromptTokens(
   prompt: string,
   tokens: SelectionToolbarCustomActionPromptTokens,
 ) {
-  return prompt
-    .replaceAll(getSelectionToolbarCustomActionTokenCellText("selection"), tokens.selection)
-    .replaceAll(getSelectionToolbarCustomActionTokenCellText("paragraphs"), tokens.paragraphs)
-    .replaceAll(
-      getSelectionToolbarCustomActionTokenCellText("targetLanguage"),
-      tokens.targetLanguage,
-    )
-    .replaceAll(getSelectionToolbarCustomActionTokenCellText("webTitle"), tokens.webTitle)
-    .replaceAll(getSelectionToolbarCustomActionTokenCellText("webUrl"), tokens.webUrl)
-    .replaceAll(getSelectionToolbarCustomActionTokenCellText("webContent"), tokens.webContent)
+  return prompt.replace(
+    TOKEN_PATTERN,
+    (_match, name: SelectionToolbarCustomActionToken) => tokens[name],
+  )
+}
+
+function templateUsesToken(template: unknown, token: SelectionToolbarCustomActionToken): boolean {
+  if (typeof template !== "string") return false
+  for (const match of template.matchAll(TOKEN_PATTERN)) {
+    if (match[1] === token) return true
+  }
+  return false
+}
+
+/**
+ * Whether running the action sends the full page URL to the provider: its prompt, its system prompt
+ * or an output-field description uses the `{{webUrl}}` token. That is browsingActivity for Firefox's
+ * data consent, and nothing else in an action's request is. Because expansion is a single pass over
+ * these templates, a URL appears in the request exactly where this finds the token.
+ */
+export function customActionUsesWebUrl(action: {
+  prompt: string
+  systemPrompt: string
+  outputSchema: ReadonlyArray<{ description: string }>
+}): boolean {
+  return [
+    action.prompt,
+    action.systemPrompt,
+    ...action.outputSchema.map((f) => f.description),
+  ].some((template) => templateUsesToken(template, "webUrl"))
 }
 
 export type StructuredOutputField = Pick<
@@ -38,16 +74,10 @@ function formatYamlMultiline(value: string) {
     .join("\n")
 }
 
-function formatStructuredOutputField(
-  field: StructuredOutputField,
-  tokens: SelectionToolbarCustomActionPromptTokens,
-) {
-  const resolvedDescription = replaceSelectionToolbarCustomActionPromptTokens(
-    field.description,
-    tokens,
-  ).trim()
-  const descriptionBlock = resolvedDescription
-    ? `  description: |-\n${formatYamlMultiline(resolvedDescription)}`
+function formatStructuredOutputField(field: StructuredOutputField, resolvedDescription: string) {
+  const description = resolvedDescription.trim()
+  const descriptionBlock = description
+    ? `  description: |-\n${formatYamlMultiline(description)}`
     : '  description: ""'
 
   return [
@@ -62,7 +92,25 @@ export function buildStructuredOutputFieldList(
   outputSchema: StructuredOutputField[],
   tokens: SelectionToolbarCustomActionPromptTokens,
 ) {
-  return outputSchema.map((field) => formatStructuredOutputField(field, tokens)).join("\n")
+  return outputSchema
+    .map((field) =>
+      formatStructuredOutputField(
+        field,
+        replaceSelectionToolbarCustomActionPromptTokens(field.description, tokens),
+      ),
+    )
+    .join("\n")
+}
+
+/**
+ * The field list for descriptions that are already expanded (and, for the note suggestion, capped).
+ * They are written as they are: expanding a value a second time would expand the text a page put
+ * into it.
+ */
+export function formatResolvedStructuredOutputFieldList(outputSchema: StructuredOutputField[]) {
+  return outputSchema
+    .map((field) => formatStructuredOutputField(field, field.description))
+    .join("\n")
 }
 
 function buildStructuredOutputContract(

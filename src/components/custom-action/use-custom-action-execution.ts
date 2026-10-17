@@ -37,6 +37,7 @@ import { getSourceDocumentTitle } from "@/utils/content/document-title"
 import { truncateContextTextForCustomAction } from "@/utils/custom-action-prompt"
 import {
   buildSelectionToolbarCustomActionSystemPrompt,
+  customActionUsesWebUrl,
   replaceSelectionToolbarCustomActionPromptTokens,
 } from "@/utils/custom-action-prompt"
 import { getOrCreateWebPageContext } from "@/utils/host/translate/webpage-context"
@@ -92,6 +93,8 @@ interface CustomActionExecutionRequest {
     reasoning?: AISDKReasoning
     instructions: string
     temperature?: number
+    // The optional Firefox data category the run sends: the page URL, when a template uses {{webUrl}}.
+    dataCategories?: Array<"browsingActivity">
   }
 }
 
@@ -319,6 +322,7 @@ function buildCustomActionExecutionRequest({
       providerOptions,
       reasoning,
       temperature,
+      ...(customActionUsesWebUrl(action) && { dataCategories: ["browsingActivity" as const] }),
     },
   }
 }

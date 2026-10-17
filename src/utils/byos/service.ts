@@ -1,8 +1,14 @@
 import type { AuthTransport } from "./transport"
 import type { AuthVault, Credentials, PendingAuth, VaultRecord } from "./vault"
 import type { ReportedTokens } from "@/utils/api-usage-tokens"
+import type { ConsentRuntimeOptions, DataConsentCategory } from "@/utils/firefox-data-consent"
 import { z } from "zod"
 import { readResponsesTokens } from "@/utils/api-usage-tokens"
+import {
+  assertDataConsent,
+  assertDataConsentAll,
+  isDataConsentRequiredError,
+} from "@/utils/firefox-data-consent"
 import { isByosConnectionRefused } from "./browser"
 import {
   abortable,
@@ -113,6 +119,11 @@ export function createByosService(
   now = Date.now,
 ) {
   let intent = 0
+  // Moves with every change this service makes to the generation of the stored session. A sign-in
+  // that is suspended on its last permission read has no vault wait left in which to learn of such a
+  // change, and a terminal token refresh (or any other operation of this service) can make one
+  // without moving `intent`, so the sign-in compares this counter, in the turn that navigates.
+  let generationEpoch = 0
   let starting = false
   let startingAttemptId: string | undefined
   // Terminal, handled promise of a failed sign-in's browser cleanup. It outlives the
@@ -121,6 +132,16 @@ export function createByosService(
   let refreshing: Promise<void> | undefined
   let initialization: Promise<void> | undefined
   let signingOut: Promise<ByosSession & { remoteRevocationConfirmed: boolean }> | undefined
+  /**
+   * The one way this service advances the stored generation. The counter moves first, inside the
+   * update callback and before anything is written. If the write then fails and the vault rolls
+   * back, the counter stays moved: that is deliberately fail-closed, a sign-in waiting on it ends
+   * with `session_changed` and the user can try again.
+   */
+  function bumpGeneration(record: VaultRecord) {
+    generationEpoch++
+    record.generation++
+  }
   const controllers = new Set<AbortController>()
   const abortAll = () => {
     for (const controller of controllers) controller.abort()
@@ -144,7 +165,7 @@ export function createByosService(
       cleared = true
       const previous = record.pending
       if (advanceGeneration) {
-        record.generation++
+        bumpGeneration(record)
         if (record.refreshing) {
           delete record.refreshing
           record.refreshUncertain = true
@@ -187,7 +208,7 @@ export function createByosService(
         record = await vault.update((current) => {
           if (current.refreshing) {
             const previousGeneration = current.generation
-            current.generation++
+            bumpGeneration(current)
             current.tokenVersion++
             current.refreshUncertain = true
             delete current.refreshing
@@ -243,6 +264,7 @@ export function createByosService(
     timeoutMs = 60000,
     revoking = false,
     onDispatch?: () => void,
+    categories: readonly DataConsentCategory[] = [],
   ) {
     if (signingOut && !revoking) fail("session_changed")
     const parsed = new URL(url)
@@ -261,6 +283,14 @@ export function createByosService(
       ...(options.signal ? [options.signal] : []),
     ])
     try {
+      // Every request carries or establishes a credential, sign-out revocation included. On Firefox
+      // none starts without the user's consent, read now rather than remembered. A request that
+      // also sends an optional category (the page URL of a custom action) needs that one too, and it
+      // is read here, at the dispatch, in the same read. Metering and the fetch come after admission.
+      await assertDataConsentAll(["authenticationInfo", ...categories])
+      // The read was asynchronous: a cancellation, a sign-out or a timeout that landed meanwhile
+      // has aborted this request, and an aborted request is not sent.
+      signal.throwIfAborted()
       if (!signal.aborted) {
         try {
           onDispatch?.()
@@ -279,6 +309,8 @@ export function createByosService(
         signal,
       )
     } catch (error) {
+      // A refusal for missing consent is not an upstream failure: report it as it is.
+      if (isDataConsentRequiredError(error)) throw error
       const timedOut =
         (signal.reason instanceof DOMException && signal.reason.name === "TimeoutError") ||
         (error instanceof DOMException && error.name === "TimeoutError")
@@ -343,6 +375,8 @@ export function createByosService(
   async function refresh() {
     if (refreshing) return refreshing
     refreshing = (async () => {
+      // Without consent the refresh token is not sent. Refuse before any state is touched.
+      await assertDataConsent("authenticationInfo")
       const previous = await vault.update((record) => {
         if (!record.credentials || record.refreshUncertain || record.refreshing)
           return fail("reconnect-required")
@@ -394,6 +428,18 @@ export function createByosService(
           delete record.blocked
         })
       } catch (error) {
+        if (isDataConsentRequiredError(error)) {
+          // The grant went away after the refresh began. That says nothing about the session:
+          // leave it as it was, with no failure, cooldown or reconnect state recorded.
+          await vault.update((record) => {
+            if (
+              record.generation === previous.generation &&
+              record.tokenVersion === previous.version
+            )
+              delete record.refreshing
+          })
+          throw error
+        }
         const failure =
           error instanceof ByosBridgeError ? error : new ByosBridgeError("upstream_unavailable")
         await vault.update((record) => {
@@ -402,7 +448,7 @@ export function createByosService(
           delete record.refreshing
           record.refreshFailure = failureDetails(failure)
           if (TERMINAL_REFRESH_CODES.has(failure.code)) {
-            record.generation++
+            bumpGeneration(record)
             record.tokenVersion++
             delete record.credentials
             clearRefreshState(record)
@@ -476,13 +522,18 @@ export function createByosService(
       version: record.tokenVersion,
     }
   }
-  async function authenticated(url: string, options: RequestInit = {}, onDispatch?: () => void) {
+  async function authenticated(
+    url: string,
+    options: RequestInit = {},
+    onDispatch?: () => void,
+    categories: readonly DataConsentCategory[] = [],
+  ) {
     let active = await access()
     const send = async () => {
       await ensureGeneration(active.generation)
       const headers = new Headers(options.headers)
       headers.set("Authorization", `Bearer ${active.token}`)
-      return request(url, { ...options, headers }, 60000, false, onDispatch)
+      return request(url, { ...options, headers }, 60000, false, onDispatch, categories)
     }
     let response = await send()
     await ensureGeneration(active.generation)
@@ -643,6 +694,8 @@ export function createByosService(
       startingAttemptId = attemptId
       const ownIntent = ++intent
       try {
+        // No tab is opened for a sign-in that cannot be started.
+        await assertDataConsent("authenticationInfo")
         await initialize()
         if (!(await transport.available())) fail(BYOS_UNAVAILABLE_CODE)
         if (ownIntent !== intent) fail("session_changed")
@@ -685,14 +738,45 @@ export function createByosService(
             code_challenge: await challenge(pending.verifier),
             ...(!pending.clientId ? { agent_name_hint: "LingoTori" } : {}),
           }).toString()
-          await ensureGeneration(pending.generation)
-          if (ownIntent !== intent) fail("session_changed")
+          // What this attempt owns is read from the vault now, before the final consent read, so
+          // that no vault or storage wait is left between that read and the navigation: the vault
+          // is a database transaction whose wait is not bounded, and the user can switch the
+          // permission off during any wait. The counter is taken before the read, so a change of
+          // the generation that lands while the read is pending is seen too.
+          const ownEpoch = generationEpoch
+          const current = await vault.read()
+          if (
+            ownIntent !== intent ||
+            signingOut ||
+            current.generation !== pending.generation ||
+            current.pending?.state !== pending.state ||
+            current.pending?.attemptId !== attemptId ||
+            pending.expires <= now()
+          )
+            fail("session_changed")
+          // The navigation sends the authorization request: the consent is read once more, now that
+          // the setup awaits are behind us, so a revocation in between stops it.
+          await assertDataConsent("authenticationInfo")
+          // That read was asynchronous too, and what can still change during it is in memory.
+          // A cancellation, a replacement or a sign-out moves the intent, and any change of the
+          // stored generation, such as the end of the session by a refresh the server refuses for
+          // good, moves the epoch; both move before anything is written, so even a write that
+          // fails is noticed. The expiry is a clock. They are checked now, with nothing awaited
+          // between these checks and the call that navigates. A cancelled attempt cannot navigate
+          // while its cleanup is still running.
+          if (
+            ownIntent !== intent ||
+            ownEpoch !== generationEpoch ||
+            signingOut ||
+            pending.expires <= now()
+          )
+            fail("session_changed")
           await transport.navigate(tabId, url.href)
         } catch (error) {
           await vault.update((current) => {
             if (current.pending?.state === pending.state) {
               delete current.pending
-              current.generation++
+              bumpGeneration(current)
             }
           })
           // Pending auth is already invalidated. Report the original failure now: the
@@ -950,7 +1034,7 @@ export function createByosService(
         intent++
         if (!ownsPending) return undefined
         const previous = record.pending
-        record.generation++
+        bumpGeneration(record)
         if (record.refreshing) {
           delete record.refreshing
           record.refreshUncertain = true
@@ -1010,7 +1094,7 @@ export function createByosService(
         // Capture only the token needed to end this renewable session. Local
         // access ends atomically before cleanup, discovery, or any revocation I/O.
         const previous = await vault.update((record) => {
-          record.generation++
+          bumpGeneration(record)
           record.tokenVersion++
           const snapshot = {
             pending: record.pending,
@@ -1043,6 +1127,7 @@ export function createByosService(
       payload: ByosInvocation,
       signal?: AbortSignal,
       onDispatch?: () => void,
+      runtime?: ConsentRuntimeOptions,
     ): Promise<ByosInvocationResult> {
       signal?.throwIfAborted()
       const input = invokeSchema.parse(payload)
@@ -1072,6 +1157,7 @@ export function createByosService(
             signal: AbortSignal.any([streamController.signal, ...(signal ? [signal] : [])]),
           },
           onDispatch,
+          runtime?.dataCategories,
         )
         accepted = true
         markAcceptedAbort()

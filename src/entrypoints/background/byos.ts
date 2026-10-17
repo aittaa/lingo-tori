@@ -17,6 +17,7 @@ import {
 import { createAuthTransport, AUTH_ALARM, CALLBACK_PATH } from "@/utils/byos/transport"
 import { createAuthVault } from "@/utils/byos/vault"
 import { CONFIG_STORAGE_KEY } from "@/utils/constants/config"
+import { dataCategoriesSchema } from "@/utils/firefox-data-consent"
 import { resolveModelId } from "@/utils/providers/model-id"
 export function setupByos() {
   const service = createByosService(
@@ -46,6 +47,7 @@ export function setupByos() {
     payload,
     signal,
     usageFeature,
+    runtime,
   ) => {
     const request = invokeSchema.parse(payload)
     const config = await storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`)
@@ -70,6 +72,7 @@ export function setupByos() {
       request,
       signal,
       feature ? () => recordApiUsageAttempt(feature, "byos", identity) : undefined,
+      runtime,
     )
   }
   installByosBackgroundInvoker(invoke)
@@ -102,7 +105,10 @@ export function setupByos() {
   onByosMessage("lingotoriByosCancel", ({ sender, data }) => jobs.cancel(sender, data))
   onByosMessage("lingotoriByosInvoke", ({ sender, data }) =>
     jobs.invoke(sender, data.requestId, (signal) =>
-      invoke(data.payload, signal, data.usageFeature),
+      invoke(data.payload, signal, data.usageFeature, {
+        // A malformed list is refused rather than ignored: the categories only ever add checks.
+        dataCategories: dataCategoriesSchema.parse(data.dataCategories),
+      }),
     ),
   )
 }

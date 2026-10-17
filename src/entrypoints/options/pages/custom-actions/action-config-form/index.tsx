@@ -2,8 +2,10 @@ import type { SelectionToolbarCustomAction } from "@/types/config/selection-tool
 import { dequal } from "dequal"
 import { useAtomValue } from "jotai"
 import { useState } from "react"
+import { DataConsentRow } from "@/components/data-consent/data-consent-row"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { isBuiltInActionId } from "@/utils/constants/custom-action"
+import { customActionUsesWebUrl } from "@/utils/custom-action-prompt"
 import { findSelectionToolbarAction } from "@/utils/custom-actions"
 import { i18n } from "@/utils/i18n"
 import { EntityEditor } from "../../../components/entity-editor"
@@ -85,6 +87,7 @@ function EditableActionEditor({ action }: { action: SelectionToolbarCustomAction
                 <ActionEditor.PromptField />
                 <ActionEditor.OutputSchema.Editable />
                 <ActionEditor.Layout.Editable />
+                {customActionUsesWebUrl(action) && <DataConsentRow category="browsingActivity" />}
               </EntityEditor.Body>
             }
           />

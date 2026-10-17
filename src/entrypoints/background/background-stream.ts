@@ -31,6 +31,11 @@ import { classifyFailureReason } from "@/utils/analytics-failure-reason"
 import { apiUsageFeatureSchema } from "@/utils/api-usage"
 import { createApiUsageReporter } from "@/utils/api-usage-tracking"
 import { extractAISDKErrorMessage } from "@/utils/error/extract-message"
+import {
+  assertDataConsentAll,
+  dataCategoriesSchema,
+  findDataConsentError,
+} from "@/utils/firefox-data-consent"
 import { logger } from "@/utils/logger"
 import { noteSuggestionEnvelopeSchema } from "@/utils/note-suggestion/types"
 import { buildLocalGenerateTextParams } from "@/utils/providers/generate-params"
@@ -66,10 +71,13 @@ const streamPortStartEnvelopeSchema = z.object({
   payload: z.unknown(),
 })
 
+const streamDataCategoriesSchema = dataCategoriesSchema
+
 const baseStreamPayloadSchema = z
   .object({
     providerId: z.string().trim().min(1),
     usageFeature: apiUsageFeatureSchema.catch("sharedRequests").optional(),
+    dataCategories: streamDataCategoriesSchema,
   })
   .loose()
 
@@ -89,6 +97,7 @@ const structuredObjectPayloadSchema = z
   .object({
     providerId: z.string().trim().min(1),
     usageFeature: apiUsageFeatureSchema.catch("sharedRequests").optional(),
+    dataCategories: streamDataCategoriesSchema,
     // Validated exactly as the text stream's configuration: a known LLM provider shape whose id is
     // the request's provider id.
     providerConfig: llmProviderConfigItemSchema.optional(),
@@ -231,8 +240,19 @@ function createStreamPortHandler<TSerializablePayload, TResponse>(
       let streamError: unknown
 
       try {
-        const result = await streamFn(startMessage.payload, {
+        // The payload names the optional Firefox data categories it sends (the page URL, say). Ask
+        // for them before anything starts, so a refusal costs nothing, and keep the field out of the
+        // model call. This early read is not the check that counts: the categories travel on as
+        // runtime options and are read again at each provider dispatch, including SDK retries.
+        const { dataCategories, ...streamPayload } =
+          startMessage.payload as TSerializablePayload & {
+            dataCategories?: Array<"browsingActivity">
+          }
+        await assertDataConsentAll(dataCategories ?? [])
+
+        const result = await streamFn(streamPayload as TSerializablePayload, {
           signal: abortController.signal,
+          dataCategories,
           onChunk: (snapshot) => {
             safePost({ type: "chunk", data: snapshot })
           },
@@ -253,7 +273,10 @@ function createStreamPortHandler<TSerializablePayload, TResponse>(
           safePost({ type: "done", data: result })
         }
       } catch (error) {
-        const finalError = streamError ?? error
+        // A refusal for missing consent may come back wrapped (a stream error, an SDK retry error):
+        // report the refusal itself.
+        const thrown = streamError ?? error
+        const finalError = findDataConsentError(thrown) ?? thrown
         if (abortController.signal.aborted || isAbortLikeError(finalError)) {
           return
         }
@@ -532,6 +555,14 @@ async function consumeStructuredObjectPartStream<TOutput extends Record<string, 
   }
 }
 
+/**
+ * The runtime options for the model builders: present only when the stream declares a category, so
+ * a stream that declares none calls them exactly as before.
+ */
+function consentRuntimeArgs(dataCategories: StreamRuntimeOptions["dataCategories"]) {
+  return dataCategories?.length ? ([{ dataCategories }] as const) : ([] as const)
+}
+
 async function createLocalTextPartStream(
   serializablePayload: Extract<BackgroundStreamTextSerializablePayload, { providerKind: "local" }>,
   options: StreamRuntimeOptions<BackgroundTextStreamSnapshot> = {},
@@ -543,11 +574,11 @@ async function createLocalTextPartStream(
     usageFeature = "sharedRequests",
     ...streamTextParams
   } = serializablePayload
-  const { signal, onError } = options
+  const { signal, onError, dataCategories } = options
 
   const model = providerConfig
-    ? getLanguageModelForConfig(providerConfig, usageFeature)
-    : await getModelById(providerId, usageFeature)
+    ? getLanguageModelForConfig(providerConfig, usageFeature, ...consentRuntimeArgs(dataCategories))
+    : await getModelById(providerId, usageFeature, ...consentRuntimeArgs(dataCategories))
   const reporter = createApiUsageReporter(model, usageFeature)
   const result = streamText({
     ...(streamTextParams as Parameters<typeof streamText>[0]),
@@ -651,15 +682,15 @@ async function createLocalStructuredObjectPartStream<TOutput extends Record<stri
     usageFeature = "sharedRequests",
     ...streamParams
   } = serializablePayload
-  const { signal, onError } = options
+  const { signal, onError, dataCategories } = options
 
   // With a configuration the model and the call parameters come from that one configuration, as in
   // the text stream; looking the row up again would pair the stored row's model and endpoint with
   // parameters computed from the configuration the caller held. Without one (an older sender) the
   // provider is looked up by id.
   const model = providerConfig
-    ? getLanguageModelForConfig(providerConfig, usageFeature)
-    : await getModelById(providerId, usageFeature)
+    ? getLanguageModelForConfig(providerConfig, usageFeature, ...consentRuntimeArgs(dataCategories))
+    : await getModelById(providerId, usageFeature, ...consentRuntimeArgs(dataCategories))
   const reporter = createApiUsageReporter(model, usageFeature)
   const result = streamText({
     ...(streamParams as Parameters<typeof streamText>[0]),
@@ -708,7 +739,7 @@ export async function runNoteSuggestionStreamInBackground(
   serializablePayload: BackgroundStreamNoteSuggestionSerializablePayload,
   options: StreamRuntimeOptions<BackgroundNoteSuggestionStreamSnapshot> = {},
 ): Promise<BackgroundNoteSuggestionStreamSnapshot> {
-  const { signal, onError } = options
+  const { signal, onError, dataCategories } = options
   const { prompt, instructions } = serializablePayload
 
   if (signal?.aborted) {
@@ -729,7 +760,7 @@ export async function runNoteSuggestionStreamInBackground(
   const { stream: partStream, reporter } = await createLocalStructuredObjectPartStream(
     { ...noteSuggestionPayload, usageFeature: "noteSuggestion" },
     noteSuggestionEnvelopeSchema,
-    { signal, onError },
+    { signal, onError, dataCategories },
   )
 
   try {

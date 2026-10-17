@@ -13,6 +13,7 @@ import {
   ComboboxList,
 } from "@/components/ui/base-ui/combobox"
 import { extractErrorMessage } from "@/utils/error/extract-message"
+import { createConsentGatedFetch } from "@/utils/firefox-data-consent"
 import { i18n } from "@/utils/i18n"
 import { getProviderConnectionURL } from "@/utils/providers/connection-url"
 import { getProviderModelsURL } from "@/utils/providers/models-url"
@@ -45,9 +46,11 @@ export function ModelSuggestionButton({
         throw new Error(i18n.t("options.apiProviders.form.models.apiKeyRequired"))
       }
 
-      const response = await fetch(getProviderModelsURL(providerConfig), {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      })
+      // The request carries the key: on Firefox it needs the user's consent.
+      const response = await createConsentGatedFetch(fetch, { credentialed: true })(
+        getProviderModelsURL(providerConfig),
+        { headers: { Authorization: `Bearer ${apiKey}` } },
+      )
       if (!response.ok) {
         throw new Error(await extractErrorMessage(response))
       }

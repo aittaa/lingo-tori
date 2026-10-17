@@ -42,6 +42,7 @@ import { cn } from "@/utils/styles/utils"
 import { APIKeyField } from "./provider-config-form/api-key-field"
 import { AdvancedOptionsSection } from "./provider-config-form/components/advanced-options-section"
 import { ConfigHeader as ProviderConfigHeader } from "./provider-config-form/config-header"
+import { EndpointConsentFields } from "./provider-config-form/endpoint-consent-fields"
 import { formOpts, useAppForm } from "./provider-config-form/form"
 import { ProviderHeadersField } from "./provider-config-form/provider-headers-field"
 import { ProviderOptionsField } from "./provider-config-form/provider-options-field"
@@ -301,6 +302,7 @@ function ConnectionFields() {
     <>
       <APIKeyField form={form} />
       <ProviderURLField form={form} />
+      <EndpointConsentFields form={form} />
     </>
   )
 }

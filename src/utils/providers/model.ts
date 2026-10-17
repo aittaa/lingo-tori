@@ -5,6 +5,7 @@ import type {
   LLMProviderConfig,
 } from "@/types/config/provider"
 import type { ApiUsageFeature } from "@/utils/api-usage"
+import type { ConsentRuntimeOptions } from "@/utils/firefox-data-consent"
 import { createAlibaba } from "@ai-sdk/alibaba"
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock"
 import { createAnthropic } from "@ai-sdk/anthropic"
@@ -37,13 +38,13 @@ import {
 } from "@/types/config/provider"
 import { compactObject } from "@/types/utils"
 import { createApiUsageIdentity, registerApiUsageModel } from "@/utils/api-usage-identity"
-import { withApiUsage } from "@/utils/api-usage-tracking"
 import { createByosModel } from "@/utils/byos/model"
+import { providerConfigCarriesCredentials } from "@/utils/firefox-data-consent"
 import { getLLMProvidersConfig, getProviderConfigById } from "../config/helpers"
 import { CONFIG_STORAGE_KEY } from "../constants/config"
 import { getProviderHeadersWithOverride } from "./headers"
 import { resolveModelId } from "./model-id"
-import { noStoreFetch } from "./no-store-fetch"
+import { createProviderFetch } from "./provider-fetch"
 import { ProviderSetupError } from "./provider-setup-error"
 
 const DEDICATED_PROVIDER_FACTORY_BY_TYPE = {
@@ -93,7 +94,11 @@ function getAzureApiMode(providerConfig: LLMProviderConfig): AzureApiMode {
   return apiMode === "chat" ? "chat" : DEFAULT_AZURE_API_MODE
 }
 
-async function getLanguageModelById(providerId: string, usageFeature?: ApiUsageFeature) {
+async function getLanguageModelById(
+  providerId: string,
+  usageFeature?: ApiUsageFeature,
+  runtime?: ConsentRuntimeOptions,
+) {
   const config = await storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`)
   if (!config) {
     throw new ProviderSetupError("Config not found")
@@ -105,7 +110,7 @@ async function getLanguageModelById(providerId: string, usageFeature?: ApiUsageF
     throw new ProviderSetupError(`Provider ${providerId} not found`)
   }
 
-  return getLanguageModelForConfig(providerConfig, usageFeature)
+  return getLanguageModelForConfig(providerConfig, usageFeature, runtime)
 }
 
 /**
@@ -119,6 +124,7 @@ async function getLanguageModelById(providerId: string, usageFeature?: ApiUsageF
 export function getLanguageModelForConfig(
   providerConfig: LLMProviderConfig,
   usageFeature?: ApiUsageFeature,
+  runtime?: ConsentRuntimeOptions,
 ) {
   if (!providerConfig.enabled) {
     throw new ProviderSetupError("Enable this provider in Settings before using it.")
@@ -131,7 +137,7 @@ export function getLanguageModelForConfig(
   if (providerConfig.provider === "byos") {
     const modelId = resolveModelId(providerConfig.model)
     if (!modelId) throw new ProviderSetupError("Choose a ChatGPT model in Settings.")
-    return register(createByosModel(modelId, undefined, usageFeature))
+    return register(createByosModel(modelId, undefined, usageFeature, runtime))
   }
   // Custom/local endpoints may intentionally authenticate outside an API key.
   if (
@@ -147,7 +153,12 @@ export function getLanguageModelForConfig(
   const providerSpecificSettings = getProviderSpecificSettings(providerConfig)
 
   const providerFetch = {
-    fetch: usageFeature ? withApiUsage(usageFeature, noStoreFetch, identity) : noStoreFetch,
+    fetch: createProviderFetch({
+      feature: usageFeature,
+      identity,
+      credentialed: providerConfigCarriesCredentials(providerConfig, headers),
+      categories: runtime?.dataCategories,
+    }),
   }
   const provider = match(providerConfig)
     .when(isOpenAICompatibleLLMProviderConfig, (matchedConfig) =>
@@ -199,6 +210,10 @@ export function getLanguageModelForConfig(
   return register(provider.languageModel(modelId))
 }
 
-export async function getModelById(providerId: string, usageFeature?: ApiUsageFeature) {
-  return getLanguageModelById(providerId, usageFeature)
+export async function getModelById(
+  providerId: string,
+  usageFeature?: ApiUsageFeature,
+  runtime?: ConsentRuntimeOptions,
+) {
+  return getLanguageModelById(providerId, usageFeature, runtime)
 }

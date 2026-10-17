@@ -1,5 +1,6 @@
 import type { AnalyticsFailureReason } from "@/types/analytics"
 import { ANALYTICS_FAILURE_REASONS } from "@/types/analytics"
+import { DATA_CONSENT_REQUIRED_ERROR_NAME } from "@/utils/firefox-data-consent/errors"
 import { PROVIDER_SETUP_ERROR_NAME } from "@/utils/providers/provider-setup-error"
 
 const FAILURE_REASONS: ReadonlySet<string> = new Set(ANALYTICS_FAILURE_REASONS)
@@ -37,6 +38,7 @@ function readProperty(value: object, key: string): unknown {
 function reasonFromErrorName(error: object): AnalyticsFailureReason | undefined {
   switch (readProperty(error, "name")) {
     case PROVIDER_SETUP_ERROR_NAME:
+    case DATA_CONSENT_REQUIRED_ERROR_NAME:
     case "AI_LoadSettingError":
       return "precheck"
     case "AI_LoadAPIKeyError":

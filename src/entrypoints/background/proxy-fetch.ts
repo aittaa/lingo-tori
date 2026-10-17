@@ -1,5 +1,6 @@
 import type { ProxyResponse } from "@/types/proxy-fetch"
 import { DEFAULT_PROXY_CACHE_TTL_MS } from "@/utils/constants/proxy-fetch"
+import { createConsentGatedFetch } from "@/utils/firefox-data-consent"
 import { logger } from "@/utils/logger"
 import { onMessage } from "@/utils/message"
 import { SessionCacheGroupRegistry } from "../../utils/session-cache/session-cache-group-registry"
@@ -92,7 +93,9 @@ export function proxyFetch() {
       await invalidateCache(cacheGroupKey)
     }
 
-    const response = await fetch(url, {
+    // A request that carries a credential, or asks for the browser's cookies, needs Firefox's
+    // consent (icons and logos carry none and use `omit`). The caller's mode is passed on as it is.
+    const response = await createConsentGatedFetch(fetch)(url, {
       method: finalMethod,
       headers: headers ? new Headers(headers) : undefined,
       body,

@@ -44,7 +44,14 @@ export default defineConfig({
         gecko: {
           id: "lingotori@aittaa",
           strict_min_version: "140.0",
-          data_collection_permissions: { required: ["none"] },
+          // Every core feature sends page, selected or subtitle text to the provider the user chose
+          // (websiteContent). API keys, credential headers and the experimental ChatGPT sign-in
+          // send credentials (authenticationInfo), and a custom action that uses `{{webUrl}}`
+          // sends the page URL (browsingActivity): both are optional and gated at dispatch.
+          data_collection_permissions: {
+            required: ["websiteContent"],
+            optional: ["authenticationInfo", "browsingActivity"],
+          },
         },
       },
     }),
