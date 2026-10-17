@@ -24,6 +24,7 @@ import { StreamPortError } from "@/utils/content-script/port-streaming"
 import { buildLocalGenerateTextParams } from "@/utils/providers/generate-params"
 import {
   installChrome,
+  KEY_ABSENT,
   installFirefox,
   removePermissionsDouble,
   NOTHING_GRANTED,
@@ -88,7 +89,7 @@ describe("Firefox, authenticationInfo not granted", () => {
   })
 
   it("does not start it on a Firefox without built-in consent support", async () => {
-    installFirefox(undefined)
+    installFirefox(KEY_ABSENT)
 
     await expect(stream(credentialedRow)).rejects.toBeInstanceOf(StreamPortError)
 

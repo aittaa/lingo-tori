@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ModelSuggestionButton } from "@/entrypoints/options/pages/api-providers/providers-config/provider-config-form/components/model-suggestion-button"
 import {
   installChrome,
+  KEY_ABSENT,
   installFirefox,
   removePermissionsDouble,
   NOTHING_GRANTED,
@@ -79,7 +80,7 @@ describe("Fetch models on Firefox", () => {
   })
 
   it("fails closed on a Firefox without built-in consent support", async () => {
-    installFirefox(undefined)
+    installFirefox(KEY_ABSENT)
     renderButton()
 
     clickFetchModels()

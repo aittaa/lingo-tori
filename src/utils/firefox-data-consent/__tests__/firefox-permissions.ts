@@ -12,8 +12,8 @@ import type { Mock } from "vitest"
 import { vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 
-/** The granted optional categories in `permissions.getAll().data_collection`; `undefined` is "the key is absent". */
-export type ReportedDataCollection = readonly string[] | undefined
+/** The granted optional categories in `permissions.getAll().data_collection`; `null` is "the key is absent". */
+export type ReportedDataCollection = readonly string[] | null
 
 interface DataCollectionRequest {
   permissions?: string[]
@@ -47,12 +47,14 @@ function install(initial: ReportedDataCollection): PermissionsDouble {
   const getAll = vi.spyOn(permissions, "getAll").mockImplementation(async () => ({
     permissions: [],
     origins: [],
-    ...(reported ? { data_collection: [...reported] } : {}),
+    ...(reported !== null ? { data_collection: [...reported] } : {}),
   }))
   const contains = vi.spyOn(permissions, "contains").mockImplementation(async (request) => {
     if (!request.data_collection) return true
     const current = reported
-    return !!current && request.data_collection.every((category) => current.includes(category))
+    return (
+      current !== null && request.data_collection.every((category) => current.includes(category))
+    )
   })
   const request = vi.spyOn(permissions, "request").mockImplementation(async (asked) => {
     if (!asked.data_collection || !grantPrompts) return false
@@ -84,13 +86,16 @@ export function installFirefox(reported: ReportedDataCollection = []): Permissio
 /** A Chrome build. The permissions calls are watched, because nothing may ask them anything. */
 export function installChrome(): PermissionsDouble {
   vi.stubEnv("BROWSER", "chrome")
-  return install(undefined)
+  return install(null)
 }
 
 export function removePermissionsDouble() {
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
 }
+
+/** A Firefox without built-in consent: `getAll()` has no `data_collection` key. */
+export const KEY_ABSENT: ReportedDataCollection = null
 
 /** The state after install: the key is there, no optional category is granted. */
 export const NOTHING_GRANTED: ReportedDataCollection = []

@@ -23,6 +23,7 @@ import { ISSUER, RESOURCE, SCOPES, TOKEN_URL } from "@/utils/byos/oidc"
 import { createByosService } from "@/utils/byos/service"
 import {
   installChrome,
+  KEY_ABSENT,
   installFirefox,
   removePermissionsDouble,
   NOTHING_GRANTED,
@@ -219,7 +220,7 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
 
 describe("Firefox without built-in consent support (no data_collection key)", () => {
   it("fails closed: no sign-in tab, no request", async () => {
-    installFirefox(undefined)
+    installFirefox(KEY_ABSENT)
     const vault = memoryVault()
     const transport = mockTransport()
     const fetcher = vi.fn<typeof fetch>()
@@ -238,7 +239,7 @@ describe("Firefox without built-in consent support (no data_collection key)", ()
   })
 
   it("fails closed for the model list", async () => {
-    installFirefox(undefined)
+    installFirefox(KEY_ABSENT)
     const { service, fetcher } = await connected()
 
     await expect(service.models()).rejects.toThrow(/consent/i)

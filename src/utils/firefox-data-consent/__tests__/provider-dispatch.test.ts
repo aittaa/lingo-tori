@@ -30,6 +30,7 @@ import { deeplxTranslate } from "@/utils/host/translate/api/deeplx"
 import { getLanguageModelForConfig } from "@/utils/providers/model"
 import {
   installChrome,
+  KEY_ABSENT,
   installFirefox,
   removePermissionsDouble,
   NOTHING_GRANTED,
@@ -393,7 +394,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
 
 describe("Firefox without built-in consent support (no data_collection key)", () => {
   it.each(CREDENTIALED)("fails closed for %s", async (_name, send) => {
-    installFirefox(undefined)
+    installFirefox(KEY_ABSENT)
 
     const outcome = await attempt(send)
 
@@ -402,7 +403,7 @@ describe("Firefox without built-in consent support (no data_collection key)", ()
   })
 
   it.each(KEYLESS)("still sends %s", async (_name, send) => {
-    installFirefox(undefined)
+    installFirefox(KEY_ABSENT)
 
     await expect(send()).resolves.toBeDefined()
 

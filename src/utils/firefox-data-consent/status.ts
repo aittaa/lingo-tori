@@ -74,8 +74,22 @@ export function requestDataConsent(category: DataConsentCategory): Promise<boole
 export function watchDataConsent(onChange: () => void): () => void {
   if (!isDataConsentBuild()) return () => {}
   const events = [browser.permissions?.onAdded, browser.permissions?.onRemoved].filter(Boolean)
-  for (const event of events) event.addListener(onChange)
+  const added = events.filter((event) => {
+    try {
+      event.addListener(onChange)
+      return true
+    } catch {
+      // A browser without the event just never calls back; the settings page refreshes on focus.
+      return false
+    }
+  })
   return () => {
-    for (const event of events) event.removeListener(onChange)
+    for (const event of added) {
+      try {
+        event.removeListener(onChange)
+      } catch {
+        // Nothing left to undo.
+      }
+    }
   }
 }
