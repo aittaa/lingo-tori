@@ -16,6 +16,7 @@ import { isDeepStrictEqual } from "node:util"
 import { vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
+import { encodeLossless, preservedOriginalKey } from "../preservation"
 import { testSeries as v110Series } from "./example/v110"
 import { testSeries as v111Series } from "./example/v111"
 
@@ -153,6 +154,26 @@ export async function originalIsSafe(original: RawPrimary) {
     meta: Object.hasOwn(all, META_KEY) ? all[META_KEY] : ABSENT,
   }
   return sameRaw(primary, original) || preservedCopiesOf(all, original).length > 0
+}
+
+/** Stores a preserved entry for `original` the way the product does, under its real key. */
+export async function seedPreserved(
+  original: RawPrimary,
+  reason: PreservedEntry["reason"] = "invalid-schema",
+) {
+  const encodedValue = encodeLossless(original.value)
+  const encodedMeta = original.meta === ABSENT ? undefined : encodeLossless(original.meta)
+  const key = await preservedOriginalKey(encodedValue, encodedMeta)
+  const entry: PreservedEntry = {
+    v: 1,
+    encodedValue,
+    ...(encodedMeta === undefined ? {} : { encodedMeta }),
+    reason,
+    capturedAt: FIXED_MODIFIED_AT,
+    extensionVersion: "0.0.1",
+  }
+  await fakeBrowser.storage.local.set({ [key]: entry })
+  return key
 }
 
 // ----- ordinary backups, seeded the way `addBackup` stores them -----

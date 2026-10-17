@@ -21,3 +21,28 @@ export class ConfigExportBlockedError extends Error {
     this.reason = reason
   }
 }
+
+export type PreservationFailure = "full" | "unrepresentable" | "write-failed" | "verify-failed"
+
+/**
+ * A stored config that cannot be used could not be kept, or its copy could not be confirmed.
+ * Whatever needed the copy stops: the stored value is never replaced without one.
+ */
+export class PreservationError extends Error {
+  readonly code: PreservationFailure
+
+  constructor(code: PreservationFailure, options?: { cause?: unknown }) {
+    super(
+      {
+        full: "Too many unusable settings copies are already kept; delete one before another is kept.",
+        unrepresentable: "The stored settings contain a value that cannot be kept exactly.",
+        "write-failed": "The copy of the stored settings could not be written.",
+        "verify-failed":
+          "The copy of the stored settings could not be confirmed after it was written.",
+      }[code],
+      options,
+    )
+    this.name = "PreservationError"
+    this.code = code
+  }
+}
