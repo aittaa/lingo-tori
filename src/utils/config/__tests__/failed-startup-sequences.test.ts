@@ -15,6 +15,7 @@
 
 import type { RawPrimary } from "./preservation-test-kit"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { fakeBrowser } from "wxt/testing/fake-browser"
 import { backUpCurrentConfig, replaceStoredConfig } from "@/utils/backup/current-config"
 import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
 import { ConfigExportBlockedError, ConfigRecoveryRequiredError } from "../errors"
@@ -420,18 +421,34 @@ describe("the outcome of a failed upgrade, and when it stops applying", () => {
     expect(backgroundRemembersAFailure()).toBe(false)
   })
 
-  // The record goes only when the upgraded pair is stored. A retry whose upgrade works but whose
-  // write is refused leaves the very pair that failed, so it is still a failed upgrade to everyone.
+  // The record goes only when the upgraded pair is stored and confirmed by reading it back. A retry
+  // whose upgrade works but whose commit is refused, or cannot be confirmed, leaves the pair that
+  // failed (or nothing that can be trusted instead), so it is still a failed upgrade to everyone.
   it.each([
-    { name: "the write of the pair is rejected", fails: touchesPrimary },
-    { name: "every write is rejected", fails: () => true },
-  ])("is kept when a later start upgrades the pair but $name", async ({ fails }) => {
+    {
+      name: "the write of the pair is rejected",
+      error: "simulated write failure",
+      arrange: () => failWrites(touchesPrimary),
+    },
+    {
+      name: "every write is rejected",
+      error: "simulated write failure",
+      arrange: () => failWrites(() => true),
+    },
+    {
+      name: "the write is accepted but the pair cannot be read back as written",
+      error: "could not be confirmed",
+      arrange: () => {
+        vi.spyOn(fakeBrowser.storage.local, "set" as any).mockResolvedValue(undefined)
+      },
+    },
+  ])("is kept when a later start upgrades the pair but $name", async ({ arrange, error }) => {
     await failedStartWithNoRoomForACopy()
     const before = await readRawPrimary()
     migration.hook = null
-    failWrites(fails)
+    arrange()
 
-    await expect(startBackground()).rejects.toThrow("simulated write failure")
+    await expect(startBackground()).rejects.toThrow(error)
     vi.restoreAllMocks()
 
     expect(sameRaw(await readRawPrimary(), before)).toBe(true)
@@ -443,10 +460,11 @@ describe("the outcome of a failed upgrade, and when it stops applying", () => {
     forgetWhatTheBackgroundRemembers()
     expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason: "migration-failed" })
 
+    // The store of kept copies is still full, so a replacement keeps nothing and replaces nothing.
     const stored = await snapshot()
     await expect(
       replaceStoredConfig(replacement(), { ...OPTIONS, backupCurrent: true }),
-    ).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
+    ).rejects.toMatchObject({ name: "PreservationError", code: "full" })
     await expect(backUpCurrentConfig("0.0.1")).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
     await expect(assertCurrentConfigExportable()).rejects.toMatchObject({
       reason: "migration-failed",
@@ -483,7 +501,6 @@ describe("the outcome of a failed upgrade, and when it stops applying", () => {
   })
 
   it("is not written, nor removed, by a start that has nothing to record or forget", async () => {
-    const { fakeBrowser } = await import("wxt/testing/fake-browser")
     await seedPrimary(validConfig(), CURRENT_META)
     const writes = vi.spyOn(fakeBrowser.storage.local, "set")
     const removals = vi.spyOn(fakeBrowser.storage.local, "remove")
