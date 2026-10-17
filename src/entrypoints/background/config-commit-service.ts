@@ -167,6 +167,28 @@ async function storedPairIsStill(original: RawConfigPair) {
   }
 }
 
+/**
+ * Finishes the rotation that an earlier replacement deferred.
+ *
+ * A replacement adds the backup of the config it replaces before it commits, and rotates the list
+ * only after the commit is confirmed. One whose commit could not be confirmed keeps its backup (see
+ * `executePrimary`), which leaves the list one entry above its limit. Every job that may add a
+ * backup - a replacement (restore, import or reset alike), Back up now and the hourly backup -
+ * first rotates the list down to its limit, newest first, when the primary it has just read is
+ * usable and coherent. So between two jobs the list holds at most MAX_BACKUPS_COUNT + 1 entries,
+ * however many replacements were left unconfirmed, and the extra entry is the most recent copy
+ * taken before a replacement.
+ *
+ * That is a bound on the count, not on the time: the extra entry stays until the next such job
+ * runs, and it stays for as long as writes keep failing or nothing else runs. Nothing is rotated
+ * while the primary is not usable and coherent (a replacement of such a config keeps a preserved
+ * copy instead of a backup, and the other jobs add nothing).
+ */
+async function finishDeferredRotation(status: ConfigStatus) {
+  if (status.kind !== "usable") return
+  await pruneBackups().catch(() => undefined)
+}
+
 function sameToken(a: { kind: string; revision: number; valueHash: string }, b: typeof a) {
   return a.kind === b.kind && a.revision === b.revision && a.valueHash === b.valueHash
 }
@@ -241,7 +263,7 @@ export function createConfigCommitService(
     if (receipt === "done") {
       // A replacement found done may have left the rotation it deferred unfinished (its first
       // answer was lost or unconfirmed): finish it now.
-      if (request.kind === "replace") await pruneBackups().catch(() => undefined)
+      if (request.kind === "replace") await finishDeferredRotation(status)
       return { status: "committed", token }
     }
 
@@ -298,6 +320,7 @@ export function createConfigCommitService(
         }
       } else if (request.backupCurrent && status.kind === "usable") {
         const stored = status.raw.value as Config
+        await finishDeferredRotation(status)
         if (!already && !(await isSameAsLatestBackup(stored, CONFIG_SCHEMA_VERSION))) {
           addedBackupId = await addBackup(stored, request.extensionVersion, CONFIG_SCHEMA_VERSION, {
             backupId: backupIdFor(now(), request.opId),
@@ -327,7 +350,9 @@ export function createConfigCommitService(
       // known not to have happened, so that one that did not happen leaves the list as it was. The
       // write may have gone through even though the commit could not be confirmed (the read that
       // confirms it failed): then the backup is the only copy of what was replaced and it stays. The
-      // rotation it deferred is finished by the next backup, or by this replacement sent again.
+      // rotation it deferred is finished by the next job that may add a backup (see
+      // `finishDeferredRotation`), or by this replacement sent again; until then the list is at most
+      // one entry above its limit.
       if (addedBackupId !== undefined && (await storedPairIsStill(status.raw))) {
         await removeBackup(addedBackupId).catch(() => undefined)
       }
@@ -353,6 +378,7 @@ export function createConfigCommitService(
     const { status } = await currentStatus()
     if (status.kind === "suspect") return refused(status.reason)
     if (status.kind !== "usable") return refused("nothing-to-back-up")
+    await finishDeferredRotation(status)
     const backupId = await addBackup(
       status.raw.value as Config,
       request.extensionVersion,
@@ -444,6 +470,7 @@ export function createConfigCommitService(
       return enqueue(async () => {
         const { status } = await currentStatus()
         if (status.kind !== "usable") return undefined
+        await finishDeferredRotation(status)
         const stored = status.raw.value as Config
         if (await isSameAsLatestBackup(stored, CONFIG_SCHEMA_VERSION)) return undefined
         return addBackup(stored, extensionVersion, CONFIG_SCHEMA_VERSION)
