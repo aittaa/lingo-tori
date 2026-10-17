@@ -100,7 +100,7 @@ Your settings (providers, API keys, custom headers, languages, shortcuts, site r
 
 ### Backups
 
-LingoTori automatically takes a copy of your settings about once an hour when they changed, and keeps the newest eight; you can also back up on demand. A backup is a full copy of your settings, **including API keys**. Backups are stored in the same local storage and are not synchronised to any server by LingoTori.
+LingoTori automatically takes a copy of your settings about once an hour when they changed, and normally keeps the newest eight (a backup taken just before a restore that could not be confirmed is kept, so there can briefly be more until the next backup); you can also back up on demand. A backup is a full copy of your settings, **including API keys**. Backups are stored in the same local storage and are not synchronised to any server by LingoTori.
 
 ### Preserved originals and recovery copies
 
