@@ -225,11 +225,6 @@ describe("the privacy notice", () => {
     expect(readme).toContain("never opens a permission prompt by itself")
   })
 
-  it("says a cancelled, replaced or expired sign-in does not open its page", () => {
-    expect(privacy).toMatch(/cancelled, replaced or expires[^.]*does not open the sign-in page/)
-    expect(privacy).toContain("Cancelling a sign-in")
-  })
-
   it("separates the local sign-out from a remote revocation that is not confirmed", () => {
     expect(privacy).toContain("Signing out always clears the local tokens")
     expect(privacy).toContain("the remote revocation is skipped and reported as unconfirmed")
@@ -530,9 +525,10 @@ describe("the notice about backups", () => {
 })
 
 describe("the sign-in that waits for the Firefox permission", () => {
-  it("also does not open the page when its session is invalidated", () => {
+  it("does not open the page when it is cancelled, replaced, expires or its session is invalidated", () => {
     const text = sectionOf(privacy, "Firefox data consent")
 
+    expect(privacy).toContain("Cancelling a sign-in")
     expect(text).toMatch(
       /cancelled, replaced or expires, or whose session is invalidated \(for example by a token refresh that fails for good\), while the permission is being read does not open the sign-in page/,
     )
