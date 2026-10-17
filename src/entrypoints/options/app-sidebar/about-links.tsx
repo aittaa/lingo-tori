@@ -11,7 +11,10 @@ import { i18n } from "@/utils/i18n"
 
 /**
  * The two notices a user can read from the settings: what the extension sends where, and the
- * licenses of the software inside it. Both open in a new tab and neither sends anything.
+ * licenses of the software inside it. Both open in a new tab. The third-party notices are a file
+ * inside the extension and make no request. The privacy notice is a page on GitHub, so opening it
+ * makes an ordinary request to github.com; nothing from the settings, a provider or a key goes
+ * with it.
  */
 export function AboutLinks() {
   const privacy = i18n.t("about.privacyNotice")

@@ -2,7 +2,7 @@
 
 This notice describes what the LingoTori browser extension does with your data: what leaves your browser and where it goes, and what stays on your device. It follows what the source code does, as reviewed for this version. It is a plain description for users, not a legal privacy policy, and nothing in it says LingoTori is ready for a store listing or satisfies the law of any country.
 
-LingoTori is a free, independent extension under the GNU General Public License, version 3. It has no account system, no server of its own and no advertising. It translates web pages, selected text and the existing captions of videos, and gives dictionary meanings and sentence explanations, by sending text to an AI provider **that you choose and configure**.
+LingoTori is an independent, open-source extension under the GNU General Public License, version 3. It has no account system, no server of its own and no advertising. It translates web pages, selected text and the existing captions of videos, and gives dictionary meanings and sentence explanations, by sending text to an AI provider **that you choose and configure**.
 
 ## Who is responsible
 
@@ -25,9 +25,9 @@ Until they are decided, the history of this file in the source repository is the
 
 - LingoTori sends the text you ask it to translate or explain to the AI provider you set up. It does this from your browser, with your API key or your ChatGPT sign-in. The project does not receive that text.
 - What your provider does with the text is governed by the provider's own terms and privacy policy. LingoTori cannot control or guarantee it.
-- Settings, API keys, backups, caches and usage statistics are stored in your browser profile. API keys are stored as plain text in the extension's storage; the browser does not encrypt them for you.
+- Settings, API keys, backups, caches and usage statistics are stored in your browser profile. LingoTori does not add encryption to API keys or other stored settings, and it cannot check how your browser profile, disk or operating system protect them; anyone who can read the profile as you can read them.
 - LingoTori contains no analytics or crash reporting that sends usage events to the project or to a third party. Usage statistics on the settings page are kept on your device only.
-- A few things are loaded from public hosts for display: provider logos from unpkg and some icons from the Iconify service (see [Public asset hosts](#public-asset-hosts)).
+- A few things are loaded from public hosts for display: provider logos from unpkg and some icons from the Iconify service (see [Public asset hosts and links](#public-asset-hosts-and-links)).
 
 ## What leaves your browser, and where it goes
 
@@ -36,19 +36,22 @@ Until they are decided, the history of this file in the source repository is the
 When you translate a page, a selection or video captions, or use a dictionary, explanation or custom AI action, LingoTori sends a request to the provider you selected for that feature. The request contains:
 
 - the text to translate or explain: the selected text, the paragraphs of the page being translated, or the caption lines of a video;
+- page context, according to the feature and the prompt template or custom action in use: the page title, description or text content, the paragraphs around a selection, and a generated summary of the page. The default translation prompt uses the page title and the summary; a template or action only sends the context its own placeholders name (see [Smart context](#smart-context-off-by-default));
 - the instructions (prompt) for the task, the languages, and the model name;
 - the API key, authorization header or other credential you configured for that provider, so the provider can accept the request;
 - for some features, matched glossary entries: the glossary terms found in the text. The whole glossary is not sent every time.
 
 The provider can be a hosted service, an OpenAI-compatible endpoint you entered, or a server on your own computer or network. LingoTori sends nothing to a provider you have not selected, and it does not fall back to another provider or a paid plan on its own.
 
-Cancelling a translation in LingoTori stops the browser's request. It does not guarantee that the provider stops processing the request or does not charge for it.
+Cancelling a translation stops that operation's own work and the use of its result, and aborts the browser's request when no other operation still needs it. A request can be shared with another tab or operation, and then it continues for them; a request that has already been dispatched may also keep running. Cancelling therefore does not always stop the browser's request, and it never guarantees that the provider stops processing the request or does not charge for it.
 
 Your use of a provider is subject to the limits, costs and data terms of your account or API key with that provider.
 
 ### Smart context (off by default)
 
-Page translation has an optional smart context setting. It is **off by default**. When you turn it on, LingoTori first asks your provider to summarise the page, which sends the page title and the page's text content (cleaned up, and possibly shortened), and it then includes the resulting summary in the translation requests for that page. This sends more of the page than the paragraphs being translated. Leave it off if you do not want that to reach your provider.
+Smart context controls one thing: the optional generated page summary. It is **off by default**. When you turn it on, LingoTori first asks your provider to summarise the page, which sends the page title and the page's text content (cleaned up, and possibly shortened), and it then includes the resulting summary in the translation requests for that page. This sends more of the page than the paragraphs being translated.
+
+Turning it off does not stop other page context from reaching your provider. The page title, description and text content are read from the page for a translation prompt whether or not Smart context is on, and they are sent whenever the prompt template you use contains the matching placeholder (`{{webTitle}}`, `{{webDescription}}`, `{{webContent}}`). A custom action likewise fills `{{webTitle}}` and `{{webContent}}` from the page whatever the setting is, and `{{webUrl}}` sends the page address (see the next section). Look at the templates and actions you use if you want to keep page content out of your requests.
 
 ### The page address in custom actions and note suggestions
 
@@ -58,7 +61,7 @@ Only a placeholder that you wrote in the action's own text is replaced. Placehol
 
 ### Translated pages may contain private content
 
-LingoTori translates whatever text is on a page when you translate it. If that page is webmail, a chat, a document, a bank or any other private page, the text on it that is translated is sent to your provider like any other text. Translate only pages whose content you are willing to send to that provider. Pages you do not translate are not sent, and websites are not sent anything by LingoTori that you did not cause.
+LingoTori sends text from a page when you use a feature on it, or when a feature you turned on acts on it, such as automatic translation for a site, automatic subtitle translation or note suggestions. If that page is webmail, a chat, a document, a bank or any other private page, the text that is translated or explained is sent to your provider like any other text, together with the page context that the template or action uses (see above). Use these features, and turn the automatic ones on, only for pages whose content you are willing to send to that provider. A feature can also make the requests it needs to the site you are on, such as fetching a video's existing captions from the platform that serves them.
 
 ### Signing in with ChatGPT (experimental)
 
@@ -66,20 +69,22 @@ If you use the experimental **Sign in with ChatGPT** option instead of an API ke
 
 - It registers itself as a public client and runs the standard OAuth sign-in with PKCE against `auth.openai.com`, and it uses `api.openai.com` for model lists and requests.
 - It sends your translation requests to OpenAI with the access token issued to your account. OpenAI's account terms apply.
-- The sign-in tokens are kept in a separate database that only the extension's background part reads, apart from ordinary settings. That database is not protected by the operating system's encryption. It is excluded from settings exports, backups and the page-side scripts.
+- The sign-in tokens are kept in a separate database that only the extension's background part reads, apart from ordinary settings. LingoTori does not add its own encryption to that database and does not promise operating-system-backed protection of the tokens; how well the profile and disk are protected depends on your setup, and anyone who can read the profile as you could recover them. The database is excluded from settings exports, backups and the page-side scripts.
 - **Signing out** always clears the tokens from your browser immediately. LingoTori then asks OpenAI to revoke the refresh token. Only a successful answer from OpenAI confirms the revocation; otherwise LingoTori tells you it is **unconfirmed**. On Firefox, if you have not allowed the "authentication info" data permission (see [Firefox data consent](#firefox-data-consent)), LingoTori does not send the revocation request at all. The local tokens are still cleared, and the remote revocation is reported as unconfirmed. You can revoke access from your OpenAI account yourself.
 - **Cancelling a sign-in.** On Firefox, LingoTori reads the permission right before it opens the sign-in page; if you cancel the sign-in, start another one, or it expires while that is happening, the page is not opened.
 
 This sign-in is an experiment. It is not an official or store-approved integration, and it does not imply any partnership with OpenAI.
 
-### Public asset hosts
+### Public asset hosts and links
 
-Two kinds of display assets are fetched from public hosts when you use the settings pages:
+Two kinds of display assets are fetched from public hosts whenever LingoTori's own screens show them: the settings pages, the toolbar popup, and the toolbar and menus LingoTori adds to web pages.
 
-- **Provider logos**: the logos shown for the providers you have selected are loaded from `unpkg.com`. unpkg can see your IP address and which logo file was requested, which tells it which provider logo was shown.
-- **Icons**: some interface icons come from the Iconify service (`api.iconify.design`). Iconify can see your IP address and the icon-set and icon names requested (for example, `tabler:api`).
+- **Provider logos**: loaded from `unpkg.com` wherever a provider is displayed. That includes the add-provider list in the settings, which shows a logo for every provider you can choose, not only the ones you have set up or selected, and the provider choices in the popup and in the toolbar on a page. unpkg can see your IP address and the logo file requested; the file name identifies the logo that is displayed, not necessarily a provider you use.
+- **Icons**: some interface icons, in the settings, the popup and the toolbar on a page, come from the Iconify service (`api.iconify.design`). Iconify can see your IP address and the icon-set and icon names requested (for example, `tabler:api`), which identify the icon that is displayed. Where a page's own security policy could block a direct request, the extension's background part makes the request for the toolbar on that page, with cookies left out.
 
 These requests carry none of your text, settings or keys. If you block these hosts, the extension still works; logos or icons may be blank.
+
+**Links.** The Privacy notice link in the settings sidebar opens this document on GitHub, so opening it makes an ordinary request to `github.com`, which sees your IP address and the page requested; nothing from your settings goes with it. The Third-party notices link opens a file inside the extension and makes no request.
 
 ### What LingoTori does not send
 
@@ -91,7 +96,7 @@ LingoTori stores the following in your browser profile, in the extension's own s
 
 ### Settings, keys and glossary
 
-Your settings (providers, API keys, custom headers, languages, shortcuts, site rules and custom actions) are stored in the extension's local storage. Your glossary is stored in the extension's local database. API keys and header values are stored as plain text. Anyone who can read your browser profile can read them.
+Your settings (providers, API keys, custom headers, languages, shortcuts, site rules and custom actions) are stored in the extension's local storage. Your glossary is stored in the extension's local database. API keys and header values are stored as ordinary values, without encryption added by LingoTori, and LingoTori does not guarantee operating-system-backed protection of them. Anyone who can read your browser profile as you can read them.
 
 ### Backups
 
@@ -110,13 +115,13 @@ If LingoTori finds that the stored settings cannot be read as the current versio
 
 ### Translation cache and private windows
 
-To avoid asking your provider twice for the same text, LingoTori caches translations in a local database for **seven days** and then deletes them. It likewise caches page summaries and AI segmentation results for seven days. Requests from **private (incognito) windows** are not read from or written to these persistent caches, and they use their own request queue. Private windows still send text to your provider when you translate there; the isolation covers the local caches only, and it does not make the use of a provider private.
+To avoid asking your provider twice for the same text, LingoTori caches translations in a local database. It likewise caches page summaries and AI segmentation results. Seven days is the cleanup threshold for all three: a cleanup job deletes entries older than that. The job runs about once a day while the browser and the extension are running, and a run that fails is only logged and tried again at the next one, so an entry can stay longer than seven days. It is best-effort cleanup, not an exact expiry time. Requests from **private (incognito) windows** are not read from or written to these persistent caches, and they use their own request queue. Private windows still send text to your provider when you translate there; the isolation covers the local caches only, and it does not make the use of a provider private.
 
 ### Usage statistics (local only)
 
 The usage page shows how many requests LingoTori dispatched and the token counts your provider reported, by day, model and feature. It is computed and stored only on your device and is never sent anywhere. LingoTori does not delete it automatically; it stays until you remove the extension or clear the extension's storage in your browser. It can be incomplete if a write fails or the background stops, and it is a record of requests, not a bill: your provider's invoice is the reference.
 
-A second, small local record counts how many requests batching saved. Each entry holds a random identifier, a date, a request count and the provider and model names, with no text. It keeps at most 10,000 entries for 120 days.
+A second, small local record counts how many requests batching saved. Each entry holds a random identifier, a date, a request count and the provider and model names, with no text. The same daily cleanup trims it to the newest 10,000 entries and deletes entries older than 120 days; those are thresholds for that cleanup, so more or older entries can exist between runs or after a failed run.
 
 ## Exporting your settings
 
