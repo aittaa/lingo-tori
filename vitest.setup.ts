@@ -137,19 +137,17 @@ if (typeof Range !== "undefined" && typeof Range.prototype.getBoundingClientRect
 // TextEncoder produces Uint8Array objects that are _different_ from the global
 // Uint8Array objects, so some functions that compare their types explode.
 // https://github.com/vitest-dev/vitest/issues/4043#issuecomment-1905172846
+//
+// The bytes still have to be UTF-8, so they come from the native encoder and are only copied
+// into this realm's Uint8Array. (An earlier version stored each UTF-16 code unit in a byte,
+// which turned every non-ASCII character into garbage.)
 class ESBuildAndJSDOMCompatibleTextEncoder extends TextEncoder {
   override encode(input: string) {
     if (typeof input !== "string") {
       throw new TypeError("`input` must be a string")
     }
 
-    const decodedURI = decodeURIComponent(encodeURIComponent(input))
-    const arr = new Uint8Array(decodedURI.length)
-    const chars = decodedURI.split("")
-    for (let i = 0; i < chars.length; i++) {
-      arr[i] = decodedURI[i]!.charCodeAt(0)
-    }
-    return arr
+    return new Uint8Array(super.encode(input))
   }
 }
 
