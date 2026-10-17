@@ -93,7 +93,8 @@ export function proxyFetch() {
       await invalidateCache(cacheGroupKey)
     }
 
-    // A request that carries a credential (icons and logos carry none) needs Firefox's consent.
+    // A request that carries a credential, or asks for the browser's cookies, needs Firefox's
+    // consent (icons and logos carry none and use `omit`). The caller's mode is passed on as it is.
     const response = await createConsentGatedFetch(fetch)(url, {
       method: finalMethod,
       headers: headers ? new Headers(headers) : undefined,

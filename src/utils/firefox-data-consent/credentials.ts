@@ -4,6 +4,8 @@ import { isCredentialName } from "@/utils/config/api"
  * What counts as an explicit credential. The rule is the one the config export already applies to
  * names: `isCredentialName` (authorization, proxy-authorization, cookie, x-api-key, api-key, and
  * anything with token, secret, key or auth in its name). Version and content headers do not count.
+ * A request that asks the browser to attach its stored cookies (`credentials: "include"`) counts too,
+ * because those cookies never show in the headers the caller supplied.
  *
  * What it cannot see, stated plainly: a secret in an opaque URL path segment, in an option whose
  * name looks innocent, or in a header with an unrecognised name travels without tripping the gate.
@@ -49,7 +51,20 @@ export function urlCarriesCredentials(url: string | URL | undefined | null): boo
   return false
 }
 
-/** The request that is about to leave: its URL and every header that goes with it. */
+/**
+ * Whether the request asks the browser to attach its own stored credentials (cookies) to it. Only
+ * `include` does. `omit` attaches none, and the default `same-origin` attaches them only to a
+ * request to the caller's own origin: every other site is cross-origin for the extension, and the
+ * extension's own pages hold no cookies for a provider. The init overrides the Request, as `fetch`
+ * does, so `omit` in the init wins over `include` on the Request and the other way round.
+ */
+function requestAsksForCookies(input: RequestInfo | URL, init?: RequestInit): boolean {
+  const fromRequest =
+    typeof input === "string" || input instanceof URL ? undefined : input.credentials
+  return (init?.credentials ?? fromRequest) === "include"
+}
+
+/** The request that is about to leave: its URL, every header that goes with it, and its cookie mode. */
 export function requestCarriesCredentials(input: RequestInfo | URL, init?: RequestInit): boolean {
   const url = typeof input === "string" || input instanceof URL ? input : input.url
   const requestHeaders =
@@ -57,7 +72,8 @@ export function requestCarriesCredentials(input: RequestInfo | URL, init?: Reque
   return (
     urlCarriesCredentials(url) ||
     headersCarryCredentials(init?.headers) ||
-    headersCarryCredentials(requestHeaders)
+    headersCarryCredentials(requestHeaders) ||
+    requestAsksForCookies(input, init)
   )
 }
 
