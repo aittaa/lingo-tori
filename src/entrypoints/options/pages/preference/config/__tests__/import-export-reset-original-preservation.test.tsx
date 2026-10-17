@@ -205,15 +205,8 @@ describe("Export current settings while the primary config is not valid", () => 
     expect(sameRaw(await readRawPrimary(), SUSPECT)).toBe(true)
   })
 
-  it("is not offered on the error screen either (its export reads the same defaults view)", async () => {
-    renderInProviders(<RecoveryFallback error={new Error("boom")} onRecovered={() => {}} />)
-
-    await waitFor(() => screen.getByText(RECOVERY_UNUSABLE_DESCRIPTION))
-
-    expect(screen.queryByText(RECOVERY_EXPORT_WITH_KEYS)).not.toBeInTheDocument()
-    expect(saveAsMock).not.toHaveBeenCalled()
-  })
-
+  // That the error screen does not offer this export while the saved settings cannot be used is
+  // pinned in recovery-fallback.test.tsx; this one is the hook's own guard, asked through the button.
   it("is still refused when it is asked for before the error screen has seen the config", async () => {
     renderInProviders(<RecoveryFallback error={new Error("boom")} onRecovered={() => {}} />)
 

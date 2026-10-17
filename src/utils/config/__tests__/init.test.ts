@@ -134,12 +134,12 @@ describe("initializeConfig", () => {
     expect(isFreshInstall).toBe(false)
   })
 
-  it("does not rebuild an unparseable config, so it is not reported as a fresh install", async () => {
+  it("does not rebuild an unparseable config, so it is not reported as a fresh install, and is reported as stored", async () => {
     await seedPrimary({ not: "a config" }, CURRENT_META)
 
-    const { isFreshInstall } = await initialize()
+    const result = await initialize()
 
-    expect(isFreshInstall).toBe(false)
+    expect(result).toEqual({ isFreshInstall: false, hadStoredConfig: true })
     expect((await readRawPrimary()).value).toEqual({ not: "a config" })
   })
 
@@ -157,28 +157,19 @@ describe("initializeConfig", () => {
     expect(hadStoredConfig).toBe(true)
   })
 
-  it("reports an unparseable stored config as stored, and as not fresh", async () => {
-    await seedPrimary({ not: "a config" }, CURRENT_META)
+  // The stored values false and "" with no meta are pinned, with the same assertions, by the cases
+  // of original-preservation-init.test.ts; 0 with no meta is the one state that file does not seed.
+  it("counts a corrupted falsy stored value 0 as an existing config and keeps it as it is", async () => {
+    await seedPrimary(0, ABSENT)
+    const tracker = trackPrimaryWrites()
 
     const result = await initialize()
 
     expect(result).toEqual({ isFreshInstall: false, hadStoredConfig: true })
+    expect(tracker.writes).toEqual([])
+    expect((await readRawPrimary()).value).toBe(0)
+    expect(await readPreserved()).toHaveLength(1)
   })
-
-  it.each([false, 0, ""])(
-    "counts a corrupted falsy stored value %j as an existing config and keeps it as it is",
-    async (corrupted) => {
-      await seedPrimary(corrupted, ABSENT)
-      const tracker = trackPrimaryWrites()
-
-      const result = await initialize()
-
-      expect(result).toEqual({ isFreshInstall: false, hadStoredConfig: true })
-      expect(tracker.writes).toEqual([])
-      expect((await readRawPrimary()).value).toBe(corrupted)
-      expect(await readPreserved()).toHaveLength(1)
-    },
-  )
 
   it("treats a key that was never stored as absence", async () => {
     const result = await initialize()
