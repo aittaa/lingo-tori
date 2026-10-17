@@ -51,6 +51,8 @@ function deferred<T = void>() {
 interface Options {
   /** Hold the Nth vault read (counted from the start of the sign-in) until `releaseVault()`. */
   holdVaultRead?: number
+  /** The held vault read answers with the record it had when it began, not the one at release. */
+  snapshotBeforeHold?: boolean
   /** Hold the Nth consent read until `releaseConsent()`. */
   holdConsentRead?: number
   /** The stored session the service starts with. */
@@ -89,6 +91,11 @@ function signIn(options: Options = {}) {
       events.push("vault:read")
       if (vaultReads === options.holdVaultRead) {
         events.push("vault:held")
+        if (options.snapshotBeforeHold) {
+          const snapshot = await inner.read()
+          await vaultGate.promise
+          return snapshot
+        }
         await vaultGate.promise
       }
       return inner.read()
@@ -155,8 +162,8 @@ const waitFor = (events: string[], event: string) =>
   vi.waitFor(() => expect(events).toContain(event))
 
 /** How many vault reads an untouched sign-in makes before it navigates. */
-async function vaultReadsBeforeNavigation() {
-  const run = signIn()
+async function vaultReadsBeforeNavigation(options: Options = {}) {
+  const run = signIn(options)
   expect(await run.started).toBe("navigated")
   return run.readsAtNavigation()
 }
@@ -316,6 +323,26 @@ describe("the stored session changed by another operation while the final consen
     // sign-in's own record are exactly as they were.
     expect(after).toEqual({ ...before, refreshing: true })
     run.releaseConsent()
+
+    expect(await run.started).toMatchObject({ code: "session_changed" })
+    expect(run.transport.navigate).not.toHaveBeenCalled()
+  })
+
+  it("does not navigate when the session ended while the last vault read was still returning", async () => {
+    // The ownership is taken before that read begins, not when it returns: a read that began first
+    // may still answer with the record as it was, and the end of the session lands in between.
+    const fetcher = tokenEndpoint(refusedForGood)
+    const lastRead = await vaultReadsBeforeNavigation({ stored: expiredSession() })
+    const run = signIn({
+      holdVaultRead: lastRead,
+      snapshotBeforeHold: true,
+      stored: expiredSession(),
+      fetcher,
+    })
+    await waitFor(run.events, "vault:held")
+
+    await expect(run.service.models()).rejects.toMatchObject({ code: "invalid_grant" })
+    run.releaseVault()
 
     expect(await run.started).toMatchObject({ code: "session_changed" })
     expect(run.transport.navigate).not.toHaveBeenCalled()
