@@ -5,7 +5,6 @@ import {
   corruptConfig,
   CURRENT_META,
   PREVIOUS_META,
-  PREVIOUS_VERSION,
   previousVersionConfig,
   readPreserved,
   readRawPrimary,
@@ -15,7 +14,7 @@ import {
   snapshot,
   validConfig,
 } from "@/utils/config/__tests__/preservation-test-kit"
-import { ConfigRecoveryRequiredError } from "@/utils/config/errors"
+import { ConfigRecoveryRequiredError, ConfigUpgradePendingError } from "@/utils/config/errors"
 import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
 import { backUpCurrentConfig, replaceStoredConfig } from "../current-config"
 
@@ -42,12 +41,13 @@ describe("backUpCurrentConfig", () => {
     expect(entry!.backup).toEqual({ schemaVersion: CONFIG_SCHEMA_VERSION, config: stored })
   })
 
-  it("labels the backup of a config still being upgraded with its own version", async () => {
+  it("refuses while the stored config has not been upgraded yet, and writes nothing", async () => {
     await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+    const before = await snapshot()
 
-    await backUpCurrentConfig("0.0.1")
+    await expect(backUpCurrentConfig("0.0.1")).rejects.toBeInstanceOf(ConfigUpgradePendingError)
 
-    expect(backupEntries(await snapshot())[0]!.backup.schemaVersion).toBe(PREVIOUS_VERSION)
+    expect(await snapshot()).toEqual(before)
   })
 
   it("adds a backup even when the latest one holds the same config (it is an explicit request)", async () => {
@@ -81,7 +81,11 @@ describe("backUpCurrentConfig", () => {
 
 describe("replaceStoredConfig", () => {
   it("writes the replacement with a complete current meta", async () => {
-    await seedPrimary(validConfig(), { schemaVersion: 1, lastModifiedAt: 1, leftover: true })
+    await seedPrimary(validConfig(), {
+      schemaVersion: CONFIG_SCHEMA_VERSION,
+      lastModifiedAt: 1,
+      leftover: true,
+    })
 
     await replaceStoredConfig(replacement(), OPTIONS)
 
@@ -111,13 +115,19 @@ describe("replaceStoredConfig", () => {
     expect(backupEntries(await snapshot())).toHaveLength(1)
   })
 
-  it("backs up a config still being upgraded with its own version", async () => {
-    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+  it.each([true, false])(
+    "refuses while the stored config has not been upgraded yet (backupCurrent: %s), and writes nothing",
+    async (backupCurrent) => {
+      await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+      const before = await snapshot()
 
-    await replaceStoredConfig(replacement(), OPTIONS)
+      await expect(
+        replaceStoredConfig(replacement(), { ...OPTIONS, backupCurrent }),
+      ).rejects.toBeInstanceOf(ConfigUpgradePendingError)
 
-    expect(backupEntries(await snapshot())[0]!.backup.schemaVersion).toBe(PREVIOUS_VERSION)
-  })
+      expect(await snapshot()).toEqual(before)
+    },
+  )
 
   it.each([
     { name: "invalid", state: () => seedPrimary(corruptConfig(), CURRENT_META) },

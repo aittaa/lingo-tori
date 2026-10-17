@@ -7,6 +7,7 @@ import {
   ConfigRecoveryRequiredError,
   ConfigUpgradePendingError,
 } from "../errors"
+import { preserveOriginal } from "../preservation"
 import {
   assertConfigWritable,
   assertCurrentConfigExportable,
@@ -26,6 +27,7 @@ import {
   holdFirstResult,
   previousVersionConfig,
   PREVIOUS_META,
+  PREVIOUS_VERSION,
   resetStorage,
   seedPrimary,
   settle,
@@ -164,6 +166,73 @@ describe("classifyConfigPair", () => {
     })
   })
 
+  const BAD_TIMES = [
+    { name: "text", value: "not-a-timestamp" as unknown },
+    { name: "a number given as text", value: "1700000000000" as unknown },
+    { name: "null", value: null as unknown },
+    { name: "a boolean", value: true as unknown },
+    { name: "an object", value: {} as unknown },
+    { name: "an array", value: [] as unknown },
+    { name: "not a number", value: Number.NaN as unknown },
+    { name: "infinite", value: Infinity as unknown },
+    { name: "negative infinity", value: -Infinity as unknown },
+  ]
+
+  it.each(BAD_TIMES)(
+    "calls a valid config suspect(incoherent) when its modified time is $name, whatever the version label",
+    ({ value }) => {
+      const metas = [
+        { schemaVersion: CONFIG_SCHEMA_VERSION, lastModifiedAt: value },
+        { lastModifiedAt: value },
+        { schemaVersion: PREVIOUS_VERSION, lastModifiedAt: value },
+      ]
+      for (const meta of metas) {
+        expect(classifyConfigPair(pair(validConfig(), meta))).toMatchObject({
+          kind: "suspect",
+          reason: "incoherent",
+        })
+      }
+    },
+  )
+
+  it("lets a recognised newer version label win over a malformed modified time", () => {
+    const meta = { schemaVersion: CONFIG_SCHEMA_VERSION + 1, lastModifiedAt: "not-a-timestamp" }
+
+    expect(classifyConfigPair(pair(validConfig(), meta))).toMatchObject({
+      kind: "suspect",
+      reason: "newer-version",
+    })
+  })
+
+  it("lets a malformed version label win over a malformed modified time (both are unreadable)", () => {
+    const meta = { schemaVersion: "111", lastModifiedAt: "not-a-timestamp" }
+
+    expect(classifyConfigPair(pair(validConfig(), meta))).toMatchObject({
+      kind: "suspect",
+      reason: "incoherent",
+    })
+  })
+
+  it.each([0, -5, 1.5, FIXED_MODIFIED_AT])(
+    "accepts %s as a modified time: only a value that is not a finite number is malformed",
+    (value) => {
+      expect(
+        classifyConfigPair(
+          pair(validConfig(), { schemaVersion: CONFIG_SCHEMA_VERSION, lastModifiedAt: value }),
+        ),
+      ).toMatchObject({ kind: "usable", metaMissing: false })
+    },
+  )
+
+  it("still treats a missing modified time as an older writer's meta, not as a malformed one", () => {
+    expect(
+      classifyConfigPair(pair(validConfig(), { schemaVersion: CONFIG_SCHEMA_VERSION })),
+    ).toMatchObject({ kind: "usable" })
+    expect(
+      classifyConfigPair(pair(previousVersionConfig(), { schemaVersion: PREVIOUS_VERSION })),
+    ).toMatchObject({ kind: "upgrading" })
+  })
+
   it("keeps the raw pair on the status it returns", () => {
     const raw = pair(corruptConfig(), CURRENT_META)
 
@@ -219,13 +288,10 @@ describe("the session view", () => {
 })
 
 describe("assertCurrentConfigExportable", () => {
-  it("passes for an empty profile, a usable config and a config being upgraded", async () => {
+  it("passes for an empty profile and a usable config", async () => {
     await expect(assertCurrentConfigExportable()).resolves.toBeUndefined()
 
     await seedPrimary(validConfig(), CURRENT_META)
-    await expect(assertCurrentConfigExportable()).resolves.toBeUndefined()
-
-    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
     await expect(assertCurrentConfigExportable()).resolves.toBeUndefined()
   })
 
@@ -236,6 +302,19 @@ describe("assertCurrentConfigExportable", () => {
     await expect(assertCurrentConfigExportable()).rejects.toMatchObject({
       reason: "invalid-schema",
     })
+  })
+
+  it("is refused while the stored config is still labelled with an older version", async () => {
+    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+
+    await expect(assertCurrentConfigExportable()).rejects.toBeInstanceOf(ConfigExportBlockedError)
+    await expect(assertCurrentConfigExportable()).rejects.toMatchObject({ reason: "upgrading" })
+  })
+
+  it("points to a recovery option that exists", async () => {
+    await seedPrimary(corruptConfig(), CURRENT_META)
+
+    await expect(assertCurrentConfigExportable()).rejects.toThrow(/recovery export/i)
   })
 })
 
@@ -381,7 +460,7 @@ describe("watchConfigStatus", () => {
     expect(views).toEqual([])
   })
 
-  it("reads the status again from storage, so a half-written pair is never delivered as it came", async () => {
+  it("reads the pair again from storage and delivers the validated view, not the notification's payload", async () => {
     // A value that fails the schema arrives together with a newer label than this build knows.
     await fakeBrowser.storage.local.set({
       config: { not: "a config" },
@@ -400,5 +479,75 @@ describe("getConfigStatus", () => {
 
     await seedPrimary(validConfig(), CURRENT_META)
     expect((await getConfigStatus()).kind).toBe("usable")
+  })
+})
+
+describe("getConfigStatus for a config a startup could not upgrade", () => {
+  async function seedUpgrading() {
+    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+    return readRawConfigPair()
+  }
+
+  it.each(["migration-failed", "invalid-schema"] as const)(
+    "is suspect(%s) for the pair a kept copy holds, not a retryable upgrade",
+    async (reason) => {
+      await preserveOriginal(await seedUpgrading(), reason)
+
+      expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason })
+    },
+  )
+
+  it("is still upgrading when no kept copy holds this pair", async () => {
+    const raw = await seedUpgrading()
+
+    expect(await getConfigStatus()).toMatchObject({
+      kind: "upgrading",
+      fromVersion: PREVIOUS_VERSION,
+    })
+    expect(raw.hasValue).toBe(true)
+  })
+
+  it("is still upgrading when the kept copies hold other pairs only", async () => {
+    await preserveOriginal(pair(corruptConfig(), CURRENT_META), "invalid-schema")
+    await seedUpgrading()
+
+    expect(await getConfigStatus()).toMatchObject({ kind: "upgrading" })
+  })
+
+  it("is upgrading again once the pair is no longer the one a copy holds", async () => {
+    await preserveOriginal(await seedUpgrading(), "migration-failed")
+    await seedPrimary(previousVersionConfig(), { ...PREVIOUS_META, lastModifiedAt: 5 })
+
+    expect(await getConfigStatus()).toMatchObject({ kind: "upgrading" })
+  })
+
+  it("leaves a usable pair usable even when a copy of the same pair is kept", async () => {
+    await seedPrimary(validConfig(), CURRENT_META)
+    await preserveOriginal(await readRawConfigPair(), "invalid-schema")
+
+    expect(await getConfigStatus()).toMatchObject({ kind: "usable" })
+  })
+
+  it("gives the session the defaults, because a pair that could not be upgraded is not used", async () => {
+    await preserveOriginal(await seedUpgrading(), "migration-failed")
+
+    const view = await getConfigView()
+
+    expect(view.config).toBe(DEFAULT_CONFIG)
+    expect(view.status.kind).toBe("suspect")
+  })
+
+  it("is delivered to a watcher when the copy appears", async () => {
+    const raw = await seedUpgrading()
+    const views: Array<Awaited<ReturnType<typeof getConfigView>>> = []
+    const stop = watchConfigStatus((view) => views.push(view))
+    await settle()
+
+    await preserveOriginal(raw, "migration-failed")
+    await settle()
+    stop()
+
+    expect(views).toHaveLength(1)
+    expect(views[0]!.status).toMatchObject({ kind: "suspect", reason: "migration-failed" })
   })
 })

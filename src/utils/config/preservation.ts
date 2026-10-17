@@ -196,6 +196,25 @@ function samePayload(entry: unknown, encodedValue: string, encodedMeta: string |
   )
 }
 
+/**
+ * Why the stored pair was kept, when a kept copy holds exactly this pair; `undefined` when none does
+ * (or the pair cannot be encoded, or storage cannot be read). Reads one key.
+ */
+export async function findKeptReason(raw: RawConfigPair): Promise<SuspectReason | undefined> {
+  if (!raw.hasValue) return undefined
+  try {
+    const encodedValue = encodeLossless(raw.value)
+    const encodedMeta = raw.hasMeta ? encodeLossless(raw.meta) : undefined
+    const key = preservedOriginalKey(encodedValue, encodedMeta)
+    const kept = (await browser.storage.local.get(key))[key]
+    return samePayload(kept, encodedValue, encodedMeta)
+      ? (kept as PreservedOriginal).reason
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** Every kept original, oldest first. Reads the whole `storage.local` area; use it rarely. */
 export async function listPreservedOriginals() {
   const all = await browser.storage.local.get(null)
