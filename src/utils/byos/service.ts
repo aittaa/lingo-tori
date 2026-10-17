@@ -119,6 +119,11 @@ export function createByosService(
   now = Date.now,
 ) {
   let intent = 0
+  // Moves with every change this service makes to the generation of the stored session. A sign-in
+  // that is suspended on its last permission read has no vault wait left in which to learn of such a
+  // change, and a terminal token refresh (or any other operation of this service) can make one
+  // without moving `intent`, so the sign-in compares this counter, in the turn that navigates.
+  let generationEpoch = 0
   let starting = false
   let startingAttemptId: string | undefined
   // Terminal, handled promise of a failed sign-in's browser cleanup. It outlives the
@@ -127,6 +132,16 @@ export function createByosService(
   let refreshing: Promise<void> | undefined
   let initialization: Promise<void> | undefined
   let signingOut: Promise<ByosSession & { remoteRevocationConfirmed: boolean }> | undefined
+  /**
+   * The one way this service advances the stored generation. The counter moves first, inside the
+   * update callback and before anything is written. If the write then fails and the vault rolls
+   * back, the counter stays moved: that is deliberately fail-closed, a sign-in waiting on it ends
+   * with `session_changed` and the user can try again.
+   */
+  function bumpGeneration(record: VaultRecord) {
+    generationEpoch++
+    record.generation++
+  }
   const controllers = new Set<AbortController>()
   const abortAll = () => {
     for (const controller of controllers) controller.abort()
@@ -150,7 +165,7 @@ export function createByosService(
       cleared = true
       const previous = record.pending
       if (advanceGeneration) {
-        record.generation++
+        bumpGeneration(record)
         if (record.refreshing) {
           delete record.refreshing
           record.refreshUncertain = true
@@ -193,7 +208,7 @@ export function createByosService(
         record = await vault.update((current) => {
           if (current.refreshing) {
             const previousGeneration = current.generation
-            current.generation++
+            bumpGeneration(current)
             current.tokenVersion++
             current.refreshUncertain = true
             delete current.refreshing
@@ -433,7 +448,7 @@ export function createByosService(
           delete record.refreshing
           record.refreshFailure = failureDetails(failure)
           if (TERMINAL_REFRESH_CODES.has(failure.code)) {
-            record.generation++
+            bumpGeneration(record)
             record.tokenVersion++
             delete record.credentials
             clearRefreshState(record)
@@ -726,7 +741,9 @@ export function createByosService(
           // What this attempt owns is read from the vault now, before the final consent read, so
           // that no vault or storage wait is left between that read and the navigation: the vault
           // is a database transaction whose wait is not bounded, and the user can switch the
-          // permission off during any wait.
+          // permission off during any wait. The counter is taken before the read, so a change of
+          // the generation that lands while the read is pending is seen too.
+          const ownEpoch = generationEpoch
           const current = await vault.read()
           if (
             ownIntent !== intent ||
@@ -740,19 +757,26 @@ export function createByosService(
           // The navigation sends the authorization request: the consent is read once more, now that
           // the setup awaits are behind us, so a revocation in between stops it.
           await assertDataConsent("authenticationInfo")
-          // That read was asynchronous too, and what can still change during it is in memory: a
-          // cancellation, a replacement or a sign-out moves the intent (before they write anything,
-          // so even a write that fails is noticed), and the expiry is a clock. They are checked now,
-          // with nothing awaited between these checks and the call that navigates. A cancelled
-          // attempt cannot navigate while its cleanup is still running.
-          if (ownIntent !== intent || signingOut || pending.expires <= now())
+          // That read was asynchronous too, and what can still change during it is in memory.
+          // A cancellation, a replacement or a sign-out moves the intent, and any change of the
+          // stored generation, such as the end of the session by a refresh the server refuses for
+          // good, moves the epoch; both move before anything is written, so even a write that
+          // fails is noticed. The expiry is a clock. They are checked now, with nothing awaited
+          // between these checks and the call that navigates. A cancelled attempt cannot navigate
+          // while its cleanup is still running.
+          if (
+            ownIntent !== intent ||
+            ownEpoch !== generationEpoch ||
+            signingOut ||
+            pending.expires <= now()
+          )
             fail("session_changed")
           await transport.navigate(tabId, url.href)
         } catch (error) {
           await vault.update((current) => {
             if (current.pending?.state === pending.state) {
               delete current.pending
-              current.generation++
+              bumpGeneration(current)
             }
           })
           // Pending auth is already invalidated. Report the original failure now: the
@@ -1010,7 +1034,7 @@ export function createByosService(
         intent++
         if (!ownsPending) return undefined
         const previous = record.pending
-        record.generation++
+        bumpGeneration(record)
         if (record.refreshing) {
           delete record.refreshing
           record.refreshUncertain = true
@@ -1070,7 +1094,7 @@ export function createByosService(
         // Capture only the token needed to end this renewable session. Local
         // access ends atomically before cleanup, discovery, or any revocation I/O.
         const previous = await vault.update((record) => {
-          record.generation++
+          bumpGeneration(record)
           record.tokenVersion++
           const snapshot = {
             pending: record.pending,
