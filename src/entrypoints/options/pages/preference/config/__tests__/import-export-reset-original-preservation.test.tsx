@@ -6,8 +6,9 @@
 // validation. Exporting current settings would hand the user a file of defaults, and import and
 // reset overwrote the original with no copy. Now exporting current settings is BLOCKED while the
 // stored config is unusable, an invalid import file is rejected with an error and nothing is
-// written, and import, reset and the error screen's reset keep an exact copy of an unusable stored
-// config before they overwrite it.
+// written, and import, reset and the error screen's reset are REFUSED over an unusable stored
+// config (replacing it is not available yet): nothing is written, and the original stays where it
+// is.
 //
 // Real: `ManualConfigSyncConfigItems` (import and export), `ResetConfigItem`, `RecoveryFallback`,
 // `useExportConfig`, `getConfigWithoutCredentials`, `migrateConfig`, `initializeConfig`, over the
@@ -27,7 +28,6 @@ import {
   corruptConfig,
   CURRENT_META,
   holdFirstCall,
-  originalIsSafe,
   preservedCopiesOf,
   readRawPrimary,
   resetStorage,
@@ -301,14 +301,17 @@ describe("Import of a valid file", () => {
     expect(toastTypes()).toEqual(["success"])
   })
 
-  it("keeps the original it overwrites when the primary is not valid", async () => {
+  it("is refused when the stored config cannot be used: nothing is imported or written", async () => {
     await seedPrimary(SUSPECT.value, SUSPECT.meta)
     await renderSettledSyncItems()
+    const before = await snapshot()
 
     await importFile(importPayload(validConfig()))
     await untilToasted()
 
-    expect(await originalIsSafe(SUSPECT)).toBe(true)
+    expect(await snapshot()).toEqual(before)
+    expect(sameRaw(await readRawPrimary(), SUSPECT)).toBe(true)
+    expect(new Set(toastTypes())).toEqual(new Set(["error"]))
   })
 
   it("does not put the defaults into the backup list as if they were the user's config", async () => {
@@ -324,8 +327,10 @@ describe("Import of a valid file", () => {
     expect(defaultsAsBackup).toEqual([])
   })
 
-  it("stores the file's config, not a merge of it with defaults (a control)", async () => {
-    await seedPrimary(SUSPECT.value, SUSPECT.meta)
+  it("stores the file's config, not a merge of it with the current one (a control)", async () => {
+    const current = validConfig()
+    ;(current as any).language.targetCode = "fra"
+    await seedPrimary(current, CURRENT_META)
     await renderSettledSyncItems()
     const imported = validConfig()
     ;(imported as any).language.targetCode = "kor"
@@ -338,32 +343,36 @@ describe("Import of a valid file", () => {
 })
 
 describe("Reset to defaults", () => {
-  it("keeps the original it overwrites when the primary is not valid", async () => {
+  it("is refused when the stored config cannot be used: nothing is written", async () => {
     await seedPrimary(SUSPECT.value, SUSPECT.meta)
     renderInProviders(<ResetConfigItem />)
+    const before = await snapshot()
 
     fireEvent.click(screen.getByText(RESET_TRIGGER))
     await waitFor(() => screen.getByText(RESET_CONFIRM))
     fireEvent.click(screen.getByText(RESET_CONFIRM))
-    await waitFor(async () => expect(sameRaw(await readRawPrimary(), SUSPECT)).toBe(false))
+    await untilToasted()
 
-    expect(preservedCopiesOf(await snapshot(), SUSPECT)).toHaveLength(1)
+    expect(await snapshot()).toEqual(before)
+    expect(sameRaw(await readRawPrimary(), SUSPECT)).toBe(true)
+    expect(toastTypes()).toContain("error")
   })
 
-  it("keeps the original when the reset overlaps a startup on the same primary", async () => {
+  it("is refused after a startup that ran while it waited, and the original is kept by that startup", async () => {
     await seedPrimary(SUSPECT.value, SUSPECT.meta)
     renderInProviders(<ResetConfigItem />)
-    const resetWrite = holdFirstCall("set", (keys) => keys.includes("config"))
+    const resetRead = holdFirstCall("get", (keys) => keys.includes("config"))
 
     fireEvent.click(screen.getByText(RESET_TRIGGER))
     await waitFor(() => screen.getByText(RESET_CONFIRM))
     fireEvent.click(screen.getByText(RESET_CONFIRM))
-    await Promise.race([resetWrite.reached, new Promise((resolve) => setTimeout(resolve, 100))])
-    await startBackground().catch(() => undefined)
-    resetWrite.release()
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    await resetRead.reached
+    await startBackground()
+    resetRead.release()
+    await untilToasted()
 
-    expect(await originalIsSafe(SUSPECT)).toBe(true)
+    expect(sameRaw(await readRawPrimary(), SUSPECT)).toBe(true)
+    expect(preservedCopiesOf(await snapshot(), SUSPECT)).toHaveLength(1)
   })
 
   it("replaces a valid config with the defaults (a control)", async () => {
@@ -384,17 +393,18 @@ describe("Reset to defaults", () => {
 })
 
 describe("the error screen's reset", () => {
-  it("keeps the original it overwrites when the primary is not valid", async () => {
+  it("is refused when the stored config cannot be used: nothing is written, and it says so", async () => {
     await seedPrimary(SUSPECT.value, SUSPECT.meta)
     renderInProviders(<RecoveryFallback error={new Error("boom")} onRecovered={() => {}} />)
     await new Promise((resolve) => setTimeout(resolve, 20))
+    const before = await snapshot()
 
     fireEvent.click(screen.getByText(RECOVERY_RESET))
     await waitFor(() => screen.getByText(RECOVERY_RESET_CONFIRM))
     fireEvent.click(screen.getByText(RECOVERY_RESET_CONFIRM))
     await untilToasted()
 
-    expect(await originalIsSafe(SUSPECT)).toBe(true)
-    expect(preservedCopiesOf(await snapshot(), SUSPECT)).toHaveLength(1)
+    expect(await snapshot()).toEqual(before)
+    expect(toastTypes()).toEqual(["error"])
   })
 })

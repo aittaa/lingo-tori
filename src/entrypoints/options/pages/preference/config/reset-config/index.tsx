@@ -12,6 +12,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/base-ui/alert-dialog"
 import { Button } from "@/components/ui/base-ui/button"
+import { toastManager } from "@/components/ui/base-ui/toast"
 import { replaceStoredConfig } from "@/utils/backup/current-config"
 import { EXTENSION_VERSION } from "@/utils/constants/app"
 import { buildFreshDefaultConfig } from "@/utils/constants/config"
@@ -21,12 +22,20 @@ import { ConfigItem } from "../../../../components/config-item"
 export function ResetConfigItem() {
   const [open, setOpen] = useState(false)
   async function resetToDefaultConfig() {
-    // The stored config is kept as a copy first when it cannot be used; the defaults are only
-    // written once that copy is confirmed.
-    await replaceStoredConfig(buildFreshDefaultConfig(), {
-      backupCurrent: false,
-      extensionVersion: EXTENSION_VERSION,
-    })
+    try {
+      await replaceStoredConfig(buildFreshDefaultConfig(), {
+        backupCurrent: false,
+        extensionVersion: EXTENSION_VERSION,
+      })
+    } catch (error) {
+      // Refused (for example the saved settings cannot be read) or not stored: say so, since the
+      // dialog is about to close and the click would otherwise look like it did nothing.
+      toastManager.add({
+        type: "error",
+        title: i18n.t("errorRecovery.resetFailed"),
+        description: error instanceof Error ? error.message : undefined,
+      })
+    }
     setOpen(false)
   }
 

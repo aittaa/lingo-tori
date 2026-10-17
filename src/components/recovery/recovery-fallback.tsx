@@ -45,8 +45,12 @@ export function RecoveryFallback({ error, onRecovered }: RecoveryFallbackProps) 
       })
       toastManager.add({ type: "success", title: i18n.t("errorRecovery.resetSuccess") })
       onRecovered()
-    } catch {
-      toastManager.add({ type: "error", title: i18n.t("errorRecovery.resetFailed") })
+    } catch (resetError) {
+      toastManager.add({
+        type: "error",
+        title: i18n.t("errorRecovery.resetFailed"),
+        description: resetError instanceof Error ? resetError.message : undefined,
+      })
     } finally {
       setIsResetting(false)
     }

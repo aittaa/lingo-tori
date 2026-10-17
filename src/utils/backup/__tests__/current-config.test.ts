@@ -1,15 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest"
-import { fakeBrowser } from "wxt/testing/fake-browser"
 import {
   ABSENT,
   backupEntries,
   corruptConfig,
   CURRENT_META,
-  failWrites,
   PREVIOUS_META,
   PREVIOUS_VERSION,
-  PRESERVED_PREFIX,
-  preservedCopiesOf,
   previousVersionConfig,
   readPreserved,
   readRawPrimary,
@@ -19,7 +15,7 @@ import {
   snapshot,
   validConfig,
 } from "@/utils/config/__tests__/preservation-test-kit"
-import { ConfigBackupBlockedError, PreservationError } from "@/utils/config/errors"
+import { ConfigRecoveryRequiredError } from "@/utils/config/errors"
 import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
 import { backUpCurrentConfig, replaceStoredConfig } from "../current-config"
 
@@ -67,14 +63,19 @@ describe("backUpCurrentConfig", () => {
     { name: "invalid", state: () => seedPrimary(corruptConfig(), CURRENT_META) },
     { name: "of a newer version", state: () => seedPrimary(validConfig(), { schemaVersion: 999 }) },
     { name: "with a meta that cannot be read", state: () => seedPrimary(validConfig(), "x") },
-    { name: "nothing", state: async () => {} },
   ])("refuses when the stored config is $name, and writes nothing", async ({ state }) => {
     await state()
     const before = await snapshot()
 
-    await expect(backUpCurrentConfig("0.0.1")).rejects.toBeInstanceOf(ConfigBackupBlockedError)
+    await expect(backUpCurrentConfig("0.0.1")).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
 
     expect(await snapshot()).toEqual(before)
+  })
+
+  it("says there is nothing to back up when nothing is stored", async () => {
+    await expect(backUpCurrentConfig("0.0.1")).rejects.toThrow("no saved settings")
+
+    expect(await snapshot()).toEqual({})
   })
 })
 
@@ -118,28 +119,28 @@ describe("replaceStoredConfig", () => {
     expect(backupEntries(await snapshot())[0]!.backup.schemaVersion).toBe(PREVIOUS_VERSION)
   })
 
-  it("keeps an exact copy of an unusable config instead of a backup, then replaces it", async () => {
-    await seedPrimary(corruptConfig(), CURRENT_META)
-    const original = await readRawPrimary()
+  it.each([
+    { name: "invalid", state: () => seedPrimary(corruptConfig(), CURRENT_META) },
+    { name: "invalid with no meta", state: () => seedPrimary(corruptConfig(), ABSENT) },
+    { name: "a corrupted falsy value", state: () => seedPrimary(0, CURRENT_META) },
+    { name: "of a newer version", state: () => seedPrimary(validConfig(), { schemaVersion: 999 }) },
+    { name: "with a meta that cannot be read", state: () => seedPrimary(validConfig(), "x") },
+  ])(
+    "refuses to replace a stored config that is $name: nothing is written, not even a backup",
+    async ({ state }) => {
+      await state()
+      const before = await snapshot()
 
-    await replaceStoredConfig(replacement(), OPTIONS)
+      await expect(replaceStoredConfig(replacement(), OPTIONS)).rejects.toBeInstanceOf(
+        ConfigRecoveryRequiredError,
+      )
+      await expect(
+        replaceStoredConfig(replacement(), { ...OPTIONS, backupCurrent: false }),
+      ).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
 
-    expect(preservedCopiesOf(await snapshot(), original)).toHaveLength(1)
-    expect(backupEntries(await snapshot())).toEqual([])
-    expect((await readRawPrimary()).value).toEqual(replacement())
-  })
-
-  it("replaces nothing when the copy of an unusable config cannot be made", async () => {
-    await seedPrimary(corruptConfig(), CURRENT_META)
-    const before = await snapshot()
-    failWrites((keys) => keys.some((key) => key.startsWith(PRESERVED_PREFIX)))
-
-    await expect(replaceStoredConfig(replacement(), OPTIONS)).rejects.toBeInstanceOf(
-      PreservationError,
-    )
-
-    expect(await snapshot()).toEqual(before)
-  })
+      expect(await snapshot()).toEqual(before)
+    },
+  )
 
   it("replaces a profile with nothing stored, without a backup or a copy", async () => {
     await replaceStoredConfig(replacement(), OPTIONS)
@@ -147,23 +148,5 @@ describe("replaceStoredConfig", () => {
     expect(backupEntries(await snapshot())).toEqual([])
     expect(await readPreserved()).toEqual([])
     expect((await readRawPrimary()).value).toEqual(replacement())
-  })
-
-  it("keeps the copy of a config with no meta distinct from one with a meta", async () => {
-    await seedPrimary(corruptConfig(), ABSENT)
-    const withoutMeta = await readRawPrimary()
-    await replaceStoredConfig(replacement(), OPTIONS)
-    await seedPrimary(corruptConfig(), CURRENT_META)
-    const withMeta = await readRawPrimary()
-    await replaceStoredConfig(replacement(), OPTIONS)
-
-    const all = await snapshot()
-    expect(preservedCopiesOf(all, withoutMeta)).toHaveLength(1)
-    expect(preservedCopiesOf(all, withMeta)).toHaveLength(1)
-    expect(
-      Object.keys(await fakeBrowser.storage.local.get()).filter((key) =>
-        key.startsWith(PRESERVED_PREFIX),
-      ),
-    ).toHaveLength(2)
   })
 })
