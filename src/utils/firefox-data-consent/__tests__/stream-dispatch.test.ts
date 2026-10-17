@@ -26,7 +26,7 @@ import {
   installChrome,
   installFirefox,
   removePermissionsDouble,
-  REQUIRED_ONLY,
+  NOTHING_GRANTED,
   WITH_CREDENTIALS,
 } from "./firefox-permissions"
 
@@ -67,7 +67,7 @@ const stream = (row: LLMProviderConfig, extra: Record<string, unknown> = {}) =>
 
 describe("Firefox, authenticationInfo not granted", () => {
   it("does not start a credentialed stream, and tells the caller that consent is missing", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
 
     const error = await stream(credentialedRow).catch((caught: unknown) => caught)
 
@@ -77,7 +77,7 @@ describe("Firefox, authenticationInfo not granted", () => {
   })
 
   it("does not start it either when the provider is looked up by id (an older content script)", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
     await storeProvider(credentialedRow)
 
     await expect(streamBackgroundText(textPayload(credentialedRow))).rejects.toBeInstanceOf(
@@ -96,7 +96,7 @@ describe("Firefox, authenticationInfo not granted", () => {
   })
 
   it("still streams a keyless provider", async () => {
-    const permissions = installFirefox(REQUIRED_ONLY)
+    const permissions = installFirefox(NOTHING_GRANTED)
 
     await expect(stream(keylessRow)).resolves.toMatchObject({ output: "done" })
 
@@ -121,7 +121,7 @@ describe("Firefox, authenticationInfo granted", () => {
     await stream(credentialedRow)
     expect(transport.requests).toHaveLength(1)
 
-    permissions.report(REQUIRED_ONLY)
+    permissions.report(NOTHING_GRANTED)
     await expect(stream(credentialedRow)).rejects.toBeInstanceOf(StreamPortError)
     expect(transport.requests).toHaveLength(1)
 
@@ -142,7 +142,7 @@ describe("a revocation that lands before the request is dispatched", () => {
     await vi.waitFor(() => expect(bridge.pending).toBe(1))
 
     // Admitted when the user pressed the button; revoked before the background dispatches.
-    permissions.report(REQUIRED_ONLY)
+    permissions.report(NOTHING_GRANTED)
     bridge.release()
 
     expect(await outcome).toBeInstanceOf(StreamPortError)

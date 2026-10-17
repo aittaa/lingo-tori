@@ -25,7 +25,7 @@ import {
   installChrome,
   installFirefox,
   removePermissionsDouble,
-  REQUIRED_ONLY,
+  NOTHING_GRANTED,
   WITH_CREDENTIALS,
 } from "./firefox-permissions"
 
@@ -99,7 +99,7 @@ async function connected(target = firefoxTarget, expires = Date.now() + 3_600_00
 
 describe("Firefox, authenticationInfo not granted (the state after install)", () => {
   it("does not start a sign-in: no tab, no rule, no navigation, no request", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
     const vault = memoryVault()
     const transport = mockTransport()
     const fetcher = vi.fn<typeof fetch>()
@@ -121,7 +121,7 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
   })
 
   it("does not list models", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
     const { service, fetcher } = await connected()
 
     await expect(service.models()).rejects.toThrow(/consent/i)
@@ -130,7 +130,7 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
   })
 
   it("does not run an inference request", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
     const { service, fetcher } = await connected()
 
     await expect(service.invoke({ model: "synthetic-model", text: "Hello" })).rejects.toThrow(
@@ -141,7 +141,7 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
   })
 
   it("does not refresh an expired token, so the refresh token is not sent", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
     const { service, fetcher } = await connected(firefoxTarget, Date.now() - 1000)
 
     await expect(service.models()).rejects.toThrow(/./)
@@ -155,7 +155,7 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
     const permissions = installFirefox(WITH_CREDENTIALS)
     const { service, fetcher, query } = await signedFixture(SCOPES, firefoxTarget)
     fetcher.mockClear()
-    permissions.report(REQUIRED_ONLY)
+    permissions.report(NOTHING_GRANTED)
 
     await expect(service.callback(query, firefoxSender)).rejects.toThrow(/./)
 
@@ -163,7 +163,7 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
   })
 
   it("does not send the refresh token to revoke it on sign-out, but ends the session locally", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
     const { service, fetcher, vault } = await connected()
 
     const result = await service.signout()
@@ -198,7 +198,7 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
     )
     await vi.waitFor(() => expect(transport.install).toHaveBeenCalled())
 
-    permissions.report(REQUIRED_ONLY)
+    permissions.report(NOTHING_GRANTED)
     finishSetup()
     const outcome = await started
 
@@ -208,7 +208,7 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
   })
 
   it("still reports the local session without asking anything of the network", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
     const { service, fetcher } = await connected()
 
     expect((await service.session()).state).toBe("plan-enabled")
@@ -302,7 +302,7 @@ describe("Firefox, authenticationInfo granted", () => {
     await service.models()
     expect(fetcher).toHaveBeenCalledTimes(1)
 
-    permissions.report(REQUIRED_ONLY)
+    permissions.report(NOTHING_GRANTED)
     await expect(service.models()).rejects.toThrow(/consent/i)
     expect(fetcher).toHaveBeenCalledTimes(1)
 

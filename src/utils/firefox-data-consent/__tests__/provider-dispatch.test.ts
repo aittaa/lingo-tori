@@ -31,7 +31,7 @@ import {
   installChrome,
   installFirefox,
   removePermissionsDouble,
-  REQUIRED_ONLY,
+  NOTHING_GRANTED,
   WITH_CREDENTIALS,
 } from "./firefox-permissions"
 
@@ -242,7 +242,7 @@ async function attempt(send: Send) {
 
 describe("Firefox, authenticationInfo not granted (the state after install)", () => {
   it.each(CREDENTIALED)("sends nothing for %s", async (_name, send) => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
 
     const outcome = await attempt(send)
 
@@ -251,8 +251,17 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
     expect(outcome).toMatchObject({ name: "DataConsentRequiredError" })
   })
 
+  it("does not count the required category as a grant, if the browser lists it", async () => {
+    installFirefox(["websiteContent"])
+
+    const outcome = await attempt(llm(withKey))
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(outcome).toMatchObject({ name: "DataConsentRequiredError" })
+  })
+
   it.each(KEYLESS)("still sends %s, which carries no credential", async (_name, send) => {
-    const permissions = installFirefox(REQUIRED_ONLY)
+    const permissions = installFirefox(NOTHING_GRANTED)
 
     await expect(send()).resolves.toBeDefined()
 
@@ -273,7 +282,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
     "X-Custom-Auth",
     "X-Access-Key",
   ])("a configured %s header is a credential", async (name) => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
 
     const outcome = await attempt(llm(openAICompatible({ headers: { [name]: "value-1" } })))
 
@@ -289,7 +298,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
     "OpenAI-Organization",
     "Accept-Language",
   ])("a configured %s header is not a credential", async (name) => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
 
     await expect(llm(openAICompatible({ headers: { [name]: "value-1" } }))()).resolves.toBeDefined()
 
@@ -297,7 +306,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
   })
 
   it("userinfo in the endpoint URL is a credential", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
 
     const outcome = await attempt(
       llm(openAICompatible({ baseURL: "https://user:secret@provider.example.test/v1" })),
@@ -308,7 +317,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
   })
 
   it("a credential-named query parameter in the endpoint URL is a credential", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
 
     const outcome = await attempt(
       llm(openAICompatible({ baseURL: `${ORIGIN}/v1?api_key=sk-test-123` })),
@@ -319,7 +328,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
   })
 
   it("an ordinary query parameter such as api-version is not", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
 
     await expect(
       llm(openAICompatible({ baseURL: `${ORIGIN}/v1?api-version=2024-02-01` }))(),
@@ -329,7 +338,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
   })
 
   it("the user's declaration that the endpoint holds a credential gates a request that shows none", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
     // A key typed into the path cannot be told from a path segment: the user says so.
     const declared = openAICompatible({
       baseURL: `${ORIGIN}/v1/KEY-IN-PATH-123`,
@@ -358,7 +367,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
   })
 
   it("declaring that there is no credential does not lift an explicit one", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
 
     const outcome = await attempt(
       llm(openAICompatible({ apiKey: "sk-test-123", endpointCarriesCredential: false })),
@@ -371,7 +380,7 @@ describe("what counts as a credential, with authenticationInfo not granted", () 
   // The documented limit: a secret inside an opaque path segment or option is invisible to any
   // check. The settings hint and the privacy notice tell the user to use the declaration.
   it("does not claim to detect an undeclared secret hidden in the URL path", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
 
     await expect(
       llm(openAICompatible({ baseURL: `${ORIGIN}/v1/KEY-IN-PATH-123` }))(),
@@ -409,6 +418,14 @@ describe("Firefox, authenticationInfo granted", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it("recognises the grant whether or not the required category is listed beside it", async () => {
+    installFirefox(["websiteContent", "authenticationInfo"])
+
+    await expect(llm(withKey)()).resolves.toBeDefined()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it("sends the request unchanged: the key still reaches the provider", async () => {
     installFirefox(WITH_CREDENTIALS)
 
@@ -429,7 +446,7 @@ describe("revoked in about:addons during the session", () => {
       await send()
       expect(fetchMock).toHaveBeenCalledTimes(1)
 
-      permissions.report(REQUIRED_ONLY)
+      permissions.report(NOTHING_GRANTED)
       const outcome = await attempt(send)
 
       expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -438,7 +455,7 @@ describe("revoked in about:addons during the session", () => {
   )
 
   it("a grant made later is honoured by the next request, with no restart", async () => {
-    const permissions = installFirefox(REQUIRED_ONLY)
+    const permissions = installFirefox(NOTHING_GRANTED)
     expect(await attempt(llm(withKey))).toMatchObject({ name: "DataConsentRequiredError" })
     expect(fetchMock).not.toHaveBeenCalled()
 
@@ -453,7 +470,7 @@ describe("revoked in about:addons during the session", () => {
     const permissions = installFirefox(WITH_CREDENTIALS)
     // The first attempt fails with a retryable error; the user revokes while the SDK waits.
     fetchMock.mockImplementationOnce(async () => {
-      permissions.report(REQUIRED_ONLY)
+      permissions.report(NOTHING_GRANTED)
       return new Response("overloaded", { status: 503 })
     })
 

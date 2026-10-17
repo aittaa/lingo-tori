@@ -16,7 +16,7 @@ import {
   installChrome,
   installFirefox,
   removePermissionsDouble,
-  REQUIRED_ONLY,
+  NOTHING_GRANTED,
   WITH_CREDENTIALS,
 } from "./firefox-permissions"
 
@@ -68,7 +68,7 @@ const settled = () => screen.findByText(new RegExp(`${RETRY}|${SELECT_MODEL}`))
 
 describe("Fetch models on Firefox", () => {
   it("does not send the key while authenticationInfo is not granted, and offers a retry", async () => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
     renderButton()
 
     clickFetchModels()
@@ -102,7 +102,7 @@ describe("Fetch models on Firefox", () => {
   })
 
   it("honours a grant made after a refused attempt when the user retries, with no restart", async () => {
-    const permissions = installFirefox(REQUIRED_ONLY)
+    const permissions = installFirefox(NOTHING_GRANTED)
     renderButton()
     clickFetchModels()
     await settled()

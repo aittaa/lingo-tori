@@ -2,16 +2,17 @@
 // test environment.
 //
 // `import.meta.env.BROWSER` is "chrome" under vitest. `installFirefox` stubs it to "firefox" and
-// replaces the three `browser.permissions` calls the consent code may use. What Firefox 140+
-// reports for the add-on is `permissions.getAll().data_collection`: the categories that are in
-// force, always including the required ones. The key is absent on a browser without built-in
-// consent. Nothing here asks a real browser anything.
+// replaces the three `browser.permissions` calls the consent code may use. On Firefox 140+,
+// `permissions.getAll().data_collection` is the list of OPTIONAL categories the user has granted:
+// the key is present on a browser with built-in consent (an empty list when nothing is granted)
+// and absent on a browser without it. Whether the required categories also appear in the list is
+// not relied on, so the grants below never include them. Nothing here asks a real browser anything.
 
 import type { Mock } from "vitest"
 import { vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 
-/** What `permissions.getAll().data_collection` holds; `undefined` is "the key is absent". */
+/** The granted optional categories in `permissions.getAll().data_collection`; `undefined` is "the key is absent". */
 export type ReportedDataCollection = readonly string[] | undefined
 
 interface DataCollectionRequest {
@@ -74,10 +75,8 @@ function install(initial: ReportedDataCollection): PermissionsDouble {
   }
 }
 
-/** A Firefox build with built-in consent: `reported` is what the add-on holds right now. */
-export function installFirefox(
-  reported: ReportedDataCollection = ["websiteContent"],
-): PermissionsDouble {
+/** A Firefox build with built-in consent: `reported` is the optional grants the add-on holds now. */
+export function installFirefox(reported: ReportedDataCollection = []): PermissionsDouble {
   vi.stubEnv("BROWSER", "firefox")
   return install(reported)
 }
@@ -93,11 +92,8 @@ export function removePermissionsDouble() {
   vi.restoreAllMocks()
 }
 
-export const REQUIRED_ONLY: ReportedDataCollection = ["websiteContent"]
-export const WITH_CREDENTIALS: ReportedDataCollection = ["websiteContent", "authenticationInfo"]
-export const WITH_PAGE_URL: ReportedDataCollection = ["websiteContent", "browsingActivity"]
-export const WITH_ALL: ReportedDataCollection = [
-  "websiteContent",
-  "authenticationInfo",
-  "browsingActivity",
-]
+/** The state after install: the key is there, no optional category is granted. */
+export const NOTHING_GRANTED: ReportedDataCollection = []
+export const WITH_CREDENTIALS: ReportedDataCollection = ["authenticationInfo"]
+export const WITH_PAGE_URL: ReportedDataCollection = ["browsingActivity"]
+export const WITH_ALL: ReportedDataCollection = ["authenticationInfo", "browsingActivity"]

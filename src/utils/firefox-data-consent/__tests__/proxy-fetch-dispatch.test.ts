@@ -13,7 +13,7 @@ import {
   installChrome,
   installFirefox,
   removePermissionsDouble,
-  REQUIRED_ONLY,
+  NOTHING_GRANTED,
   WITH_CREDENTIALS,
 } from "./firefox-permissions"
 
@@ -60,7 +60,7 @@ describe("Firefox, authenticationInfo not granted", () => {
     ["an Authorization header", withHeader],
     ["a credential-named query parameter", withQueryKey],
   ])("does not fetch for %s", async (_name, data) => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
 
     const outcome = await backgroundFetch(data).then(
       () => "fetched" as const,
@@ -72,7 +72,7 @@ describe("Firefox, authenticationInfo not granted", () => {
   })
 
   it("still fetches an icon or a logo, which carries no credential, and asks nothing", async () => {
-    const permissions = installFirefox(REQUIRED_ONLY)
+    const permissions = installFirefox(NOTHING_GRANTED)
 
     await expect(backgroundFetch({ url: ICON_URL, credentials: "omit" })).resolves.toMatchObject({
       status: 200,

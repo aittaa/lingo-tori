@@ -36,7 +36,7 @@ import {
   installChrome,
   installFirefox,
   removePermissionsDouble,
-  REQUIRED_ONLY,
+  NOTHING_GRANTED,
   WITH_ALL,
   WITH_CREDENTIALS,
   WITH_PAGE_URL,
@@ -127,7 +127,7 @@ describe("a run whose templates use {{webUrl}}, with browsingActivity not grante
     ["the system prompt", "systemPrompt"],
     ["an output-field description", "outputFieldDescription"],
   ])("does not send the page URL when it is in %s", async (_name, template) => {
-    installFirefox(REQUIRED_ONLY)
+    installFirefox(NOTHING_GRANTED)
     await storeProvider(keylessRow)
     const { result } = mountRun(keylessRow, template)
 
@@ -186,7 +186,7 @@ describe("a run whose templates use {{webUrl}}, with browsingActivity granted", 
 
 describe("a run that sends no page URL", () => {
   it("needs neither optional category and does not ask the browser", async () => {
-    const permissions = installFirefox(REQUIRED_ONLY)
+    const permissions = installFirefox(NOTHING_GRANTED)
     await storeProvider(keylessRow)
     const { result } = mountRun(keylessRow, "none")
 
