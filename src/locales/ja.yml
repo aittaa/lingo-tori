@@ -114,6 +114,20 @@ recoveryExport:
   deleteFailed: 保管コピーを削除できませんでした
   defaultsApplied: 設定を初期設定に戻しました
   defaultsFailed: 初期設定から始められませんでした
+configHealth:
+  unusable:
+    title: 保存されている設定を読み込めません
+    description: 今行った変更は保存されず、保存されている設定は変更されていません。復旧オプションでコピーの保存、復元、または初期設定からの再開ができます。
+    action: 復旧オプション
+  failure:
+    title: 直前の変更は保存されませんでした
+    refused: この変更は許可されませんでした。
+    unknownOutcome: 保存されたかどうか分かりません。設定を確認してから、もう一度お試しください。
+    unavailable: 今は設定を保存できません。しばらくしてからもう一度お試しください。
+    conflict: 保存中に設定が変わり続けました。もう一度お試しください。
+    preservation: 保存されている設定のコピーを先に保管できなかったため、何も置き換えていません。
+    other: 保存中に問題が発生しました。
+    dismiss: 閉じる
 options:
   autosave:
     invalid: 移動する前に、エラーのある項目を修正してください。

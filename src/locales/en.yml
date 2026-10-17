@@ -114,6 +114,20 @@ recoveryExport:
   deleteFailed: Could not delete the kept copy
   defaultsApplied: Settings reset to the defaults
   defaultsFailed: Could not start from the defaults
+configHealth:
+  unusable:
+    title: Your saved settings can't be read
+    description: Changes you make now are not saved, and your saved settings have not been changed. Open the recovery options to save a copy, restore them or start from the defaults.
+    action: Recovery options
+  failure:
+    title: Your last change was not saved
+    refused: This change was not allowed.
+    unknownOutcome: It is not known whether it was saved. Check the setting, then try again.
+    unavailable: The settings could not be saved right now. Try again in a moment.
+    conflict: The settings kept changing while it was being saved. Try again.
+    preservation: A copy of your saved settings could not be kept first, so nothing was replaced.
+    other: Something went wrong while saving.
+    dismiss: Dismiss
 options:
   autosave:
     invalid: Please correct the highlighted fields before leaving.

@@ -228,7 +228,18 @@
     "recoveryExport.deleted",
     "recoveryExport.deleteFailed",
     "recoveryExport.defaultsApplied",
-    "recoveryExport.defaultsFailed"
+    "recoveryExport.defaultsFailed",
+    "configHealth.unusable.title",
+    "configHealth.unusable.description",
+    "configHealth.unusable.action",
+    "configHealth.failure.title",
+    "configHealth.failure.refused",
+    "configHealth.failure.unknownOutcome",
+    "configHealth.failure.unavailable",
+    "configHealth.failure.conflict",
+    "configHealth.failure.preservation",
+    "configHealth.failure.other",
+    "configHealth.failure.dismiss"
   ],
   "deferredHubKeys": [
     "popup.hub.tooltip",
