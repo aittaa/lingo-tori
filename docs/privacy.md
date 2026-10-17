@@ -52,7 +52,9 @@ Page translation has an optional smart context setting. It is **off by default**
 
 ### The page address in custom actions and note suggestions
 
-A custom AI action, and the note suggestion built from one, can use the `{{webUrl}}` placeholder in its prompt. When it does, the **full address (URL) of the current page** is sent to your provider along with the text, and the address may contain information such as search terms or identifiers. Actions that do not use the placeholder do not send the address. The note suggestion is a feature of the selection toolbar and sends its request in the same way.
+A custom AI action, and the note suggestion built from one, can use the `{{webUrl}}` placeholder in its prompt, its system prompt or an output-field description. When it does, the **full address (URL) of the current page** is sent to your provider along with the text, and the address may contain information such as search terms or identifiers. Actions that do not use the placeholder do not send the address. The note suggestion is a feature of the selection toolbar and sends its request in the same way.
+
+Only a placeholder that you wrote in the action's own text is replaced. Placeholders are filled in one pass over that text, so text that merely looks like one, such as a page that contains the characters `{{webUrl}}` in the passage you selected, is sent as those characters and is not replaced by the address.
 
 ### Translated pages may contain private content
 
@@ -66,6 +68,7 @@ If you use the experimental **Sign in with ChatGPT** option instead of an API ke
 - It sends your translation requests to OpenAI with the access token issued to your account. OpenAI's account terms apply.
 - The sign-in tokens are kept in a separate database that only the extension's background part reads, apart from ordinary settings. That database is not protected by the operating system's encryption. It is excluded from settings exports, backups and the page-side scripts.
 - **Signing out** always clears the tokens from your browser immediately. LingoTori then asks OpenAI to revoke the refresh token. Only a successful answer from OpenAI confirms the revocation; otherwise LingoTori tells you it is **unconfirmed**. On Firefox, if you have not allowed the "authentication info" data permission (see [Firefox data consent](#firefox-data-consent)), LingoTori does not send the revocation request at all. The local tokens are still cleared, and the remote revocation is reported as unconfirmed. You can revoke access from your OpenAI account yourself.
+- **Cancelling a sign-in.** On Firefox, LingoTori reads the permission right before it opens the sign-in page; if you cancel the sign-in, start another one, or it expires while that is happening, the page is not opened.
 
 This sign-in is an experiment. It is not an official or store-approved integration, and it does not imply any partnership with OpenAI.
 
@@ -117,19 +120,27 @@ A second, small local record counts how many requests batching saved. Each entry
 
 ## Exporting your settings
 
-You can export your settings to a file. The export can leave out API keys. This removes fields and endpoint address parts that LingoTori recognises as credentials by name, for example a field called `apiKey`, an `Authorization` header, a credential-named option, a user name and password in an address, or a credential-named address parameter. **It cannot recognise a secret placed in an ordinary-looking part of an endpoint address**, such as an opaque path segment, or in an option or header with an unrecognisable name. Before you share an export, open it and check it. Do not treat any export as safe to publish.
+You can export your settings to a file. The export can leave out API keys. This removes the credentials LingoTori can recognise by name: any property called `apiKey`; in provider settings, the whole `headers` object and every option or field whose name looks like a credential (key, token, auth, secret, password, cookie, signature and similar, at any depth); the user name and password in an endpoint address; and the value of a credential-named query or fragment parameter in it. A `{{apiKey}}` placeholder stays as typed, and if the cleaning cannot finish no file is written. **It cannot recognise a secret placed in an ordinary-looking part of an endpoint address**, such as an opaque path segment, or one stored under a name that does not look like a credential, and it can remove a harmless setting whose name resembles one. Before you share an export, open it and check it. Do not treat any export as safe to publish.
 
 ## Firefox data consent
 
 Firefox 140 and later asks add-ons to declare the data they send away and gets your consent for it. LingoTori declares:
 
 - **Website content, required.** Every translation sends page, selected or caption text to your provider, so Firefox shows this category when you install. Mozilla documents that a user who does not accept a required category can cancel the installation.
-- **Authentication info, optional and off until you allow it.** It is needed when a request carries a credential: an API key, a header such as `Authorization`, credentials in the endpoint address, a credential-named provider option, or the ChatGPT sign-in. A provider with none of these, for example a local server that needs no key, works without it.
-- **Browsing activity, optional and off until you allow it.** It is needed when a custom action, or the note suggestion built from one, uses `{{webUrl}}`, because that sends the address of the current page.
+- **Authentication info, optional and off until you allow it.** It is needed when a request carries a credential: an API key, a header such as `Authorization`, credentials in the endpoint address, a credential-named provider option, a request that asks the browser to attach its stored cookies (the cookie mode `credentials: include`), or the ChatGPT sign-in. A provider with none of these, for example a local server that needs no key, works without it.
+- **Browsing activity, optional and off until you allow it.** It is needed when a custom action, or the note suggestion built from one, uses the `{{webUrl}}` placeholder written in its own text, because that sends the address of the current page. Page text that only looks like the placeholder does not count and is not replaced (see [the page address](#the-page-address-in-custom-actions-and-note-suggestions)).
 
-You can allow these from the buttons on the settings pages or later in `about:addons`. Without the permission LingoTori does not start the request and says what to allow. It checks the permission before every new request, so switching it off in `about:addons` stops the next request, including a retry. A request that has **already started may finish**. If an endpoint address or its options hide a secret that LingoTori cannot recognise, tick "This endpoint URL or its options contain a secret" in that provider's settings so that Firefox asks first; this adds to what LingoTori detects and never removes a check. Chrome builds do not use this mechanism. Firefox for Android and Firefox older than 140 are not supported.
+**How you grant a permission.** Only you do, with the **Allow** buttons on LingoTori's settings pages (the provider, ChatGPT and custom action pages) or later in `about:addons`; the **Sign in with ChatGPT** button also asks for authentication info in the same click. LingoTori does not open a Firefox permission prompt by itself when a request is refused: the request is not started and the message says what to allow.
 
-Checks of this behaviour in a real Firefox use a temporary add-on installation. **The consent dialog Firefox shows when you install a signed add-on, what it lists as required and optional, and what happens when a required category is declined, have not been verified.** That part rests on Mozilla's documentation.
+**When it is checked.** LingoTori reads the permission again right before each request is sent, for each category that request needs. That includes every retry the AI SDK makes and every ChatGPT request, so switching a permission off in `about:addons` stops the next request that has not been sent yet, including the next attempt of a request that is being retried. It does not wait for Firefox to announce a change. Requests that send none of these (a local server without a key, for example) are not held back, and a Chrome build never asks the browser.
+
+**What it cannot stop.** A request that has already been sent may finish, and a very short window remains between the last check and the browser handing the request on. If an endpoint address or its options hide a secret that LingoTori cannot recognise, tick "This endpoint URL or its options contain a secret" in that provider's settings so that Firefox asks first; this adds to what LingoTori detects and never removes a check.
+
+**Sign-in and sign-out.** Without authentication info no ChatGPT request starts, no sign-in page is opened, and a refusal does not mark your stored session as failed. A sign-in that is cancelled, replaced or expires while the permission is being read does not open the sign-in page. Signing out always clears the local tokens; without authentication info the remote revocation is skipped and reported as unconfirmed.
+
+Firefox for Android and Firefox older than 140 are not supported.
+
+Any check of this behaviour in a real Firefox is made with a temporary add-on installation. **The consent dialog Firefox shows when you install a signed add-on, what it lists as required and optional, and what happens when a required category is declined, have not been verified.** That part rests on Mozilla's documentation. Whether Firefox reports a permission switched off in `about:addons` to the extension is not documented either, which is why LingoTori reads the permission itself before each send.
 
 ## Endpoints you enter, including HTTP and local networks
 

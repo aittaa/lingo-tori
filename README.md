@@ -39,7 +39,7 @@ Smart context and automatic subtitle translation are **OFF by default**. When au
 
 ## Before relying on it
 
-Text, relevant context and matched glossary terms may be sent to the provider you choose, and a custom action can send the address of the page. Providers have their own data and account policies. Read the [privacy notice](docs/privacy.md) for what leaves your browser, what stays on your device and the choices Firefox asks you to make. The notice describes how this version behaves; the operator's jurisdiction, effective date and store listings are not yet decided, and it makes no legal or store-readiness claim.
+Text, relevant context and matched glossary terms may be sent to the provider you choose, and a custom action can send the address of the page. Providers have their own data and account policies. Read the [privacy notice](docs/privacy.md) for what leaves your browser, what stays on your device and, on Firefox, the optional permissions you can allow. They are granted only with the Allow buttons in Settings; LingoTori never opens a permission prompt by itself, and a request that needs one is not sent until you allow it. The notice describes how this version behaves; the operator's jurisdiction, effective date and store listings are not yet decided, and it makes no legal or store-readiness claim.
 
 ChatGPT sign-in is experimental. Earlier user-authorized sessions demonstrated sign-in and Korean subtitles, but they do not verify every current browser/account combination. The browser-only architecture is not established as officially supported or store-approved. No new real-account test is claimed here.
 
