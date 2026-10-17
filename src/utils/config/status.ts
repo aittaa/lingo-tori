@@ -80,13 +80,16 @@ function readMetaLabel(raw: RawConfigPair): MetaLabel {
 }
 
 /**
- * A `lastModifiedAt` that is present and is not a finite number. A MISSING one is an older
- * writer's meta and is completed; a malformed one is data nobody should overwrite unread.
+ * A `lastModifiedAt` that is present and is not a finite number. A MISSING one (the property is not
+ * there) is an older writer's meta and is completed; a present one that is malformed is data nobody
+ * should overwrite unread - including a property that is there and set to `undefined`, which a
+ * browser that keeps such properties hands over as it is.
  */
 function hasMalformedModifiedAt(raw: RawConfigPair): boolean {
   if (!raw.hasMeta || !isPlainObject(raw.meta)) return false
+  if (!Object.hasOwn(raw.meta, "lastModifiedAt")) return false
   const value = raw.meta.lastModifiedAt
-  return value !== undefined && !(typeof value === "number" && Number.isFinite(value))
+  return !(typeof value === "number" && Number.isFinite(value))
 }
 
 /** `lastModifiedAt` of a raw meta when it is a usable time, so a rewrite can keep it. */
@@ -147,11 +150,12 @@ export function classifyConfigPair(raw: RawConfigPair): ConfigStatus {
 
 /**
  * The status of what is stored right now. A pair with an older label is `upgrading` until startup
- * has run; when startup could not upgrade it, it leaves the pair as it is, label included, and keeps
- * an exact copy. That copy is what tells "cannot be upgraded" from "not upgraded yet": a pair that a
- * kept copy holds is `suspect` with the reason startup recorded, so a failed upgrade is never
- * described as a pending one. (Startup itself classifies the pair without this lookup, and so tries
- * the upgrade again on every start.)
+ * has run; when startup could not upgrade it, it leaves the pair as it is, label included, keeps an
+ * exact copy when it can, and records the outcome for this exact pair (see `init-failure.ts`). That
+ * is what tells "cannot be upgraded" from "not upgraded yet": a pair that a kept copy holds, or that
+ * startup recorded as failed, is `suspect` with the reason startup found, so a failed upgrade is
+ * never described as a pending one. (Startup itself classifies the pair without this lookup, and so
+ * tries the upgrade again on every start.)
  */
 export async function getConfigStatus(): Promise<ConfigStatus> {
   const raw = await readRawConfigPair()
@@ -232,7 +236,8 @@ export function watchConfigStatus(callback: (view: ConfigView) => void): () => v
 
   const onChanged = (changes: Record<string, unknown>, area: string) => {
     if (area !== "local") return
-    // A kept copy appearing can change what an older-labelled pair is (see getConfigStatus).
+    // A kept copy or the record of a failed upgrade appearing can change what an older-labelled
+    // pair is (see getConfigStatus).
     const relevant =
       CONFIG_STORAGE_KEY in changes ||
       CONFIG_META_STORAGE_KEY in changes ||

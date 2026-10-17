@@ -195,6 +195,42 @@ describe("classifyConfigPair", () => {
     },
   )
 
+  // The project's fake storage keeps JSON, so a property that is `undefined` never reaches the code
+  // through it; these pairs are built by hand, as a browser that keeps such a property would hand
+  // them over.
+  it.each([
+    { name: "the current label", meta: { schemaVersion: CONFIG_SCHEMA_VERSION } },
+    { name: "an older label", meta: { schemaVersion: PREVIOUS_VERSION } },
+    { name: "no label", meta: {} },
+  ])(
+    "calls a valid config suspect(incoherent) when its meta has its own lastModifiedAt set to undefined, with $name",
+    ({ meta }) => {
+      const withUndefinedTime = { ...meta, lastModifiedAt: undefined }
+      expect(Object.hasOwn(withUndefinedTime, "lastModifiedAt")).toBe(true)
+
+      expect(classifyConfigPair(pair(validConfig(), withUndefinedTime))).toMatchObject({
+        kind: "suspect",
+        reason: "incoherent",
+      })
+    },
+  )
+
+  it("still lets a recognised newer version win over an own undefined time", () => {
+    const meta = { schemaVersion: CONFIG_SCHEMA_VERSION + 1, lastModifiedAt: undefined }
+
+    expect(classifyConfigPair(pair(validConfig(), meta))).toMatchObject({
+      kind: "suspect",
+      reason: "newer-version",
+    })
+  })
+
+  it("keeps a meta that has no lastModifiedAt property at all as a missing time, not a malformed one", () => {
+    const meta = { schemaVersion: CONFIG_SCHEMA_VERSION }
+    expect(Object.hasOwn(meta, "lastModifiedAt")).toBe(false)
+
+    expect(classifyConfigPair(pair(validConfig(), meta))).toMatchObject({ kind: "usable" })
+  })
+
   it("lets a recognised newer version label win over a malformed modified time", () => {
     const meta = { schemaVersion: CONFIG_SCHEMA_VERSION + 1, lastModifiedAt: "not-a-timestamp" }
 
