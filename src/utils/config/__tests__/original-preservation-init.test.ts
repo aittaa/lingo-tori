@@ -12,6 +12,7 @@ import type { RawPrimary } from "./preservation-test-kit"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { configSchema } from "@/types/config/config"
 import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
+import { decodeLossless } from "../preservation"
 import {
   ABSENT,
   corruptConfig,
@@ -594,6 +595,67 @@ describe("startup over a valid config whose meta holds a malformed modified time
       expect(result).toEqual({ isFreshInstall: false, hadStoredConfig: true })
     },
   )
+
+  describe("when the meta has its own lastModifiedAt set to undefined", () => {
+    // Read through a double at the storage boundary: the fake storage keeps JSON and would drop the
+    // property before the code under test ever saw it.
+    async function storageHands(value: unknown, meta: unknown) {
+      const { fakeBrowser } = await import("wxt/testing/fake-browser")
+      const realGet = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local) as (
+        ...args: any[]
+      ) => Promise<Record<string, unknown>>
+      vi.spyOn(fakeBrowser.storage.local, "get").mockImplementation((async (...args: any[]) => {
+        const keys = args[0]
+        if (Array.isArray(keys) && keys.includes("config") && keys.includes("config$")) {
+          return { config: structuredClone(value), config$: structuredClone(meta) }
+        }
+        return realGet(...args)
+      }) as any)
+    }
+
+    it.each([
+      { name: "the current label", label: CONFIG_SCHEMA_VERSION },
+      { name: "no label", label: undefined },
+    ])("keeps the pair and writes nothing, with $name", async ({ label }) => {
+      const value = validConfig()
+      const meta =
+        label === undefined
+          ? { lastModifiedAt: undefined }
+          : { schemaVersion: label, lastModifiedAt: undefined }
+      await storageHands(value, meta)
+      const tracker = trackPrimaryWrites()
+
+      const result = await startBackground()
+
+      expect(tracker.writes).toEqual([])
+      const kept = await readPreserved()
+      expect(kept).toHaveLength(1)
+      expect(kept[0]!.entry.reason).toBe("incoherent")
+      const decodedMeta = decodeLossless(kept[0]!.entry.encodedMeta!) as Record<string, unknown>
+      expect(Object.hasOwn(decodedMeta, "lastModifiedAt")).toBe(true)
+      expect(decodedMeta.lastModifiedAt).toBeUndefined()
+      expect(result).toEqual({ isFreshInstall: false, hadStoredConfig: true })
+    })
+
+    it("keeps a config with an older label as it is, without running the upgrade", async () => {
+      const calls: number[] = []
+      migration.hook = async (version, config, real) => {
+        calls.push(version)
+        return real(version, config)
+      }
+      await storageHands(previousVersionConfig(), {
+        schemaVersion: PREVIOUS_VERSION,
+        lastModifiedAt: undefined,
+      })
+      const tracker = trackPrimaryWrites()
+
+      await startBackground()
+
+      expect(calls).toEqual([])
+      expect(tracker.writes).toEqual([])
+      expect(await readPreserved()).toHaveLength(1)
+    })
+  })
 
   it("does the same when the meta has no version label but a malformed time", async () => {
     await seedPrimary(validConfig(), { lastModifiedAt: "not-a-timestamp" })

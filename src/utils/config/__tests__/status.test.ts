@@ -192,6 +192,42 @@ describe("classifyConfigPair", () => {
     },
   )
 
+  // The project's fake storage keeps JSON, so a property that is `undefined` never reaches the code
+  // through it; these pairs are built by hand, as a browser that keeps such a property would hand
+  // them over.
+  it.each([
+    { name: "the current label", meta: { schemaVersion: CONFIG_SCHEMA_VERSION } },
+    { name: "an older label", meta: { schemaVersion: PREVIOUS_VERSION } },
+    { name: "no label", meta: {} },
+  ])(
+    "calls a valid config suspect(incoherent) when its meta has its own lastModifiedAt set to undefined, with $name",
+    ({ meta }) => {
+      const withUndefinedTime = { ...meta, lastModifiedAt: undefined }
+      expect(Object.hasOwn(withUndefinedTime, "lastModifiedAt")).toBe(true)
+
+      expect(classifyConfigPair(pair(validConfig(), withUndefinedTime))).toMatchObject({
+        kind: "suspect",
+        reason: "incoherent",
+      })
+    },
+  )
+
+  it("still lets a recognised newer version win over an own undefined time", () => {
+    const meta = { schemaVersion: CONFIG_SCHEMA_VERSION + 1, lastModifiedAt: undefined }
+
+    expect(classifyConfigPair(pair(validConfig(), meta))).toMatchObject({
+      kind: "suspect",
+      reason: "newer-version",
+    })
+  })
+
+  it("keeps a meta that has no lastModifiedAt property at all as a missing time, not a malformed one", () => {
+    const meta = { schemaVersion: CONFIG_SCHEMA_VERSION }
+    expect(Object.hasOwn(meta, "lastModifiedAt")).toBe(false)
+
+    expect(classifyConfigPair(pair(validConfig(), meta))).toMatchObject({ kind: "usable" })
+  })
+
   it("lets a recognised newer version label win over a malformed modified time", () => {
     const meta = { schemaVersion: CONFIG_SCHEMA_VERSION + 1, lastModifiedAt: "not-a-timestamp" }
 
@@ -392,15 +428,52 @@ describe("the commit receipt in the meta", () => {
     })
   })
 
+  // A property that is there and set to undefined is malformed, whichever field it is. These pairs
+  // are built by hand: the fake storage keeps JSON and would drop the property.
+  it.each([
+    "schemaVersion",
+    "revision",
+    "valueDigest",
+    "lastOpId",
+    "lastOpDigest",
+    "lastModifiedAt",
+  ])(
+    "calls a valid config suspect(incoherent) when its meta has its own %s set to undefined",
+    (field) => {
+      const meta = { ...receipt(VALUE()), [field]: undefined }
+      expect(Object.hasOwn(meta, field)).toBe(true)
+
+      expect(classifyConfigPair(pair(VALUE(), meta))).toMatchObject({
+        kind: "suspect",
+        reason: "incoherent",
+      })
+    },
+  )
+
+  it("lets a recognised newer version win over a receipt field that is set to undefined", () => {
+    const meta = {
+      ...receipt(VALUE()),
+      schemaVersion: CONFIG_SCHEMA_VERSION + 1,
+      revision: undefined,
+    }
+
+    expect(classifyConfigPair(pair(VALUE(), meta))).toMatchObject({
+      kind: "suspect",
+      reason: "newer-version",
+    })
+  })
+
   it("checks the digest before it looks at an older label or a missing one", () => {
     const edited = { ...VALUE(), contextMenu: { enabled: false } }
 
     expect(
       classifyConfigPair(pair(edited, receipt(VALUE(), { schemaVersion: PREVIOUS_VERSION }))),
     ).toMatchObject({ kind: "suspect", reason: "incoherent" })
-    expect(
-      classifyConfigPair(pair(edited, receipt(VALUE(), { schemaVersion: undefined }))),
-    ).toMatchObject({ kind: "suspect", reason: "incoherent" })
+    const { schemaVersion: _label, ...withoutLabel } = receipt(VALUE())
+    expect(classifyConfigPair(pair(edited, withoutLabel))).toMatchObject({
+      kind: "suspect",
+      reason: "incoherent",
+    })
   })
 })
 

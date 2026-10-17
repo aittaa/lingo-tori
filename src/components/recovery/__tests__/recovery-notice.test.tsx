@@ -2,7 +2,7 @@
 // The recovery export on screen: when this version cannot use the stored settings, the user can
 // save them to a file exactly as stored, after a warning that the file holds credentials.
 //
-// Real: `RecoveryExport`, the recovery export module, the status reader and the preservation store,
+// Real: `RecoveryNotice`, the recovery export module, the status reader and the preservation store,
 // over the extension's in-memory browser storage. Replaced: the toast manager (to read the messages)
 // and `file-saver` (to see what would be downloaded). All secrets are synthetic.
 
@@ -28,6 +28,7 @@ import {
 } from "@/utils/config/__tests__/preservation-test-kit"
 import { decodeLossless } from "@/utils/config/preservation"
 import { parseRecoveryExport } from "@/utils/config/recovery-export"
+import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
 import { RECOVERY_NOTICE_SECTION_ID } from "@/utils/navigation"
 import { queryClient } from "@/utils/tanstack-query"
 import { RecoveryNotice } from "../recovery-notice"
@@ -448,5 +449,136 @@ describe("the recovery actions", () => {
       )
       expect(await snapshot()).toEqual(before)
     })
+  })
+})
+
+describe("a screen that is already showing", () => {
+  it("offers recovery when the stored config becomes unusable and a copy is kept, without a reload", async () => {
+    await seedPrimary(validConfig(), CURRENT_META)
+    renderExport()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(screen.queryByTestId("recovery-notice")).not.toBeInTheDocument()
+
+    const original = suspectWithSecret()
+    await seedPrimary(original.value, original.meta)
+    await seedPreserved(original, "invalid-schema")
+
+    await waitFor(() => expect(screen.getByText(EXPORT_STORED)).toBeVisible())
+    expect(screen.getAllByText(EXPORT_COPY)).toHaveLength(1)
+  })
+
+  it("lists a copy that is added later, and stops offering the stored config once it is usable again", async () => {
+    const original = suspectWithSecret()
+    await seedPrimary(original.value, original.meta)
+    renderExport()
+    await waitFor(() => screen.getByText(EXPORT_STORED))
+    expect(screen.queryByText(EXPORT_COPY)).not.toBeInTheDocument()
+
+    await seedPreserved(original, "invalid-schema")
+    await waitFor(() => expect(screen.getAllByText(EXPORT_COPY)).toHaveLength(1))
+
+    await seedPrimary(validConfig(), CURRENT_META)
+    await waitFor(() => expect(screen.queryByText(EXPORT_STORED)).not.toBeInTheDocument())
+    expect(screen.getAllByText(EXPORT_COPY)).toHaveLength(1)
+  })
+
+  it.each([
+    {
+      name: "only its value changes",
+      change: (fakeBrowser: any) => fakeBrowser.storage.local.set({ config: corruptConfig() }),
+    },
+    {
+      name: "only its meta changes",
+      change: (fakeBrowser: any) => fakeBrowser.storage.local.set({ config$: "not-a-meta" }),
+    },
+  ])("offers recovery when $name", async ({ change }) => {
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    await seedPrimary(validConfig(), CURRENT_META)
+    renderExport()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(screen.queryByTestId("recovery-notice")).not.toBeInTheDocument()
+
+    await change(fakeBrowser)
+
+    await waitFor(() => expect(screen.getByText(EXPORT_STORED)).toBeVisible())
+  })
+
+  it("shows the outcome of the latest read when an older read answers late", async () => {
+    await seedPrimary(validConfig(), CURRENT_META)
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    const realGet = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local) as (
+      ...args: any[]
+    ) => Promise<Record<string, unknown>>
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let firstStatusRead = true
+    vi.spyOn(fakeBrowser.storage.local, "get").mockImplementation((async (...args: any[]) => {
+      const keys = args[0]
+      const isStatusRead =
+        Array.isArray(keys) && keys.includes("config") && keys.includes("config$")
+      const result = await realGet(...args)
+      if (isStatusRead && firstStatusRead) {
+        firstStatusRead = false
+        // The first read answers late, with what was stored when it started.
+        await held
+      }
+      return result
+    }) as any)
+    renderExport()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    const original = suspectWithSecret()
+    await seedPrimary(original.value, original.meta)
+    await waitFor(() => expect(screen.getByText(EXPORT_STORED)).toBeVisible())
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    expect(screen.getByText(EXPORT_STORED)).toBeVisible()
+  })
+
+  it("leaves no listener on the browser's storage once it is gone", async () => {
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    await seedPrimary(validConfig(), CURRENT_META)
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <RecoveryNotice />
+      </QueryClientProvider>,
+    )
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(fakeBrowser.storage.onChanged.hasListeners()).toBe(true)
+
+    view.unmount()
+
+    expect(fakeBrowser.storage.onChanged.hasListeners()).toBe(false)
+  })
+})
+
+describe("the stored config that the shared status semantics call unusable", () => {
+  it("is offered as found, exactly, when its meta has a modified time that is there and undefined", async () => {
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    const meta = { schemaVersion: CONFIG_SCHEMA_VERSION, lastModifiedAt: undefined }
+    const realGet = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local) as (
+      ...args: any[]
+    ) => Promise<Record<string, unknown>>
+    vi.spyOn(fakeBrowser.storage.local, "get").mockImplementation((async (...args: any[]) => {
+      const keys = args[0]
+      if (Array.isArray(keys) && keys.includes("config") && keys.includes("config$")) {
+        return { config: structuredClone(validConfig()), config$: structuredClone(meta) }
+      }
+      return realGet(...args)
+    }) as any)
+
+    renderExport()
+    fireEvent.click(await screen.findByText(EXPORT_STORED))
+    await waitFor(() => screen.getByText(WARNING_TITLE))
+    fireEvent.click(screen.getByText(CONFIRM))
+    await waitFor(() => expect(saveAsMock).toHaveBeenCalledOnce())
+
+    const file = parseRecoveryExport(await readBlob(saveAsMock.mock.calls[0]![0]))
+    const decoded = decodeLossless(file.encodedMeta!) as Record<string, unknown>
+    expect(Object.hasOwn(decoded, "lastModifiedAt")).toBe(true)
+    expect(decoded.lastModifiedAt).toBeUndefined()
   })
 })

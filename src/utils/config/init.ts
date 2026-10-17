@@ -1,3 +1,4 @@
+import type { InitFailureReason } from "./init-failure"
 import type { RawConfigPair, SuspectReason } from "./status"
 import type { Config } from "@/types/config/config"
 import { configSchema } from "@/types/config/config"
@@ -5,6 +6,7 @@ import { isAPIProviderConfig } from "@/types/config/provider"
 import { initI18n } from "@/utils/i18n"
 import { buildFreshDefaultConfig, CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "../constants/config"
 import { logger } from "../logger"
+import { clearInitFailure, recordInitFailure } from "./init-failure"
 import { runMigration } from "./migration"
 import { preserveOriginal } from "./preservation"
 import { commitPrimary, commitPrimaryMeta } from "./primary-write"
@@ -45,7 +47,7 @@ const BOOTSTRAP_OP = "bootstrap"
 
 type MigrationOutcome =
   | { kind: "migrated"; config: Config }
-  | { kind: "failed"; reason: SuspectReason }
+  | { kind: "failed"; reason: InitFailureReason }
 
 /**
  * Runs the migration steps over a COPY of the stored value, so what is stored stays exactly as
@@ -79,6 +81,10 @@ async function migrateStoredValue(
  * keeps it exactly where it is, adds an exact copy to the preservation store, writes nothing to
  * `local:config` or its meta, and lets the session run on the defaults in memory.
  *
+ * When the migration of an older-labelled config fails, the outcome is also recorded for that exact
+ * pair (see `init-failure.ts`), so that readers do not describe a completed failed upgrade as a
+ * pending one even when no copy could be kept.
+ *
  * A usable or successfully migrated config keeps its previous behaviour: it is written (value and
  * complete meta in one call) only when something changed.
  */
@@ -90,6 +96,8 @@ export async function initializeConfig(): Promise<InitializeConfigResult> {
 
   if (status.kind === "suspect") {
     await keepOriginal(raw, status.reason)
+    // Nothing is waiting for an upgrade: an earlier failed one is not about this pair.
+    await clearInitFailure()
     return { isFreshInstall: false, hadStoredConfig }
   }
 
@@ -104,10 +112,15 @@ export async function initializeConfig(): Promise<InitializeConfigResult> {
     const outcome = await migrateStoredValue(raw, status.fromVersion)
     if (outcome.kind === "failed") {
       await keepOriginal(raw, outcome.reason)
+      // Whether or not a copy could be kept, this completed start did not upgrade this pair: say so
+      // for readers (see `init-failure.ts`).
+      await recordInitFailure(raw, outcome.reason)
       return { isFreshInstall: false, hadStoredConfig }
     }
     config = outcome.config
   }
+  // The pair is usable, was just upgraded, or there was none: no failed upgrade is pending.
+  await clearInitFailure()
 
   let didConfigChange = status.kind === "absent" || status.kind === "upgrading"
 

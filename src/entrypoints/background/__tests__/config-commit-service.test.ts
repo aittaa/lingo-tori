@@ -27,8 +27,15 @@ import {
   validConfig,
 } from "@/utils/config/__tests__/preservation-test-kit"
 import { operationDigest } from "@/utils/config/commit-protocol"
+import { recordInitFailure } from "@/utils/config/init-failure"
 import { MAX_PRESERVED_ORIGINALS, PRESERVED_ORIGINAL_PREFIX } from "@/utils/config/preservation"
-import { digestOfStoredValue, fingerprintOf, getConfigStatus } from "@/utils/config/status"
+import {
+  digestOfStoredValue,
+  fingerprintOf,
+  getConfigStatus,
+  readRawConfigPair,
+} from "@/utils/config/status"
+import { editConfig } from "@/utils/config/write-guard"
 import { MAX_BACKUPS_COUNT } from "@/utils/constants/backup"
 import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
 import { createConfigCommitService } from "../config-commit-service"
@@ -324,6 +331,44 @@ describe("an ordinary edit", () => {
     await seedPrimary(edited(validConfig(), false), CURRENT_META)
 
     expect((await newService().handle(request, PAGE)).status).toBe("conflict")
+  })
+
+  it("is refused by the writer, with the reason startup recorded, for an older label whose upgrade failed and could not be kept as a copy", async () => {
+    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+    await recordInitFailure(await readRawConfigPair(), "invalid-schema")
+    const before = await snapshot()
+
+    await expect(editConfig((current) => current)).rejects.toMatchObject({
+      name: "ConfigRecoveryRequiredError",
+      reason: "invalid-schema",
+    })
+
+    expect(await snapshot()).toEqual(before)
+  })
+
+  it("is refused as incoherent for a meta whose lastModifiedAt is there and undefined, and nothing is written", async () => {
+    const meta = { schemaVersion: CONFIG_SCHEMA_VERSION, lastModifiedAt: undefined }
+    const realGet = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local) as (
+      ...args: any[]
+    ) => Promise<Record<string, unknown>>
+    vi.spyOn(fakeBrowser.storage.local, "get").mockImplementation((async (...args: any[]) => {
+      const keys = args[0]
+      if (Array.isArray(keys) && keys.includes("config") && keys.includes("config$")) {
+        return { config: structuredClone(validConfig()), config$: structuredClone(meta) }
+      }
+      return realGet(...args)
+    }) as any)
+    const tracker = trackPrimaryWrites()
+    const request = operation({
+      kind: "edit",
+      base: { kind: "suspect", revision: 0, valueHash: "x" },
+      next: edited(),
+    })
+
+    const response = await newService().handle(request, PAGE)
+
+    expect(response.status).toBe("refused")
+    expect(tracker.writes).toEqual([])
   })
 
   it("is refused when it was computed from the defaults that stand in for an unusable config", async () => {
@@ -687,6 +732,21 @@ describe("an explicit replacement (restore, import, reset)", () => {
 
     expect(response.status).toBe("committed")
     expect(backupEntries(await snapshot()).map((entry) => entry.id)).toEqual([id])
+  })
+})
+
+describe("a replacement over an older label whose upgrade failed and left no copy", () => {
+  it("keeps the exact copy under the reason startup recorded, then replaces", async () => {
+    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+    const original = await readRawPrimary()
+    await recordInitFailure(await readRawConfigPair(), "invalid-schema")
+
+    const response = await newService().handle(await replaceOf(validConfig()), PAGE)
+
+    expect(response.status).toBe("committed")
+    const copies = preservedCopiesOf(await snapshot(), original)
+    expect(copies).toHaveLength(1)
+    expect(copies[0]!.entry.reason).toBe("invalid-schema")
   })
 })
 

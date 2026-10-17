@@ -12,6 +12,8 @@ import {
   corruptConfig,
   CURRENT_META,
   failWrites,
+  PREVIOUS_META,
+  previousVersionConfig,
   resetStorage,
   seedPrimary,
   settle,
@@ -134,5 +136,39 @@ describe("the banner", () => {
 
     await waitFor(() => screen.getByText(TITLE_UNUSABLE))
     expect(screen.queryByText(TITLE_FAILURE)).not.toBeInTheDocument()
+  })
+
+  it("says the stored config cannot be read when a start found that its upgrade failed, with no copy kept", async () => {
+    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+    await renderBanner()
+    await settle()
+    expect(screen.queryByText(TITLE_UNUSABLE)).not.toBeInTheDocument()
+
+    const { recordInitFailure } = await import("@/utils/config/init-failure")
+    const { readRawConfigPair } = await import("@/utils/config/status")
+    await recordInitFailure(await readRawConfigPair(), "migration-failed")
+
+    expect(await screen.findByText(TITLE_UNUSABLE)).toBeVisible()
+  })
+
+  it("says the stored config cannot be read when its meta has a modified time that is there and undefined", async () => {
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    const realGet = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local) as (
+      ...args: any[]
+    ) => Promise<Record<string, unknown>>
+    vi.spyOn(fakeBrowser.storage.local, "get").mockImplementation((async (...args: any[]) => {
+      const keys = args[0]
+      if (Array.isArray(keys) && keys.includes("config") && keys.includes("config$")) {
+        return {
+          config: structuredClone(validConfig()),
+          config$: { schemaVersion: 111, lastModifiedAt: undefined },
+        }
+      }
+      return realGet(...args)
+    }) as any)
+
+    await renderBanner()
+
+    expect(await screen.findByText(TITLE_UNUSABLE)).toBeVisible()
   })
 })

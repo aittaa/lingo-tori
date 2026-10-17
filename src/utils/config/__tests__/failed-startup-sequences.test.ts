@@ -21,12 +21,19 @@ import { ConfigExportBlockedError, ConfigRecoveryRequiredError } from "../errors
 import { assertCurrentConfigExportable, getConfigStatus } from "../status"
 import {
   backupEntries,
+  corruptConfig,
+  CURRENT_META,
+  failWrites,
+  forgetWhatTheBackgroundRemembers,
+  MAX_PRESERVED,
   preservedCopiesOf,
   PREVIOUS_META,
   previousVersionConfig,
+  readPreserved,
   readRawPrimary,
   resetStorage,
   sameRaw,
+  seedPreserved,
   seedPrimary,
   snapshot,
   validConfig,
@@ -222,5 +229,250 @@ describe("a later start, once the step works", () => {
     // The earlier copy stays: nothing deletes a kept original on its own.
     expect(preservedCopiesOf(await snapshot(), original)).toHaveLength(1)
     await expect(assertCurrentConfigExportable()).resolves.toBeUndefined()
+  })
+})
+
+// A completed failed upgrade is a failed upgrade whether or not a copy of the pair could be kept:
+// the store of copies can be full and storage can refuse the write (the same conditions the
+// "as found" export exists for). The outcome is remembered for the exact pair, in storage when a
+// small marker can be written and in the background's memory always.
+describe.each([
+  {
+    name: "the store of kept copies is full",
+    prepare: async () => {
+      for (let n = 0; n < MAX_PRESERVED; n++) {
+        await seedPreserved({ value: corruptConfig(`other-${n}`), meta: PREVIOUS_META })
+      }
+    },
+    beforeStart: () => {},
+  },
+  {
+    name: "every write fails",
+    prepare: async () => {},
+    beforeStart: () => failWrites(() => true),
+  },
+] as const)("after a startup that could not keep a copy because $name", (scenario) => {
+  describe.each(FAILURES)("and $name", ({ reason, prepare, original }) => {
+    let stored: RawPrimary
+
+    beforeEach(async () => {
+      await scenario.prepare()
+      stored = original()
+      await seedPrimary(stored.value, stored.meta)
+      prepare()
+      scenario.beforeStart()
+      await startBackground()
+      vi.restoreAllMocks()
+    })
+
+    it("has really kept no copy of the pair (the scenario)", async () => {
+      expect(preservedCopiesOf(await snapshot(), stored)).toHaveLength(0)
+    })
+
+    it("leaves the pair as it was", async () => {
+      expect(sameRaw(await readRawPrimary(), stored)).toBe(true)
+    })
+
+    it("reads the stored config as unusable for the reason startup found, not as a retryable upgrade", async () => {
+      expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason })
+    })
+
+    it("refuses Back up now and the export of current settings, with the reason", async () => {
+      await expect(backUpCurrentConfig("0.0.1")).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
+      await expect(assertCurrentConfigExportable()).rejects.toMatchObject({ reason })
+    })
+  })
+})
+
+// What a request to replace such a pair does once the user asks: the same as for any unusable
+// config. A copy is kept first, and nothing is replaced when it cannot be.
+describe.each(FAILURES)(
+  "a replacement after a startup that could not keep a copy, where $name",
+  ({ reason, prepare, original }) => {
+    async function failedStart(how: "full-store" | "failing-writes") {
+      const stored = original()
+      if (how === "full-store") {
+        for (let n = 0; n < MAX_PRESERVED; n++) {
+          await seedPreserved({ value: corruptConfig(`other-${n}`), meta: PREVIOUS_META })
+        }
+      }
+      await seedPrimary(stored.value, stored.meta)
+      prepare()
+      if (how === "failing-writes") failWrites(() => true)
+      await startBackground()
+      vi.restoreAllMocks()
+      return stored
+    }
+
+    it.each([true, false])(
+      "replaces nothing while the store of kept copies is still full (backupCurrent: %s)",
+      async (backupCurrent) => {
+        const stored = await failedStart("full-store")
+        const before = await snapshot()
+
+        await expect(
+          replaceStoredConfig(replacement(), { ...OPTIONS, backupCurrent }),
+        ).rejects.toMatchObject({ name: "PreservationError", code: "full" })
+
+        expect(await snapshot()).toEqual(before)
+        expect(sameRaw(await readRawPrimary(), stored)).toBe(true)
+      },
+    )
+
+    it.each([true, false])(
+      "keeps an exact copy first and then replaces it once storage works (backupCurrent: %s)",
+      async (backupCurrent) => {
+        const stored = await failedStart("failing-writes")
+
+        await replaceStoredConfig(replacement(), { ...OPTIONS, backupCurrent })
+
+        const copies = preservedCopiesOf(await snapshot(), stored)
+        expect(copies).toHaveLength(1)
+        expect(copies[0]!.entry.reason).toBe(reason)
+        expect((await getConfigStatus()).kind).toBe("usable")
+      },
+    )
+  },
+)
+
+describe("the outcome of a failed upgrade, and when it stops applying", () => {
+  const throwingStep = () => {
+    migration.hook = async (version, config, real) => {
+      if (version === CONFIG_SCHEMA_VERSION) throw new Error("step failed")
+      return real(version, config)
+    }
+  }
+
+  async function failedStartWithNoRoomForACopy() {
+    for (let n = 0; n < MAX_PRESERVED; n++) {
+      await seedPreserved({ value: corruptConfig(`other-${n}`), meta: PREVIOUS_META })
+    }
+    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+    throwingStep()
+    await startBackground()
+  }
+
+  it("is kept in storage when a marker can be written, so another context sees it too", async () => {
+    await failedStartWithNoRoomForACopy()
+    // A context that never ran the startup: nothing in memory, only what is stored.
+    forgetWhatTheBackgroundRemembers()
+
+    expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason: "migration-failed" })
+  })
+
+  it("is not kept anywhere but the background's memory when even the marker cannot be written", async () => {
+    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+    failWrites(() => true)
+    throwingStep()
+    await startBackground()
+    vi.restoreAllMocks()
+    expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason: "migration-failed" })
+
+    // The honest limit: a context that cannot see the background's memory still says "upgrading".
+    forgetWhatTheBackgroundRemembers()
+    expect(await getConfigStatus()).toMatchObject({ kind: "upgrading" })
+  })
+
+  it("is taken for a failed upgrade by the service in that context too: Back up now and export refuse, a replacement keeps a copy first", async () => {
+    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+    const original = await readRawPrimary()
+    failWrites(() => true)
+    throwingStep()
+    await startBackground()
+    vi.restoreAllMocks()
+    forgetWhatTheBackgroundRemembers()
+
+    // The reader of this context reads "upgrading"; the service has seen startup finish and takes an
+    // older label that is still there for a failed upgrade.
+    await expect(backUpCurrentConfig("0.0.1")).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
+    await expect(assertCurrentConfigExportable()).rejects.toMatchObject({ reason: "upgrading" })
+    await replaceStoredConfig(replacement(), { ...OPTIONS, backupCurrent: true })
+
+    expect(preservedCopiesOf(await snapshot(), original)).toHaveLength(1)
+    expect((await getConfigStatus()).kind).toBe("usable")
+  })
+
+  it("does not apply to a pair that is not the one that failed", async () => {
+    await failedStartWithNoRoomForACopy()
+
+    await seedPrimary(previousVersionConfig(), { ...PREVIOUS_META, lastModifiedAt: 5 })
+
+    expect(await getConfigStatus()).toMatchObject({ kind: "upgrading" })
+  })
+
+  it("is dropped by a later start whose upgrade works, and the pair is usable again", async () => {
+    await failedStartWithNoRoomForACopy()
+    expect(await getConfigStatus()).toMatchObject({ kind: "suspect" })
+
+    migration.hook = null
+    await startBackground()
+
+    expect((await getConfigStatus()).kind).toBe("usable")
+    forgetWhatTheBackgroundRemembers()
+    expect((await getConfigStatus()).kind).toBe("usable")
+    expect(
+      Object.keys(await snapshot()).filter((key) => key.startsWith("configInitFailure")),
+    ).toEqual([])
+  })
+
+  it("is dropped by a start that finds the stored config unusable for another reason", async () => {
+    await failedStartWithNoRoomForACopy()
+    expect(Object.keys(await snapshot())).toContain("configInitFailure")
+
+    await seedPrimary(corruptConfig(), CURRENT_META)
+    migration.hook = null
+    await startBackground()
+
+    expect(Object.keys(await snapshot())).not.toContain("configInitFailure")
+    forgetWhatTheBackgroundRemembers()
+    expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason: "invalid-schema" })
+  })
+
+  it("is not written, nor removed, by a start that has nothing to record or forget", async () => {
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    await seedPrimary(validConfig(), CURRENT_META)
+    const writes = vi.spyOn(fakeBrowser.storage.local, "set")
+    const removals = vi.spyOn(fakeBrowser.storage.local, "remove")
+
+    await startBackground()
+
+    expect(removals).not.toHaveBeenCalled()
+    expect(writes.mock.calls.map(([items]) => Object.keys(items))).not.toContainEqual(
+      expect.arrayContaining(["configInitFailure"]),
+    )
+  })
+
+  it("is replaced by the outcome of the latest start, whatever it was", async () => {
+    await failedStartWithNoRoomForACopy()
+    // The same pair now fails for another reason: the step works but its result is invalid.
+    migration.hook = async (version, config, real) => {
+      const migrated = await real(version, config)
+      return { ...migrated, contextMenu: { enabled: "yes" } }
+    }
+    await startBackground()
+
+    expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason: "invalid-schema" })
+  })
+
+  it("is announced to a watcher that is already showing the stored config", async () => {
+    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+    const { watchConfigStatus } = await import("../status")
+    const views: Array<{ status: { kind: string } }> = []
+    const stop = watchConfigStatus((view) => views.push(view))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    for (let n = 0; n < MAX_PRESERVED; n++) {
+      await seedPreserved({ value: corruptConfig(`other-${n}`), meta: PREVIOUS_META })
+    }
+    throwingStep()
+    views.length = 0
+
+    await startBackground()
+    // The watcher reads again after each notification; wait for the read that follows the record.
+    await vi.waitFor(() =>
+      expect(views.at(-1)?.status).toMatchObject({ kind: "suspect", reason: "migration-failed" }),
+    )
+    stop()
+
+    expect((await readPreserved()).length).toBe(MAX_PRESERVED)
   })
 })
