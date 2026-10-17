@@ -1322,6 +1322,22 @@ noAPIKeyConfig:
 providerRequired:
   message: Choose a provider
   openSettings: Open settings
+dataConsent:
+  allow: Allow
+  allowFailed: Firefox did not grant the permission. You can try again.
+  status:
+    granted: Allowed
+    denied: Not allowed yet
+    unsupported: Not available in this Firefox (version 140 or later is needed)
+  authenticationInfo:
+    title: Send credentials to the provider
+    description: This provider has an API key, an authorization header or another credential. Firefox asks for your permission before LingoTori sends it.
+  browsingActivity:
+    title: Send the page address
+    description: This action sends the address (URL) of the current page to your provider. Firefox asks for your permission before LingoTori sends it.
+  endpointNeedsConsent:
+    label: This endpoint URL or its options contain a secret
+    hint: For example a key in the URL path. LingoTori cannot detect that by itself, so with this on, Firefox asks for your permission before requests to this endpoint are sent.
 onboarding:
   title: Which language should we translate into?
   description: LingoTori will translate into this language by default. You can change it anytime in Settings.

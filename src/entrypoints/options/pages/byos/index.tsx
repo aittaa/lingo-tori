@@ -5,6 +5,7 @@ import { useAtomValue, useSetAtom } from "jotai"
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react"
 import { Navigate } from "react-router"
 import { browser } from "wxt/browser"
+import { DataConsentRow } from "@/components/data-consent/data-consent-row"
 import { Button } from "@/components/ui/base-ui/button"
 import {
   DropdownMenu,
@@ -16,6 +17,7 @@ import { configAtom, writeConfigAtom } from "@/utils/atoms/config"
 import { isByosExtensionUrl } from "@/utils/byos/browser"
 import { sendByosMessage } from "@/utils/byos/messages"
 import { requestByosCallbackPermission } from "@/utils/byos/permissions"
+import { isDataConsentRequiredError, requestDataConsent } from "@/utils/firefox-data-consent"
 import { getUiLocale } from "@/utils/i18n"
 import { cn } from "@/utils/styles/utils"
 import { reconcileModelSelection } from "./model-selection"
@@ -40,6 +42,8 @@ const copy = {
     unavailable: "Connection unavailable",
     browser: "ChatGPT sign-in is available in Firefox and Chromium browsers.",
     denied: "Sign-in permission was not granted.",
+    consentDenied: "Firefox permission to send sign-in data was not granted.",
+    consent: "Firefox data consent is needed to send sign-in data. Allow it, then try again.",
     failed: "Could not connect. Try again.",
     ended: "Sign-in did not finish. Try again.",
     background: "Extension connection unavailable. Reload this settings page and try again.",
@@ -81,6 +85,8 @@ const copy = {
     unavailable: "연결할 수 없음",
     browser: "ChatGPT 로그인은 Firefox와 Chromium 브라우저에서 사용할 수 있습니다.",
     denied: "로그인 권한이 허용되지 않았습니다.",
+    consentDenied: "로그인 정보를 보내기 위한 Firefox 권한이 허용되지 않았습니다.",
+    consent: "로그인 정보를 보내려면 Firefox 데이터 동의가 필요합니다. 허용한 뒤 다시 시도하세요.",
     failed: "연결하지 못했습니다. 다시 시도하세요.",
     ended: "로그인이 완료되지 않았습니다. 다시 시도하세요.",
     background:
@@ -123,6 +129,9 @@ const copy = {
     unavailable: "接続できません",
     browser: "ChatGPT ログインは Firefox と Chromium ブラウザーで利用できます。",
     denied: "ログイン権限が許可されませんでした。",
+    consentDenied: "ログイン情報を送信するための Firefox の権限が許可されませんでした。",
+    consent:
+      "ログイン情報を送信するには Firefox のデータ同意が必要です。許可してから再試行してください。",
     failed: "接続できませんでした。再試行してください。",
     ended: "ログインが完了しませんでした。再試行してください。",
     background: "拡張機能に接続できません。この設定ページを再読み込みして再試行してください。",
@@ -161,6 +170,7 @@ async function boundedMessage<T>(operation: Promise<T>): Promise<T> {
   }
 }
 const failureKind = (error: unknown) => {
+  if (isDataConsentRequiredError(error)) return "consent" as const
   const message = error instanceof Error ? error.message : ""
   if (/callback_rule_timeout/i.test(message)) return "routing" as const
   if (/receiving end|establish connection|background_timeout/i.test(message))
@@ -265,7 +275,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
               : {},
           )
         }
-      } catch {
+      } catch (error) {
         const recovered = await boundedMessage(
           sendByosMessage("lingotoriByosSession", undefined),
         ).catch(() => ({
@@ -279,7 +289,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
             ? { ...recovered, state: "temporarily-unavailable" }
             : recovered,
         )
-        setNotice(t.failed)
+        setNotice(isDataConsentRequiredError(error) ? t.consent : t.failed)
       }
     },
     [savedModel, setAttempt, t, writeConfig],
@@ -327,9 +337,12 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     setModels([])
     setModel("")
     let permission: Promise<boolean>
-    // Request directly in the explicit button gesture, before awaiting anything.
+    let consent: Promise<boolean>
+    // Request directly in the explicit button gesture, before awaiting anything. Firefox's data
+    // consent for sending sign-in data is asked in the same turn (a Chrome build resolves at once).
     try {
       permission = requestByosCallbackPermission()
+      consent = requestDataConsent("authenticationInfo")
     } catch (error) {
       setAttempt(null)
       setWorking(false)
@@ -345,6 +358,14 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
           initialRegistrationAttempt.current = false
           setAttempt(null)
           setNotice(t.denied)
+          return
+        }
+        const consented = await consent
+        if (epoch(generation) !== owner) return
+        if (!consented) {
+          initialRegistrationAttempt.current = false
+          setAttempt(null)
+          setNotice(t.consentDenied)
           return
         }
         setAttempt("starting")
@@ -655,6 +676,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       {!supportedBrowser && !connected && (
         <p className="mt-3 text-[13px] text-muted-foreground">{t.browser}</p>
       )}
+      <DataConsentRow category="authenticationInfo" className="mt-4" />
       {notice && (
         <p role="status" className="mt-3 text-[13px] leading-5 text-muted-foreground">
           {notice}

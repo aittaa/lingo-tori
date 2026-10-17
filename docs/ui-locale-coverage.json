@@ -187,7 +187,18 @@
     "onboarding.goSettings",
     "popup.refreshNeeded",
     "popup.noAnswerYet",
-    "toast.region"
+    "toast.region",
+    "dataConsent.allow",
+    "dataConsent.allowFailed",
+    "dataConsent.status.granted",
+    "dataConsent.status.denied",
+    "dataConsent.status.unsupported",
+    "dataConsent.authenticationInfo.title",
+    "dataConsent.authenticationInfo.description",
+    "dataConsent.browsingActivity.title",
+    "dataConsent.browsingActivity.description",
+    "dataConsent.endpointNeedsConsent.label",
+    "dataConsent.endpointNeedsConsent.hint"
   ],
   "deferredHubKeys": [
     "popup.hub.tooltip",
