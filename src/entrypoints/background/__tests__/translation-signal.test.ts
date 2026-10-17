@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { fakeBrowser } from "wxt/testing/fake-browser"
 import { browser, storage } from "#imports"
-import { DEFAULT_DETECTED_CODE } from "@/utils/constants/config"
+import {
+  CONFIG_SCHEMA_VERSION,
+  DEFAULT_CONFIG,
+  DEFAULT_DETECTED_CODE,
+} from "@/utils/constants/config"
 import { getDetectedCodeStateKey, getTranslationStateKey } from "@/utils/constants/storage-keys"
 
 const sendMessageMock = vi.fn<(...args: any[]) => any>()
@@ -19,18 +24,12 @@ const injectHostContentIntoCurrentTabIframesAfterNodeTranslationMock =
 const loggerErrorMock = vi.fn<(...args: any[]) => any>()
 const loggerWarnMock = vi.fn<(...args: any[]) => any>()
 const shouldEnableAutoTranslationMock = vi.fn<(...args: any[]) => any>()
-// The handler reads the session's view of the config; this stands in for the config in that view.
-const getLocalConfigMock = vi.fn<(...args: any[]) => any>()
 
 const messageHandlers = new Map<string, (msg: any) => any>()
 
 vi.mock("@/utils/message", () => ({
   onMessage: onMessageMock,
   sendMessage: sendMessageMock,
-}))
-
-vi.mock("@/utils/config/status", () => ({
-  getConfigView: async () => ({ config: await getLocalConfigMock() }),
 }))
 
 vi.mock("@/utils/host/translate/auto-translation", () => ({
@@ -113,8 +112,7 @@ describe("translationMessage", () => {
     storageSetItemMock.mockResolvedValue(undefined)
     storageRemoveItemMock.mockResolvedValue(undefined)
     shouldEnableAutoTranslationMock.mockResolvedValue(false)
-    getLocalConfigMock.mockReset()
-    getLocalConfigMock.mockResolvedValue(undefined)
+    fakeBrowser.reset()
   })
 
   it("persists manager-enabled state and injects current iframes from the top frame", async () => {
@@ -503,8 +501,12 @@ describe("translationMessage", () => {
       origin: "https://example.com",
     }
 
-    function mockConfigAndState(state: unknown) {
-      getLocalConfigMock.mockResolvedValue({})
+    // The handler reads the config through the real status reader, so a usable config is stored.
+    async function mockConfigAndState(state: unknown) {
+      await fakeBrowser.storage.local.set({
+        config: structuredClone(DEFAULT_CONFIG),
+        config$: { schemaVersion: CONFIG_SCHEMA_VERSION, lastModifiedAt: 1 },
+      })
       storageGetItemMock.mockImplementation(async (key: string) => {
         if (key === getTranslationStateKey(42)) return state
         return undefined
@@ -652,7 +654,7 @@ describe("translationMessage", () => {
     it("suppresses auto-translation for the origin the user refused", async () => {
       await setupSubject()
       shouldEnableAutoTranslationMock.mockResolvedValue(true)
-      mockConfigAndState(USER_DISABLED_STATE)
+      await mockConfigAndState(USER_DISABLED_STATE)
 
       await getHandler("reportDetectedPageLanguage")({
         data: { detectedCodeOrUnd: "eng", url: "https://example.com/articles/2" },
@@ -671,7 +673,7 @@ describe("translationMessage", () => {
     it("still auto-translates other origins after a refusal elsewhere", async () => {
       await setupSubject()
       shouldEnableAutoTranslationMock.mockResolvedValue(true)
-      mockConfigAndState(USER_DISABLED_STATE)
+      await mockConfigAndState(USER_DISABLED_STATE)
 
       await getHandler("reportDetectedPageLanguage")({
         data: { detectedCodeOrUnd: "eng", url: "https://other.example.net/page" },
@@ -690,7 +692,7 @@ describe("translationMessage", () => {
       // without userDisabled; those must never veto auto-translation.
       await setupSubject()
       shouldEnableAutoTranslationMock.mockResolvedValue(true)
-      mockConfigAndState({ enabled: false })
+      await mockConfigAndState({ enabled: false })
 
       await getHandler("reportDetectedPageLanguage")({
         data: { detectedCodeOrUnd: "eng", url: "https://example.com/articles/2" },
