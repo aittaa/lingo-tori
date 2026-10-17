@@ -3,11 +3,12 @@ import type { APIProviderConfig } from "@/types/config/provider"
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { createStore, Provider } from "jotai"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { ThemeProvider } from "@/components/providers/theme-provider"
 import { isAPIProviderConfig } from "@/types/config/provider"
 import { configAtom } from "@/utils/atoms/config"
+import { committedMeta } from "@/utils/config/__tests__/preservation-test-kit"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { BUILT_IN_DICTIONARY_ACTION_ID } from "@/utils/constants/custom-action"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
@@ -25,8 +26,16 @@ import {
   useActionEditor,
 } from "../custom-actions/action-config-form/action-editor"
 
+// The stored pair is written whole, value and a meta that matches it, and storage starts empty in
+// every test. A value stored alone beside the meta that an earlier test's commit left behind is an
+// incoherent pair, and the settings service refuses a change over one (a rejection nothing here
+// awaits).
+beforeEach(() => {
+  fakeBrowser.reset()
+})
+
 function seedConfig(store: ReturnType<typeof createStore>, config: SeedConfig) {
-  void fakeBrowser.storage.local.set({ config })
+  void fakeBrowser.storage.local.set({ config, config$: committedMeta(config) })
   store.set(configAtom, config)
 }
 
