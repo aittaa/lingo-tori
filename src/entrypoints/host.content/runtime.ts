@@ -2,9 +2,8 @@ import type { ContentScriptContext } from "#imports"
 import type { LangCodeISO6393 } from "@/lib/languages"
 import type { Config } from "@/types/config/config"
 import type { PageTranslationStartOutcome } from "@/utils/message"
-import { storage } from "#imports"
-import { configSchema } from "@/types/config/config"
-import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
+import { watchConfigStatus } from "@/utils/config/status"
+import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { detectPageLanguageLightweight } from "@/utils/content/page-language"
 import { ensurePresetStyles } from "@/utils/host/translate/ui/style-injector"
 import { logger } from "@/utils/logger"
@@ -49,13 +48,8 @@ export async function bootstrapHostContent(
   // the top frame owns the title, so iframes skip parsing every config write.
   const cleanupTitleTranslationWatch =
     window === window.top
-      ? storage.watch<Config>(`local:${CONFIG_STORAGE_KEY}`, (config) => {
-          const parsedConfig = configSchema.safeParse(config)
-          if (parsedConfig.success) {
-            manager.setTitleTranslationEnabled(
-              parsedConfig.data.pageTranslation.page.translateTitle,
-            )
-          }
+      ? watchConfigStatus(({ config }) => {
+          if (config) manager.setTitleTranslationEnabled(config.pageTranslation.page.translateTitle)
         })
       : () => {}
 

@@ -1,9 +1,8 @@
 import "@/utils/zod-config"
-import type { Config, UiLanguage } from "@/types/config/config"
+import type { UiLanguage } from "@/types/config/config"
 import { browser, defineBackground } from "#imports"
-import { storageAdapter } from "@/utils/atoms/storage-adapter"
 import { selectFreshTranslateProviders } from "@/utils/config/default-translate-provider"
-import { CONFIG_STORAGE_KEY } from "@/utils/constants/config"
+import { watchConfigStatus } from "@/utils/config/status"
 import { initI18n, setUiLanguage } from "@/utils/i18n"
 import { logger } from "@/utils/logger"
 import { onMessage } from "@/utils/message"
@@ -146,7 +145,8 @@ export default defineBackground({
     // The context menu re-creates itself via its own config watcher
     // (registerContextMenuListeners), so here we only drive the i18next singleton and
     // re-set the frozen (localized) uninstall-survey URL.
-    storageAdapter.watch<Config>(CONFIG_STORAGE_KEY, (newConfig) => {
+    watchConfigStatus(({ config: newConfig }) => {
+      if (!newConfig) return
       void (async () => {
         await backgroundReady
         if (newConfig.uiLanguage === currentUiLanguage) return

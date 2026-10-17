@@ -8,11 +8,11 @@ import type { MatchedTerm } from "@/utils/glossary/types"
 import type { PromptResolver } from "@/utils/host/translate/api/ai"
 import type { PromptTemplate } from "@/utils/prompts/template"
 import type { SerializableProviderRef } from "@/utils/providers/provider-ref"
-import { storage } from "#imports"
 import { isLLMProviderConfig } from "@/types/config/provider"
 import { apiUsageFeatureSchema } from "@/utils/api-usage"
 import { putBatchRequestRecord } from "@/utils/batch-request-record"
-import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
+import { watchConfigStatus } from "@/utils/config/status"
+import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { BATCH_SEPARATOR, BATCH_SEPARATOR_LINE_PATTERN } from "@/utils/constants/prompt"
 import {
   BATCH_TIMEOUT_BASE_MS,
@@ -464,7 +464,7 @@ function watchQueueConfig(
   },
 ) {
   let lastAppliedJson: string | null = null
-  storage.watch<Config>(`local:${CONFIG_STORAGE_KEY}`, (newConfig) => {
+  watchConfigStatus(({ config: newConfig }) => {
     if (!newConfig) return
     void queuesPromise.then(({ requestQueue, batchQueue }) => {
       try {
