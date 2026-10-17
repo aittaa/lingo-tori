@@ -9,6 +9,7 @@ const read = (relative: string) => readFileSync(path.join(root, relative), "utf8
 
 const thirdParty = read("public/THIRD_PARTY_NOTICES.txt")
 const privacy = read("docs/privacy.md")
+const readme = read("README.md")
 
 // Text a user or a store reviewer can read. Execution evidence stays out of all of it.
 const publicFiles = [
@@ -124,7 +125,6 @@ function slug(heading: string) {
 }
 
 describe("the readme links", () => {
-  const readme = read("README.md")
   const headings = (text: string) =>
     new Set([...text.matchAll(/^#{1,6} (.+)$/gm)].map((match) => slug(match[1]!)))
 
@@ -191,8 +191,64 @@ describe("the privacy notice", () => {
     expect(privacy).toContain("Website content, required")
     expect(privacy).toContain("Authentication info, optional")
     expect(privacy).toContain("Browsing activity, optional")
-    expect(privacy).toContain("already started may finish")
+    expect(privacy).toContain("already been sent may finish")
     expect(privacy).toContain("have not been verified")
+  })
+
+  it("says the permission is read right before each send, retries included, and claims no more", () => {
+    expect(privacy).toContain("right before each request is sent")
+    expect(privacy).toContain("every retry the AI SDK makes")
+    expect(privacy).toContain("every ChatGPT request")
+    expect(privacy).not.toMatch(/before every (?:new )?request/i)
+    expect(privacy).not.toMatch(/every request or retry/i)
+  })
+
+  it("says a request for the browser's cookies needs authentication info", () => {
+    expect(privacy).toContain("`credentials: include`")
+  })
+
+  it("says placeholders are filled in one pass and look-alike page text is not replaced", () => {
+    expect(privacy).toContain("filled in one pass")
+    expect(privacy).toContain("is sent as those characters and is not replaced by the address")
+    expect(privacy).toContain("Page text that only looks like the placeholder does not count")
+  })
+
+  it("says permissions are granted only with the Allow buttons, with no automatic prompt", () => {
+    expect(privacy).toContain("**Allow** buttons")
+    expect(privacy).toContain("does not open a Firefox permission prompt by itself")
+    expect(readme).toContain("Allow buttons in Settings")
+    expect(readme).toContain("never opens a permission prompt by itself")
+  })
+
+  it("says a cancelled, replaced or expired sign-in does not open its page", () => {
+    expect(privacy).toMatch(
+      /cancelled, replaced or expires while the permission is being read does not open the sign-in page/,
+    )
+    expect(privacy).toContain("Cancelling a sign-in")
+  })
+
+  it("separates the local sign-out from a remote revocation that is not confirmed", () => {
+    expect(privacy).toContain("Signing out always clears the local tokens")
+    expect(privacy).toContain("the remote revocation is skipped and reported as unconfirmed")
+  })
+
+  it("keeps the temporary-install and signed-dialog limits", () => {
+    expect(privacy).toContain("temporary add-on installation")
+    expect(privacy).toContain("when you install a signed add-on")
+  })
+
+  it("keeps the export note aligned with what the redactor does", () => {
+    expect(privacy).toContain("the whole `headers` object")
+    expect(privacy).toContain("if the cleaning cannot finish no file is written")
+    expect(privacy).toContain("It cannot recognise a secret placed in an ordinary-looking part")
+  })
+
+  it("links only to headings that exist in the notice", () => {
+    const anchors = [...privacy.matchAll(/\]\(#([^)\s]+)\)/g)].map((match) => match[1]!)
+    const known = new Set([...privacy.matchAll(/^#{1,6} (.+)$/gm)].map((match) => slug(match[1]!)))
+
+    expect(anchors.length).toBeGreaterThan(2)
+    expect(anchors.filter((anchor) => !known.has(anchor))).toEqual([])
   })
 
   it("states the sign-out limit when Firefox consent is absent", () => {
