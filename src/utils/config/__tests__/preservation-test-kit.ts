@@ -95,6 +95,11 @@ export function forgetWhatTheBackgroundRemembers() {
   Reflect.deleteProperty(globalThis, INIT_FAILURE_MEMORY)
 }
 
+/** Whether the background still remembers the outcome of a failed upgrade. */
+export function backgroundRemembersAFailure() {
+  return Reflect.get(globalThis, INIT_FAILURE_MEMORY) !== undefined
+}
+
 /** The `storage.local.set` payload that stores `value` and `meta` as a raw primary. */
 export function rawItems(value: unknown, meta: unknown = CURRENT_META) {
   const items: Record<string, unknown> = { [PRIMARY_KEY]: structuredClone(value) }
