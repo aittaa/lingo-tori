@@ -19,7 +19,7 @@ export class ConfigExportBlockedError extends Error {
         ? "The stored settings are still being upgraded to this version, so nothing was exported. " +
             "Try again in a moment."
         : "The stored settings cannot be read by this version, so nothing was exported. They are " +
-            "kept as they are. Save them exactly as stored with the recovery export in the " +
+            "kept as they are. Save them exactly as stored from the recovery options in the " +
             "settings page or on the error screen.",
     )
     this.name = "ConfigExportBlockedError"
@@ -55,8 +55,9 @@ export class PreservationError extends Error {
 /**
  * A change to the config was refused because the stored config cannot be used (it fails its
  * schema, a migration failed, it is labelled by a newer version, or its meta cannot be read).
- * Nothing was written: the stored value stays exactly as it is, and the original is kept.
- * Replacing an unusable config is not available yet; it arrives with recovery in a later update.
+ * Nothing was written: the stored value stays exactly as it is, and the original is kept. The
+ * recovery options in the settings page are the way out (save it, restore a kept copy, or start
+ * from the defaults).
  */
 export class ConfigRecoveryRequiredError extends Error {
   readonly reason: string
@@ -64,8 +65,8 @@ export class ConfigRecoveryRequiredError extends Error {
   constructor(reason: string) {
     super(
       "Your saved settings cannot be read by this version, so nothing was changed. They are kept " +
-        "exactly as they are, and you can save them with the recovery export in the settings page. " +
-        "Restoring them is not available yet and arrives in a later update.",
+        "exactly as they are. Open the recovery options in the settings page to save them, " +
+        "restore them or start from the defaults.",
     )
     this.name = "ConfigRecoveryRequiredError"
     this.reason = reason

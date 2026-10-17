@@ -1,7 +1,7 @@
 import { IconAlertCircle } from "@tabler/icons-react"
 import { useAtomValue } from "jotai"
 import { useState } from "react"
-import { RecoveryExport } from "@/components/recovery/recovery-export"
+import { RecoveryNotice } from "@/components/recovery/recovery-notice"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -93,7 +93,7 @@ export function RecoveryFallback({ error, onRecovered }: RecoveryFallbackProps) 
           </div>
         </div>
 
-        <RecoveryExport />
+        <RecoveryNotice />
 
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium">{i18n.t("errorRecovery.recoveryTitle")}</p>

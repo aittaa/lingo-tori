@@ -9,6 +9,14 @@ export interface OpenOptionsPageOptions {
 /** Names the options section a link wants scrolled into view. */
 export const SECTION_QUERY_PARAM = "section"
 
+/** The `id` on the recovery notice, so `?section=` can scroll to it. */
+export const RECOVERY_NOTICE_SECTION_ID = "recovery-notice"
+
+/** Route to the settings page scrolled to the recovery notice: where "settings cannot be read" points. */
+export function buildRecoveryNoticeRoute(): `/${string}` {
+  return `/preference?${SECTION_QUERY_PARAM}=${RECOVERY_NOTICE_SECTION_ID}`
+}
+
 /** The `id` on the Provider Config item, so `?section=` can scroll to it. */
 export const PROVIDER_CONFIG_SECTION_ID = "provider-config"
 

@@ -19,6 +19,7 @@ import type { RawPrimary } from "@/utils/config/__tests__/preservation-test-kit"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { createStore, Provider } from "jotai"
+import { MemoryRouter } from "react-router"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { RecoveryFallback } from "@/components/recovery/recovery-fallback"
 import { configSchema } from "@/types/config/config"
@@ -41,6 +42,7 @@ import { decodeLossless } from "@/utils/config/preservation"
 import { parseRecoveryExport } from "@/utils/config/recovery-export"
 import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { queryClient } from "@/utils/tanstack-query"
+import { ConfigManagementSection } from ".."
 import { ManualConfigSyncConfigItems } from "../manual-config-sync"
 import { ResetConfigItem } from "../reset-config"
 
@@ -248,8 +250,19 @@ describe("Export current settings after a startup that could not upgrade the con
   })
 })
 
-describe("the recovery export next to the ordinary export", () => {
-  const RECOVERY_EXPORT = "recovery-export"
+describe("the recovery notice on the settings page and on the error screen", () => {
+  const RECOVERY_NOTICE = "recovery-notice"
+
+  async function renderConfigSection() {
+    const store = renderInProviders(
+      <MemoryRouter>
+        <ConfigManagementSection />
+      </MemoryRouter>,
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    return store
+  }
+
   const EXPORT_COPY = "recoveryExport.exportCopy"
   const EXPORT_STORED = "recoveryExport.exportStored"
   const WARNING_CONFIRM = "recoveryExport.warning.confirm"
@@ -261,7 +274,7 @@ describe("the recovery export next to the ordinary export", () => {
 
   it("is on the settings page when the stored config cannot be used, and saves it exactly", async () => {
     await startupKeepsOriginal()
-    await renderSettledSyncItems()
+    await renderConfigSection()
 
     await waitFor(() => screen.getByText(EXPORT_COPY))
     fireEvent.click(screen.getByText(EXPORT_COPY))
@@ -277,7 +290,7 @@ describe("the recovery export next to the ordinary export", () => {
     await startupKeepsOriginal()
     renderInProviders(<RecoveryFallback error={new Error("boom")} onRecovered={() => {}} />)
 
-    await waitFor(() => screen.getByTestId(RECOVERY_EXPORT))
+    await waitFor(() => screen.getByTestId(RECOVERY_NOTICE))
     fireEvent.click(screen.getByText(EXPORT_COPY))
     await waitFor(() => screen.getByText(WARNING_CONFIRM))
     fireEvent.click(screen.getByText(WARNING_CONFIRM))
@@ -290,7 +303,7 @@ describe("the recovery export next to the ordinary export", () => {
   it("offers the stored config as found on both screens when no copy could be kept", async () => {
     // Startup has not run, so there is no kept copy, as when the store of copies is full.
     await seedPrimary(SUSPECT.value, SUSPECT.meta)
-    await renderSettledSyncItems()
+    await renderConfigSection()
     expect(await screen.findByText(EXPORT_STORED)).toBeVisible()
     cleanup()
 
@@ -301,10 +314,10 @@ describe("the recovery export next to the ordinary export", () => {
 
   it("is not shown for a usable config with nothing kept (a control)", async () => {
     await seedPrimary(validConfig(), CURRENT_META)
-    await renderSettledSyncItems()
+    await renderConfigSection()
     await new Promise((resolve) => setTimeout(resolve, 30))
 
-    expect(screen.queryByTestId(RECOVERY_EXPORT)).not.toBeInTheDocument()
+    expect(screen.queryByTestId(RECOVERY_NOTICE)).not.toBeInTheDocument()
   })
 })
 

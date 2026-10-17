@@ -2,7 +2,6 @@ import { Icon } from "@iconify/react"
 import { useMutation } from "@tanstack/react-query"
 import { useAtomValue } from "jotai"
 import { useState } from "react"
-import { RecoveryExport } from "@/components/recovery/recovery-export"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,7 +54,6 @@ export function ManualConfigSyncConfigItems() {
       <ConfigItem description={i18n.t("options.preference.config.viewConfig.description")}>
         <ViewConfig config={config} size="sm" />
       </ConfigItem>
-      <RecoveryExport />
     </div>
   )
 }

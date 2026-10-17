@@ -69,7 +69,7 @@ errorRecovery:
     cancel: キャンセル
 recoveryExport:
   title: このバージョンでは読み込めない設定
-  description: 保存されている設定は変更も削除もされていません。設定の正確なコピーをファイルに保存できます。
+  description: 保存されている設定は変更も削除もされておらず、この問題が解決するまで今行った変更は保存されません。正確なコピーの保存、保管コピーの復元の試行、または初期設定からの再開ができます。
   keptCopy: $1 に保管したコピー
   keptBy: バージョン $1 が保管しました。
   reason:
@@ -88,6 +88,32 @@ recoveryExport:
     cancel: キャンセル
   saved: 正確なコピーを保存しました
   failed: 正確なコピーを保存できませんでした
+  copiesTitle: このバージョンで読み込めなかった設定の保管コピー
+  copiesDescription: このバージョンが設定を読み込めなかったときに保管したコピーです。使用はされません。書き出し、復元の試行、削除ができます。
+  tryRestore: 復元を試す
+  delete: 削除
+  defaultsTitle: 初期設定から始める
+  defaultsDescription: 設定を初期設定に置き換えます。先に保存されている設定の正確なコピーを保管し、保管できない場合は何も置き換えません。
+  startFromDefaults: 初期設定から始める
+  cancel: キャンセル
+  restoreDialog:
+    title: この設定の復元を試しますか?
+    description: コピーを先に確認してアップグレードし、失敗した場合は何も変更しません。現在の設定は、置き換える前にバックアップまたは正確なコピーとして保管されます。
+    confirm: 復元
+  deleteDialog:
+    title: この保管コピーを削除しますか?
+    description: コピーは完全に削除されます。保存されている設定がまだ読み込めない場合は、置き換える前に新しいコピーが保管されます。
+    confirm: 削除
+  defaultsDialog:
+    title: 初期設定から始めますか?
+    description: 設定が初期設定に置き換わります。先に保存されている設定の正確なコピーを保管し、保管できない場合は何も置き換えません。
+    confirm: 初期設定から始める
+  restored: 設定を復元しました
+  restoreFailed: 設定を復元できませんでした
+  deleted: 保管コピーを削除しました
+  deleteFailed: 保管コピーを削除できませんでした
+  defaultsApplied: 設定を初期設定に戻しました
+  defaultsFailed: 初期設定から始められませんでした
 options:
   autosave:
     invalid: 移動する前に、エラーのある項目を修正してください。
