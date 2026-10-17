@@ -1,5 +1,6 @@
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { ApiUsageIdentity } from "@/utils/api-usage-identity"
+import type { DataConsentCategory } from "@/utils/firefox-data-consent"
 import { withApiUsage } from "@/utils/api-usage-tracking"
 import { createConsentGatedFetch } from "@/utils/firefox-data-consent"
 import { noStoreFetch } from "./no-store-fetch"
@@ -18,11 +19,14 @@ export function createProviderFetch({
   feature,
   identity,
   credentialed,
+  categories,
 }: {
   feature?: ApiUsageFeature
   identity?: ApiUsageIdentity
   credentialed: boolean
+  /** The optional categories the request sends (the page URL), checked at every dispatch. */
+  categories?: readonly DataConsentCategory[]
 }): typeof fetch {
   const metered = feature ? withApiUsage(feature, noStoreFetch, identity) : noStoreFetch
-  return createConsentGatedFetch(metered, { credentialed })
+  return createConsentGatedFetch(metered, { credentialed, categories })
 }

@@ -25,10 +25,7 @@ interface DataCollectionPermissions {
  * granted) and absent on one without it; the optional categories then fail closed. A browser that
  * cannot be asked is treated the same way.
  */
-export async function getDataConsentStatus(
-  category: DataConsentCategory,
-): Promise<DataConsentStatus> {
-  if (!isDataConsentBuild()) return "not-applicable"
+async function readGrantedCategories(): Promise<ReadonlySet<unknown> | "unsupported"> {
   let reported: unknown
   try {
     const all = (await browser.permissions.getAll()) as DataCollectionPermissions
@@ -36,16 +33,38 @@ export async function getDataConsentStatus(
   } catch {
     return "unsupported"
   }
-  if (!Array.isArray(reported)) return "unsupported"
-  return reported.includes(category) ? "granted" : "denied"
+  return Array.isArray(reported) ? new Set(reported) : "unsupported"
+}
+
+export async function getDataConsentStatus(
+  category: DataConsentCategory,
+): Promise<DataConsentStatus> {
+  if (!isDataConsentBuild()) return "not-applicable"
+  const granted = await readGrantedCategories()
+  if (granted === "unsupported") return "unsupported"
+  return granted.has(category) ? "granted" : "denied"
+}
+
+/**
+ * Resolves when a new transmission that sends every one of `categories` may start; rejects with a
+ * typed refusal naming the first one that is missing. The grant is read once, so the answer is one
+ * consistent state of the browser. This is the call to make right before a request leaves, for
+ * every category the request sends.
+ */
+export async function assertDataConsentAll(
+  categories: readonly DataConsentCategory[],
+): Promise<void> {
+  if (categories.length === 0 || !isDataConsentBuild()) return
+  const granted = await readGrantedCategories()
+  for (const category of categories) {
+    if (granted === "unsupported") throw new DataConsentRequiredError(category, "unsupported")
+    if (!granted.has(category)) throw new DataConsentRequiredError(category, "denied")
+  }
 }
 
 /** Resolves when a new transmission of `category` may start; rejects with a typed refusal if not. */
 export async function assertDataConsent(category: DataConsentCategory): Promise<void> {
-  const status = await getDataConsentStatus(category)
-  if (status === "denied" || status === "unsupported") {
-    throw new DataConsentRequiredError(category, status)
-  }
+  await assertDataConsentAll([category])
 }
 
 /**

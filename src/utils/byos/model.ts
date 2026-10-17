@@ -1,5 +1,6 @@
 import type { createOpenAI } from "@ai-sdk/openai"
 import type { ApiUsageFeature } from "@/utils/api-usage"
+import type { ConsentRuntimeOptions } from "@/utils/firefox-data-consent"
 import { z } from "zod"
 import { invokeByos } from "./invoke"
 import { ByosBridgeError } from "./service"
@@ -19,6 +20,7 @@ export function createByosModel(
   modelId: string,
   invoke: Invoker = invokeByos,
   usageFeature?: ApiUsageFeature,
+  runtime?: ConsentRuntimeOptions,
 ): Model {
   if (!modelId.trim()) throw new ByosBridgeError("model_required")
   async function generate(options: CallOptions) {
@@ -63,6 +65,7 @@ export function createByosModel(
       },
       options.abortSignal,
       usageFeature,
+      runtime,
     )
     const { text } = result
     options.abortSignal?.throwIfAborted()

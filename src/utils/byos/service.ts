@@ -1,9 +1,14 @@
 import type { AuthTransport } from "./transport"
 import type { AuthVault, Credentials, PendingAuth, VaultRecord } from "./vault"
 import type { ReportedTokens } from "@/utils/api-usage-tokens"
+import type { ConsentRuntimeOptions, DataConsentCategory } from "@/utils/firefox-data-consent"
 import { z } from "zod"
 import { readResponsesTokens } from "@/utils/api-usage-tokens"
-import { assertDataConsent, isDataConsentRequiredError } from "@/utils/firefox-data-consent"
+import {
+  assertDataConsent,
+  assertDataConsentAll,
+  isDataConsentRequiredError,
+} from "@/utils/firefox-data-consent"
 import { isByosConnectionRefused } from "./browser"
 import {
   abortable,
@@ -244,6 +249,7 @@ export function createByosService(
     timeoutMs = 60000,
     revoking = false,
     onDispatch?: () => void,
+    categories: readonly DataConsentCategory[] = [],
   ) {
     if (signingOut && !revoking) fail("session_changed")
     const parsed = new URL(url)
@@ -263,9 +269,10 @@ export function createByosService(
     ])
     try {
       // Every request carries or establishes a credential, sign-out revocation included. On Firefox
-      // none starts without the user's consent, read now rather than remembered. Metering and the
-      // fetch come after admission.
-      await assertDataConsent("authenticationInfo")
+      // none starts without the user's consent, read now rather than remembered. A request that
+      // also sends an optional category (the page URL of a custom action) needs that one too, and it
+      // is read here, at the dispatch, in the same read. Metering and the fetch come after admission.
+      await assertDataConsentAll(["authenticationInfo", ...categories])
       // The read was asynchronous: a cancellation, a sign-out or a timeout that landed meanwhile
       // has aborted this request, and an aborted request is not sent.
       signal.throwIfAborted()
@@ -500,13 +507,18 @@ export function createByosService(
       version: record.tokenVersion,
     }
   }
-  async function authenticated(url: string, options: RequestInit = {}, onDispatch?: () => void) {
+  async function authenticated(
+    url: string,
+    options: RequestInit = {},
+    onDispatch?: () => void,
+    categories: readonly DataConsentCategory[] = [],
+  ) {
     let active = await access()
     const send = async () => {
       await ensureGeneration(active.generation)
       const headers = new Headers(options.headers)
       headers.set("Authorization", `Bearer ${active.token}`)
-      return request(url, { ...options, headers }, 60000, false, onDispatch)
+      return request(url, { ...options, headers }, 60000, false, onDispatch, categories)
     }
     let response = await send()
     await ensureGeneration(active.generation)
@@ -1086,6 +1098,7 @@ export function createByosService(
       payload: ByosInvocation,
       signal?: AbortSignal,
       onDispatch?: () => void,
+      runtime?: ConsentRuntimeOptions,
     ): Promise<ByosInvocationResult> {
       signal?.throwIfAborted()
       const input = invokeSchema.parse(payload)
@@ -1115,6 +1128,7 @@ export function createByosService(
             signal: AbortSignal.any([streamController.signal, ...(signal ? [signal] : [])]),
           },
           onDispatch,
+          runtime?.dataCategories,
         )
         accepted = true
         markAcceptedAbort()

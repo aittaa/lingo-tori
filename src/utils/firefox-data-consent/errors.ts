@@ -1,6 +1,15 @@
 /** The optional data categories this extension asks Firefox for. Required ones are never gated. */
 export type DataConsentCategory = "authenticationInfo" | "browsingActivity"
 
+/**
+ * What a request tells the code that builds its model and sends it, beside the provider's own
+ * payload: the optional categories the request sends (the page URL, say). Internal runtime options,
+ * never part of what is sent to the provider. Each of them is checked again at every dispatch.
+ */
+export interface ConsentRuntimeOptions {
+  dataCategories?: readonly DataConsentCategory[]
+}
+
 export const DATA_CONSENT_CATEGORIES = [
   "authenticationInfo",
   "browsingActivity",

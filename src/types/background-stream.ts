@@ -5,6 +5,7 @@ import type { AISDKReasoning, LLMProviderConfig } from "@/types/config/provider"
 import type { SelectionToolbarCustomActionOutputType } from "@/types/config/selection-toolbar"
 import type { ApiUsageFeature } from "@/utils/api-usage"
 import type { ErrorAction } from "@/utils/error-action"
+import type { DataConsentCategory } from "@/utils/firefox-data-consent"
 import type { NoteSuggestionEnvelope } from "@/utils/note-suggestion/types"
 
 interface BaseBackgroundStreamSerializablePayload {
@@ -135,6 +136,12 @@ export interface StreamRuntimeOptions<TResponse = unknown> {
   signal?: AbortSignal
   onChunk?: (snapshot: TResponse) => void
   onError?: (error: AISDKStreamTextError) => void
+  /**
+   * The optional Firefox data categories this stream sends, taken out of the payload by the port
+   * handler. They go to the model and the fetch that dispatch the request, which check them at every
+   * dispatch, and never to the provider.
+   */
+  dataCategories?: readonly DataConsentCategory[]
 }
 
 export type StreamPortHandler = (port: Browser.runtime.Port) => void
