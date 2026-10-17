@@ -674,6 +674,20 @@ describe("an explicit replacement (restore, import, reset)", () => {
     expect(retry.status).toBe("committed")
     expect(backupEntries(await snapshot())).toHaveLength(1)
   })
+
+  it("never makes a second backup under an operation id that already has one, whatever it holds", async () => {
+    const stored = { ...validConfig(), contextMenu: { enabled: false } }
+    await seedPrimary(stored, committedMeta(stored))
+    const request = await replaceOf(validConfig())
+    // An earlier attempt of this operation made a backup; the latest backup does not hold what is
+    // stored now, so only the operation id says it is already there.
+    const id = await seedBackup(validConfig(), 5_000, `configBackup_5000_${request.opId}`)
+
+    const response = await newService().handle(request, PAGE)
+
+    expect(response.status).toBe("committed")
+    expect(backupEntries(await snapshot()).map((entry) => entry.id)).toEqual([id])
+  })
 })
 
 describe("recovery that is interrupted", () => {

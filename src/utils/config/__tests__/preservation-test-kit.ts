@@ -193,8 +193,11 @@ export async function seedPreserved(
 
 let seededBackups = 0
 
-export async function seedBackup(config: unknown, createdAt: number) {
-  const id = `configBackup_${createdAt}_seed${seededBackups++}`
+export async function seedBackup(
+  config: unknown,
+  createdAt: number,
+  id = `configBackup_${createdAt}_seed${seededBackups++}`,
+) {
   await fakeBrowser.storage.local.set({
     [id]: { schemaVersion: CONFIG_SCHEMA_VERSION, config: structuredClone(config) },
     [`${id}$`]: { createdAt, extensionVersion: "0.0.1" },

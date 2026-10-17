@@ -216,6 +216,19 @@ describe("a refused edit in a mounted settings screen", () => {
       unsubscribe()
     }
   })
+
+  it("is taken back by the write itself, so a store that nothing watches shows what is stored", async () => {
+    await seedPrimary(corruptConfig(), CURRENT_META)
+    vi.resetModules()
+    const atoms = await import("../config")
+    const store = createStore()
+
+    await expect(store.set(atoms.writeConfigAtom, EDIT)).rejects.toMatchObject({
+      name: "ConfigRecoveryRequiredError",
+    })
+
+    expect(store.get(atoms.configAtom).language.targetCode).not.toBe(EDIT.language.targetCode)
+  })
 })
 
 describe("two contexts at once over an invalid original", () => {

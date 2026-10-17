@@ -122,6 +122,62 @@ describe("commitPrimary", () => {
     )
   })
 
+  describe("when another commit's pair is what reads back (each field of the receipt is checked)", () => {
+    // The read-back is a pair that classifies as usable on its own, so only comparing it with what
+    // was written can tell. Read 1 is the context's, read 2 is the read-back.
+    async function readBackAs(
+      change: (written: { config: unknown; config$: Record<string, any> }) => {
+        config: unknown
+        config$: Record<string, any>
+      },
+    ) {
+      const realGet = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local) as (
+        ...args: any[]
+      ) => Promise<Record<string, unknown>>
+      let reads = 0
+      vi.spyOn(fakeBrowser.storage.local, "get").mockImplementation((async (...args: any[]) => {
+        const result = await realGet(...args)
+        reads++
+        return reads === 2 ? change(result as never) : result
+      }) as any)
+      return contextFor()
+    }
+
+    it("a different value with a digest that matches it", async () => {
+      const other = { ...validConfig(), contextMenu: { enabled: false } }
+      const context = await readBackAs((written) => ({
+        config: other,
+        config$: { ...written.config$, valueDigest: digestOfStoredValue(other) },
+      }))
+
+      await expect(commitPrimary(validConfig(), context)).rejects.toBeInstanceOf(
+        CommitVerificationError,
+      )
+    })
+
+    it("the same value written by another operation", async () => {
+      const context = await readBackAs((written) => ({
+        ...written,
+        config$: { ...written.config$, lastOpId: "someone-else" },
+      }))
+
+      await expect(commitPrimary(validConfig(), context)).rejects.toBeInstanceOf(
+        CommitVerificationError,
+      )
+    })
+
+    it("the same value at another revision", async () => {
+      const context = await readBackAs((written) => ({
+        ...written,
+        config$: { ...written.config$, revision: written.config$.revision + 1 },
+      }))
+
+      await expect(commitPrimary(validConfig(), context)).rejects.toBeInstanceOf(
+        CommitVerificationError,
+      )
+    })
+  })
+
   it("does not report success when the meta did not make it", async () => {
     const realSet = fakeBrowser.storage.local.set.bind(fakeBrowser.storage.local)
     vi.spyOn(fakeBrowser.storage.local, "set").mockImplementation(

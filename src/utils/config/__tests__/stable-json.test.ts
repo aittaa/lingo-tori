@@ -19,6 +19,11 @@ describe("stableStringify", () => {
     expect(stableStringify([undefined, Number.NaN, Infinity, 1])).toBe("[null,null,null,1]")
   })
 
+  it("gives a value that is undefined itself the text of null, so it can always be hashed", () => {
+    expect(stableStringify(undefined)).toBe("null")
+    expect(typeof stableStringify(() => 1)).toBe("string")
+  })
+
   it("keeps array order", () => {
     expect(stableStringify([2, 1])).not.toBe(stableStringify([1, 2]))
   })
