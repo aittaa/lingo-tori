@@ -396,6 +396,15 @@ describe("the notice about settings that cannot be read", () => {
     expect(recovery).toContain("unless the latest backup already holds the same settings")
   })
 
+  it("says what happens to that backup when the replacement fails or is not confirmed", () => {
+    expect(recovery).toContain(
+      "If the replacement then fails and the settings are still exactly as they were, that backup is taken back",
+    )
+    expect(recovery).toContain(
+      "if it cannot be confirmed whether the replacement happened, the backup stays",
+    )
+  })
+
   it("uses the labels of the screen and says both exports hold credentials", () => {
     expect(recovery).toContain("**Export exact copy**")
     expect(recovery).toContain("**Export as found**")
@@ -426,7 +435,46 @@ describe("the notice about settings that cannot be read", () => {
     expect(recovery).toContain("relies on the extension having one background context")
     expect(recovery).toContain("If a failed upgrade cannot even be recorded")
     expect(recovery).toContain("as being upgraded")
-    expect(recovery).toContain("so nothing is replaced")
+  })
+
+  describe("when a failed upgrade cannot even be recorded", () => {
+    const marker = "If a failed upgrade cannot even be recorded"
+    const state = recovery.slice(recovery.indexOf(marker))
+
+    it("keeps the cross-context uncertainty", () => {
+      expect(state).toContain(
+        "another open settings page can still treat the settings as being upgraded",
+      )
+    })
+
+    it("refuses ordinary changes and exporting the current settings", () => {
+      expect(state).toContain("ordinary changes and exporting the current settings are refused")
+    })
+
+    it("refuses backups, hourly and Back up now", () => {
+      expect(state).toContain("the hourly backup skips them and **Back up now** is refused")
+    })
+
+    it("keeps Export as found available, which the current export is not", () => {
+      expect(state).toContain("**Export as found** stays available")
+      // The refusal is about the current settings, never about the recovery export.
+      expect(state).not.toMatch(/Export as found\*\* (?:is|are) refused/)
+      expect(state).not.toContain("exporting them")
+    })
+
+    it("lets an explicit recovery action replace the settings once an exact copy is confirmed", () => {
+      expect(state).toContain(
+        "Restoring a kept copy or starting from defaults still replaces the settings, but only after an exact copy of them has been kept and confirmed",
+      )
+    })
+
+    it("does not carry the old broad refusal or the unconditional nothing-is-replaced", () => {
+      expect(state).not.toContain("changing, replacing, backing up or exporting them is refused")
+      expect(state).not.toContain("so nothing is replaced")
+      expect(state).not.toMatch(
+        /(?:replacing|restoring|starting from defaults)[^.]*is refused in that state/,
+      )
+    })
   })
 
   it("keeps secrets, the five-copy limit and the user-only removal", () => {
