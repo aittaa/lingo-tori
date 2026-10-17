@@ -232,10 +232,9 @@ describe("formatGlossaryCsv", () => {
 })
 
 describe("decodeGlossaryCsv", () => {
-  // Byte literals rather than `TextEncoder`: `vitest.setup.ts` replaces the
-  // global with a JSDOM-compatible shim that writes one byte per CHARACTER, so
-  // 显 (U+663E) encodes as 0x3E. Only the encoder is shimmed, not `TextDecoder`,
-  // which is all the code under test uses.
+  // Byte literals rather than `TextEncoder`, so the expected bytes stay an
+  // independent oracle for the decoder instead of coming from an encoder.
+  // (An earlier `vitest.setup.ts` shim also wrote one byte per character.)
   const bytes = (...values: number[]) => new Uint8Array(values).buffer
   // "GPU," then 显 + 卡.
   const UTF8 = [0x47, 0x50, 0x55, 0x2c, 0xe6, 0x98, 0xbe, 0xe5, 0x8d, 0xa1]
