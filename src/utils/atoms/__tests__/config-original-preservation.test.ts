@@ -5,12 +5,13 @@
 // that, and store the result: the user's real settings were replaced by defaults plus one edit, with
 // no copy. An ordinary edit over such a stored config is REFUSED now (typed
 // `ConfigRecoveryRequiredError`) and the stored pair stays exactly as it was; so is an edit over a
-// config that is still being upgraded, which would otherwise be stored under its old label.
+// config that is still being upgraded when startup has finished without upgrading it, which would
+// otherwise be stored under its old label.
 //
-// Real code: `writeConfigAtom` through a Jotai store, `setLocalConfig`, `setLocalConfigAndMeta` (the
-// content-script shortcut's writers), `initializeConfig`, over the extension's in-memory browser
-// storage. Separate module instances over the same storage stand in for separate extension contexts
-// (background, options page).
+// Real code: `writeConfigAtom` through a Jotai store, `setLocalConfig` (the content-script
+// shortcut's writer), `initializeConfig`, over the extension's in-memory browser storage, with the
+// settings service answering through the test setup's message seam. Separate module instances over
+// the same storage stand in for separate extension contexts (background, options page).
 
 import type { RawPrimary } from "../../config/__tests__/preservation-test-kit"
 import type { Config } from "@/types/config/config"
@@ -113,16 +114,6 @@ describe("an ordinary edit over a primary config that is not valid", () => {
       expect(sameRaw(await readRawPrimary(), before)).toBe(true)
     })
 
-    it("through setLocalConfigAndMeta writes nothing", async () => {
-      const content = await openContentScriptContext()
-
-      await content
-        .setLocalConfigAndMeta(validConfig(), { lastModifiedAt: FIXED_MODIFIED_AT + 1 })
-        .catch(() => undefined)
-
-      expect(sameRaw(await readRawPrimary(), before)).toBe(true)
-    })
-
     it("through setLocalConfig is refused with a ConfigRecoveryRequiredError", async () => {
       const content = await openContentScriptContext()
 
@@ -171,12 +162,13 @@ describe("controls: an ordinary edit over a valid config", () => {
 })
 
 describe("an edit over a valid config that carries an older version label", () => {
-  // Current-shaped data under an old label is what an interrupted write leaves behind, and what an
-  // options page can meet in the instant before the background has finished upgrading. If an edit
+  // Current-shaped data under an old label is what an interrupted write leaves behind. If an edit
   // were stored over it with the label unchanged, the next start would run old migration steps over
-  // current-shaped data (36 of the 110 labels cannot be upgraded that way). The edit is refused with
-  // a retryable error instead, and nothing is stored.
-  it("is refused with a retryable error, and stores nothing", async () => {
+  // current-shaped data (36 of the 110 labels cannot be upgraded that way). The settings service
+  // holds an edit until startup has run; when startup has finished and the label is still old, the
+  // upgrade did not happen and the config is treated as unusable: the edit is refused and nothing
+  // is stored.
+  it("is refused as an unusable config once startup has run, and stores nothing", async () => {
     await seedPrimary(validConfig(), {
       schemaVersion: CONFIG_SCHEMA_VERSION - 2,
       lastModifiedAt: 1,
@@ -184,7 +176,7 @@ describe("an edit over a valid config that carries an older version label", () =
     const before = await readRawPrimary()
     const options = await openOptionsContext()
 
-    await expect(options.edit()).rejects.toMatchObject({ name: "ConfigUpgradePendingError" })
+    await expect(options.edit()).rejects.toMatchObject({ name: "ConfigRecoveryRequiredError" })
 
     expect(sameRaw(await readRawPrimary(), before)).toBe(true)
   })

@@ -17,6 +17,7 @@ import { vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
 import { encodeLossless, preservedOriginalKey } from "../preservation"
+import { digestOfStoredValue } from "../status"
 import { testSeries as v110Series } from "./example/v110"
 import { testSeries as v111Series } from "./example/v111"
 
@@ -65,6 +66,18 @@ export function previousVersionConfig(): any {
 
 export const PREVIOUS_VERSION = CONFIG_SCHEMA_VERSION - 1
 export const PREVIOUS_META = { schemaVersion: PREVIOUS_VERSION, lastModifiedAt: FIXED_MODIFIED_AT }
+
+/** A meta as the settings service leaves it after a commit of `value` (revision 1 by default). */
+export function committedMeta(value: unknown, revision = 1) {
+  return {
+    schemaVersion: CONFIG_SCHEMA_VERSION,
+    lastModifiedAt: FIXED_MODIFIED_AT,
+    revision,
+    lastOpId: "test-op",
+    lastOpDigest: "test-op-digest",
+    valueDigest: digestOfStoredValue(value),
+  }
+}
 
 // ----- raw storage -----
 

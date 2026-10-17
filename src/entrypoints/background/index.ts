@@ -19,6 +19,7 @@ import {
   isFreshInstalledConfig,
 } from "./config"
 import { setUpConfigBackup } from "./config-backup"
+import { setUpConfigCommitService } from "./config-commit-service"
 import { initializeContextMenu, registerContextMenuListeners } from "./context-menu"
 import {
   cleanupAllAiSegmentationCache,
@@ -42,6 +43,11 @@ export default defineBackground({
   type: "module",
   main: () => {
     logger.info("Hello background!", { id: browser.runtime.id })
+
+    // The one writer of the config, its meta, the backups and the preserved originals. It must be
+    // listening in the first turn, like the other message handlers, so that a message that wakes
+    // the worker is not dropped; startup is the first job of its queue.
+    setUpConfigCommitService()
 
     browser.runtime.onInstalled.addListener(async (details) => {
       await ensureInitializedConfig()

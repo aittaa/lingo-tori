@@ -2,7 +2,8 @@ import type { Config } from "@/types/config/config"
 import type { OnboardingStatus } from "@/utils/onboarding/lifecycle"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
-import { storage } from "#imports"
+import { browser, storage } from "#imports"
+import { editConfig } from "@/utils/config/write-guard"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { ONBOARDING_STORAGE_KEY, readOnboardingState } from "@/utils/onboarding/lifecycle"
 import {
@@ -37,6 +38,23 @@ function installWriteSpy() {
     }
     return realSetItem(key, ...rest)
   }) as typeof storage.setItem)
+
+  // The config is committed by the settings service in one `storage.local.set` call carrying the
+  // value and its meta, so a write of the config is counted (and made to fail) there, under the
+  // same `local:config` name.
+  const realSet = browser.storage.local.set.bind(browser.storage.local)
+  vi.spyOn(browser.storage.local, "set").mockImplementation((items: Record<string, unknown>) => {
+    const name = "local:config"
+    if (Object.keys(items).includes("config")) {
+      writesTo.set(name, (writesTo.get(name) ?? 0) + 1)
+      const remaining = failingWrites.get(name) ?? 0
+      if (remaining > 0) {
+        failingWrites.set(name, remaining - 1)
+        return Promise.reject(new Error(`write to ${name} failed`))
+      }
+    }
+    return realSet(items)
+  })
 }
 
 function failNextWritesTo(key: string, count = 1) {
@@ -416,10 +434,12 @@ describe("background onboarding", () => {
       await seedConfig()
       failNextWritesTo(onboardingKey)
       await onboarding.transition({ event: "complete", targetCode: "kor" })
-      // Settings changes the target afterwards.
-      const edited = await storedConfig()
-      edited.language.targetCode = "jpn"
-      await storage.setItem(configKey, edited)
+      // Settings changes the target afterwards (through the settings writer, which keeps the
+      // stored value and its meta together).
+      await editConfig((current) => ({
+        ...current,
+        language: { ...current.language, targetCode: "jpn" },
+      }))
       writesTo.clear()
 
       // Not a retry: the person chose Korean again, so it is saved as any confirmation is.

@@ -58,7 +58,10 @@ const AI_CONFIG_HELPER_TRIGGER = i18n.t(
 )
 
 function seedConfig(store: ReturnType<typeof createStore>, config: SeedConfig) {
-  void fakeBrowser.storage.local.set({ config })
+  // Each test starts from its own stored config: the meta a previous test's commit left would no
+  // longer describe this value, and the settings service treats a value that does not match its
+  // meta as unusable.
+  void fakeBrowser.storage.local.clear().then(() => fakeBrowser.storage.local.set({ config }))
   store.set(configAtom, config)
 }
 

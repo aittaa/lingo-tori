@@ -5,9 +5,9 @@
 // The page shows the DEFAULTS for a stored value that fails validation. "Backup now" and the
 // "back up the current config first" step of Restore used to store that view as if it were the
 // user's config, and Restore then overwrote the stored value, so the original was gone and the list
-// held defaults. Now Restore and "Backup now" refuse while the stored config cannot be used
-// (replacing it is not available yet): nothing is written, the original stays where it is and is
-// kept by the preservation store at startup, and the defaults are never stored as a backup.
+// held defaults. Now Restore keeps an exact, confirmed copy of the stored pair first (instead of a
+// backup of the defaults) and only then replaces it; "Backup now" refuses while the stored config
+// cannot be used, and the defaults are never stored as a backup.
 //
 // Real: `ConfigBackupPage` with its list, `BackupConfigItem` and its Restore flow, `addBackup`,
 // `migrateConfig`, `initializeConfig`, over the extension's in-memory browser storage. Only the toast
@@ -19,11 +19,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { createStore, Provider } from "jotai"
 import { MemoryRouter } from "react-router"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { configSchema } from "@/types/config/config"
 import {
   backupEntries,
   corruptConfig,
   CURRENT_META,
+  failWrites,
   holdFirstCall,
+  originalIsSafe,
   preservedCopiesOf,
   readPreserved,
   readRawPrimary,
@@ -111,17 +114,20 @@ describe("Restore over a primary config that is not valid", () => {
     await seedBackup(validConfig(), 1_000)
   })
 
-  it("is refused: nothing is restored, the stored config stays exactly as it is, and an error is shown", async () => {
+  it("keeps an exact copy of the stored config, then restores the chosen backup", async () => {
     renderBackupPage()
-    const before = await snapshot()
 
     await restoreNewestBackup()
     await untilToasted()
 
-    expect(await snapshot()).toEqual(before)
-    expect(sameRaw(await readRawPrimary(), SUSPECT)).toBe(true)
-    expect(toastTypes()).toContain("error")
-    expect(toastTypes()).not.toContain("success")
+    const all = await snapshot()
+    const copies = preservedCopiesOf(all, SUSPECT)
+    expect(copies).toHaveLength(1)
+    expect(copies[0]!.entry.reason).toBe("invalid-schema")
+    // The copy is kept instead of a backup: the list holds only the backup that was restored.
+    expect(backupEntries(all)).toHaveLength(1)
+    expect((await readRawPrimary()).value).toEqual(configSchema.parse(validConfig()))
+    expect(toastTypes()).toEqual(["success"])
   })
 
   it("does not put the defaults into the backup list as if they were the user's config", async () => {
@@ -136,7 +142,7 @@ describe("Restore over a primary config that is not valid", () => {
     expect(defaultsAsBackup).toEqual([])
   })
 
-  it("is refused after a startup that ran while it waited, and the original is kept by that startup", async () => {
+  it("keeps a single copy when a startup that ran while it waited kept the original first", async () => {
     renderBackupPage()
     await untilRendered()
     const restoreRead = holdFirstCall("get", (keys) => keys.includes("config"))
@@ -147,15 +153,16 @@ describe("Restore over a primary config that is not valid", () => {
     restoreRead.release()
     await untilToasted()
 
-    expect(sameRaw(await readRawPrimary(), SUSPECT)).toBe(true)
     expect(preservedCopiesOf(await snapshot(), SUSPECT)).toHaveLength(1)
-    expect(toastTypes()).toContain("error")
-    expect(toastTypes()).not.toContain("success")
+    expect((await readPreserved()).length).toBe(1)
+    expect((await readRawPrimary()).value).toEqual(configSchema.parse(validConfig()))
+    expect(toastTypes()).toEqual(["success"])
   })
 
   it.each([
     {
       name: "written by a newer version",
+      reason: "newer-version",
       primary: {
         value: { ...validConfig(), keyFromANewerVersion: { setting: "kept" } },
         meta: { schemaVersion: CONFIG_SCHEMA_VERSION + 1, lastModifiedAt: 1 },
@@ -163,18 +170,56 @@ describe("Restore over a primary config that is not valid", () => {
     },
     {
       name: "with a meta that cannot be read",
+      reason: "incoherent",
       primary: { value: validConfig(), meta: "not-a-meta" } satisfies RawPrimary,
     },
-  ])("is refused for a stored config $name, which keeps its own label", async ({ primary }) => {
-    await seedPrimary(primary.value, primary.meta)
+  ])(
+    "keeps an exact copy, with its own label, of a stored config $name, then restores",
+    async ({ primary, reason }) => {
+      await seedPrimary(primary.value, primary.meta)
+      const original = await readRawPrimary()
+      renderBackupPage()
+
+      await restoreNewestBackup()
+      await untilToasted()
+
+      const copies = preservedCopiesOf(await snapshot(), original)
+      expect(copies).toHaveLength(1)
+      expect(copies[0]!.entry.reason).toBe(reason)
+      expect((await readRawPrimary()).value).toEqual(configSchema.parse(validConfig()))
+      expect(toastTypes()).toEqual(["success"])
+    },
+  )
+})
+
+describe("a Restore, an options-page edit and a startup at once over the same primary", () => {
+  it("keeps the original whichever of them reaches storage first, and refuses the edit made over it", async () => {
+    await seedPrimary(SUSPECT.value, SUSPECT.meta)
+    await seedBackup(validConfig(), 1_000)
     renderBackupPage()
-    const before = await snapshot()
+    const restoreWrite = holdFirstCall("set", (keys) => keys.includes("config"))
+    vi.resetModules()
+    const { createStore: createOtherStore } = await import("jotai")
+    const { writeConfigAtom: otherWriteConfigAtom } = await import("@/utils/atoms/config")
+    const otherContext = createOtherStore()
 
     await restoreNewestBackup()
+    await restoreWrite.reached
+    // The restore holds the replacement; the stored config is still the unusable one.
+    const edit = otherContext.set(otherWriteConfigAtom, { contextMenu: { enabled: false } }).then(
+      () => "applied",
+      (error: unknown) => error,
+    )
+    await startBackground()
+    restoreWrite.release()
+    expect(await edit).toMatchObject({ name: "ConfigRecoveryRequiredError" })
     await untilToasted()
 
-    expect(await snapshot()).toEqual(before)
-    expect(toastTypes()).toContain("error")
+    expect(await originalIsSafe(SUSPECT)).toBe(true)
+    expect(preservedCopiesOf(await snapshot(), SUSPECT)).toHaveLength(1)
+    // The restored config stands: the refused edit left no trace in it.
+    expect((await readRawPrimary()).value).toEqual(configSchema.parse(validConfig()))
+    expect(toastTypes()).toEqual(["success"])
   })
 })
 
@@ -254,6 +299,27 @@ describe("a Restore that fails", () => {
 
     expect(await snapshot()).toEqual(before)
     expect(toastTypes()).toContain("error")
+  })
+
+  it("adds no backup and removes none when the write of the primary fails", async () => {
+    // The current config differs from the newest backup, so "back up the current config first" runs.
+    await seedPrimary({ ...validConfig(), contextMenu: { enabled: false } }, CURRENT_META)
+    for (let n = 0; n < MAX_BACKUPS_COUNT; n++) await seedBackup(validConfig(), 1_000 + n)
+    const before = await snapshot()
+    renderBackupPage()
+    failWrites((keys) => keys.includes("config"))
+
+    await restoreNewestBackup()
+    await untilToasted()
+
+    expect(backupEntries(await snapshot()).map(({ id }) => id)).toEqual(
+      backupEntries(before).map(({ id }) => id),
+    )
+    expect(sameRaw(await readRawPrimary(), { value: before.config, meta: before.config$ })).toBe(
+      true,
+    )
+    expect(toastTypes()).toContain("error")
+    expect(toastTypes()).not.toContain("success")
   })
 
   it("leaves a preserved original in place and does not fall back to defaults (a control)", async () => {

@@ -2,12 +2,10 @@ import type { Config } from "@/types/config/config"
 import { dequal } from "dequal"
 import { browser } from "#imports"
 import { configSchema } from "@/types/config/config"
+import { Sha256Hex } from "@/utils/hash"
 import { CONFIG_SCHEMA_VERSION, CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "../constants/config"
-import {
-  ConfigExportBlockedError,
-  ConfigRecoveryRequiredError,
-  ConfigUpgradePendingError,
-} from "./errors"
+import { ConfigExportBlockedError } from "./errors"
+import { stableStringify } from "./stable-json"
 
 /** Where the meta of the config lives (WXT keeps a value's meta next to it under `<key>$`). */
 export const CONFIG_META_STORAGE_KEY = `${CONFIG_STORAGE_KEY}$`
@@ -38,7 +36,18 @@ export type ConfigStatus =
   /** Nothing is stored. */
   | { kind: "absent"; raw: RawConfigPair }
   /** Valid for the current schema. `metaMissing`: no label was stored, so the label is assumed. */
-  | { kind: "usable"; raw: RawConfigPair; config: Config; metaMissing: boolean }
+  | {
+      kind: "usable"
+      raw: RawConfigPair
+      config: Config
+      metaMissing: boolean
+      /** Whole number from the meta (0 for a meta written before revisions existed). */
+      revision: number
+      /** The digest the meta carries for the value, already checked against the value. */
+      valueDigest?: string
+      lastOpId?: string
+      lastOpDigest?: string
+    }
   /** Labelled with an older schema version. Startup migrates it before anything else may write. */
   | { kind: "upgrading"; raw: RawConfigPair; fromVersion: number }
   /** Not used, not repaired. The stored pair is an original that must be kept as it is. */
@@ -60,18 +69,50 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 /**
  * Reads the label out of a raw meta. A meta without a `schemaVersion` carries no label (older
- * writers stored only `lastModifiedAt`); anything that is not an object, or a `schemaVersion` that
- * is not a whole number from 1, cannot be read and is malformed.
+ * writers stored only `lastModifiedAt`); anything that is not an object, a `schemaVersion` that is
+ * not a whole number from 1, or a receipt field of the wrong type (`revision`, `valueDigest`,
+ * `lastOpId`, `lastOpDigest`) cannot be read and is malformed.
  */
 function readMetaLabel(raw: RawConfigPair): MetaLabel {
   if (!raw.hasMeta) return { kind: "none" }
   if (!isPlainObject(raw.meta)) return { kind: "malformed" }
-  const version = raw.meta.schemaVersion
-  if (version === undefined) return { kind: "none" }
-  if (typeof version === "number" && Number.isInteger(version) && version >= 1) {
-    return { kind: "label", version }
+  const meta = raw.meta
+  if (meta.revision !== undefined && !isWholeNumber(meta.revision, 0)) return { kind: "malformed" }
+  for (const field of ["valueDigest", "lastOpId", "lastOpDigest"]) {
+    if (meta[field] !== undefined && typeof meta[field] !== "string") return { kind: "malformed" }
   }
+  const version = meta.schemaVersion
+  if (version === undefined) return { kind: "none" }
+  if (isWholeNumber(version, 1)) return { kind: "label", version }
   return { kind: "malformed" }
+}
+
+function isWholeNumber(value: unknown, minimum: number): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= minimum
+}
+
+/** The digest of a stored value: sorted keys, `undefined` dropped, as storage keeps the data. */
+export function digestOfStoredValue(value: unknown): string {
+  return Sha256Hex(stableStringify(value))
+}
+
+export interface MetaReceipt {
+  revision: number
+  valueDigest?: string
+  lastOpId?: string
+  lastOpDigest?: string
+}
+
+/** The commit receipt in a raw meta; the meta must already have passed `readMetaLabel`. */
+export function readReceipt(raw: RawConfigPair): MetaReceipt {
+  if (!raw.hasMeta || !isPlainObject(raw.meta)) return { revision: 0 }
+  const meta = raw.meta
+  return {
+    revision: typeof meta.revision === "number" ? meta.revision : 0,
+    valueDigest: typeof meta.valueDigest === "string" ? meta.valueDigest : undefined,
+    lastOpId: typeof meta.lastOpId === "string" ? meta.lastOpId : undefined,
+    lastOpDigest: typeof meta.lastOpDigest === "string" ? meta.lastOpDigest : undefined,
+  }
 }
 
 /** `lastModifiedAt` of a raw meta when it is a usable time, so a rewrite can keep it. */
@@ -103,7 +144,8 @@ export async function readRawConfigPair(): Promise<RawConfigPair> {
  * which must not carry the migration scripts):
  *
  * 1. no value: `absent`;
- * 2. a meta that cannot be read: `suspect(incoherent)`;
+ * 2. a meta that cannot be read, or a meta whose value digest does not match the stored value:
+ *    `suspect(incoherent)`;
  * 3. a label newer than this build: `suspect(newer-version)` (a downgrade is never edited or stripped);
  * 4. an older label: `upgrading`;
  * 5. the current label, or no label: `usable` if the value validates, else `suspect(invalid-schema)`.
@@ -116,6 +158,12 @@ export function classifyConfigPair(raw: RawConfigPair): ConfigStatus {
 
   const label = readMetaLabel(raw)
   if (label.kind === "malformed") return { kind: "suspect", raw, reason: "incoherent" }
+  const receipt = readReceipt(raw)
+  // A meta that says which value it was committed with must agree with the value that is stored:
+  // a pair that does not was torn (or edited) and is not trusted, repaired or migrated.
+  if (receipt.valueDigest !== undefined && receipt.valueDigest !== digestOfStoredValue(raw.value)) {
+    return { kind: "suspect", raw, reason: "incoherent" }
+  }
   if (label.kind === "label" && label.version > CONFIG_SCHEMA_VERSION) {
     return { kind: "suspect", raw, reason: "newer-version" }
   }
@@ -125,7 +173,39 @@ export function classifyConfigPair(raw: RawConfigPair): ConfigStatus {
 
   const parsed = configSchema.safeParse(raw.value)
   if (!parsed.success) return { kind: "suspect", raw, reason: "invalid-schema" }
-  return { kind: "usable", raw, config: parsed.data, metaMissing: label.kind === "none" }
+  return {
+    kind: "usable",
+    raw,
+    config: parsed.data,
+    metaMissing: label.kind === "none",
+    ...receipt,
+  }
+}
+
+/**
+ * What a writer's decision was based on: the kind of state, the revision from the meta (0 for a
+ * meta that predates revisions) and a digest of the data. A usable value is hashed on its own; for
+ * every other state the digest covers the value and the meta together. If the stored data changes
+ * in any way between the snapshot and the commit, the token no longer matches.
+ */
+export interface BaseToken {
+  kind: ConfigStatus["kind"]
+  revision: number
+  valueHash: string
+}
+
+export function fingerprintOf(status: ConfigStatus): BaseToken {
+  const revision = readReceipt(status.raw).revision
+  if (status.kind === "absent") return { kind: "absent", revision, valueHash: "absent" }
+  if (status.kind === "usable") {
+    return {
+      kind: "usable",
+      revision,
+      valueHash: status.valueDigest ?? digestOfStoredValue(status.raw.value),
+    }
+  }
+  const pair = { value: status.raw.value, meta: status.raw.hasMeta ? status.raw.meta : null }
+  return { kind: status.kind, revision, valueHash: Sha256Hex(stableStringify(pair)) }
 }
 
 export async function getConfigStatus(): Promise<ConfigStatus> {
@@ -158,22 +238,9 @@ export async function getConfigView(): Promise<ConfigView> {
 export async function assertCurrentConfigExportable(): Promise<void> {
   const status = await getConfigStatus()
   if (status.kind === "suspect") throw new ConfigExportBlockedError(status.reason)
-}
-
-/**
- * Refuses a change to the config unless it is safe to make one: nothing stored yet, or a stored
- * config that is usable. A config that cannot be used is never replaced by defaults plus an edit,
- * and a config that is still being upgraded is never given current-shaped data under its old label.
- * Reading the status failing refuses too (fail closed).
- *
- * This is a plain check before the write, not a lock: another context can still change the stored
- * pair between the check and the write. The writers that use it take the check once, immediately
- * before they read what they will change.
- */
-export async function assertConfigWritable(): Promise<void> {
-  const status = await getConfigStatus()
-  if (status.kind === "suspect") throw new ConfigRecoveryRequiredError(status.reason)
-  if (status.kind === "upgrading") throw new ConfigUpgradePendingError()
+  // A config still labelled with an older version that has not been migrated is shown as the
+  // defaults when it does not validate, so it is not exported either.
+  if (status.kind === "upgrading") throw new ConfigExportBlockedError("upgrading")
 }
 
 function sameView(a: ConfigView, b: ConfigView) {

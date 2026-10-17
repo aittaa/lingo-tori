@@ -16,6 +16,7 @@ import {
   ABSENT,
   corruptConfig,
   crashAtWrite,
+  committedMeta,
   CURRENT_META,
   failWrites,
   FIXED_MODIFIED_AT,
@@ -393,7 +394,7 @@ describe("startup when a migration step throws", () => {
 
 describe("controls: what startup does for a config it can use", () => {
   it("leaves a valid current config exactly as stored and keeps no copy", async () => {
-    await seedPrimary(validConfig(), CURRENT_META)
+    await seedPrimary(validConfig(), committedMeta(validConfig()))
     const before = await readRawPrimary()
     const tracker = trackPrimaryWrites()
 
@@ -424,9 +425,10 @@ describe("controls: what startup does for a config it can use", () => {
     const stored = await readRawPrimary()
     expect(isMarked(stored.value)).toBe(true)
     expect(configSchema.safeParse(stored.value).success).toBe(true)
-    expect(stored.meta).toEqual({
+    expect(stored.meta).toMatchObject({
       schemaVersion: CONFIG_SCHEMA_VERSION,
       lastModifiedAt: FIXED_MODIFIED_AT,
+      revision: 1,
     })
     expect(await readPreserved()).toEqual([])
     expect(result).toEqual({ isFreshInstall: false, hadStoredConfig: true })

@@ -234,3 +234,15 @@ export async function preserveOriginal(
   }
   return { key, outcome: "preserved" }
 }
+
+/**
+ * Removes one kept original. This is only done when the user asks for it and confirms it; it is
+ * idempotent, so a request repeated after a lost response is not an error. A key that is not a
+ * preservation key is refused, so this can never remove anything else.
+ */
+export async function deletePreservedOriginal(key: string): Promise<void> {
+  if (!key.startsWith(PRESERVED_ORIGINAL_PREFIX)) {
+    throw new Error("Not the key of a preserved original")
+  }
+  await browser.storage.local.remove(key)
+}

@@ -4,7 +4,8 @@ import { dequal } from "dequal"
 import { atom } from "jotai"
 import { selectAtom } from "jotai/utils"
 import { configSchema } from "@/types/config/config"
-import { assertConfigWritable } from "../config/status"
+import { getConfigView } from "../config/status"
+import { editConfig } from "../config/write-guard"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "../constants/config"
 import { storageAdapter } from "./storage-adapter"
 
@@ -43,18 +44,19 @@ export const writeConfigAtom = atom(null, async (get, set, update: ConfigUpdate)
   pendingWrites++
 
   const task = writeQueue.then(async () => {
-    let stored: Config | undefined
     try {
-      // Until every writer shares one queue this is a fail-closed check before the read: the edit
-      // is never applied to the defaults that stand in for a config that cannot be used.
-      await assertConfigWritable()
-      stored = await storageAdapter.get(CONFIG_STORAGE_KEY, DEFAULT_CONFIG, configSchema)
-      const next = applyUpdate(stored, update)
-      await storageAdapter.set(CONFIG_STORAGE_KEY, next, configSchema)
-      await storageAdapter.setMeta(CONFIG_STORAGE_KEY, { lastModifiedAt: Date.now() })
-      if (version === writeVersion && !dequal(get(configAtom), next)) set(configAtom, next)
+      // The edit is computed here, from the stored config, and sent to the settings service as the
+      // complete next config; if the data changed meanwhile the same updater runs again on the
+      // fresh snapshot. A refusal (an unusable stored config) rejects and stores nothing.
+      const committed = await editConfig((current) => applyUpdate(current, update))
+      if (version === writeVersion && !dequal(get(configAtom), committed))
+        set(configAtom, committed)
     } catch (error) {
-      if (version === writeVersion && stored) set(configAtom, stored)
+      if (version === writeVersion) {
+        // What was shown optimistically was not stored: show what is.
+        const view = await getConfigView().catch(() => undefined)
+        if (view?.config) set(configAtom, view.config)
+      }
       throw error
     } finally {
       pendingWrites--

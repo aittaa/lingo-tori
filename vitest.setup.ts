@@ -273,3 +273,51 @@ if (typeof Element !== "undefined") {
     },
   })
 }
+
+// ---------------------------------------------------------------------------------------------
+// Config commit service seam (appended block; it does not touch anything above).
+//
+// Every config writer sends its change to the background's commit service. A unit test has no
+// background, so the first such message attaches the real service to the fake browser's message
+// bus: no startup job and no migration, only the queue, the checks and the commit, over whatever
+// the test stored. Nothing is imported, attached or written until a config write is actually
+// attempted, so suites that never write the config pay nothing and are not affected.
+// ---------------------------------------------------------------------------------------------
+{
+  const { fakeBrowser } = await import("wxt/testing/fake-browser")
+  const seam = Symbol.for("lingotori.configCommitSeam")
+  const runtime = fakeBrowser.runtime as unknown as Record<symbol, unknown>
+  if (!runtime[seam]) {
+    runtime[seam] = true
+    const original = fakeBrowser.runtime.sendMessage.bind(fakeBrowser.runtime)
+    let detach: (() => void) | undefined
+    let paused = false
+    // A test that needs the background's own listener (admission by sender) pauses the seam for the
+    // time it takes.
+    runtime[Symbol.for("lingotori.configCommitSeam.pause")] = (value: boolean) => {
+      paused = value
+      if (paused) {
+        detach?.()
+        detach = undefined
+      }
+    }
+    const attachService = async () => {
+      const { COMMIT_MESSAGE_TYPE, onCommitMessage } =
+        await import("@/utils/config/commit-protocol")
+      const { getConfigCommitService } =
+        await import("@/entrypoints/background/config-commit-service")
+      // Attached again for every message: a test may have reset the fake browser or the modules.
+      detach?.()
+      detach = onCommitMessage(COMMIT_MESSAGE_TYPE, ({ data }) =>
+        getConfigCommitService().handleInternal(data),
+      )
+    }
+    fakeBrowser.runtime.sendMessage = ((...args: unknown[]) => {
+      const message = args[0] as { type?: unknown } | undefined
+      if (message?.type === "lingotoriConfigCommit" && !paused) {
+        return attachService().then(() => (original as (...a: unknown[]) => unknown)(...args))
+      }
+      return (original as (...a: unknown[]) => unknown)(...args)
+    }) as typeof fakeBrowser.runtime.sendMessage
+  }
+}

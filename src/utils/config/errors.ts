@@ -66,13 +66,45 @@ export class ConfigRecoveryRequiredError extends Error {
   }
 }
 
-/** A change was refused because the stored config is still being upgraded; it is worth retrying. */
-export class ConfigUpgradePendingError extends Error {
+/** A change was refused for a reason that is not the state of the stored config (see `reason`). */
+export class ConfigRefusedError extends Error {
+  readonly reason: string
+
+  constructor(reason: string) {
+    super(`This change was not allowed (${reason}). Nothing was changed.`)
+    this.name = "ConfigRefusedError"
+    this.reason = reason
+  }
+}
+
+/** Another context changed the settings again and again while this change was being saved. */
+export class ConfigConflictError extends Error {
   constructor() {
     super(
-      "Your saved settings are still being upgraded to this version, so nothing was changed. " +
-        "Try again in a moment.",
+      "The settings kept changing while this was being saved, so nothing was changed. Try again.",
     )
-    this.name = "ConfigUpgradePendingError"
+    this.name = "ConfigConflictError"
+  }
+}
+
+/** The part of the extension that saves settings could not be reached or could not save. */
+export class ConfigUnavailableError extends Error {
+  constructor(options?: { cause?: unknown }) {
+    super(
+      "The settings could not be saved right now. They may or may not have been changed.",
+      options,
+    )
+    this.name = "ConfigUnavailableError"
+  }
+}
+
+/**
+ * A request was repeated after its answer was lost and it cannot be told whether the first attempt
+ * happened. It is not repeated again; the settings screen shows what is stored now.
+ */
+export class ConfigOutcomeUnknownError extends Error {
+  constructor() {
+    super("It is not known whether the change was saved. Check the settings, then try again.")
+    this.name = "ConfigOutcomeUnknownError"
   }
 }

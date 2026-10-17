@@ -5,7 +5,7 @@ import {
   corruptConfig,
   CURRENT_META,
   PREVIOUS_META,
-  PREVIOUS_VERSION,
+  preservedCopiesOf,
   previousVersionConfig,
   readPreserved,
   readRawPrimary,
@@ -16,6 +16,7 @@ import {
   validConfig,
 } from "@/utils/config/__tests__/preservation-test-kit"
 import { ConfigRecoveryRequiredError } from "@/utils/config/errors"
+import { digestOfStoredValue } from "@/utils/config/status"
 import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
 import { backUpCurrentConfig, replaceStoredConfig } from "../current-config"
 
@@ -42,14 +43,6 @@ describe("backUpCurrentConfig", () => {
     expect(entry!.backup).toEqual({ schemaVersion: CONFIG_SCHEMA_VERSION, config: stored })
   })
 
-  it("labels the backup of a config still being upgraded with its own version", async () => {
-    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
-
-    await backUpCurrentConfig("0.0.1")
-
-    expect(backupEntries(await snapshot())[0]!.backup.schemaVersion).toBe(PREVIOUS_VERSION)
-  })
-
   it("adds a backup even when the latest one holds the same config (it is an explicit request)", async () => {
     await seedPrimary(validConfig(), CURRENT_META)
 
@@ -63,6 +56,10 @@ describe("backUpCurrentConfig", () => {
     { name: "invalid", state: () => seedPrimary(corruptConfig(), CURRENT_META) },
     { name: "of a newer version", state: () => seedPrimary(validConfig(), { schemaVersion: 999 }) },
     { name: "with a meta that cannot be read", state: () => seedPrimary(validConfig(), "x") },
+    {
+      name: "still labelled with an older version once startup has run",
+      state: () => seedPrimary(previousVersionConfig(), PREVIOUS_META),
+    },
   ])("refuses when the stored config is $name, and writes nothing", async ({ state }) => {
     await state()
     const before = await snapshot()
@@ -80,15 +77,30 @@ describe("backUpCurrentConfig", () => {
 })
 
 describe("replaceStoredConfig", () => {
-  it("writes the replacement with a complete current meta", async () => {
-    await seedPrimary(validConfig(), { schemaVersion: 1, lastModifiedAt: 1, leftover: true })
+  it("writes the replacement with a complete current meta, and nothing left over from the old one", async () => {
+    await seedPrimary(validConfig(), {
+      schemaVersion: CONFIG_SCHEMA_VERSION,
+      lastModifiedAt: 1,
+      leftover: true,
+    })
 
     await replaceStoredConfig(replacement(), OPTIONS)
 
     const stored = await readRawPrimary()
     expect(stored.value).toEqual(replacement())
-    expect(Object.keys(stored.meta as object).sort()).toEqual(["lastModifiedAt", "schemaVersion"])
-    expect((stored.meta as any).schemaVersion).toBe(CONFIG_SCHEMA_VERSION)
+    expect(Object.keys(stored.meta as object).sort()).toEqual([
+      "lastModifiedAt",
+      "lastOpDigest",
+      "lastOpId",
+      "revision",
+      "schemaVersion",
+      "valueDigest",
+    ])
+    expect(stored.meta).toMatchObject({
+      schemaVersion: CONFIG_SCHEMA_VERSION,
+      revision: 1,
+      valueDigest: digestOfStoredValue(stored.value),
+    })
   })
 
   it("backs up a usable config as stored first, unless asked not to", async () => {
@@ -111,36 +123,63 @@ describe("replaceStoredConfig", () => {
     expect(backupEntries(await snapshot())).toHaveLength(1)
   })
 
-  it("backs up a config still being upgraded with its own version", async () => {
+  it("keeps a config still labelled with an older version as an exact copy, then replaces it", async () => {
     await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+    const original = await readRawPrimary()
 
     await replaceStoredConfig(replacement(), OPTIONS)
 
-    expect(backupEntries(await snapshot())[0]!.backup.schemaVersion).toBe(PREVIOUS_VERSION)
+    const copies = preservedCopiesOf(await snapshot(), original)
+    expect(copies).toHaveLength(1)
+    expect(copies[0]!.entry.reason).toBe("migration-failed")
+    expect(backupEntries(await snapshot())).toEqual([])
+    expect((await readRawPrimary()).value).toEqual(replacement())
   })
 
-  it.each([
-    { name: "invalid", state: () => seedPrimary(corruptConfig(), CURRENT_META) },
-    { name: "invalid with no meta", state: () => seedPrimary(corruptConfig(), ABSENT) },
-    { name: "a corrupted falsy value", state: () => seedPrimary(0, CURRENT_META) },
-    { name: "of a newer version", state: () => seedPrimary(validConfig(), { schemaVersion: 999 }) },
-    { name: "with a meta that cannot be read", state: () => seedPrimary(validConfig(), "x") },
-  ])(
-    "refuses to replace a stored config that is $name: nothing is written, not even a backup",
-    async ({ state }) => {
-      await state()
-      const before = await snapshot()
+  describe.each([true, false])("with backupCurrent: %s", (backupCurrent) => {
+    it.each([
+      {
+        name: "invalid",
+        state: () => seedPrimary(corruptConfig(), CURRENT_META),
+        reason: "invalid-schema",
+      },
+      {
+        name: "invalid with no meta",
+        state: () => seedPrimary(corruptConfig(), ABSENT),
+        reason: "invalid-schema",
+      },
+      {
+        name: "a corrupted falsy value",
+        state: () => seedPrimary(0, CURRENT_META),
+        reason: "invalid-schema",
+      },
+      {
+        name: "of a newer version",
+        state: () => seedPrimary(validConfig(), { schemaVersion: 999 }),
+        reason: "newer-version",
+      },
+      {
+        name: "with a meta that cannot be read",
+        state: () => seedPrimary(validConfig(), "x"),
+        reason: "incoherent",
+      },
+    ])(
+      "keeps an exact copy of a stored config that is $name, instead of a backup, and then replaces it",
+      async ({ state, reason }) => {
+        await state()
+        const original = await readRawPrimary()
 
-      await expect(replaceStoredConfig(replacement(), OPTIONS)).rejects.toBeInstanceOf(
-        ConfigRecoveryRequiredError,
-      )
-      await expect(
-        replaceStoredConfig(replacement(), { ...OPTIONS, backupCurrent: false }),
-      ).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
+        await replaceStoredConfig(replacement(), { ...OPTIONS, backupCurrent })
 
-      expect(await snapshot()).toEqual(before)
-    },
-  )
+        const all = await snapshot()
+        const copies = preservedCopiesOf(all, original)
+        expect(copies).toHaveLength(1)
+        expect(copies[0]!.entry.reason).toBe(reason)
+        expect(backupEntries(all)).toEqual([])
+        expect((await readRawPrimary()).value).toEqual(replacement())
+      },
+    )
+  })
 
   it("replaces a profile with nothing stored, without a backup or a copy", async () => {
     await replaceStoredConfig(replacement(), OPTIONS)

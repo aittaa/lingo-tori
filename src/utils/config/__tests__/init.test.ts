@@ -2,8 +2,10 @@ import type { Config } from "@/types/config/config"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { isAPIProviderConfig } from "@/types/config/provider"
 import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "@/utils/constants/config"
+import { digestOfStoredValue } from "../status"
 import {
   ABSENT,
+  committedMeta,
   CURRENT_META,
   readPreserved,
   readRawPrimary,
@@ -68,13 +70,32 @@ describe("initializeConfig", () => {
   }
 
   it("does not write when config and meta are already up to date", async () => {
-    await seedPrimary(buildStableConfig(), UP_TO_DATE_META)
+    const config = buildStableConfig()
+    await seedPrimary(config, committedMeta(config))
     const tracker = trackPrimaryWrites()
 
     await initialize()
 
     expect(runMigrationMock).not.toHaveBeenCalled()
     expect(tracker.writes).toEqual([])
+  })
+
+  it("gives a config written before revisions existed its revision and digest, without touching the value", async () => {
+    const config = buildStableConfig()
+    await seedPrimary(config, UP_TO_DATE_META)
+    const tracker = trackPrimaryWrites()
+
+    await initialize()
+
+    expect(tracker.writes).toEqual([{ method: "set", keys: ["config$"] }])
+    const stored = await readRawPrimary()
+    expect(stored.value).toEqual(config)
+    expect(stored.meta).toMatchObject({
+      schemaVersion: CONFIG_SCHEMA_VERSION,
+      lastModifiedAt: 123,
+      revision: 1,
+      valueDigest: digestOfStoredValue(config),
+    })
   })
 
   it("writes config and meta, in one call, when config is missing", async () => {
@@ -85,9 +106,12 @@ describe("initializeConfig", () => {
     expect(tracker.writes).toEqual([{ method: "set", keys: ["config", "config$"] }])
     const stored = await readRawPrimary()
     expect((stored.value as Config).providersConfig).toEqual([])
-    expect(stored.meta).toEqual({
+    expect(stored.meta).toMatchObject({
       schemaVersion: CONFIG_SCHEMA_VERSION,
       lastModifiedAt: expect.any(Number),
+      revision: 1,
+      lastOpId: "bootstrap",
+      valueDigest: digestOfStoredValue(stored.value),
     })
   })
 
@@ -181,7 +205,12 @@ describe("initializeConfig", () => {
     expect(tracker.writes).toEqual([{ method: "set", keys: ["config", "config$"] }])
     const stored = await readRawPrimary()
     expect(stored.value).toEqual(migrated)
-    expect(stored.meta).toEqual({ schemaVersion: CONFIG_SCHEMA_VERSION, lastModifiedAt: 888 })
+    expect(stored.meta).toMatchObject({
+      schemaVersion: CONFIG_SCHEMA_VERSION,
+      lastModifiedAt: 888,
+      revision: 1,
+      valueDigest: digestOfStoredValue(migrated),
+    })
   })
 
   it("stores the migrated config as parsed, with the toolbar's order and pins in step", async () => {
@@ -218,9 +247,10 @@ describe("initializeConfig", () => {
     expect(tracker.writes).toEqual([{ method: "set", keys: ["config$"] }])
     const stored = await readRawPrimary()
     expect(stored.value).toEqual(config)
-    expect(stored.meta).toEqual({
+    expect(stored.meta).toMatchObject({
       schemaVersion: CONFIG_SCHEMA_VERSION,
       lastModifiedAt: expect.any(Number),
+      revision: 1,
     })
   })
 })
