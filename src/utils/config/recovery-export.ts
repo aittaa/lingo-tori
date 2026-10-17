@@ -1,6 +1,7 @@
 import type { SuspectReason } from "./status"
 import { kebabCase } from "case-anything"
 import { APP_NAME, EXTENSION_VERSION } from "@/utils/constants/app"
+import { KeptCopyRestoreError } from "./errors"
 import { encodeLossless, listPreservedOriginals } from "./preservation"
 import { readRawConfigPair } from "./status"
 
@@ -80,7 +81,7 @@ function fileNameFor(kind: "kept" | "found", time: number) {
 /** The exact file for one kept copy. Fails if that copy is gone. */
 export async function buildKeptCopyExport(key: string): Promise<RecoveryDownload> {
   const found = (await listPreservedOriginals()).find((item) => item.key === key)
-  if (!found) throw new Error("That kept copy no longer exists, so nothing was exported.")
+  if (!found) throw new KeptCopyRestoreError("gone")
   const { entry } = found
   const file: RecoveryExportFile = {
     format: RECOVERY_EXPORT_FORMAT,

@@ -347,7 +347,7 @@ describe("assertCurrentConfigExportable", () => {
   it("points to a recovery option that exists", async () => {
     await seedPrimary(corruptConfig(), CURRENT_META)
 
-    await expect(assertCurrentConfigExportable()).rejects.toThrow(/recovery export/i)
+    await expect(assertCurrentConfigExportable()).rejects.toThrow(/recovery options/i)
   })
 })
 

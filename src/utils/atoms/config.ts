@@ -6,6 +6,8 @@ import { selectAtom } from "jotai/utils"
 import { getConfigView, watchConfigStatus } from "../config/status"
 import { editConfig } from "../config/write-guard"
 import { DEFAULT_CONFIG } from "../constants/config"
+import { logger } from "../logger"
+import { configWriteFailureAtom, describeWriteFailure } from "./config-health"
 
 export const configAtom = atom<Config>(DEFAULT_CONFIG)
 
@@ -57,6 +59,7 @@ export const writeConfigAtom = atom(null, (get, set, update: ConfigUpdate) => {
       // complete next config; if the data changed meanwhile the same updater runs again on the
       // fresh snapshot. A refusal (an unusable stored config) rejects and stores nothing.
       const committed = await editConfig((current) => applyUpdate(current, update))
+      set(configWriteFailureAtom, null)
       if (version === writeVersion && !dequal(get(configAtom), committed))
         set(configAtom, committed)
     } catch (error) {
@@ -65,6 +68,11 @@ export const writeConfigAtom = atom(null, (get, set, update: ConfigUpdate) => {
         const view = await getConfigView().catch(() => undefined)
         if (view?.config) set(configAtom, view.config)
       }
+      // A change that is not saved is never dropped silently: the banner says so (an unusable
+      // stored config has its own banner and needs no second line), and the console has it for the
+      // screens that have no banner (a page's own controls).
+      logger.warn("A change to the settings was not saved", error)
+      set(configWriteFailureAtom, describeWriteFailure(error))
       throw error
     } finally {
       pendingWrites--

@@ -1,3 +1,4 @@
+import { RecoveryNotice } from "@/components/recovery/recovery-notice"
 import { MAX_BACKUPS_COUNT } from "@/utils/constants/backup"
 import { i18n } from "@/utils/i18n"
 import { ConfigNavItem } from "../../../components/config-nav-item"
@@ -8,6 +9,7 @@ import { ResetConfigItem } from "./reset-config"
 export function ConfigManagementSection() {
   return (
     <ConfigSection title={i18n.t("options.preference.config.title")}>
+      <RecoveryNotice />
       <ManualConfigSyncConfigItems />
       <ConfigNavItem
         to="/preference/config-backup"

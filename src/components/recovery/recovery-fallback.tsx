@@ -1,7 +1,8 @@
 import { IconAlertCircle } from "@tabler/icons-react"
 import { useAtomValue } from "jotai"
 import { useState } from "react"
-import { RecoveryExport } from "@/components/recovery/recovery-export"
+import { recoveryFailureText } from "@/components/recovery/recovery-failure-text"
+import { RecoveryNotice } from "@/components/recovery/recovery-notice"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/base-ui/button"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { useExportConfig } from "@/hooks/use-export-config"
 import { configAtom } from "@/utils/atoms/config"
+import { configStoredUnusableAtom } from "@/utils/atoms/config-health"
 import { replaceStoredConfig } from "@/utils/backup/current-config"
 import { EXTENSION_VERSION } from "@/utils/constants/app"
 import { buildFreshDefaultConfig, CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
@@ -30,6 +32,9 @@ interface RecoveryFallbackProps {
 
 export function RecoveryFallback({ error, onRecovered }: RecoveryFallbackProps) {
   const config = useAtomValue(configAtom)
+  // While the saved settings cannot be used, "export current settings" is refused (it would hand
+  // over the defaults), so the guidance points to the recovery notice's exact exports instead.
+  const storedUnusable = useAtomValue(configStoredUnusableAtom)
   const [isResetting, setIsResetting] = useState(false)
 
   const { mutate: exportConfig, isPending: isExporting } = useExportConfig({
@@ -50,7 +55,7 @@ export function RecoveryFallback({ error, onRecovered }: RecoveryFallbackProps) 
       toastManager.add({
         type: "error",
         title: i18n.t("errorRecovery.resetFailed"),
-        description: resetError instanceof Error ? resetError.message : undefined,
+        description: recoveryFailureText(resetError),
       })
     } finally {
       setIsResetting(false)
@@ -62,7 +67,11 @@ export function RecoveryFallback({ error, onRecovered }: RecoveryFallbackProps) 
       <div className="mx-auto max-w-xl space-y-4 rounded-xl border bg-card p-4 md:p-6">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">{i18n.t("errorRecovery.title")}</h2>
-          <p className="text-sm text-muted-foreground">{i18n.t("errorRecovery.description")}</p>
+          <p className="text-sm text-muted-foreground">
+            {i18n.t(
+              storedUnusable ? "errorRecovery.unusableDescription" : "errorRecovery.description",
+            )}
+          </p>
         </div>
 
         {error?.message && (
@@ -73,27 +82,36 @@ export function RecoveryFallback({ error, onRecovered }: RecoveryFallbackProps) 
           </Alert>
         )}
 
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium">{i18n.t("errorRecovery.backupTitle")}</p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => exportConfig(true)}
-              disabled={isExporting || isResetting}
-            >
-              {i18n.t("errorRecovery.exportWithApiKeys")}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => exportConfig(false)}
-              disabled={isExporting || isResetting}
-            >
-              {i18n.t("errorRecovery.exportWithoutApiKeys")}
-            </Button>
+        {storedUnusable ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium">{i18n.t("errorRecovery.unusableBackupTitle")}</p>
+            <p className="text-sm text-muted-foreground">
+              {i18n.t("errorRecovery.unusableBackupHint")}
+            </p>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium">{i18n.t("errorRecovery.backupTitle")}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => exportConfig(true)}
+                disabled={isExporting || isResetting}
+              >
+                {i18n.t("errorRecovery.exportWithApiKeys")}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => exportConfig(false)}
+                disabled={isExporting || isResetting}
+              >
+                {i18n.t("errorRecovery.exportWithoutApiKeys")}
+              </Button>
+            </div>
+          </div>
+        )}
 
-        <RecoveryExport />
+        <RecoveryNotice />
 
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium">{i18n.t("errorRecovery.recoveryTitle")}</p>

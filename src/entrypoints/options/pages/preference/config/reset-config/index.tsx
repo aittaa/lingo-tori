@@ -1,5 +1,6 @@
 import { IconRefresh } from "@tabler/icons-react"
 import { useState } from "react"
+import { recoveryFailureText } from "@/components/recovery/recovery-failure-text"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +34,7 @@ export function ResetConfigItem() {
       toastManager.add({
         type: "error",
         title: i18n.t("errorRecovery.resetFailed"),
-        description: error instanceof Error ? error.message : undefined,
+        description: recoveryFailureText(error),
       })
     }
     setOpen(false)

@@ -62,6 +62,9 @@ errorRecovery:
   resetSuccess: Recovery completed. Settings have been reset
   resetFailed: Recovery failed. Unable to reset settings
   errorDetails: Error details
+  unusableDescription: Recovery mode is active. Your saved settings can't be read by this version, so they can't be exported as current settings. They have not been changed. Save an exact copy of them first, then reset the settings and try again.
+  unusableBackupTitle: Save your settings first (recommended)
+  unusableBackupHint: Use "Export exact copy" or "Export as found" in the recovery section below. The file holds your API keys and other credentials in plain text, and a warning is shown before it is saved.
   resetDialog:
     title: Reset settings?
     description: This will replace your current settings with the default values.
@@ -69,7 +72,7 @@ errorRecovery:
     cancel: Cancel
 recoveryExport:
   title: Settings this version cannot read
-  description: Your saved settings were not changed or deleted. You can save an exact copy of them to a file.
+  description: Your saved settings were not changed or deleted, and changes you make now are not saved until this is dealt with. You can save an exact copy, try to restore a kept copy, or start from the defaults.
   keptCopy: Copy kept on $1
   keptBy: Kept by version $1.
   reason:
@@ -88,6 +91,55 @@ recoveryExport:
     cancel: Cancel
   saved: The exact copy was saved
   failed: Could not save the exact copy
+  copiesTitle: Kept copies of settings this version could not read
+  copiesDescription: These copies were kept when this version could not read your settings. They are not used. You can export one, try to restore it, or delete it.
+  tryRestore: Try restore
+  delete: Delete
+  defaultsTitle: Start from the defaults
+  defaultsDescription: Replaces the settings with the defaults. An exact copy of your saved settings is kept first; if it can't be kept, nothing is replaced.
+  startFromDefaults: Start from defaults
+  cancel: Cancel
+  restoreDialog:
+    title: Try to restore these settings?
+    description: The copy is checked and upgraded first, and nothing is changed if that fails. Your current settings are kept as a backup or as an exact copy before they are replaced.
+    confirm: Restore
+  deleteDialog:
+    title: Delete this kept copy?
+    description: The copy is removed for good. If your saved settings still can't be read, a new copy is kept before anything replaces them.
+    confirm: Delete
+  defaultsDialog:
+    title: Start from the defaults?
+    description: Your settings are replaced with the defaults. An exact copy of your saved settings is kept first, and nothing is replaced if it can't be kept.
+    confirm: Start from defaults
+  restored: Settings restored
+  restoreFailed: Could not restore the settings
+  deleted: Kept copy deleted
+  deleteFailed: Could not delete the kept copy
+  defaultsApplied: Settings reset to the defaults
+  defaultsFailed: Could not start from the defaults
+  failure:
+    invalid: The kept copy doesn't pass this version's checks, or couldn't be upgraded, so nothing was restored.
+    newerVersion: The kept copy was saved by a newer version of the extension, so nothing was restored. Update the extension to use it.
+    unreadable: The kept copy could not be read back, so nothing was changed.
+    gone: That kept copy no longer exists, so nothing was changed.
+    noRoom: Too many copies of unusable settings are already kept. Delete one, then try again. Nothing was replaced.
+    notKept: A copy of your saved settings could not be kept first, so nothing was replaced.
+    unavailable: The settings could not be saved right now, and they may or may not have changed. Check them, then try again.
+    other: Something went wrong. Check your settings, then try again.
+configHealth:
+  unusable:
+    title: Your saved settings can't be read
+    description: Changes you make now are not saved, and your saved settings have not been changed. Open the recovery options to save a copy, restore them or start from the defaults.
+    action: Recovery options
+  failure:
+    title: Your last change was not saved
+    refused: This change was not allowed.
+    unknownOutcome: It is not known whether it was saved. Check the setting, then try again.
+    unavailable: The settings could not be saved right now. Try again in a moment.
+    conflict: The settings kept changing while it was being saved. Try again.
+    preservation: A copy of your saved settings could not be kept first, so nothing was replaced.
+    other: Something went wrong while saving.
+    dismiss: Dismiss
 options:
   autosave:
     invalid: Please correct the highlighted fields before leaving.

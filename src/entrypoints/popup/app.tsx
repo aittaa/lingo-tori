@@ -1,7 +1,8 @@
 import { Icon } from "@iconify/react"
 import lingotoriLogo from "@/assets/icons/lingotori.png?url&no-inline"
+import { ConfigHealthBanner } from "@/components/recovery/config-health-banner"
 import { i18n } from "@/utils/i18n"
-import { openOptionsPage } from "@/utils/navigation"
+import { buildRecoveryNoticeRoute, openOptionsPage } from "@/utils/navigation"
 import { version } from "../../../package.json"
 import { AISmartContext } from "./components/ai-smart-context"
 import { AlwaysTranslate } from "./components/always-translate"
@@ -25,6 +26,13 @@ function App() {
               <img src={lingotoriLogo} alt="" className="size-7" />
               LingoTori
             </span>
+          </div>
+          <div className="empty:hidden">
+            <ConfigHealthBanner
+              onOpenRecovery={() => {
+                void openOptionsPage({ route: buildRecoveryNoticeRoute() })
+              }}
+            />
           </div>
           <LanguageOptionsSelector />
           <ProvidersField />
