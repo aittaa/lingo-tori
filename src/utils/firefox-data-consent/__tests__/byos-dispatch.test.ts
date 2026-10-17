@@ -151,6 +151,63 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
     expect(fetcher).not.toHaveBeenCalled()
   })
 
+  it("does not record a missing consent as a failure of the session: it recovers once granted", async () => {
+    const permissions = installFirefox(NOTHING_GRANTED)
+    const { service, fetcher, vault } = await connected(firefoxTarget, Date.now() - 1000)
+
+    await expect(service.models()).rejects.toThrow(/./)
+
+    const after = await vault.read()
+    expect(after.refreshFailure).toBeUndefined()
+    expect(after.refreshUncertain).toBeUndefined()
+    expect(after.refreshRetryAfter).toBeUndefined()
+    expect(after.refreshing).toBeUndefined()
+    expect(after.blocked).toBeUndefined()
+    expect(after.credentials?.refreshToken).toBe("synthetic-refresh")
+
+    permissions.report(WITH_CREDENTIALS)
+    await expect(service.models()).resolves.toEqual({ models: [] })
+    expect(fetcher.mock.calls.map(([input]) => fetchUrl(input))).toContain(TOKEN_URL)
+  })
+
+  it("does not record it either when the grant goes away after the refresh has begun", async () => {
+    const permissions = installFirefox(WITH_CREDENTIALS)
+    // The check before the refresh sees the grant; the check at the request does not.
+    permissions.getAll
+      .mockImplementationOnce(async () => ({
+        permissions: [],
+        origins: [],
+        data_collection: ["authenticationInfo"],
+      }))
+      .mockImplementation(async () => ({ permissions: [], origins: [], data_collection: [] }))
+    const { service, fetcher, vault } = await connected(firefoxTarget, Date.now() - 1000)
+
+    await expect(service.models()).rejects.toThrow(/./)
+
+    expect(fetcher).not.toHaveBeenCalled()
+    const after = await vault.read()
+    expect(after.refreshFailure).toBeUndefined()
+    expect(after.refreshUncertain).toBeUndefined()
+    expect(after.refreshRetryAfter).toBeUndefined()
+    expect(after.refreshing).toBeUndefined()
+    expect(after.credentials?.refreshToken).toBe("synthetic-refresh")
+  })
+
+  it("does not meter an inference request that was refused, and meters an admitted one", async () => {
+    const permissions = installFirefox(NOTHING_GRANTED)
+    const { service } = await connected()
+    const onDispatch = vi.fn<() => void>()
+
+    await expect(
+      service.invoke({ model: "synthetic-model", text: "Hello" }, undefined, onDispatch),
+    ).rejects.toThrow(/consent/i)
+    expect(onDispatch).not.toHaveBeenCalled()
+
+    permissions.report(WITH_CREDENTIALS)
+    await service.invoke({ model: "synthetic-model", text: "Hello" }, undefined, onDispatch)
+    expect(onDispatch).toHaveBeenCalledTimes(1)
+  })
+
   it("does not exchange an authorization code, so the code and verifier are not sent", async () => {
     // The sign-in started while the grant was there; the user revokes before the callback returns.
     const permissions = installFirefox(WITH_CREDENTIALS)

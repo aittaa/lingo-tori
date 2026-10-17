@@ -132,6 +132,47 @@ describe("Firefox, authenticationInfo granted", () => {
   })
 })
 
+describe("a provider that declares its endpoint holds a secret", () => {
+  // A key typed into the URL path cannot be told from a path segment: the user says so, and the
+  // declaration travels in the provider snapshot the stream request is built from.
+  const declaredRow = {
+    ...providerRow("a"),
+    apiKey: undefined,
+    baseURL: "https://provider.example.test/v1/KEY-IN-PATH-123",
+    endpointNeedsConsent: true,
+  } as unknown as LLMProviderConfig
+
+  it("is refused while nothing is granted, with the message about consent", async () => {
+    installFirefox(NOTHING_GRANTED)
+
+    const error = await stream(declaredRow).catch((caught: unknown) => caught)
+
+    expect(transport.requests).toHaveLength(0)
+    expect(error).toBeInstanceOf(StreamPortError)
+    expect((error as Error).message).toMatch(/consent/i)
+  })
+
+  it("streams once authenticationInfo is granted", async () => {
+    installFirefox(WITH_CREDENTIALS)
+
+    await expect(stream(declaredRow)).resolves.toMatchObject({ output: "done" })
+
+    expect(transport.requests).toHaveLength(1)
+  })
+
+  it("is not rescued by a declaration of false when the provider also has a key", async () => {
+    installFirefox(NOTHING_GRANTED)
+    const keyed = {
+      ...credentialedRow,
+      endpointNeedsConsent: false,
+    } as unknown as LLMProviderConfig
+
+    await expect(stream(keyed)).rejects.toBeInstanceOf(StreamPortError)
+
+    expect(transport.requests).toHaveLength(0)
+  })
+})
+
 describe("a revocation that lands before the request is dispatched", () => {
   it("stops a stream whose start message is still on its way to the background", async () => {
     const permissions = installFirefox(WITH_CREDENTIALS)
