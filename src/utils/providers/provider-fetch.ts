@@ -10,7 +10,8 @@ import { noStoreFetch } from "./no-store-fetch"
  *
  * The consent check wraps the metering, so a request that is refused is never counted as an API
  * dispatch: metering runs only after the request has been admitted. It runs again for every call,
- * so an SDK retry or a queue retry after a revocation is refused as well.
+ * so an SDK retry or a queue retry after a revocation is refused as well. That holds for every
+ * category the request needs, not only for the credentials.
  *
  * `credentialed` is what the caller knows from the provider's configuration (an API key, a
  * placeholder, a declared endpoint); the gate also reads the headers and URL of the request itself.
