@@ -127,6 +127,13 @@ function sparse(length: number, elements: Record<number, unknown> = {}) {
 }
 
 describe("the lossless encoding keeps the exact shape of an array", () => {
+  // As many own properties as slots, so only a check of each index tells it from a full array.
+  function withHoleAndExtraProperty() {
+    const list = sparse(2, { 1: "b" }) as unknown[] & { note?: string }
+    list.note = "kept"
+    return list
+  }
+
   function withExtraProperty() {
     const list = [1, 2] as number[] & { note?: string }
     list.note = "kept"
@@ -140,6 +147,7 @@ describe("the lossless encoding keeps the exact shape of an array", () => {
     ["an array that is only a length", sparse(5)],
     ["a nested array with an empty slot", { list: [sparse(3, { 0: 1, 2: 2 })] }],
     ["a property that is not an index", withExtraProperty()],
+    ["an empty slot together with a property that is not an index", withHoleAndExtraProperty()],
   ])("round-trips %s with the same slots and properties", (_name, value) => {
     const decoded = decodeLossless(encodeLossless(value))
 

@@ -1,6 +1,8 @@
+import type { RawConfigPair } from "../status"
 import type { RawPrimary } from "./preservation-test-kit"
 import { isDeepStrictEqual } from "node:util"
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { fakeBrowser } from "wxt/testing/fake-browser"
 import { decodeLossless, MAX_PRESERVED_ORIGINALS, preserveOriginal } from "../preservation"
 import {
   buildKeptCopyExport,
@@ -47,6 +49,22 @@ function exoticOriginal(): RawPrimary {
   return { value, meta: CURRENT_META }
 }
 
+/**
+ * The fake storage keeps JSON, so a value that holds NaN, a Date, `undefined` or an empty slot cannot
+ * be stored in it. The tests that need such a value hand it to the code directly: as a raw pair for
+ * the kept copy, and as what `storage.local.get` returns for the stored pair.
+ */
+function rawPairOf(original: RawPrimary): RawConfigPair {
+  return { value: original.value, hasValue: true, meta: original.meta, hasMeta: true }
+}
+
+function storageHolds(original: RawPrimary) {
+  vi.spyOn(fakeBrowser.storage.local, "get").mockImplementation(
+    (): Promise<Record<string, unknown>> =>
+      Promise.resolve({ config: original.value, config$: original.meta }),
+  )
+}
+
 beforeEach(() => {
   resetStorage()
 })
@@ -83,11 +101,9 @@ describe("listKeptCopies", () => {
 })
 
 describe("buildKeptCopyExport", () => {
-  it("holds the stored value and meta exactly, whatever JSON could not say", async () => {
+  it("holds the value and meta exactly, whatever JSON could not say", async () => {
     const original = exoticOriginal()
-    await seedPrimary(original.value, original.meta)
-    const raw = await readRawConfigPair()
-    const { key } = await preserveOriginal(raw, "invalid-schema")
+    const { key } = await preserveOriginal(rawPairOf(original), "invalid-schema")
 
     const download = await buildKeptCopyExport(key)
 
@@ -97,8 +113,11 @@ describe("buildKeptCopyExport", () => {
       source: "kept-copy",
       reason: "invalid-schema",
     })
-    expect(isDeepStrictEqual(decodeLossless(file.encodedValue), raw.value)).toBe(true)
-    expect(isDeepStrictEqual(decodeLossless(file.encodedMeta!), raw.meta)).toBe(true)
+    expect(isDeepStrictEqual(decodeLossless(file.encodedValue), original.value)).toBe(true)
+    expect(isDeepStrictEqual(decodeLossless(file.encodedMeta!), original.meta)).toBe(true)
+    // The shapes the fake storage cannot hold are really in this value.
+    expect(Number.isNaN((decodeLossless(file.encodedValue) as any).exotic.notANumber)).toBe(true)
+    expect(Object.hasOwn((decodeLossless(file.encodedValue) as any).exotic.slots, 1)).toBe(false)
   })
 
   it("is the entry's own text, so the file is the copy and not a re-encoding of something else", async () => {
@@ -173,17 +192,16 @@ describe("buildKeptCopyExport", () => {
 })
 
 describe("buildStoredAsFoundExport", () => {
-  it("holds the stored value and meta exactly, kept copy or not", async () => {
+  it("holds the stored value and meta exactly, whatever JSON could not say, kept copy or not", async () => {
     const original = exoticOriginal()
-    await seedPrimary(original.value, original.meta)
-    const raw = await readRawConfigPair()
+    storageHolds(original)
 
     const file = parseRecoveryExport((await buildStoredAsFoundExport()).json)
 
     expect(file).toMatchObject({ source: "stored-as-found" })
     expect(file.reason).toBeUndefined()
-    expect(isDeepStrictEqual(decodeLossless(file.encodedValue), raw.value)).toBe(true)
-    expect(isDeepStrictEqual(decodeLossless(file.encodedMeta!), raw.meta)).toBe(true)
+    expect(isDeepStrictEqual(decodeLossless(file.encodedValue), original.value)).toBe(true)
+    expect(isDeepStrictEqual(decodeLossless(file.encodedMeta!), original.meta)).toBe(true)
   })
 
   it("works when the store of kept copies is full", async () => {
