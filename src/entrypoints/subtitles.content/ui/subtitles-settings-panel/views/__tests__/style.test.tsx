@@ -6,7 +6,6 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { configAtom } from "@/utils/atoms/config"
-import { storageAdapter } from "@/utils/atoms/storage-adapter"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { DEFAULT_DISPLAY_MODE, SUBTITLES_SOURCE } from "@/utils/constants/subtitles"
@@ -100,14 +99,18 @@ async function renderStyleView({
   subtitlesStore.set(nativeSubtitleTranslationBlockedAtom, blocked)
   subtitlesStore.set(subtitlesVisibleAtom, visible)
   subtitlesStore.set(subtitlesSourceAtom, source)
-  const setSpy = vi.spyOn(storageAdapter, "set")
+  // Config writes reach storage through the settings service, as one `set` of the config and its
+  // meta; the spy sees every `set`, and the tests count the ones that carry the config.
+  const setSpy = vi.spyOn(fakeBrowser.storage.local, "set")
   spies.push(setSpy)
+  const configWrites = () =>
+    setSpy.mock.calls.filter(([items]) => Object.hasOwn(items, CONFIG_STORAGE_KEY)).length
   render(<StyleView />)
   return {
     setSpy,
     // Waits for `writes` config writes to reach storage, then a macrotask for their continuations.
     settled: async (writes = 1) => {
-      await waitFor(() => expect(setSpy).toHaveBeenCalledTimes(writes))
+      await waitFor(() => expect(configWrites()).toBe(writes))
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0))
       })
@@ -264,7 +267,14 @@ describe("style view: leaving original-only", () => {
     act(() => {
       handlerFor("originalOnly")("translationOnly")
     })
-    await waitFor(() => expect(mocks.logError).toHaveBeenCalledOnce())
+    // The settings service reports the failed write too (this test runs both in one process), so
+    // what is asserted is that the view's own report is among the logged errors.
+    await waitFor(() =>
+      expect(mocks.logError).toHaveBeenCalledWith(
+        "[subtitles] saving the display mode failed",
+        expect.anything(),
+      ),
+    )
 
     expect(mocks.toggleSubtitles).not.toHaveBeenCalled()
   })

@@ -9,7 +9,7 @@ import { logger } from "../logger"
 import { clearInitFailure, recordInitFailure } from "./init-failure"
 import { runMigration } from "./migration"
 import { preserveOriginal } from "./preservation"
-import { writePrimaryMeta, writePrimaryPair } from "./primary-write"
+import { commitPrimary, commitPrimaryMeta } from "./primary-write"
 import { classifyConfigPair, readModifiedAt, readRawConfigPair } from "./status"
 
 export interface InitializeConfigResult {
@@ -41,6 +41,9 @@ async function keepOriginal(raw: RawConfigPair, reason: SuspectReason) {
     logger.error("Could not keep a copy of the stored config; leaving it as it is", error)
   }
 }
+
+/** The operation id startup's commits carry. */
+const BOOTSTRAP_OP = "bootstrap"
 
 type MigrationOutcome =
   | { kind: "migrated"; config: Config }
@@ -133,10 +136,16 @@ export async function initializeConfig(): Promise<InitializeConfigResult> {
   }
 
   const lastModifiedAt = readModifiedAt(raw)
+  const context = { previous: raw, opId: BOOTSTRAP_OP, opDigest: BOOTSTRAP_OP, lastModifiedAt }
   if (didConfigChange) {
-    await writePrimaryPair(config, { lastModifiedAt })
-  } else if (status.kind === "usable" && (status.metaMissing || lastModifiedAt === undefined)) {
-    await writePrimaryMeta({ lastModifiedAt })
+    await commitPrimary(config, context)
+  } else if (
+    status.kind === "usable" &&
+    (status.metaMissing || lastModifiedAt === undefined || status.valueDigest === undefined)
+  ) {
+    // A config written before revisions and digests existed gets them now, without a change to
+    // the user's data.
+    await commitPrimaryMeta(context)
   }
 
   // The record clears only once the upgraded pair is persisted: a write that throws leaves the pair

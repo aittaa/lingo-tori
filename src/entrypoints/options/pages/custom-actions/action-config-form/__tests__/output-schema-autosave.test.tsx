@@ -49,6 +49,10 @@ function createAction(): SelectionToolbarCustomAction {
 async function setup(action: SelectionToolbarCustomAction) {
   const config = structuredClone(DEFAULT_CONFIG)
   config.selectionToolbar.customActions = [action]
+  // Each test starts from its own stored config: the meta a previous test's commit left would no
+  // longer describe this value, and the settings service treats a value that does not match its
+  // meta as unusable.
+  await fakeBrowser.storage.local.clear()
   await fakeBrowser.storage.local.set({ [CONFIG_STORAGE_KEY]: config })
   const store = createStore()
   store.set(configAtom, config)

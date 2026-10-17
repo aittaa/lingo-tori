@@ -34,8 +34,8 @@ import { toastManager } from "@/components/ui/base-ui/toast"
 import { ViewConfig } from "@/entrypoints/options/components/view-config"
 import { useExportConfig } from "@/hooks/use-export-config"
 import { replaceStoredConfig } from "@/utils/backup/current-config"
-import { removeBackup } from "@/utils/backup/storage"
 import { migrateConfig } from "@/utils/config/migration"
+import { removeBackupById } from "@/utils/config/write-guard"
 import { EXTENSION_VERSION } from "@/utils/constants/app"
 import { i18n } from "@/utils/i18n"
 import { queryClient } from "@/utils/tanstack-query"
@@ -142,7 +142,7 @@ function MoreOptions({ backupId, backup }: { backupId: string; backup: ConfigBac
 
   const { mutate: deleteBackup, isPending: isDeleting } = useMutation({
     mutationFn: async (backupIdToDelete: string) => {
-      await removeBackup(backupIdToDelete)
+      await removeBackupById(backupIdToDelete)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["config-backups"] })

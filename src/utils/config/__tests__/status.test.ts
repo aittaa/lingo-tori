@@ -2,16 +2,13 @@ import type { RawConfigPair } from "../status"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "@/utils/constants/config"
-import {
-  ConfigExportBlockedError,
-  ConfigRecoveryRequiredError,
-  ConfigUpgradePendingError,
-} from "../errors"
+import { ConfigExportBlockedError } from "../errors"
 import { preserveOriginal } from "../preservation"
 import {
-  assertConfigWritable,
   assertCurrentConfigExportable,
   classifyConfigPair,
+  digestOfStoredValue,
+  fingerprintOf,
   getConfigStatus,
   getConfigView,
   readModifiedAt,
@@ -354,59 +351,159 @@ describe("assertCurrentConfigExportable", () => {
   })
 })
 
-describe("assertConfigWritable", () => {
-  it("allows a profile with nothing stored and a usable config", async () => {
-    await expect(assertConfigWritable()).resolves.toBeUndefined()
+describe("the commit receipt in the meta", () => {
+  const VALUE = () => validConfig()
+  const receipt = (value: unknown, extra: Record<string, unknown> = {}) => ({
+    schemaVersion: CONFIG_SCHEMA_VERSION,
+    lastModifiedAt: 1,
+    revision: 3,
+    lastOpId: "op-1",
+    lastOpDigest: "digest-1",
+    valueDigest: digestOfStoredValue(value),
+    ...extra,
+  })
 
-    await seedPrimary(validConfig(), CURRENT_META)
-    await expect(assertConfigWritable()).resolves.toBeUndefined()
+  it("is read from a coherent pair, with the digest already verified", () => {
+    const status = classifyConfigPair(pair(VALUE(), receipt(VALUE())))
 
-    await seedPrimary(validConfig(), ABSENT)
-    await expect(assertConfigWritable()).resolves.toBeUndefined()
+    expect(status).toMatchObject({
+      kind: "usable",
+      revision: 3,
+      lastOpId: "op-1",
+      lastOpDigest: "digest-1",
+      valueDigest: digestOfStoredValue(VALUE()),
+    })
+  })
+
+  it("is revision 0 with no digest for a meta written before receipts existed", () => {
+    const status = classifyConfigPair(pair(VALUE(), CURRENT_META))
+
+    expect(status).toMatchObject({ kind: "usable", revision: 0 })
+    expect((status as { valueDigest?: string }).valueDigest).toBeUndefined()
+  })
+
+  it("calls a pair suspect(incoherent) when the digest does not match the stored value", () => {
+    const edited = { ...VALUE(), contextMenu: { enabled: false } }
+
+    expect(classifyConfigPair(pair(edited, receipt(VALUE())))).toMatchObject({
+      kind: "suspect",
+      reason: "incoherent",
+    })
+  })
+
+  it("does not care in what order the stored keys come back", () => {
+    const value = VALUE()
+    const reordered = Object.fromEntries(Object.entries(value).reverse())
+
+    expect(classifyConfigPair(pair(reordered, receipt(value))).kind).toBe("usable")
   })
 
   it.each([
-    {
-      name: "invalid",
-      value: corruptConfig(),
-      meta: CURRENT_META as unknown,
-      reason: "invalid-schema",
-    },
-    {
-      name: "a corrupted falsy value",
-      value: 0,
-      meta: CURRENT_META as unknown,
-      reason: "invalid-schema",
-    },
-    {
-      name: "of a newer version",
-      value: validConfig(),
-      meta: { schemaVersion: CONFIG_SCHEMA_VERSION + 1 } as unknown,
-      reason: "newer-version",
-    },
-    {
-      name: "with a meta that cannot be read",
-      value: validConfig(),
-      meta: "x" as unknown,
+    { name: "a revision that is not a whole number", extra: { revision: 1.5 } },
+    { name: "a negative revision", extra: { revision: -1 } },
+    { name: "a revision given as text", extra: { revision: "3" } },
+    { name: "a digest that is not text", extra: { valueDigest: 7 } },
+    { name: "an operation id that is not text", extra: { lastOpId: 7 } },
+    { name: "an operation digest that is not text", extra: { lastOpDigest: [] } },
+  ])("calls a pair suspect(incoherent) for $name", ({ extra }) => {
+    expect(classifyConfigPair(pair(VALUE(), receipt(VALUE(), extra)))).toMatchObject({
+      kind: "suspect",
       reason: "incoherent",
+    })
+  })
+
+  it("lets a recognised newer version label win over the digest and over receipt fields it may write differently", () => {
+    const edited = { ...VALUE(), contextMenu: { enabled: false } }
+    const newer = receipt(VALUE(), { schemaVersion: CONFIG_SCHEMA_VERSION + 1 })
+    const otherReceipt = {
+      schemaVersion: CONFIG_SCHEMA_VERSION + 1,
+      revision: "three",
+      valueDigest: 7,
+      lastOpId: [],
+    }
+
+    expect(classifyConfigPair(pair(edited, newer))).toMatchObject({ reason: "newer-version" })
+    expect(classifyConfigPair(pair(VALUE(), otherReceipt))).toMatchObject({
+      reason: "newer-version",
+    })
+  })
+
+  // A property that is there and set to undefined is malformed, whichever field it is. These pairs
+  // are built by hand: the fake storage keeps JSON and would drop the property.
+  it.each([
+    "schemaVersion",
+    "revision",
+    "valueDigest",
+    "lastOpId",
+    "lastOpDigest",
+    "lastModifiedAt",
+  ])(
+    "calls a valid config suspect(incoherent) when its meta has its own %s set to undefined",
+    (field) => {
+      const meta = { ...receipt(VALUE()), [field]: undefined }
+      expect(Object.hasOwn(meta, field)).toBe(true)
+
+      expect(classifyConfigPair(pair(VALUE(), meta))).toMatchObject({
+        kind: "suspect",
+        reason: "incoherent",
+      })
     },
-  ])("refuses, naming why, when the stored config is $name", async ({ value, meta, reason }) => {
-    await seedPrimary(value, meta)
+  )
 
-    await expect(assertConfigWritable()).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
-    await expect(assertConfigWritable()).rejects.toMatchObject({ reason })
+  it("lets a recognised newer version win over a receipt field that is set to undefined", () => {
+    const meta = {
+      ...receipt(VALUE()),
+      schemaVersion: CONFIG_SCHEMA_VERSION + 1,
+      revision: undefined,
+    }
+
+    expect(classifyConfigPair(pair(VALUE(), meta))).toMatchObject({
+      kind: "suspect",
+      reason: "newer-version",
+    })
   })
 
-  it("refuses with a retryable error while the stored config is still being upgraded", async () => {
-    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+  it("checks the digest before it looks at an older label or a missing one", () => {
+    const edited = { ...VALUE(), contextMenu: { enabled: false } }
 
-    await expect(assertConfigWritable()).rejects.toBeInstanceOf(ConfigUpgradePendingError)
+    expect(
+      classifyConfigPair(pair(edited, receipt(VALUE(), { schemaVersion: PREVIOUS_VERSION }))),
+    ).toMatchObject({ kind: "suspect", reason: "incoherent" })
+    const { schemaVersion: _label, ...withoutLabel } = receipt(VALUE())
+    expect(classifyConfigPair(pair(edited, withoutLabel))).toMatchObject({
+      kind: "suspect",
+      reason: "incoherent",
+    })
+  })
+})
+
+describe("fingerprintOf", () => {
+  it("is the same for the same stored data and changes with the value, the revision and the meta", () => {
+    const a = classifyConfigPair(pair(validConfig(), CURRENT_META))
+    const same = classifyConfigPair(pair(validConfig(), CURRENT_META))
+    const edited = classifyConfigPair(
+      pair({ ...validConfig(), contextMenu: { enabled: false } }, CURRENT_META),
+    )
+
+    expect(fingerprintOf(a)).toEqual(fingerprintOf(same))
+    expect(fingerprintOf(a).valueHash).not.toBe(fingerprintOf(edited).valueHash)
   })
 
-  it("refuses when the stored config cannot be read at all (it fails closed)", async () => {
-    vi.spyOn(fakeBrowser.storage.local, "get").mockRejectedValue(new Error("storage unavailable"))
+  it("separates states that look alike: nothing stored, unusable, upgrading", () => {
+    const tokens = [
+      classifyConfigPair(pair(undefined)),
+      classifyConfigPair(pair(corruptConfig(), CURRENT_META)),
+      classifyConfigPair(pair(corruptConfig(), { schemaVersion: 3 })),
+    ].map(fingerprintOf)
 
-    await expect(assertConfigWritable()).rejects.toThrow("storage unavailable")
+    expect(tokens.map((token) => token.kind)).toEqual(["absent", "suspect", "upgrading"])
+  })
+
+  it("covers the meta for an unusable config, so a repair of the meta alone changes it", () => {
+    const one = fingerprintOf(classifyConfigPair(pair(corruptConfig(), "x")))
+    const two = fingerprintOf(classifyConfigPair(pair(corruptConfig(), "y")))
+
+    expect(one.valueHash).not.toBe(two.valueHash)
   })
 })
 

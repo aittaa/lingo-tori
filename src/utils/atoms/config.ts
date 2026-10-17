@@ -3,10 +3,9 @@ import { deepmergeCustom } from "deepmerge-ts"
 import { dequal } from "dequal"
 import { atom } from "jotai"
 import { selectAtom } from "jotai/utils"
-import { configSchema } from "@/types/config/config"
-import { assertConfigWritable } from "../config/status"
-import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "../constants/config"
-import { storageAdapter } from "./storage-adapter"
+import { getConfigView, watchConfigStatus } from "../config/status"
+import { editConfig } from "../config/write-guard"
+import { DEFAULT_CONFIG } from "../constants/config"
 
 export const configAtom = atom<Config>(DEFAULT_CONFIG)
 
@@ -53,18 +52,19 @@ export const writeConfigAtom = atom(null, (get, set, update: ConfigUpdate) => {
   pendingWrites++
 
   const task = writeQueue.then(async () => {
-    let stored: Config | undefined
     try {
-      // Until every writer shares one queue this is a fail-closed check before the read: the edit
-      // is never applied to the defaults that stand in for a config that cannot be used.
-      await assertConfigWritable()
-      stored = await storageAdapter.get(CONFIG_STORAGE_KEY, DEFAULT_CONFIG, configSchema)
-      const next = applyUpdate(stored, update)
-      await storageAdapter.set(CONFIG_STORAGE_KEY, next, configSchema)
-      await storageAdapter.setMeta(CONFIG_STORAGE_KEY, { lastModifiedAt: Date.now() })
-      if (version === writeVersion && !dequal(get(configAtom), next)) set(configAtom, next)
+      // The edit is computed here, from the stored config, and sent to the settings service as the
+      // complete next config; if the data changed meanwhile the same updater runs again on the
+      // fresh snapshot. A refusal (an unusable stored config) rejects and stores nothing.
+      const committed = await editConfig((current) => applyUpdate(current, update))
+      if (version === writeVersion && !dequal(get(configAtom), committed))
+        set(configAtom, committed)
     } catch (error) {
-      if (version === writeVersion && stored) set(configAtom, stored)
+      if (version === writeVersion) {
+        // What was shown optimistically was not stored: show what is.
+        const view = await getConfigView().catch(() => undefined)
+        if (view?.config) set(configAtom, view.config)
+      }
       throw error
     } finally {
       pendingWrites--
@@ -75,8 +75,11 @@ export const writeConfigAtom = atom(null, (get, set, update: ConfigUpdate) => {
   return task
 })
 
-// Watch notifications invalidate a read. Their payload may describe an older write,
-// and must never replace a newer optimistic update or an already persisted value.
+// What the screens show is the session view of the stored config (the status reader): the stored
+// value when it is usable, the defaults when it is not or when nothing is stored. A notification
+// that the view changed (a change of the value, of its meta, or of what says an upgrade failed)
+// only invalidates a read. What it delivers may describe an older write, and must never replace a
+// newer optimistic update or an already persisted value.
 configAtom.onMount = (setAtom) => {
   let active = true
   let requested = false
@@ -95,7 +98,7 @@ configAtom.onMount = (setAtom) => {
         requested = false
         const readGeneration = generation
         const readVersion = writeVersion
-        const value = await storageAdapter.get(CONFIG_STORAGE_KEY, DEFAULT_CONFIG, configSchema)
+        const value = (await getConfigView()).config ?? DEFAULT_CONFIG
         if (!active) return
         if (readGeneration !== generation || readVersion !== writeVersion || pendingWrites > 0) {
           requested = true
@@ -116,7 +119,7 @@ configAtom.onMount = (setAtom) => {
     void refresh()
   }
   refreshListeners.add(requestRefresh)
-  const unwatch = storageAdapter.watch<Config>(CONFIG_STORAGE_KEY, requestRefresh)
+  const unwatch = watchConfigStatus(requestRefresh)
   const onVisibilityChange = () => {
     if (document.visibilityState === "visible") requestRefresh()
   }
