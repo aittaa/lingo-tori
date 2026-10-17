@@ -174,7 +174,7 @@ describe("the privacy notice", () => {
     "The page address in custom actions and note suggestions",
     "Translated pages may contain private content",
     "Signing in with ChatGPT (experimental)",
-    "Public asset hosts",
+    "Public asset hosts and links",
     "Settings, keys and glossary",
     "Backups",
     "Preserved originals and recovery copies",
@@ -241,6 +241,67 @@ describe("the privacy notice", () => {
     expect(privacy).toContain("the whole `headers` object")
     expect(privacy).toContain("if the cleaning cannot finish no file is written")
     expect(privacy).toContain("It cannot recognise a secret placed in an ordinary-looking part")
+  })
+
+  it("does not present Smart context OFF as keeping page context from the provider", () => {
+    expect(privacy).toContain(
+      "Smart context controls one thing: the optional generated page summary",
+    )
+    expect(privacy).toContain(
+      "Turning it off does not stop other page context from reaching your provider",
+    )
+    expect(privacy).toContain("whether or not Smart context is on")
+    expect(privacy).toContain(
+      "A custom action likewise fills `{{webTitle}}` and `{{webContent}}` from the page",
+    )
+    expect(privacy).toContain("`{{webTitle}}`, `{{webDescription}}`, `{{webContent}}`")
+    expect(privacy).not.toContain("Leave it off if you do not want that to reach your provider")
+    expect(privacy).not.toContain("Pages you do not translate are not sent")
+    expect(privacy).toContain("a feature you turned on acts on it")
+  })
+
+  it("says cancelling does not always stop the browser's request", () => {
+    expect(privacy).toContain("when no other operation still needs it")
+    expect(privacy).toContain("then it continues for them")
+    expect(privacy).toContain("does not always stop the browser's request")
+    expect(privacy).not.toContain("stops the browser's request. It does not guarantee")
+  })
+
+  it("states cleanup as best-effort thresholds, not strict retention bounds", () => {
+    expect(privacy).toContain("Seven days is the cleanup threshold")
+    expect(privacy).toContain("about once a day while the browser and the extension are running")
+    expect(privacy).toContain("so an entry can stay longer than seven days")
+    expect(privacy).toContain("those are thresholds for that cleanup")
+    expect(privacy).not.toContain("for **seven days** and then deletes them")
+    expect(privacy).not.toContain("It keeps at most 10,000 entries for 120 days")
+  })
+
+  it("does not infer the user's operating-system protection", () => {
+    expect(privacy).not.toMatch(/not protected by the operating system/i)
+    expect(privacy).not.toContain("the browser does not encrypt them for you")
+    expect(privacy).not.toContain("stored as plain text")
+    expect(privacy).toContain("does not add encryption to API keys")
+    expect(privacy).toContain("does not promise operating-system-backed protection")
+    expect(privacy).toContain("without encryption added by LingoTori")
+    expect(readme).toContain("without encryption added by LingoTori")
+    expect(readme).not.toContain("as plain text")
+  })
+
+  it("says where the asset requests happen and that the privacy link goes to GitHub", () => {
+    expect(privacy).toContain(
+      "the add-provider list in the settings, which shows a logo for every provider you can choose",
+    )
+    expect(privacy).toContain("the popup and in the toolbar on a page")
+    expect(privacy).toContain("identify the icon that is displayed")
+    expect(privacy).toContain("opening it makes an ordinary request to `github.com`")
+    expect(privacy).toContain("opens a file inside the extension and makes no request")
+  })
+
+  it("keeps the footer comment honest about the GitHub request", () => {
+    const footer = read("src/entrypoints/options/app-sidebar/about-links.tsx")
+
+    expect(footer).toContain("makes an ordinary request to github.com")
+    expect(footer).not.toContain("neither sends anything")
   })
 
   it("links only to headings that exist in the notice", () => {
