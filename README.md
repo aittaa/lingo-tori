@@ -1,37 +1,58 @@
 # LingoTori
 
-An independent GPLv3 browser extension for page, selected-text and existing video-caption translation, dictionary meanings and sentence explanations. The interface offers **Azerbaijani, English, Spanish, Japanese, Korean, Russian, Turkish, Vietnamese, Simplified Chinese and Traditional Chinese**, with [documented English fallbacks](docs/ui-locale-restoration.md) for changed or missing copy. Translation languages remain broader, including Chinese.
+Read web pages in another language without leaving the page. LingoTori translates pages, selected text and existing video captions, with dictionary meanings and sentence explanations when you need them.
 
-The standalone Translation Hub / Multi-API Text Translation screen has been removed. Multiple provider configurations and per-feature assignments remain supported. Previously saved Hub preferences are retained as inactive compatibility data; see the [removal scope and validation plan](docs/translation-hub-removal.md).
+An independent, open-source fork of [Read Frog](https://github.com/mengxi-ream/read-frog), distributed under GPLv3. This is a **development build**; store distribution is not yet confirmed.
 
-## Use your own provider
+## Get started
 
-Open **API Providers** and choose **Sign in with ChatGPT** ([experimental browser-only sign-in](docs/byos-firefox.md)), or add an API key for a provider or compatible endpoint. Gemini and Azure are supported alongside other model APIs. New installs have no provider. Requests use your own account or key and can incur charges or usage limits. Registering an API provider only saves its configuration; it does not validate the key. API-key providers remain independent of ChatGPT sign-in, and no automatic paid fallback runs.
+Developer installation is currently available for desktop Chromium and Firefox. Firefox builds declare version 140 or later; Chromium's supported minimum version still needs release validation.
 
-When an enabled provider is added to an empty provider list, it fills only the empty feature slots it is compatible with. Existing choices and each feature's ON/OFF state are unchanged. For ChatGPT, this also requires a connection and an available model. Later providers do not fill slots, and you can still configure each feature manually.
+1. Build the reviewed source with the Node and pnpm versions declared in [package.json](package.json):
 
-Original reading suggestions remain. Voice playback, writing/input assistance, hosted accounts and backup, cloud transcription, vocabulary/SRS and companion services are outside this core. Subtitles require captions supplied by the video platform; supported platform adapters currently cover YouTube, X and Netflix. Site behavior can change, and this draft core still requires the [merge validation gate](docs/validation.md).
+   ```sh
+   pnpm install --ignore-scripts
+   pnpm exec wxt prepare
+   pnpm build            # Chromium
+   pnpm build:firefox    # Firefox MV3
+   ```
 
-There is one translation target language; there is no separate native-language setting. Smart context and automatic video translation are both OFF by default. With automatic video translation ON in the popup or settings, subtitles start only when the caption source language is known and differs from the translation target language. Same or unknown languages are not started automatically. Turning subtitles OFF in the player applies to the current video, and the next video follows the setting again. Turning the global setting OFF cancels pending starts but does not stop sessions already running.
+2. In Chromium, enable Developer mode at `chrome://extensions` and load `.output/chrome-mv3` unpacked. In Firefox, use `about:debugging` to load `.output/firefox-mv3/manifest.json` temporarily.
+3. Open **API Providers**, add a provider or compatible endpoint, then choose a model and check its feature assignments. Experimental **Sign in with ChatGPT** is also available; read its [limitations](docs/byos.md) first.
+4. Choose a translation language. Translate a page, select text for an explanation, or enable subtitles on a video that already has captions.
 
-ChatGPT sign-in is experimental and available in Chromium and Firefox 140+. Requests need authenticated account access. Native QA on Firefox ESR 140.17.0 covered sign-in, model discovery, Korean subtitles and recovery after an extension background restart, but it ran on an earlier candidate ([PR #65](https://github.com/aittaa/lingo-tori/pull/65)), not current main. Full browser restart, long-term token refresh and clean-profile API-key runtime verification remain pending ([#8](https://github.com/aittaa/lingo-tori/issues/8) / [#36](https://github.com/aittaa/lingo-tori/issues/36)), as does comprehensive QA of current main; see the [Firefox notes](docs/byos-firefox.md). This does not establish official ChatGPT support, store approval or signed distribution.
+There is no built-in provider on a new installation. Saving a provider does not validate its credentials. Your provider can apply charges and usage limits; LingoTori does not silently switch to a paid fallback.
 
-## Development
+When an enabled provider is added to an empty provider list, it fills only the empty feature slots it is compatible with; existing choices and each feature's ON/OFF state are unchanged, and for ChatGPT this also needs a connection and an available model. Later providers do not fill slots. There is one translation target language and no separate native-language setting.
 
-Use the Node and pnpm versions declared in [package.json](package.json).
+Already using a development copy? Preserve the extension ID and profile. **Do not uninstall or clear storage to update.** The version reset from `1.50.3` to `0.0.1` needs care; see [installation and version notes](docs/versioning.md).
 
-```sh
-pnpm install --ignore-scripts
-pnpm exec wxt prepare
-pnpm dev
-```
+## What you can do
 
-Build Chromium with `pnpm build` or Firefox MV3 with `pnpm build:firefox`. Load `.output/chrome-mv3` through Chromium's extension developer tools. In Firefox, load the manifest from `.output/firefox-mv3` as a temporary add-on through `about:debugging`. Follow [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md); run tests only immediately before merging, with `SKIP_FREE_API=true`, and obtain explicit user confirmation immediately before the merge.
+- Read pages with bilingual or translation-only rendering.
+- Translate selected text and request dictionary meanings, sentence explanations or custom AI actions.
+- Translate existing captions on YouTube, X and Netflix. Platform changes can affect support; this does not transcribe audio.
+- Keep a glossary and use separate providers for different features.
+- Review local request/token statistics, with [measurement limits](docs/api-usage.md).
 
-The independent version baseline is **0.0.1**, without a prerelease suffix. See the [version and installation notes](docs/versioning.md) for package names, build receipts, and replacing an earlier temporary `1.50.3` installation without deleting its data.
+Smart context and automatic subtitle translation are **OFF by default**. When automatic subtitles are enabled, they start only for a known caption language different from the target language. The interface supports ten languages, with [documented fallbacks](docs/ui-locale-restoration.md).
 
-[Project documentation](docs/index.md) includes scope, limitations, licensing and [measured footprint evidence](docs/metrics/README.md). Builds and static checks do not establish live-provider or browser-runtime performance.
+## Before relying on it
 
-## Attribution and license
+Text, relevant context and matched glossary terms may be sent to the provider you choose, and a custom action can send the address of the page. Providers have their own data and account policies. Read the [privacy notice](docs/privacy.md) for what leaves your browser, what stays on your device and the choices Firefox asks you to make. The notice describes how this version behaves; the operator's jurisdiction, effective date and store listings are not yet decided, and it makes no legal or store-readiness claim.
 
-Forked from [Read Frog](https://github.com/mengxi-ream/read-frog). Preserve upstream authorship and the [GNU GPLv3 license](LICENSE); see [NOTICE.txt](public/NOTICE.txt). Independent rendering and language contracts replace removed `@read-frog` integrations.
+ChatGPT sign-in is experimental. Earlier user-authorized sessions demonstrated sign-in and Korean subtitles, but they do not verify every current browser/account combination. The browser-only architecture is not established as officially supported or store-approved. No new real-account test is claimed here.
+
+Known limits include active page mode changes that can require OFF then ON, and navigation that may leave an already dispatched provider request running. Cancellation is not a billing guarantee. Shorts lifecycle improvements and mode-transition changes are still design work.
+
+Settings, API keys and backups are stored in your browser profile as plain text. When LingoTori cannot read the stored settings as the current version, it keeps an exact copy of the original and refuses ordinary edits until you choose how to recover, instead of replacing the settings with defaults; see the [privacy notice](docs/privacy.md#preserved-originals-and-recovery-copies). Keep a safely stored backup, review exports for secrets, and avoid sharing them blindly. An export that excludes API keys cannot reliably identify a secret embedded in an arbitrary URL path.
+
+This core does not include voice playback, writing assistance, cloud transcription, vocabulary flashcards or companion services. Translation results can be inaccurate.
+
+## Development and evidence
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), [project documentation](docs/index.md) and the [validation record](docs/validation.md). Browser builds, offline mocks and real-account evidence have different scopes. No test pass is permission to merge or publish.
+
+## License and attribution
+
+LingoTori is licensed under the [GNU GPLv3](LICENSE). Preserve upstream Read Frog authorship and the project [NOTICE](public/NOTICE.txt). The packages and font bundled into the extension, with the license notices they require, are listed in the [third-party notices](public/THIRD_PARTY_NOTICES.txt); the Inter font is licensed under the [SIL Open Font License 1.1](public/licenses/Inter-OFL-1.1.txt). LingoTori is independently maintained; its generated bird branding has [documented provenance](docs/branding/README.md).
