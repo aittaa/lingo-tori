@@ -6,7 +6,7 @@ import type {
   RefusalReason,
   Snapshot,
 } from "@/utils/config/commit-protocol"
-import type { BaseToken, ConfigStatus } from "@/utils/config/status"
+import type { BaseToken, ConfigStatus, RawConfigPair } from "@/utils/config/status"
 import { dequal } from "dequal"
 import { browser } from "#imports"
 import { configSchema } from "@/types/config/config"
@@ -27,11 +27,12 @@ import {
 import { PreservationError } from "@/utils/config/errors"
 import {
   deletePreservedOriginal,
+  pairDigestOf,
   PRESERVED_ORIGINAL_PREFIX,
   preserveOriginal,
 } from "@/utils/config/preservation"
 import { commitPrimary } from "@/utils/config/primary-write"
-import { fingerprintOf, getConfigStatus } from "@/utils/config/status"
+import { fingerprintOf, getConfigStatus, readRawConfigPair } from "@/utils/config/status"
 import { BACKUP_ID_PREFIX } from "@/utils/constants/backup"
 import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { logger } from "@/utils/logger"
@@ -154,6 +155,18 @@ function afterStartup(status: ConfigStatus): ConfigStatus {
     : status
 }
 
+/**
+ * Whether the stored pair is, by a fresh read, exactly `original`: the only case in which a write
+ * that failed is known not to have happened. A read that fails says nothing, so it is not "yes".
+ */
+async function storedPairIsStill(original: RawConfigPair) {
+  try {
+    return pairDigestOf(await readRawConfigPair()) === pairDigestOf(original)
+  } catch {
+    return false
+  }
+}
+
 function sameToken(a: { kind: string; revision: number; valueHash: string }, b: typeof a) {
   return a.kind === b.kind && a.revision === b.revision && a.valueHash === b.valueHash
 }
@@ -225,7 +238,12 @@ export function createConfigCommitService(
 
     const receipt = receiptOf(status, request)
     if (receipt === "mismatch") return { status: "rejected", reason: "op-digest-mismatch" }
-    if (receipt === "done") return { status: "committed", token }
+    if (receipt === "done") {
+      // A replacement found done may have left the rotation it deferred unfinished (its first
+      // answer was lost or unconfirmed): finish it now.
+      if (request.kind === "replace") await pruneBackups().catch(() => undefined)
+      return { status: "committed", token }
+    }
 
     if (request.kind === "edit") {
       // An edit computed from the defaults that stand in for an unusable config is never committed.
@@ -298,9 +316,14 @@ export function createConfigCommitService(
       }
     } catch (error) {
       logger.error("Could not commit the config", error)
-      // The backup that was added only for this replacement is taken back, so a replacement that
-      // did not happen leaves the list as it was.
-      if (addedBackupId !== undefined) await removeBackup(addedBackupId).catch(() => undefined)
+      // The backup that was added only for this replacement is taken back when the replacement is
+      // known not to have happened, so that one that did not happen leaves the list as it was. The
+      // write may have gone through even though the commit could not be confirmed (the read that
+      // confirms it failed): then the backup is the only copy of what was replaced and it stays. The
+      // rotation it deferred is finished by the next backup, or by this replacement sent again.
+      if (addedBackupId !== undefined && (await storedPairIsStill(status.raw))) {
+        await removeBackup(addedBackupId).catch(() => undefined)
+      }
       return { status: "unavailable", reason: "storage-failed" }
     }
   }

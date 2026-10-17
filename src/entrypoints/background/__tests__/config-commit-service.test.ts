@@ -678,6 +678,64 @@ describe("an explicit replacement (restore, import, reset)", () => {
     expect(await snapshot()).toEqual(before)
   })
 
+  // Storage can accept the write of the replacement and then fail the read that confirms it. The
+  // replacement may well have happened, so the backup of the config it replaced stays: it is only
+  // taken back when the stored pair is established to be the original.
+  async function replaceWithAFailingReadBack(readsThatFail: "first-only" | "all") {
+    const old = edited(validConfig(), false)
+    const next = edited(validConfig(), true)
+    await seedPrimary(old, committedMeta(old))
+    const request = await replaceOf(next)
+    const realSet = fakeBrowser.storage.local.set.bind(fakeBrowser.storage.local)
+    const realGet = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local)
+    let stored = false
+    let failed = 0
+    vi.spyOn(fakeBrowser.storage.local, "set" as any).mockImplementation((async (
+      items: Record<string, unknown>,
+    ) => {
+      await realSet(items)
+      if (Object.hasOwn(items, "config")) stored = true
+    }) as any)
+    vi.spyOn(fakeBrowser.storage.local, "get" as any).mockImplementation((async (keys: unknown) => {
+      const readsPrimary = Array.isArray(keys) && keys.includes("config")
+      if (stored && readsPrimary && (readsThatFail === "all" || failed === 0)) {
+        failed++
+        throw new Error("simulated read failure")
+      }
+      return realGet(keys as string[])
+    }) as any)
+
+    const response = await newService().handle(request, PAGE)
+    vi.restoreAllMocks()
+    return { old, next, request, response }
+  }
+
+  it.each([
+    { name: "the read that confirms it fails once", readsThatFail: "first-only" as const },
+    { name: "every read of the pair fails", readsThatFail: "all" as const },
+  ])("keeps the backup of the old config when storage accepts the write but $name", async (c) => {
+    const { old, next, response } = await replaceWithAFailingReadBack(c.readsThatFail)
+
+    expect(response).toEqual({ status: "unavailable", reason: "storage-failed" })
+    expect((await readRawPrimary()).value).toEqual(configSchema.parse(next))
+    const backups = backupEntries(await snapshot())
+    expect(backups).toHaveLength(1)
+    expect(backups[0]!.backup.config).toEqual(old)
+  })
+
+  it("finishes the rotation it deferred when the same replacement is sent again and found done", async () => {
+    for (let n = 0; n < MAX_BACKUPS_COUNT; n++) await seedBackup(validConfig(), 1_000 + n)
+    const { old, request } = await replaceWithAFailingReadBack("first-only")
+    expect(backupEntries(await snapshot())).toHaveLength(MAX_BACKUPS_COUNT + 1)
+
+    const retry = await newService().handle({ ...request, attempt: "uncertain-retry" }, PAGE)
+
+    expect(retry.status).toBe("committed")
+    const backups = backupEntries(await snapshot())
+    expect(backups).toHaveLength(MAX_BACKUPS_COUNT)
+    expect(backups[0]!.backup.config).toEqual(old)
+  })
+
   it("rotates the oldest backup out only after the replacement is committed", async () => {
     const stored = { ...validConfig(), contextMenu: { enabled: false } }
     await seedPrimary(stored, committedMeta(stored))
