@@ -1,9 +1,10 @@
 import type { Config } from "@/types/config/config"
-import { browser, storage } from "#imports"
+import { browser } from "#imports"
 import { addBackup, isSameAsLatestBackup } from "@/utils/backup/storage"
+import { getConfigStatus } from "@/utils/config/status"
 import { EXTENSION_VERSION } from "@/utils/constants/app"
 import { BACKUP_INTERVAL_MINUTES } from "@/utils/constants/backup"
-import { CONFIG_SCHEMA_VERSION, CONFIG_STORAGE_KEY } from "@/utils/constants/config"
+import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
 import { logger } from "@/utils/logger"
 
 const CONFIG_BACKUP_ALARM = "config-backup"
@@ -33,13 +34,15 @@ export function setUpConfigBackup() {
 
 async function performAutoBackup() {
   try {
-    // Get current config from storage
-    const config = await storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`)
-
-    if (!config) {
-      logger.warn("No config found to backup")
+    // Only a stored config that is usable as stored is backed up, and it is backed up as stored.
+    // An unusable value is kept by the preservation store, never as an ordinary backup labelled
+    // with the current version; a value still being upgraded is backed up once it has been.
+    const status = await getConfigStatus()
+    if (status.kind !== "usable") {
+      logger.warn(`Skipping backup: the stored config is ${status.kind}`)
       return
     }
+    const config = status.raw.value as Config
 
     if (await isSameAsLatestBackup(config, CONFIG_SCHEMA_VERSION)) {
       logger.info("Skipping backup: config is identical to latest backup")
