@@ -31,7 +31,7 @@ import {
   preserveOriginal,
 } from "@/utils/config/preservation"
 import { commitPrimary } from "@/utils/config/primary-write"
-import { classifyConfigPair, fingerprintOf, readRawConfigPair } from "@/utils/config/status"
+import { fingerprintOf, getConfigStatus } from "@/utils/config/status"
 import { BACKUP_ID_PREFIX } from "@/utils/constants/backup"
 import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { logger } from "@/utils/logger"
@@ -202,7 +202,9 @@ export function createConfigCommitService(
   )
 
   async function currentStatus() {
-    const read = classifyConfigPair(await readRawConfigPair())
+    // The same reader the writers use, so that the token a writer sends and the one computed here
+    // describe the pair in the same terms (a pair a kept copy holds is `suspect`, not `upgrading`).
+    const read = await getConfigStatus()
     return { status: afterStartup(read), token: fingerprintOf(read) }
   }
 

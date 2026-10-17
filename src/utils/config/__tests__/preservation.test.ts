@@ -1,4 +1,5 @@
 import type { RawConfigPair } from "../status"
+import { isDeepStrictEqual } from "node:util"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { PreservationError } from "../errors"
@@ -114,6 +115,72 @@ describe("the lossless encoding", () => {
   ])("refuses %s, nested or not", (_name, value) => {
     expect(() => encodeLossless(value)).toThrow("cannot be encoded exactly")
     expect(() => encodeLossless({ inside: [value] })).toThrow("cannot be encoded exactly")
+  })
+})
+
+/** An array of `length` slots that holds `elements` at their indices and is empty everywhere else. */
+function sparse(length: number, elements: Record<number, unknown> = {}) {
+  const list: unknown[] = []
+  list.length = length
+  for (const [index, element] of Object.entries(elements)) list[Number(index)] = element
+  return list
+}
+
+describe("the lossless encoding keeps the exact shape of an array", () => {
+  // As many own properties as slots, so only a check of each index tells it from a full array.
+  function withHoleAndExtraProperty() {
+    const list = sparse(2, { 1: "b" }) as unknown[] & { note?: string }
+    list.note = "kept"
+    return list
+  }
+
+  function withExtraProperty() {
+    const list = [1, 2] as number[] & { note?: string }
+    list.note = "kept"
+    return list
+  }
+
+  it.each([
+    ["one empty slot", sparse(1)],
+    ["an empty slot between values", sparse(3, { 0: 1, 2: 3 })],
+    ["a trailing empty slot", sparse(3, { 0: 1, 1: 2 })],
+    ["an array that is only a length", sparse(5)],
+    ["a nested array with an empty slot", { list: [sparse(3, { 0: 1, 2: 2 })] }],
+    ["a property that is not an index", withExtraProperty()],
+    ["an empty slot together with a property that is not an index", withHoleAndExtraProperty()],
+  ])("round-trips %s with the same slots and properties", (_name, value) => {
+    const decoded = decodeLossless(encodeLossless(value))
+
+    expect(isDeepStrictEqual(decoded, value)).toBe(true)
+  })
+
+  it("does not turn an empty slot into an own property", () => {
+    const decoded = decodeLossless(encodeLossless(sparse(1))) as unknown[]
+
+    expect(decoded).toHaveLength(1)
+    expect(Object.hasOwn(decoded, 0)).toBe(false)
+  })
+
+  it("tells an empty slot from an element that is undefined", () => {
+    expect(encodeLossless(sparse(1))).not.toBe(encodeLossless([undefined]))
+    expect(encodeLossless(sparse(3, { 0: 1, 2: 3 }))).not.toBe(encodeLossless([1, undefined, 3]))
+    expect(preservedOriginalKey(encodeLossless(sparse(1)))).not.toBe(
+      preservedOriginalKey(encodeLossless([undefined])),
+    )
+  })
+
+  it("keeps the text of an ordinary array as it always was, so existing copies keep their keys", () => {
+    expect(encodeLossless([1, "a", null, [true]])).toBe('[1,"a",null,[true]]')
+    expect(encodeLossless([undefined, 1])).toBe('[{"$t":"u"},1]')
+  })
+
+  it("keeps a copy of a stored config that holds an array with an empty slot, exactly", async () => {
+    const value = { list: sparse(3, { 0: 1, 2: 3 }) }
+
+    const { key } = await preserveOriginal(rawPair(value, CURRENT_META), "invalid-schema")
+
+    const [entry] = (await readPreserved()).filter((item) => item.key === key)
+    expect(isDeepStrictEqual(decodeLossless(entry!.entry.encodedValue), value)).toBe(true)
   })
 })
 

@@ -15,7 +15,8 @@ import { PreservationError } from "./errors"
  *
  * The count is limited to {@link MAX_PRESERVED_ORIGINALS}. Until every writer goes through one queue
  * the count-then-write is not atomic, so the limit is a soft one: concurrent captures of different
- * originals can briefly exceed it. Nothing is ever pruned automatically.
+ * originals can exceed it, and the excess stays until it is deleted explicitly. Nothing is ever
+ * pruned automatically.
  */
 export const PRESERVED_ORIGINAL_PREFIX = "configOriginal_"
 export const MAX_PRESERVED_ORIGINALS = 5
@@ -50,6 +51,15 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null
 }
 
+/** Every index from 0 to length - 1 is an own element and nothing else is an own property. */
+function isDenseArray(value: unknown[]): boolean {
+  if (Object.keys(value).length !== value.length) return false
+  for (let index = 0; index < value.length; index++) {
+    if (!Object.hasOwn(value, index)) return false
+  }
+  return true
+}
+
 function encodeNode(value: unknown): unknown {
   switch (typeof value) {
     case "string":
@@ -67,7 +77,17 @@ function encodeNode(value: unknown): unknown {
       return { [TAG]: "i", v: value.toString() }
     case "object": {
       if (value === null) return null
-      if (Array.isArray(value)) return Array.from(value, encodeNode)
+      if (Array.isArray(value)) {
+        // An ordinary array is written as a JSON array. One with empty slots, or with a property
+        // that is not an index, is written with its length and exactly the properties it has, so
+        // that an empty slot never becomes an `undefined` element.
+        if (isDenseArray(value)) return value.map(encodeNode)
+        const body: Record<string, unknown> = Object.create(null) as Record<string, unknown>
+        for (const key of Object.keys(value).sort()) {
+          body[key] = encodeNode((value as unknown as Record<string, unknown>)[key])
+        }
+        return { [TAG]: "a", n: value.length, v: body }
+      }
       if (value instanceof Date) {
         if (Number.isNaN(value.getTime())) throw new UnrepresentableValueError()
         return { [TAG]: "d", v: value.toISOString() }
@@ -105,6 +125,30 @@ function decodeNode(node: unknown): unknown {
       return new Date(String(record.v))
     case "o":
       return decodeBody(record.v)
+    case "a": {
+      const length = record.n
+      if (
+        typeof length !== "number" ||
+        !Number.isInteger(length) ||
+        length < 0 ||
+        length > 2 ** 32 - 1
+      ) {
+        throw new Error("Malformed encoded array")
+      }
+      // Holes, not `undefined` elements: setting the length of an empty array adds no elements.
+      const list: unknown[] = []
+      list.length = length
+      for (const [key, child] of Object.entries(decodeBody(record.v))) {
+        // defineProperty, not assignment: a stored key named "__proto__" must stay an ordinary key.
+        Object.defineProperty(list, key, {
+          value: child,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        })
+      }
+      return list
+    }
     default:
       throw new Error("Unknown encoding tag")
   }
@@ -150,6 +194,25 @@ function samePayload(entry: unknown, encodedValue: string, encodedMeta: string |
     entry.encodedValue === encodedValue &&
     entry.encodedMeta === encodedMeta
   )
+}
+
+/**
+ * Why the stored pair was kept, when a kept copy holds exactly this pair; `undefined` when none does
+ * (or the pair cannot be encoded, or storage cannot be read). Reads one key.
+ */
+export async function findKeptReason(raw: RawConfigPair): Promise<SuspectReason | undefined> {
+  if (!raw.hasValue) return undefined
+  try {
+    const encodedValue = encodeLossless(raw.value)
+    const encodedMeta = raw.hasMeta ? encodeLossless(raw.meta) : undefined
+    const key = preservedOriginalKey(encodedValue, encodedMeta)
+    const kept = (await browser.storage.local.get(key))[key]
+    return samePayload(kept, encodedValue, encodedMeta)
+      ? (kept as PreservedOriginal).reason
+      : undefined
+  } catch {
+    return undefined
+  }
 }
 
 /** Every kept original, oldest first. Reads the whole `storage.local` area; use it rarely. */

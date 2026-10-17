@@ -566,6 +566,89 @@ describe("startup over a valid current config whose meta is missing or unusable"
   )
 })
 
+describe("startup over a valid config whose meta holds a malformed modified time", () => {
+  const BAD = [
+    { name: "text", value: "not-a-timestamp" as unknown },
+    { name: "a number given as text", value: "1700000000000" as unknown },
+    { name: "null", value: null as unknown },
+    { name: "a boolean", value: true as unknown },
+    { name: "an object", value: { at: 1 } as unknown },
+    { name: "an array", value: [1] as unknown },
+  ]
+
+  it.each(BAD)(
+    "keeps the pair, malformed time included, and writes nothing when the time is $name",
+    async ({ value }) => {
+      const config = validConfig()
+      await seedPrimary(config, { schemaVersion: CONFIG_SCHEMA_VERSION, lastModifiedAt: value })
+      const before = await readRawPrimary()
+      const tracker = trackPrimaryWrites()
+
+      const result = await startBackground()
+
+      expect(tracker.writes).toEqual([])
+      expect(sameRaw(await readRawPrimary(), before)).toBe(true)
+      const copies = preservedCopiesOf(await snapshot(), before)
+      expect(copies).toHaveLength(1)
+      expect(copies[0]!.entry.reason).toBe("incoherent")
+      expect(result).toEqual({ isFreshInstall: false, hadStoredConfig: true })
+    },
+  )
+
+  it("does the same when the meta has no version label but a malformed time", async () => {
+    await seedPrimary(validConfig(), { lastModifiedAt: "not-a-timestamp" })
+    const before = await readRawPrimary()
+
+    await startBackground()
+
+    expect(sameRaw(await readRawPrimary(), before)).toBe(true)
+    expect(preservedCopiesOf(await snapshot(), before)).toHaveLength(1)
+  })
+
+  it("does the same for a config with an older label, without running the upgrade", async () => {
+    const spy = vi.fn<(version: number) => void>()
+    migration.hook = async (version, config, real) => {
+      spy(version)
+      return real(version, config)
+    }
+    await seedPrimary(previousVersionConfig(), {
+      ...PREVIOUS_META,
+      lastModifiedAt: "not-a-timestamp",
+    })
+    const before = await readRawPrimary()
+
+    await startBackground()
+
+    expect(spy).not.toHaveBeenCalled()
+    expect(sameRaw(await readRawPrimary(), before)).toBe(true)
+    expect(preservedCopiesOf(await snapshot(), before)).toHaveLength(1)
+  })
+
+  it("keeps a recognised newer version as newer-version, whatever the time says", async () => {
+    await seedPrimary(validConfig(), {
+      schemaVersion: CONFIG_SCHEMA_VERSION + 1,
+      lastModifiedAt: "not-a-timestamp",
+    })
+    const before = await readRawPrimary()
+
+    await startBackground()
+
+    const copies = preservedCopiesOf(await snapshot(), before)
+    expect(copies).toHaveLength(1)
+    expect(copies[0]!.entry.reason).toBe("newer-version")
+  })
+
+  it("still gives a meta with no modified time at all the current meta (a control)", async () => {
+    await seedPrimary(validConfig(), { schemaVersion: CONFIG_SCHEMA_VERSION })
+
+    await startBackground()
+
+    const stored = await readRawPrimary()
+    expect(typeof (stored.meta as any).lastModifiedAt).toBe("number")
+    expect(await readPreserved()).toEqual([])
+  })
+})
+
 describe("startup when the migration cannot give a usable config", () => {
   it("keeps the ORIGINAL, not a partly migrated value, when a step changes the config and then throws", async () => {
     const original: RawPrimary = { value: previousVersionConfig(), meta: PREVIOUS_META }

@@ -89,8 +89,8 @@ function RestoreButton({ backup }: { backup: ConfigBackup }) {
         backupToRestore.schemaVersion,
       )
 
-      // Backs up the config as it is STORED (or keeps an exact copy of it when it cannot be
-      // used), not the settings screen's view of it, then replaces it.
+      // Backs up the config as it is STORED, not the settings screen's view of it, then replaces
+      // it. A stored config that cannot be used is not replaced: the restore is refused.
       await replaceStoredConfig(migratedBackup, {
         backupCurrent: true,
         extensionVersion: EXTENSION_VERSION,
