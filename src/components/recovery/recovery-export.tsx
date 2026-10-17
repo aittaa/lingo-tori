@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/base-ui/alert-dialog"
 import { Button } from "@/components/ui/base-ui/button"
 import { toastManager } from "@/components/ui/base-ui/toast"
-import { INIT_FAILURE_KEY } from "@/utils/config/init-failure"
 import { PRESERVED_ORIGINAL_PREFIX } from "@/utils/config/preservation"
 import {
   buildKeptCopyExport,
@@ -58,8 +57,7 @@ export function RecoveryExport() {
   const [state, setState] = useState<RecoveryExportState>()
   const [target, setTarget] = useState<Target>()
 
-  // Read when the screen mounts, and again whenever the stored config, its meta, a kept copy or the
-  // record of a failed upgrade changes: a screen that was showing nothing must offer recovery as
+  // Read when the screen mounts, and again whenever the stored config, its meta or a kept copy changes: a screen that was showing nothing must offer recovery as
   // soon as the stored config stops being usable. A read that answers after a newer one started is
   // ignored, and the listener goes with the screen.
   useEffect(() => {
@@ -79,7 +77,6 @@ export function RecoveryExport() {
       const relevant =
         CONFIG_STORAGE_KEY in changes ||
         CONFIG_META_STORAGE_KEY in changes ||
-        INIT_FAILURE_KEY in changes ||
         Object.keys(changes).some((key) => key.startsWith(PRESERVED_ORIGINAL_PREFIX))
       if (relevant) refresh()
     }

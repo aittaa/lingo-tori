@@ -24,6 +24,7 @@ import { assertCurrentConfigExportable, getConfigStatus } from "../status"
 import {
   backupEntries,
   corruptConfig,
+  CURRENT_META,
   failWrites,
   forgetWhatTheBackgroundRemembers,
   MAX_PRESERVED,
@@ -367,6 +368,33 @@ describe("the outcome of a failed upgrade, and when it stops applying", () => {
     expect(
       Object.keys(await snapshot()).filter((key) => key.startsWith("configInitFailure")),
     ).toEqual([])
+  })
+
+  it("is dropped by a start that finds the stored config unusable for another reason", async () => {
+    await failedStartWithNoRoomForACopy()
+    expect(Object.keys(await snapshot())).toContain("configInitFailure")
+
+    await seedPrimary(corruptConfig(), CURRENT_META)
+    migration.hook = null
+    await startBackground()
+
+    expect(Object.keys(await snapshot())).not.toContain("configInitFailure")
+    forgetWhatTheBackgroundRemembers()
+    expect(await getConfigStatus()).toMatchObject({ kind: "suspect", reason: "invalid-schema" })
+  })
+
+  it("is not written, nor removed, by a start that has nothing to record or forget", async () => {
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    await seedPrimary(validConfig(), CURRENT_META)
+    const writes = vi.spyOn(fakeBrowser.storage.local, "set")
+    const removals = vi.spyOn(fakeBrowser.storage.local, "remove")
+
+    await startBackground()
+
+    expect(removals).not.toHaveBeenCalled()
+    expect(writes.mock.calls.map(([items]) => Object.keys(items))).not.toContainEqual(
+      expect.arrayContaining(["configInitFailure"]),
+    )
   })
 
   it("is replaced by the outcome of the latest start, whatever it was", async () => {

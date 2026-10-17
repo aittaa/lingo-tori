@@ -274,6 +274,27 @@ describe("a screen that is already showing", () => {
     expect(screen.getAllByText(EXPORT_COPY)).toHaveLength(1)
   })
 
+  it.each([
+    {
+      name: "only its value changes",
+      change: (fakeBrowser: any) => fakeBrowser.storage.local.set({ config: corruptConfig() }),
+    },
+    {
+      name: "only its meta changes",
+      change: (fakeBrowser: any) => fakeBrowser.storage.local.set({ config$: "not-a-meta" }),
+    },
+  ])("offers recovery when $name", async ({ change }) => {
+    const { fakeBrowser } = await import("wxt/testing/fake-browser")
+    await seedPrimary(validConfig(), CURRENT_META)
+    renderExport()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(screen.queryByTestId("recovery-export")).not.toBeInTheDocument()
+
+    await change(fakeBrowser)
+
+    await waitFor(() => expect(screen.getByText(EXPORT_STORED)).toBeVisible())
+  })
+
   it("shows the outcome of the latest read when an older read answers late", async () => {
     await seedPrimary(validConfig(), CURRENT_META)
     const { fakeBrowser } = await import("wxt/testing/fake-browser")

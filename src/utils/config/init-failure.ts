@@ -83,7 +83,7 @@ export async function clearInitFailure() {
   Reflect.deleteProperty(memory(), MEMORY)
   try {
     // Written only when there is something to remove: an ordinary start writes nothing here.
-    if (INIT_FAILURE_KEY in (await browser.storage.local.get(INIT_FAILURE_KEY))) {
+    if ((await browser.storage.local.get(INIT_FAILURE_KEY))[INIT_FAILURE_KEY] !== undefined) {
       await browser.storage.local.remove(INIT_FAILURE_KEY)
     }
   } catch (error) {
