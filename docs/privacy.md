@@ -71,7 +71,7 @@ If you use the experimental **Sign in with ChatGPT** option instead of an API ke
 - It sends your translation requests to OpenAI with the access token issued to your account. OpenAI's account terms apply.
 - The sign-in tokens are kept in a separate database that only the extension's background part reads, apart from ordinary settings. LingoTori does not add its own encryption to that database and does not promise operating-system-backed protection of the tokens; how well the profile and disk are protected depends on your setup, and anyone who can read the profile as you could recover them. The database is excluded from settings exports, backups and the page-side scripts.
 - **Signing out** always clears the tokens from your browser immediately. LingoTori then asks OpenAI to revoke the refresh token. Only a successful answer from OpenAI confirms the revocation; otherwise LingoTori tells you it is **unconfirmed**. On Firefox, if you have not allowed the "authentication info" data permission (see [Firefox data consent](#firefox-data-consent)), LingoTori does not send the revocation request at all. The local tokens are still cleared, and the remote revocation is reported as unconfirmed. You can revoke access from your OpenAI account yourself.
-- **Cancelling a sign-in.** On Firefox, LingoTori reads the permission right before it opens the sign-in page; if you cancel the sign-in, start another one, or it expires while that is happening, the page is not opened.
+- **Cancelling a sign-in.** On Firefox, LingoTori reads the permission right before it opens the sign-in page; if you cancel the sign-in, start another one, it expires, or its session is invalidated (for example by a token refresh that fails for good) while that is happening, the page is not opened.
 
 This sign-in is an experiment. It is not an official or store-approved integration, and it does not imply any partnership with OpenAI.
 
@@ -104,14 +104,26 @@ LingoTori automatically takes a copy of your settings about once an hour when th
 
 ### Preserved originals and recovery copies
 
-<!-- TODO: verify this section against the merged config-preservation change before this notice is published. -->
+If LingoTori finds that the stored settings cannot be read as the current version (for example because they are damaged, were saved by a newer version, or an upgrade step failed), it does not overwrite them with defaults: the stored settings are left exactly as they are, and the extension runs on the defaults in memory only. At start-up it tries to keep an **exact copy of the stored original** in separate storage that the hourly backup rotation does not touch. That is best effort and is tried again at every start. With five copies already kept, or when the browser's storage refuses the write, no copy is made, and the stored settings are still left exactly as they are.
 
-If LingoTori finds that the stored settings cannot be read as the current version (for example because they are damaged, or an upgrade step failed), it does not overwrite them with defaults. It first keeps an **exact copy of the stored original** in separate storage that the hourly backup rotation does not touch, and it asks you to choose how to recover. Until you do, ordinary edits to the settings are refused with a pointer to the recovery notice, and exporting "current settings" is blocked so that defaults are not exported as if they were yours.
+While the stored settings cannot be read:
 
-- A preserved original is an exact copy of your stored settings. **It can contain API keys and other secrets**, exactly as the original did. "Export exact JSON" in the recovery notice writes it to a file that you must keep as carefully as a key.
+- A change made in the settings page or the popup is not saved. A banner says "Your saved settings can't be read" and that changes are not saved, and its **Recovery options** button opens the recovery notice. A change that fails for another reason (it was not allowed, its outcome is not known, the part that saves settings could not be reached, other changes kept getting in the way, or a copy of the settings could not be kept first) shows "Your last change was not saved" with the reason.
+- Controls on web pages (the floating button, the subtitle panel and the selection toolbar) show no banner: a change made there is not saved either, and the control goes back. The shortcut that switches the page translation mode shows a short notice.
+- The hourly backup skips settings that cannot be read, and **Back up now** is refused while they cannot be read. Exporting "current settings" is blocked as well, so that defaults are not exported as if they were yours.
+
+The recovery notice, titled "Settings this version cannot read", offers these choices:
+
+- **Export exact copy** saves one kept copy to a file. **Export as found** saves the stored settings as they are right now, without changing them; use it when no kept copy is listed, for example because none could be kept. Both files include API keys and other credentials exactly as stored, in plain text. The notice warns before each download, and you must keep the file as carefully as a key.
+- **Try restore** checks and upgrades a kept copy first and replaces nothing if that fails. **Start from defaults** replaces the settings with the defaults. Over settings that cannot be read, both keep an exact copy of them first, and both are refused, with the stored settings left exactly as they are, until a copy can be kept (for example after you delete a kept copy when five are kept). Over settings that can be read, restoring backs them up first, unless the latest backup already holds the same settings.
+- **Delete** removes one kept copy after you confirm.
+
+Further points:
+
+- A preserved original is an exact copy of your stored settings. **It can contain API keys and other secrets**, exactly as the original did.
 - LingoTori keeps at most five preserved originals. It never deletes one by itself. A preserved original is removed only when you choose **Delete** and confirm, or when you uninstall the extension.
-- Restoring or starting from defaults is always your explicit action, and it takes effect only after the original has been verified as preserved.
-- These protections cover damage that LingoTori can detect. A write interrupted by the browser or the operating system may still need your recovery. LingoTori does not claim that the browser's storage is crash-proof, and it relies on the extension having one background context.
+- Restoring or starting from defaults is always your explicit action.
+- These protections cover damage that LingoTori can detect. A write interrupted by the browser or the operating system may still need your recovery. LingoTori does not claim that the browser's storage is crash-proof, and it relies on the extension having one background context. If a failed upgrade cannot even be recorded, other open settings pages can still treat the settings as being upgraded, and say so; changing, replacing, backing up or exporting them is refused in that state, so nothing is replaced.
 
 ### Translation cache and private windows
 
@@ -139,9 +151,9 @@ Firefox 140 and later asks add-ons to declare the data they send away and gets y
 
 **When it is checked.** LingoTori reads the permission again right before each request is sent, for each category that request needs. That includes every retry the AI SDK makes and every ChatGPT request, so switching a permission off in `about:addons` stops the next request that has not been sent yet, including the next attempt of a request that is being retried. It does not wait for Firefox to announce a change. Requests that send none of these (a local server without a key, for example) are not held back, and a Chrome build never asks the browser.
 
-**What it cannot stop.** A request that has already been sent may finish, and a very short window remains between the last check and the browser handing the request on. If an endpoint address or its options hide a secret that LingoTori cannot recognise, tick "This endpoint URL or its options contain a secret" in that provider's settings so that Firefox asks first; this adds to what LingoTori detects and never removes a check.
+**What it cannot stop.** A request that has already been sent may finish, and a very short window remains between the last check and the browser handing the request on. LingoTori recognises a credential by its name, so it cannot detect or gate an undeclared secret, for example one hidden in an opaque part of an endpoint address or in an option or header with a name it does not recognise. If an endpoint address or its options contain such a secret, tick "This endpoint URL or its options contain a secret" in that provider's settings. That saves the declaration and makes authentication consent required for that provider, as it already is for an API key; it does not open a Firefox prompt by itself. Then click the separate **Allow** button that appears there to request the permission, and until you do, requests to that endpoint are not sent. The setting only adds to what LingoTori detects and never removes a check.
 
-**Sign-in and sign-out.** Without authentication info no ChatGPT request starts, no sign-in page is opened, and a refusal does not mark your stored session as failed. A sign-in that is cancelled, replaced or expires while the permission is being read does not open the sign-in page. Signing out always clears the local tokens; without authentication info the remote revocation is skipped and reported as unconfirmed.
+**Sign-in and sign-out.** Without authentication info no ChatGPT request starts, no sign-in page is opened, and a refusal does not mark your stored session as failed. A sign-in that is cancelled, replaced or expires, or whose session is invalidated (for example by a token refresh that fails for good), while the permission is being read does not open the sign-in page. Signing out always clears the local tokens; without authentication info the remote revocation is skipped and reported as unconfirmed.
 
 Firefox for Android and Firefox older than 140 are not supported.
 
