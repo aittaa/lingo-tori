@@ -131,30 +131,30 @@ function useProviderEditorValue({
         ...(providerType ? { providerType } : {}),
       },
     },
+    // The assignment switches start these and do not wait for them. They return the write's own
+    // promise (see `writeConfigAtom`) rather than awaiting it in an `async` function, which would
+    // leave a second promise rejected with nobody to observe it when the write is refused.
     actions: {
-      assignFeature: async (featureKey) => {
-        await setConfig({
+      assignFeature: (featureKey) =>
+        setConfig({
           ...buildFeatureProviderPatch({ [featureKey]: providerId }),
           ...getAssignmentProvidersPatch(),
-        })
-      },
-      assignLanguageDetection: async () => {
-        await setConfig({
+        }),
+      assignLanguageDetection: () =>
+        setConfig({
           languageDetection: {
             mode: "llm",
             providerId,
           },
           ...getAssignmentProvidersPatch(),
-        })
-      },
-      assignCustomAction: async (actionId) => {
-        await setConfig({
+        }),
+      assignCustomAction: (actionId) =>
+        setConfig({
           selectionToolbar: patchSelectionToolbarAction(config.selectionToolbar, actionId, {
             providerId,
           }),
           ...getAssignmentProvidersPatch(),
-        })
-      },
+        }),
       ...(duplicate ? { duplicate } : {}),
       ...(deleteProvider ? { delete: deleteProvider } : {}),
     },
