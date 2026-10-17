@@ -67,6 +67,10 @@ errorRecovery:
     description: 현재 설정이 기본값으로 덮어써집니다.
     confirm: 초기화
     cancel: 취소
+about:
+  title: 정보
+  privacyNotice: 개인정보 안내
+  thirdPartyNotices: 타사 소프트웨어 고지
 options:
   autosave:
     invalid: 이동하기 전에 표시된 필드를 수정해 주세요.

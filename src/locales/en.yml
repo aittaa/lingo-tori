@@ -67,6 +67,10 @@ errorRecovery:
     description: This will replace your current settings with the default values.
     confirm: Reset
     cancel: Cancel
+about:
+  title: About
+  privacyNotice: Privacy notice
+  thirdPartyNotices: Third-party notices
 options:
   autosave:
     invalid: Please correct the highlighted fields before leaving.
