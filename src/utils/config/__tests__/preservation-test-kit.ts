@@ -363,3 +363,25 @@ export function failWrites(matches: (keys: string[]) => boolean, times = Infinit
 export async function settle() {
   await new Promise<void>((resolve) => setTimeout(resolve, 0))
 }
+
+/**
+ * Records the promise rejections that reach the process with no handler (the `unhandledRejection`
+ * event; a page reports the same thing as an uncaught error) from now until `stop()`. The event is
+ * emitted after the turn in which the rejection happened, so `flush()` waits past it.
+ */
+export function watchUnhandledRejections() {
+  const reasons: unknown[] = []
+  const record = (reason: unknown) => {
+    reasons.push(reason)
+  }
+  process.on("unhandledRejection", record)
+  return {
+    reasons,
+    async flush() {
+      await new Promise<void>((resolve) => setTimeout(resolve, 25))
+    },
+    stop() {
+      process.off("unhandledRejection", record)
+    },
+  }
+}
