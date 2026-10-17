@@ -6,17 +6,10 @@ import { describe, expect, it } from "vitest"
 // `watchConfigStatus`), never as a raw payload: a payload is whatever was written, validated by
 // nobody. This scan fails when production code reads or subscribes to `local:config` directly.
 //
-// Writers are scanned by `no-raw-config-writes.test.ts`. The files allowed below either ARE the
-// reader, or contain an access that is not a raw read for a session: `storageAdapter` (the settings
-// atoms' reader falls back to the defaults for a value that fails validation).
+// Writers are scanned by `no-raw-config-writes.test.ts`. The files allowed below ARE the reader.
 const SRC = join(import.meta.dirname, "..", "..", "..")
 
-const ALLOWED = new Set([
-  "utils/config/status.ts",
-  "utils/config/primary-write.ts",
-  // The settings atoms read and write through `storageAdapter`, which validates and falls back.
-  "utils/atoms/config.ts",
-])
+const ALLOWED = new Set(["utils/config/status.ts", "utils/config/primary-write.ts"])
 
 const RAW_ACCESS = [
   // storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`) and storage.watch<...>(...)

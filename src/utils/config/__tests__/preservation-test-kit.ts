@@ -211,10 +211,15 @@ export async function seedBackup(
   config: unknown,
   createdAt: number,
   id = `configBackup_${createdAt}_seed${seededBackups++}`,
+  opDigest?: string,
 ) {
   await fakeBrowser.storage.local.set({
     [id]: { schemaVersion: CONFIG_SCHEMA_VERSION, config: structuredClone(config) },
-    [`${id}$`]: { createdAt, extensionVersion: "0.0.1" },
+    [`${id}$`]: {
+      createdAt,
+      extensionVersion: "0.0.1",
+      ...(opDigest === undefined ? {} : { opDigest }),
+    },
   })
   const ids = ((await fakeBrowser.storage.local.get(BACKUP_LIST_KEY))[BACKUP_LIST_KEY] ??
     []) as string[]

@@ -6,7 +6,7 @@ import type {
   RefusalReason,
   Snapshot,
 } from "@/utils/config/commit-protocol"
-import type { BaseToken, ConfigStatus } from "@/utils/config/status"
+import type { BaseToken, ConfigStatus, RawConfigPair } from "@/utils/config/status"
 import { dequal } from "dequal"
 import { browser } from "#imports"
 import { configSchema } from "@/types/config/config"
@@ -27,11 +27,12 @@ import {
 import { PreservationError } from "@/utils/config/errors"
 import {
   deletePreservedOriginal,
+  pairDigestOf,
   PRESERVED_ORIGINAL_PREFIX,
   preserveOriginal,
 } from "@/utils/config/preservation"
 import { commitPrimary } from "@/utils/config/primary-write"
-import { fingerprintOf, getConfigStatus } from "@/utils/config/status"
+import { fingerprintOf, getConfigStatus, readRawConfigPair } from "@/utils/config/status"
 import { BACKUP_ID_PREFIX } from "@/utils/constants/backup"
 import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { logger } from "@/utils/logger"
@@ -154,6 +155,18 @@ function afterStartup(status: ConfigStatus): ConfigStatus {
     : status
 }
 
+/**
+ * Whether the stored pair is, by a fresh read, exactly `original`: the only case in which a write
+ * that failed is known not to have happened. A read that fails says nothing, so it is not "yes".
+ */
+async function storedPairIsStill(original: RawConfigPair) {
+  try {
+    return pairDigestOf(await readRawConfigPair()) === pairDigestOf(original)
+  } catch {
+    return false
+  }
+}
+
 function sameToken(a: { kind: string; revision: number; valueHash: string }, b: typeof a) {
   return a.kind === b.kind && a.revision === b.revision && a.valueHash === b.valueHash
 }
@@ -225,7 +238,19 @@ export function createConfigCommitService(
 
     const receipt = receiptOf(status, request)
     if (receipt === "mismatch") return { status: "rejected", reason: "op-digest-mismatch" }
-    if (receipt === "done") return { status: "committed", token }
+    if (receipt === "done") {
+      // A replacement found done may have left the rotation it deferred unfinished (its first
+      // answer was lost or unconfirmed): finish it now.
+      if (request.kind === "replace") await pruneBackups().catch(() => undefined)
+      return { status: "committed", token }
+    }
+
+    // The backup a replacement takes first is answered by the operation id like the primary pair
+    // is, and under the same rule: an id that comes with another digest is another operation.
+    const already = request.kind === "replace" ? await findBackupMadeBy(request.opId) : undefined
+    if (already && already.opDigest !== request.opDigest) {
+      return { status: "rejected", reason: "op-digest-mismatch" }
+    }
 
     if (request.kind === "edit") {
       // An edit computed from the defaults that stand in for an unusable config is never committed.
@@ -273,10 +298,10 @@ export function createConfigCommitService(
         }
       } else if (request.backupCurrent && status.kind === "usable") {
         const stored = status.raw.value as Config
-        const already = await findBackupMadeBy(request.opId)
         if (!already && !(await isSameAsLatestBackup(stored, CONFIG_SCHEMA_VERSION))) {
           addedBackupId = await addBackup(stored, request.extensionVersion, CONFIG_SCHEMA_VERSION, {
             backupId: backupIdFor(now(), request.opId),
+            opDigest: request.opDigest,
             prune: false,
           })
         }
@@ -298,9 +323,14 @@ export function createConfigCommitService(
       }
     } catch (error) {
       logger.error("Could not commit the config", error)
-      // The backup that was added only for this replacement is taken back, so a replacement that
-      // did not happen leaves the list as it was.
-      if (addedBackupId !== undefined) await removeBackup(addedBackupId).catch(() => undefined)
+      // The backup that was added only for this replacement is taken back when the replacement is
+      // known not to have happened, so that one that did not happen leaves the list as it was. The
+      // write may have gone through even though the commit could not be confirmed (the read that
+      // confirms it failed): then the backup is the only copy of what was replaced and it stays. The
+      // rotation it deferred is finished by the next backup, or by this replacement sent again.
+      if (addedBackupId !== undefined && (await storedPairIsStill(status.raw))) {
+        await removeBackup(addedBackupId).catch(() => undefined)
+      }
       return { status: "unavailable", reason: "storage-failed" }
     }
   }
@@ -308,9 +338,14 @@ export function createConfigCommitService(
   async function executeBackupNow(
     request: Extract<OperationRequest, { kind: "backup-now" }>,
   ): Promise<CommitResponse> {
-    // Already made by this operation: done, whichever attempt this is.
+    // Already made by this operation: done, whichever attempt this is. The same id with another
+    // digest is another operation and is not answered with this one's backup.
     const existing = await findBackupMadeBy(request.opId)
-    if (existing) return { status: "committed", backupId: existing }
+    if (existing) {
+      return existing.opDigest === request.opDigest
+        ? { status: "committed", backupId: existing.id }
+        : { status: "rejected", reason: "op-digest-mismatch" }
+    }
     // A retry never makes it again: the first attempt either did it (found above) or the answer
     // cannot be explained.
     if (request.attempt === "uncertain-retry") return { status: "outcome-unknown" }
@@ -322,7 +357,7 @@ export function createConfigCommitService(
       status.raw.value as Config,
       request.extensionVersion,
       CONFIG_SCHEMA_VERSION,
-      { backupId: backupIdFor(now(), request.opId) },
+      { backupId: backupIdFor(now(), request.opId), opDigest: request.opDigest },
     )
     return { status: "committed", backupId }
   }
@@ -341,6 +376,9 @@ export function createConfigCommitService(
         return executePrimary(request, senderClass)
       case "backup-now":
         return executeBackupNow(request)
+      // The operations below are idempotent by the id or key they name, so they are not answered
+      // by looking an operation id up: repeating one removes the same thing, or finds it gone.
+      // (Clearing uses the list fixed in the request, never the primary revision or the list now.)
       case "remove-backup":
         await removeBackup(request.backupId)
         return { status: "committed" }

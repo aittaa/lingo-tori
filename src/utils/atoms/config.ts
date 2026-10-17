@@ -3,13 +3,11 @@ import { deepmergeCustom } from "deepmerge-ts"
 import { dequal } from "dequal"
 import { atom } from "jotai"
 import { selectAtom } from "jotai/utils"
-import { configSchema } from "@/types/config/config"
-import { getConfigView } from "../config/status"
+import { getConfigView, watchConfigStatus } from "../config/status"
 import { editConfig } from "../config/write-guard"
-import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "../constants/config"
+import { DEFAULT_CONFIG } from "../constants/config"
 import { logger } from "../logger"
 import { configWriteFailureAtom, describeWriteFailure } from "./config-health"
-import { storageAdapter } from "./storage-adapter"
 
 export const configAtom = atom<Config>(DEFAULT_CONFIG)
 
@@ -75,8 +73,11 @@ export const writeConfigAtom = atom(null, async (get, set, update: ConfigUpdate)
   return task
 })
 
-// Watch notifications invalidate a read. Their payload may describe an older write,
-// and must never replace a newer optimistic update or an already persisted value.
+// What the screens show is the session view of the stored config (the status reader): the stored
+// value when it is usable, the defaults when it is not or when nothing is stored. A notification
+// that the view changed (a change of the value, of its meta, or of what says an upgrade failed)
+// only invalidates a read. What it delivers may describe an older write, and must never replace a
+// newer optimistic update or an already persisted value.
 configAtom.onMount = (setAtom) => {
   let active = true
   let requested = false
@@ -95,7 +96,7 @@ configAtom.onMount = (setAtom) => {
         requested = false
         const readGeneration = generation
         const readVersion = writeVersion
-        const value = await storageAdapter.get(CONFIG_STORAGE_KEY, DEFAULT_CONFIG, configSchema)
+        const value = (await getConfigView()).config ?? DEFAULT_CONFIG
         if (!active) return
         if (readGeneration !== generation || readVersion !== writeVersion || pendingWrites > 0) {
           requested = true
@@ -116,7 +117,7 @@ configAtom.onMount = (setAtom) => {
     void refresh()
   }
   refreshListeners.add(requestRefresh)
-  const unwatch = storageAdapter.watch<Config>(CONFIG_STORAGE_KEY, requestRefresh)
+  const unwatch = watchConfigStatus(requestRefresh)
   const onVisibilityChange = () => {
     if (document.visibilityState === "visible") requestRefresh()
   }

@@ -3,21 +3,15 @@ import type { Config } from "@/types/config/config"
 import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react"
 import { createStore, Provider } from "jotai"
 import { MemoryRouter } from "react-router"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { TooltipProvider } from "@/components/ui/base-ui/tooltip"
 import { PreferenceSection } from "@/entrypoints/options/pages/video-subtitles/preference"
-import { storageAdapter } from "@/utils/atoms/storage-adapter"
 import { getLocalConfig } from "@/utils/config/storage"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { ForeignVideoAutoTranslate } from "../foreign-video-auto-translate"
 
 const TITLE = "options.videoSubtitles.preference.autoStart.title"
-
-// What a change in another context delivers to every context watching the config key. The
-// notification only says "reread"; the value comes from storage.
-const watchers = new Set<(newValue: never) => void>()
-const notifyWatchers = () => watchers.forEach((notify) => notify(undefined as never))
 
 // What the extension keeps in storage, as every context reads it.
 async function seedStorage(edit?: (config: Config) => void) {
@@ -56,16 +50,6 @@ function mountSettings() {
 }
 
 describe("popup auto-translate switch for foreign videos", () => {
-  beforeEach(() => {
-    watchers.clear()
-    vi.spyOn(storageAdapter, "watch").mockImplementation((_key, callback) => {
-      watchers.add(callback)
-      return () => {
-        watchers.delete(callback)
-      }
-    })
-  })
-
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
@@ -129,17 +113,17 @@ describe("popup auto-translate switch for foreign videos", () => {
     const before = await seedStorage()
     const popup = mountPopup()
     const settings = mountSettings()
-    // Both views watch the config key; without that there would be nothing to wait for below.
-    await waitFor(() => expect(watchers.size).toBe(2))
+    expect(popup).not.toBeChecked()
+    expect(settings).not.toBeChecked()
 
     // Not through either view: a write from a third context, as a second popup or tab would make.
+    // The browser's change notification only says "reread"; the value comes from storage.
     await fakeBrowser.storage.local.set({
       [CONFIG_STORAGE_KEY]: {
         ...before,
         videoSubtitles: { ...before.videoSubtitles, autoStart: true },
       },
     })
-    notifyWatchers()
 
     await waitFor(() => expect(popup).toBeChecked())
     await waitFor(() => expect(settings).toBeChecked())

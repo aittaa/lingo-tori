@@ -678,6 +678,64 @@ describe("an explicit replacement (restore, import, reset)", () => {
     expect(await snapshot()).toEqual(before)
   })
 
+  // Storage can accept the write of the replacement and then fail the read that confirms it. The
+  // replacement may well have happened, so the backup of the config it replaced stays: it is only
+  // taken back when the stored pair is established to be the original.
+  async function replaceWithAFailingReadBack(readsThatFail: "first-only" | "all") {
+    const old = edited(validConfig(), false)
+    const next = edited(validConfig(), true)
+    await seedPrimary(old, committedMeta(old))
+    const request = await replaceOf(next)
+    const realSet = fakeBrowser.storage.local.set.bind(fakeBrowser.storage.local)
+    const realGet = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local)
+    let stored = false
+    let failed = 0
+    vi.spyOn(fakeBrowser.storage.local, "set" as any).mockImplementation((async (
+      items: Record<string, unknown>,
+    ) => {
+      await realSet(items)
+      if (Object.hasOwn(items, "config")) stored = true
+    }) as any)
+    vi.spyOn(fakeBrowser.storage.local, "get" as any).mockImplementation((async (keys: unknown) => {
+      const readsPrimary = Array.isArray(keys) && keys.includes("config")
+      if (stored && readsPrimary && (readsThatFail === "all" || failed === 0)) {
+        failed++
+        throw new Error("simulated read failure")
+      }
+      return realGet(keys as string[])
+    }) as any)
+
+    const response = await newService().handle(request, PAGE)
+    vi.restoreAllMocks()
+    return { old, next, request, response }
+  }
+
+  it.each([
+    { name: "the read that confirms it fails once", readsThatFail: "first-only" as const },
+    { name: "every read of the pair fails", readsThatFail: "all" as const },
+  ])("keeps the backup of the old config when storage accepts the write but $name", async (c) => {
+    const { old, next, response } = await replaceWithAFailingReadBack(c.readsThatFail)
+
+    expect(response).toEqual({ status: "unavailable", reason: "storage-failed" })
+    expect((await readRawPrimary()).value).toEqual(configSchema.parse(next))
+    const backups = backupEntries(await snapshot())
+    expect(backups).toHaveLength(1)
+    expect(backups[0]!.backup.config).toEqual(old)
+  })
+
+  it("finishes the rotation it deferred when the same replacement is sent again and found done", async () => {
+    for (let n = 0; n < MAX_BACKUPS_COUNT; n++) await seedBackup(validConfig(), 1_000 + n)
+    const { old, request } = await replaceWithAFailingReadBack("first-only")
+    expect(backupEntries(await snapshot())).toHaveLength(MAX_BACKUPS_COUNT + 1)
+
+    const retry = await newService().handle({ ...request, attempt: "uncertain-retry" }, PAGE)
+
+    expect(retry.status).toBe("committed")
+    const backups = backupEntries(await snapshot())
+    expect(backups).toHaveLength(MAX_BACKUPS_COUNT)
+    expect(backups[0]!.backup.config).toEqual(old)
+  })
+
   it("rotates the oldest backup out only after the replacement is committed", async () => {
     const stored = { ...validConfig(), contextMenu: { enabled: false } }
     await seedPrimary(stored, committedMeta(stored))
@@ -726,12 +784,47 @@ describe("an explicit replacement (restore, import, reset)", () => {
     const request = await replaceOf(validConfig())
     // An earlier attempt of this operation made a backup; the latest backup does not hold what is
     // stored now, so only the operation id says it is already there.
-    const id = await seedBackup(validConfig(), 5_000, `configBackup_5000_${request.opId}`)
+    const id = await seedBackup(
+      validConfig(),
+      5_000,
+      `configBackup_5000_${request.opId}`,
+      request.opDigest,
+    )
 
     const response = await newService().handle(request, PAGE)
 
     expect(response.status).toBe("committed")
     expect(backupEntries(await snapshot()).map((entry) => entry.id)).toEqual([id])
+  })
+
+  it("rejects an operation id that already has a backup made for a different operation", async () => {
+    const stored = { ...validConfig(), contextMenu: { enabled: false } }
+    await seedPrimary(stored, committedMeta(stored))
+    const request = await replaceOf(validConfig())
+    await seedBackup(
+      validConfig(),
+      5_000,
+      `configBackup_5000_${request.opId}`,
+      "digest-of-another-operation",
+    )
+    const before = await snapshot()
+
+    const response = await newService().handle(request, PAGE)
+
+    expect(response).toEqual({ status: "rejected", reason: "op-digest-mismatch" })
+    expect(await snapshot()).toEqual(before)
+  })
+
+  it("does not take a backup made without any operation digest for the one it is asked about", async () => {
+    const stored = { ...validConfig(), contextMenu: { enabled: false } }
+    await seedPrimary(stored, committedMeta(stored))
+    const request = await replaceOf(validConfig())
+    await seedBackup(validConfig(), 5_000, `configBackup_5000_${request.opId}`)
+
+    const response = await newService().handle(request, PAGE)
+
+    expect(response).toEqual({ status: "rejected", reason: "op-digest-mismatch" })
+    expect((await readRawPrimary()).value).toEqual(stored)
   })
 })
 
@@ -853,6 +946,41 @@ describe("backups", () => {
       schemaVersion: CONFIG_SCHEMA_VERSION,
       config: stored,
     })
+  })
+
+  it("keeps the digest of the operation beside the backup, and the backup itself unchanged", async () => {
+    const stored = { ...validConfig(), keyKeptAsStored: 1 }
+    await seedPrimary(stored, committedMeta(stored))
+    const request = operation({ kind: "backup-now", extensionVersion: "0.0.1" })
+
+    const response = await newService().handle(request, PAGE)
+
+    const { backupId } = response as { backupId: string }
+    const all = await snapshot()
+    expect(all[backupId]).toEqual({ schemaVersion: CONFIG_SCHEMA_VERSION, config: stored })
+    expect(all[`${backupId}$`]).toEqual({
+      createdAt: expect.any(Number),
+      extensionVersion: "0.0.1",
+      opDigest: request.opDigest,
+    })
+  })
+
+  it("rejects an operation id that is used again for a different backup request", async () => {
+    await seedPrimary(validConfig(), committedMeta(validConfig()))
+    const service = newService()
+    const first = operation({ kind: "backup-now", extensionVersion: "0.0.1" })
+    expect((await service.handle(first, PAGE)).status).toBe("committed")
+    const reused = operation(
+      { kind: "backup-now", extensionVersion: "another-payload" },
+      { opId: first.opId, attempt: "uncertain-retry" },
+    )
+    expect(reused.opDigest).not.toBe(first.opDigest)
+    const before = await snapshot()
+
+    const response = await service.handle(reused, PAGE)
+
+    expect(response).toEqual({ status: "rejected", reason: "op-digest-mismatch" })
+    expect(await snapshot()).toEqual(before)
   })
 
   it.each([
