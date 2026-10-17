@@ -4,8 +4,6 @@ LingoTori's selected mascot is candidate A: the newly generated white long-taile
 
 ## Provenance and licensing
 
-- Selected Library item: `libfile_2e13dce9f7708191a2a2c84245b41fb0`, version `0`.
-- Original file ID: `file_0000000030a081f59745c9b66843e91f`.
 - Original filename: `LingoTori-A-long-tailed-tit.png`; 1254 × 1254 RGB PNG.
 - Original SHA-256: `786efd1716b64ab851bd8e70c37527d364f80d06dbd90eaedd29ec055c65b313`.
 - Selection instruction: “A로 가자 테마도 이거따라가도록”.
