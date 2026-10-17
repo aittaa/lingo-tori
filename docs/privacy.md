@@ -115,7 +115,7 @@ While the stored settings cannot be read:
 The recovery notice, titled "Settings this version cannot read", offers these choices:
 
 - **Export exact copy** saves one kept copy to a file. **Export as found** saves the stored settings as they are right now, without changing them; use it when no kept copy is listed, for example because none could be kept. Both files include API keys and other credentials exactly as stored, in plain text. The notice warns before each download, and you must keep the file as carefully as a key.
-- **Try restore** checks and upgrades a kept copy first and replaces nothing if that fails. **Start from defaults** replaces the settings with the defaults. Over settings that cannot be read, both keep an exact copy of them first, and both are refused, with the stored settings left exactly as they are, until a copy can be kept (for example after you delete a kept copy when five are kept). Over settings that can be read, restoring backs them up first, unless the latest backup already holds the same settings.
+- **Try restore** checks and upgrades a kept copy first and replaces nothing if that fails. **Start from defaults** replaces the settings with the defaults. Over settings that cannot be read, both keep an exact copy of them first, and both are refused, with the stored settings left exactly as they are, until a copy can be kept (for example after you delete a kept copy when five are kept). Over settings that can be read, restoring backs them up first, unless the latest backup already holds the same settings. If the replacement then fails and the settings are still exactly as they were, that backup is taken back; if it cannot be confirmed whether the replacement happened, the backup stays.
 - **Delete** removes one kept copy after you confirm.
 
 Further points:
@@ -123,7 +123,7 @@ Further points:
 - A preserved original is an exact copy of your stored settings. **It can contain API keys and other secrets**, exactly as the original did.
 - LingoTori keeps at most five preserved originals. It never deletes one by itself. A preserved original is removed only when you choose **Delete** and confirm, or when you uninstall the extension.
 - Restoring or starting from defaults is always your explicit action.
-- These protections cover damage that LingoTori can detect. A write interrupted by the browser or the operating system may still need your recovery. LingoTori does not claim that the browser's storage is crash-proof, and it relies on the extension having one background context. If a failed upgrade cannot even be recorded, other open settings pages can still treat the settings as being upgraded, and say so; changing, replacing, backing up or exporting them is refused in that state, so nothing is replaced.
+- These protections cover damage that LingoTori can detect. A write interrupted by the browser or the operating system may still need your recovery. LingoTori does not claim that the browser's storage is crash-proof, and it relies on the extension having one background context. If a failed upgrade cannot even be recorded, another open settings page can still treat the settings as being upgraded, and say so. In that state ordinary changes and exporting the current settings are refused, the hourly backup skips them and **Back up now** is refused, while **Export as found** stays available. Restoring a kept copy or starting from defaults still replaces the settings, but only after an exact copy of them has been kept and confirmed.
 
 ### Translation cache and private windows
 
