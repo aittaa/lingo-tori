@@ -6,16 +6,18 @@ import { LATEST_SCHEMA_VERSION } from "../migration"
 
 /**
  * Reads a fixture without the code under test: every property named `apiKey` (whatever its value,
- * even `undefined`; its subtree is not read) and every other value by path. An empty object or
- * array counts as a value, and so does an object that holds nothing but `apiKey` (v004's
- * `providersConfig.deepseek`): redaction leaves it as `{}`, and losing it would be noticed.
+ * even `undefined`; its subtree is not read) and every other value by path. A value that is
+ * `undefined` counts as a value too (v043's `baseURL: undefined`): the property exists, and
+ * dropping it would be noticed. An empty object or array counts as a value, and so does an
+ * object that holds nothing but `apiKey` (v004's `providersConfig.deepseek`): redaction leaves
+ * it as `{}`, and losing it would be noticed.
  */
 function readConfig(root: unknown) {
   const secrets: { path: string; value: unknown }[] = []
   const ordinary = new Map<string, unknown>()
   const visit = (node: unknown, path: string) => {
     if (node === null || typeof node !== "object") {
-      if (node !== undefined) ordinary.set(path, node)
+      ordinary.set(path, node)
       return
     }
     let kept = 0
@@ -66,7 +68,7 @@ describe("config utilities", () => {
           const planted = before.secrets.filter(({ value }) => Boolean(value))
           secretsBeforeRedaction += planted.length
           expect(
-            Object.keys(before.ordinary).length,
+            Object.values(before.ordinary).filter((value) => value !== undefined).length,
             `${label}: the fixture must hold non-secret values to preserve`,
           ).toBeGreaterThan(0)
           // The detector must see what is planted, or `hasAPIKey(result) === false` below proves nothing.
@@ -82,7 +84,8 @@ describe("config utilities", () => {
             `${label}: apiKey properties left after redaction`,
           ).toEqual([])
           expect(hasAPIKey(result), `${label}: hasAPIKey after redaction`).toBe(false)
-          expect(after.ordinary, `${label}: non-secret values lost or changed`).toEqual(
+          // Strict, so a property whose value is `undefined` has to survive as a property.
+          expect(after.ordinary, `${label}: non-secret values lost or changed`).toStrictEqual(
             before.ordinary,
           )
           expect(result, `${label}: the result must be a copy`).not.toBe(input)
