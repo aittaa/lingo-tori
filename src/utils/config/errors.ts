@@ -47,16 +47,32 @@ export class PreservationError extends Error {
   }
 }
 
-/** "Back up now" was refused because the stored config is not usable; see {@link ConfigExportBlockedError}. */
-export class ConfigBackupBlockedError extends Error {
+/**
+ * A change to the config was refused because the stored config cannot be used (it fails its
+ * schema, a migration failed, it is labelled by a newer version, or its meta cannot be read).
+ * Nothing was written: the stored value stays exactly as it is, and the original is kept.
+ * Replacing an unusable config is not available yet; it arrives with recovery in a later update.
+ */
+export class ConfigRecoveryRequiredError extends Error {
   readonly reason: string
 
   constructor(reason: string) {
     super(
-      "The stored settings cannot be read, so no backup was made. Your original settings are kept " +
-        "as they are; a backup of the defaults would not be a backup of your settings.",
+      "Your saved settings cannot be read by this version, so nothing was changed. They are kept " +
+        "exactly as they are. Recovering them is not available yet and arrives in a later update.",
     )
-    this.name = "ConfigBackupBlockedError"
+    this.name = "ConfigRecoveryRequiredError"
     this.reason = reason
+  }
+}
+
+/** A change was refused because the stored config is still being upgraded; it is worth retrying. */
+export class ConfigUpgradePendingError extends Error {
+  constructor() {
+    super(
+      "Your saved settings are still being upgraded to this version, so nothing was changed. " +
+        "Try again in a moment.",
+    )
+    this.name = "ConfigUpgradePendingError"
   }
 }

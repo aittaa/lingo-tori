@@ -4,7 +4,7 @@ import { storage } from "#imports"
 import { configSchema } from "@/types/config/config"
 import { CONFIG_SCHEMA_VERSION, CONFIG_STORAGE_KEY } from "../constants/config"
 import { logger } from "../logger"
-import { getConfigView } from "./status"
+import { assertConfigWritable, getConfigView } from "./status"
 
 /**
  * The session's view of the stored config, read through the status reader: the parsed value when it
@@ -28,6 +28,7 @@ export async function setLocalConfig(config: Config) {
   if (!parsedConfig.success) {
     throw new Error("Config is invalid")
   }
+  await assertConfigWritable()
   await storage.setItem<Config>(`local:${CONFIG_STORAGE_KEY}`, parsedConfig.data)
   await storage.setMeta<Partial<ConfigMeta>>(`local:${CONFIG_STORAGE_KEY}`, {
     lastModifiedAt: Date.now(),
@@ -69,6 +70,7 @@ export async function setLocalConfigAndMeta(config: Config, meta: Partial<Config
   if (!parsedConfig.success) {
     throw new Error("Config is invalid")
   }
+  await assertConfigWritable()
   await storage.setItem<Config>(`local:${CONFIG_STORAGE_KEY}`, parsedConfig.data)
   await storage.setMeta<Partial<ConfigMeta>>(`local:${CONFIG_STORAGE_KEY}`, {
     ...meta,

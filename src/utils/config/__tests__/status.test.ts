@@ -2,8 +2,13 @@ import type { RawConfigPair } from "../status"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG } from "@/utils/constants/config"
-import { ConfigExportBlockedError } from "../errors"
 import {
+  ConfigExportBlockedError,
+  ConfigRecoveryRequiredError,
+  ConfigUpgradePendingError,
+} from "../errors"
+import {
+  assertConfigWritable,
   assertCurrentConfigExportable,
   classifyConfigPair,
   getConfigStatus,
@@ -231,6 +236,62 @@ describe("assertCurrentConfigExportable", () => {
     await expect(assertCurrentConfigExportable()).rejects.toMatchObject({
       reason: "invalid-schema",
     })
+  })
+})
+
+describe("assertConfigWritable", () => {
+  it("allows a profile with nothing stored and a usable config", async () => {
+    await expect(assertConfigWritable()).resolves.toBeUndefined()
+
+    await seedPrimary(validConfig(), CURRENT_META)
+    await expect(assertConfigWritable()).resolves.toBeUndefined()
+
+    await seedPrimary(validConfig(), ABSENT)
+    await expect(assertConfigWritable()).resolves.toBeUndefined()
+  })
+
+  it.each([
+    {
+      name: "invalid",
+      value: corruptConfig(),
+      meta: CURRENT_META as unknown,
+      reason: "invalid-schema",
+    },
+    {
+      name: "a corrupted falsy value",
+      value: 0,
+      meta: CURRENT_META as unknown,
+      reason: "invalid-schema",
+    },
+    {
+      name: "of a newer version",
+      value: validConfig(),
+      meta: { schemaVersion: CONFIG_SCHEMA_VERSION + 1 } as unknown,
+      reason: "newer-version",
+    },
+    {
+      name: "with a meta that cannot be read",
+      value: validConfig(),
+      meta: "x" as unknown,
+      reason: "incoherent",
+    },
+  ])("refuses, naming why, when the stored config is $name", async ({ value, meta, reason }) => {
+    await seedPrimary(value, meta)
+
+    await expect(assertConfigWritable()).rejects.toBeInstanceOf(ConfigRecoveryRequiredError)
+    await expect(assertConfigWritable()).rejects.toMatchObject({ reason })
+  })
+
+  it("refuses with a retryable error while the stored config is still being upgraded", async () => {
+    await seedPrimary(previousVersionConfig(), PREVIOUS_META)
+
+    await expect(assertConfigWritable()).rejects.toBeInstanceOf(ConfigUpgradePendingError)
+  })
+
+  it("refuses when the stored config cannot be read at all (it fails closed)", async () => {
+    vi.spyOn(fakeBrowser.storage.local, "get").mockRejectedValue(new Error("storage unavailable"))
+
+    await expect(assertConfigWritable()).rejects.toThrow("storage unavailable")
   })
 })
 

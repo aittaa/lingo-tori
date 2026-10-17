@@ -3,7 +3,11 @@ import { dequal } from "dequal"
 import { browser } from "#imports"
 import { configSchema } from "@/types/config/config"
 import { CONFIG_SCHEMA_VERSION, CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "../constants/config"
-import { ConfigExportBlockedError } from "./errors"
+import {
+  ConfigExportBlockedError,
+  ConfigRecoveryRequiredError,
+  ConfigUpgradePendingError,
+} from "./errors"
 
 /** Where the meta of the config lives (WXT keeps a value's meta next to it under `<key>$`). */
 export const CONFIG_META_STORAGE_KEY = `${CONFIG_STORAGE_KEY}$`
@@ -154,6 +158,22 @@ export async function getConfigView(): Promise<ConfigView> {
 export async function assertCurrentConfigExportable(): Promise<void> {
   const status = await getConfigStatus()
   if (status.kind === "suspect") throw new ConfigExportBlockedError(status.reason)
+}
+
+/**
+ * Refuses a change to the config unless it is safe to make one: nothing stored yet, or a stored
+ * config that is usable. A config that cannot be used is never replaced by defaults plus an edit,
+ * and a config that is still being upgraded is never given current-shaped data under its old label.
+ * Reading the status failing refuses too (fail closed).
+ *
+ * This is a plain check before the write, not a lock: another context can still change the stored
+ * pair between the check and the write. The writers that use it take the check once, immediately
+ * before they read what they will change.
+ */
+export async function assertConfigWritable(): Promise<void> {
+  const status = await getConfigStatus()
+  if (status.kind === "suspect") throw new ConfigRecoveryRequiredError(status.reason)
+  if (status.kind === "upgrading") throw new ConfigUpgradePendingError()
 }
 
 function sameView(a: ConfigView, b: ConfigView) {

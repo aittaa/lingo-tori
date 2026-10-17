@@ -4,6 +4,7 @@ import { dequal } from "dequal"
 import { atom } from "jotai"
 import { selectAtom } from "jotai/utils"
 import { configSchema } from "@/types/config/config"
+import { assertConfigWritable } from "../config/status"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "../constants/config"
 import { storageAdapter } from "./storage-adapter"
 
@@ -44,6 +45,9 @@ export const writeConfigAtom = atom(null, async (get, set, update: ConfigUpdate)
   const task = writeQueue.then(async () => {
     let stored: Config | undefined
     try {
+      // Until every writer shares one queue this is a fail-closed check before the read: the edit
+      // is never applied to the defaults that stand in for a config that cannot be used.
+      await assertConfigWritable()
       stored = await storageAdapter.get(CONFIG_STORAGE_KEY, DEFAULT_CONFIG, configSchema)
       const next = applyUpdate(stored, update)
       await storageAdapter.set(CONFIG_STORAGE_KEY, next, configSchema)
