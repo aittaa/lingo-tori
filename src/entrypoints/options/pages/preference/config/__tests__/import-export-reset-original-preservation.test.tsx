@@ -76,6 +76,7 @@ const RESET_CONFIRM = "options.preference.config.reset.dialog.confirm"
 const RECOVERY_RESET = "errorRecovery.resetAction"
 const RECOVERY_RESET_CONFIRM = "errorRecovery.resetDialog.confirm"
 const RECOVERY_EXPORT_WITH_KEYS = "errorRecovery.exportWithApiKeys"
+const RECOVERY_UNUSABLE_DESCRIPTION = "errorRecovery.unusableDescription"
 
 const SENTINEL_KEY = "sk-synthetic-sentinel-0000"
 
@@ -204,10 +205,19 @@ describe("Export current settings while the primary config is not valid", () => 
     expect(sameRaw(await readRawPrimary(), SUSPECT)).toBe(true)
   })
 
-  it("is blocked on the error screen too (its export reads the same defaults view)", async () => {
+  it("is not offered on the error screen either (its export reads the same defaults view)", async () => {
     renderInProviders(<RecoveryFallback error={new Error("boom")} onRecovered={() => {}} />)
-    await new Promise((resolve) => setTimeout(resolve, 20))
 
+    await waitFor(() => screen.getByText(RECOVERY_UNUSABLE_DESCRIPTION))
+
+    expect(screen.queryByText(RECOVERY_EXPORT_WITH_KEYS)).not.toBeInTheDocument()
+    expect(saveAsMock).not.toHaveBeenCalled()
+  })
+
+  it("is still refused when it is asked for before the error screen has seen the config", async () => {
+    renderInProviders(<RecoveryFallback error={new Error("boom")} onRecovered={() => {}} />)
+
+    // The buttons are there until the screen has read the stored config; the guard is the hook's.
     fireEvent.click(screen.getByText(RECOVERY_EXPORT_WITH_KEYS))
     await untilToasted()
 
@@ -241,13 +251,12 @@ describe("Export current settings after a startup that could not upgrade the con
     expect(toastTypes()).not.toContain("success")
   })
 
-  it("is blocked on the error screen too", async () => {
+  it("is not offered on the error screen either", async () => {
     renderInProviders(<RecoveryFallback error={new Error("boom")} onRecovered={() => {}} />)
-    await new Promise((resolve) => setTimeout(resolve, 20))
 
-    fireEvent.click(screen.getByText(RECOVERY_EXPORT_WITH_KEYS))
-    await untilToasted()
+    await waitFor(() => screen.getByText(RECOVERY_UNUSABLE_DESCRIPTION))
 
+    expect(screen.queryByText(RECOVERY_EXPORT_WITH_KEYS)).not.toBeInTheDocument()
     expect(saveAsMock).not.toHaveBeenCalled()
   })
 })

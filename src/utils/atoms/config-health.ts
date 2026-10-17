@@ -41,6 +41,16 @@ configViewAtom.onMount = (set) => {
 }
 
 /**
+ * Whether the stored config cannot be used as it is: it cannot be used at all, or it has not been
+ * upgraded yet (the settings screens run on the defaults for both, and exporting "current settings"
+ * is refused). `false` until the first view has been read.
+ */
+export const configStoredUnusableAtom = atom<boolean>((get) => {
+  const kind = get(configViewAtom)?.status.kind
+  return kind === "suspect" || kind === "upgrading"
+})
+
+/**
  * Why the stored config is not used, or `null` when it is (or nothing is stored, or it is only
  * waiting for startup to upgrade it, which resolves by itself).
  */

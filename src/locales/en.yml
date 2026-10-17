@@ -62,6 +62,9 @@ errorRecovery:
   resetSuccess: Recovery completed. Settings have been reset
   resetFailed: Recovery failed. Unable to reset settings
   errorDetails: Error details
+  unusableDescription: Recovery mode is active. Your saved settings can't be read by this version, so they can't be exported as current settings. They have not been changed. Save an exact copy of them first, then reset the settings and try again.
+  unusableBackupTitle: Save your settings first (recommended)
+  unusableBackupHint: Use "Export exact copy" or "Export as found" in the recovery section below. The file holds your API keys and other credentials in plain text, and a warning is shown before it is saved.
   resetDialog:
     title: Reset settings?
     description: This will replace your current settings with the default values.

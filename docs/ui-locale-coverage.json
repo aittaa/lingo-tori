@@ -247,7 +247,10 @@
     "recoveryExport.failure.noRoom",
     "recoveryExport.failure.notKept",
     "recoveryExport.failure.unavailable",
-    "recoveryExport.failure.other"
+    "recoveryExport.failure.other",
+    "errorRecovery.unusableDescription",
+    "errorRecovery.unusableBackupTitle",
+    "errorRecovery.unusableBackupHint"
   ],
   "deferredHubKeys": [
     "popup.hub.tooltip",
