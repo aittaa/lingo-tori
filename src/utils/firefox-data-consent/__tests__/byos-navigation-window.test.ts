@@ -207,6 +207,17 @@ describe("the sign-in cancelled while the final consent read is pending", () => 
     expect(run.transport.navigate).not.toHaveBeenCalled()
   })
 
+  it("does not navigate when the user signed out meanwhile", async () => {
+    const run = signIn({ holdConsentRead: 2 })
+    await waitFor(run.events, "consent:held")
+
+    await run.service.signout()
+    run.releaseConsent()
+
+    expect(await run.started).toMatchObject({ code: "session_changed" })
+    expect(run.transport.navigate).not.toHaveBeenCalled()
+  })
+
   it("does not navigate even when the cancellation could not be saved", async () => {
     // The cancellation moves the in-memory intent first and then writes the record. A write that
     // fails leaves the stored attempt exactly as it was, and only the intent says it was cancelled.
