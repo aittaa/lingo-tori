@@ -131,6 +131,25 @@ describe("Firefox, authenticationInfo granted", () => {
   })
 })
 
+describe("a revocation that lands before the request is dispatched", () => {
+  it("stops a stream whose start message is still on its way to the background", async () => {
+    const permissions = installFirefox(WITH_CREDENTIALS)
+    bridge.hold()
+    const outcome = stream(credentialedRow).then(
+      () => "streamed" as const,
+      (error: unknown) => error,
+    )
+    await vi.waitFor(() => expect(bridge.pending).toBe(1))
+
+    // Admitted when the user pressed the button; revoked before the background dispatches.
+    permissions.report(REQUIRED_ONLY)
+    bridge.release()
+
+    expect(await outcome).toBeInstanceOf(StreamPortError)
+    expect(transport.requests).toHaveLength(0)
+  })
+})
+
 describe("Chrome build", () => {
   it("streams a credentialed provider and never asks the browser for consent", async () => {
     const permissions = installChrome()

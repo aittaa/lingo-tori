@@ -3,13 +3,19 @@
 // Provider requests that carry a credential, on a Firefox build, against the real model
 // factories, `generateText` and the DeepL and DeepLX adapters, with a stubbed `fetch`.
 //
-// The contract: a request that carries a credential (an API key, an auth header, a key in the URL)
-// is a transmission of `authenticationInfo`. On Firefox it starts only while that category is
-// granted; the grant is read for every new request, so a revocation in about:addons stops the next
-// request, a retry included. A request that carries no credential is never held back, and a
-// Chrome build is never gated and never asks the browser anything.
+// The contract: a request that carries an EXPLICIT credential is a transmission of
+// `authenticationInfo`. On Firefox it starts only while that category is granted; the grant is read
+// for every new request, so a revocation in about:addons stops the next request, a retry included.
 //
-// A request whose fetch already started may complete: only new requests are stopped.
+// What counts as an explicit credential: a non-empty API key (or the `{{apiKey}}` placeholder); a
+// header whose name is a credential name (authorization, proxy-authorization, cookie, x-api-key,
+// api-key, or a name containing token, secret, key or auth); userinfo in the URL; a credential-named
+// query parameter; or the user's own declaration that the endpoint URL or options hold a credential.
+// A custom endpoint with none of those is keyless and keeps working without the grant. A secret
+// hidden in an opaque URL path or option cannot be detected, which is why the declaration exists.
+//
+// A Chrome build is never gated and never asks the browser anything. A request whose fetch already
+// started may complete: only new requests are stopped.
 //
 // These tests do not import the consent module, so on the base commit they fail because the
 // credentialed request is sent, not because something is missing.
@@ -54,6 +60,24 @@ const OLLAMA_CHAT = {
   eval_duration: 1,
 }
 
+const RESPONSES_RESULT = {
+  id: "resp-test",
+  object: "response",
+  created_at: 1,
+  status: "completed",
+  model: "mock-model",
+  output: [
+    {
+      type: "message",
+      id: "msg-test",
+      status: "completed",
+      role: "assistant",
+      content: [{ type: "output_text", text: "pong", annotations: [] }],
+    },
+  ],
+  usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -74,6 +98,7 @@ beforeEach(() => {
     const url = urlOf(input)
     if (url.endsWith("/chat/completions")) return jsonResponse(CHAT_COMPLETION)
     if (url.endsWith("/api/chat")) return jsonResponse(OLLAMA_CHAT)
+    if (url.endsWith("/responses")) return jsonResponse(RESPONSES_RESULT)
     if (url.endsWith("/v2/translate")) return jsonResponse({ translations: [{ text: "Bonjour" }] })
     if (url.includes("deeplx")) return jsonResponse({ code: 200, data: "Bonjour" })
     return new Response("not found", { status: 404 })
@@ -98,7 +123,7 @@ const llm =
       maxRetries,
     })
 
-const openAICompatible = (extra: Partial<LLMProviderConfig> = {}) =>
+const openAICompatible = (extra: Record<string, unknown> = {}) =>
   ({
     id: "openai-compatible-test",
     name: "Custom endpoint",
@@ -107,7 +132,18 @@ const openAICompatible = (extra: Partial<LLMProviderConfig> = {}) =>
     baseURL: `${ORIGIN}/v1`,
     model: MODEL,
     ...extra,
-  }) as LLMProviderConfig
+  }) as unknown as LLMProviderConfig
+
+const openResponses = (extra: Record<string, unknown> = {}) =>
+  ({
+    id: "open-responses-test",
+    name: "Custom endpoint",
+    enabled: true,
+    provider: "open-responses",
+    url: `${ORIGIN}/v1/responses`,
+    model: MODEL,
+    ...extra,
+  }) as unknown as LLMProviderConfig
 
 const withKey = openAICompatible({ apiKey: "sk-test-123" })
 const deepseekWithKey = {
@@ -178,9 +214,11 @@ const CREDENTIALED: Array<[string, Send]> = [
   ["DeepLX with the key inside the URL", sendDeepLXKeyInUrl],
 ]
 
-/** Requests that carry no credential at all. */
+/** Requests that carry no credential at all (#89: custom endpoints without a key keep working). */
 const KEYLESS: Array<[string, Send]> = [
   ["ollama on a local endpoint", llm(ollama)],
+  ["a custom openai-compatible endpoint with nothing but a model", llm(openAICompatible())],
+  ["a custom open-responses endpoint with nothing but a model", llm(openResponses())],
   ["openai-compatible with no key and only an ordinary header", llm(ordinaryHeaderOnly)],
   ["DeepLX on a plain URL", sendDeepLX],
 ]
@@ -220,6 +258,126 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(permissions.browserCalls()).toBe(0)
+  })
+})
+
+describe("what counts as a credential, with authenticationInfo not granted", () => {
+  it.each([
+    "Authorization",
+    "Proxy-Authorization",
+    "Cookie",
+    "X-Api-Key",
+    "api-key",
+    "X-Session-Token",
+    "X-Client-Secret",
+    "X-Custom-Auth",
+    "X-Access-Key",
+  ])("a configured %s header is a credential", async (name) => {
+    installFirefox(REQUIRED_ONLY)
+
+    const outcome = await attempt(llm(openAICompatible({ headers: { [name]: "value-1" } })))
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(outcome).toMatchObject({ name: "DataConsentRequiredError" })
+  })
+
+  it.each([
+    "X-Title",
+    "HTTP-Referer",
+    "anthropic-version",
+    "X-Request-Id",
+    "OpenAI-Organization",
+    "Accept-Language",
+  ])("a configured %s header is not a credential", async (name) => {
+    installFirefox(REQUIRED_ONLY)
+
+    await expect(llm(openAICompatible({ headers: { [name]: "value-1" } }))()).resolves.toBeDefined()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("userinfo in the endpoint URL is a credential", async () => {
+    installFirefox(REQUIRED_ONLY)
+
+    const outcome = await attempt(
+      llm(openAICompatible({ baseURL: "https://user:secret@provider.example.test/v1" })),
+    )
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(outcome).toMatchObject({ name: "DataConsentRequiredError" })
+  })
+
+  it("a credential-named query parameter in the endpoint URL is a credential", async () => {
+    installFirefox(REQUIRED_ONLY)
+
+    const outcome = await attempt(
+      llm(openAICompatible({ baseURL: `${ORIGIN}/v1?api_key=sk-test-123` })),
+    )
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(outcome).toMatchObject({ name: "DataConsentRequiredError" })
+  })
+
+  it("an ordinary query parameter such as api-version is not", async () => {
+    installFirefox(REQUIRED_ONLY)
+
+    await expect(
+      llm(openAICompatible({ baseURL: `${ORIGIN}/v1?api-version=2024-02-01` }))(),
+    ).resolves.toBeDefined()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("the user's declaration that the endpoint holds a credential gates a request that shows none", async () => {
+    installFirefox(REQUIRED_ONLY)
+    // A key typed into the path cannot be told from a path segment: the user says so.
+    const declared = openAICompatible({
+      baseURL: `${ORIGIN}/v1/KEY-IN-PATH-123`,
+      endpointCarriesCredential: true,
+    })
+
+    const outcome = await attempt(llm(declared))
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(outcome).toMatchObject({ name: "DataConsentRequiredError" })
+  })
+
+  it("a declared endpoint is sent once the category is granted", async () => {
+    installFirefox(WITH_CREDENTIALS)
+
+    await expect(
+      llm(
+        openAICompatible({
+          baseURL: `${ORIGIN}/v1/KEY-IN-PATH-123`,
+          endpointCarriesCredential: true,
+        }),
+      )(),
+    ).resolves.toBeDefined()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("declaring that there is no credential does not lift an explicit one", async () => {
+    installFirefox(REQUIRED_ONLY)
+
+    const outcome = await attempt(
+      llm(openAICompatible({ apiKey: "sk-test-123", endpointCarriesCredential: false })),
+    )
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(outcome).toMatchObject({ name: "DataConsentRequiredError" })
+  })
+
+  // The documented limit: a secret inside an opaque path segment or option is invisible to any
+  // check. The settings hint and the privacy notice tell the user to use the declaration.
+  it("does not claim to detect an undeclared secret hidden in the URL path", async () => {
+    installFirefox(REQUIRED_ONLY)
+
+    await expect(
+      llm(openAICompatible({ baseURL: `${ORIGIN}/v1/KEY-IN-PATH-123` }))(),
+    ).resolves.toBeDefined()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
 

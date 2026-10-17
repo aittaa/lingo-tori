@@ -95,3 +95,9 @@ export function removePermissionsDouble() {
 
 export const REQUIRED_ONLY: ReportedDataCollection = ["websiteContent"]
 export const WITH_CREDENTIALS: ReportedDataCollection = ["websiteContent", "authenticationInfo"]
+export const WITH_PAGE_URL: ReportedDataCollection = ["websiteContent", "browsingActivity"]
+export const WITH_ALL: ReportedDataCollection = [
+  "websiteContent",
+  "authenticationInfo",
+  "browsingActivity",
+]

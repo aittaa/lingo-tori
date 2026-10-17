@@ -2,12 +2,14 @@
 // browser API permission. The manifest is built from `manifest({ browser })` in wxt.config.ts, the
 // same function WXT calls for each target, so this needs no build.
 //
-// The categories are Mozilla's built-in data consent categories (Firefox 140+). Every core feature
-// sends page, selected or subtitle text to the provider the user chose, so `websiteContent` is
-// required. API keys, custom auth headers and the experimental ChatGPT sign-in send credentials
-// to the user's provider, and only configurations that use them do, so `authenticationInfo` is
-// optional. Nothing else is transmitted: there is no telemetry, no error reporting, and the page
-// URL is never a field of a request.
+// The categories are Mozilla's built-in data consent categories (Firefox 140+).
+// - `websiteContent` is required: every core feature sends page, selected or subtitle text to the
+//   provider the user chose.
+// - `authenticationInfo` is optional: API keys, credential headers and the experimental ChatGPT
+//   sign-in send credentials to the user's provider, and only configurations that use them do.
+// - `browsingActivity` is optional: a custom action whose prompt, system prompt or output-field
+//   description uses `{{webUrl}}` (and the note suggestion built from it) sends the full page URL.
+// Nothing else is transmitted: there is no telemetry and no error reporting.
 
 import { describe, expect, it } from "vitest"
 import config from "../../../../wxt.config"
@@ -38,12 +40,11 @@ describe("Firefox data collection declaration", () => {
     expect(dataCollection?.optional ?? []).not.toContain("none")
   })
 
-  it("offers authenticationInfo as the only optional category", () => {
-    expect(dataCollection?.optional).toEqual(["authenticationInfo"])
+  it("offers authenticationInfo and browsingActivity as the only optional categories", () => {
+    expect(dataCollection?.optional).toEqual(["authenticationInfo", "browsingActivity"])
   })
 
   it.each([
-    "browsingActivity",
     "searchTerms",
     "personalCommunications",
     "personallyIdentifyingInfo",

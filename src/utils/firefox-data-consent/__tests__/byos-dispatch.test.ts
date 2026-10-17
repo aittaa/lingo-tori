@@ -70,6 +70,13 @@ async function connected(target = firefoxTarget, expires = Date.now() + 3_600_00
         scope: SCOPES,
       })
     }
+    if (url === `${ISSUER}/.well-known/openid-configuration`) {
+      return Response.json({
+        issuer: ISSUER,
+        revocation_endpoint: `${ISSUER}/synthetic-revocation`,
+      })
+    }
+    if (url === `${ISSUER}/synthetic-revocation`) return new Response(null, { status: 200 })
     if (url === `${RESOURCE}/models`) return models()
     if (url === `${RESOURCE}/responses`) {
       return new Response(
@@ -155,6 +162,51 @@ describe("Firefox, authenticationInfo not granted (the state after install)", ()
     expect(fetcher).not.toHaveBeenCalled()
   })
 
+  it("does not send the refresh token to revoke it on sign-out, but ends the session locally", async () => {
+    installFirefox(REQUIRED_ONLY)
+    const { service, fetcher, vault } = await connected()
+
+    const result = await service.signout()
+
+    // The tokens are gone from this browser; the remote revocation is reported as unconfirmed.
+    expect(result).toMatchObject({ state: "disconnected", remoteRevocationConfirmed: false })
+    expect((await vault.read()).credentials).toBeUndefined()
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it("does not navigate to the identity provider if the grant is revoked while the sign-in is set up", async () => {
+    const permissions = installFirefox(WITH_CREDENTIALS)
+    const vault = memoryVault()
+    const transport = mockTransport()
+    let finishSetup: () => void = () => {}
+    vi.mocked(transport.install).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSetup = resolve
+        }),
+    )
+    const service = createByosService(
+      vault,
+      transport,
+      firefoxTarget.extensionId,
+      firefoxTarget.callbackUrl,
+      vi.fn<typeof fetch>(),
+    )
+    const started = service.authStart().then(
+      () => "started" as const,
+      (error: unknown) => error,
+    )
+    await vi.waitFor(() => expect(transport.install).toHaveBeenCalled())
+
+    permissions.report(REQUIRED_ONLY)
+    finishSetup()
+    const outcome = await started
+
+    expect(transport.navigate).not.toHaveBeenCalled()
+    expect(outcome).not.toBe("started")
+    expect((await vault.read()).pending).toBeUndefined()
+  })
+
   it("still reports the local session without asking anything of the network", async () => {
     installFirefox(REQUIRED_ONLY)
     const { service, fetcher } = await connected()
@@ -221,6 +273,18 @@ describe("Firefox, authenticationInfo granted", () => {
       `${RESOURCE}/models`,
       `${RESOURCE}/responses`,
     ])
+  })
+
+  it("revokes the refresh token on sign-out and confirms it", async () => {
+    installFirefox(WITH_CREDENTIALS)
+    const { service, fetcher } = await connected()
+
+    const result = await service.signout()
+
+    expect(result).toMatchObject({ state: "disconnected", remoteRevocationConfirmed: true })
+    expect(fetcher.mock.calls.map(([input]) => fetchUrl(input))).toContain(
+      `${ISSUER}/synthetic-revocation`,
+    )
   })
 
   it("completes a sign-in with the code exchange", async () => {
