@@ -1,6 +1,6 @@
 import { Icon } from "@iconify/react"
 import { useMutation } from "@tanstack/react-query"
-import { useAtomValue, useSetAtom } from "jotai"
+import { useAtomValue } from "jotai"
 import { useState } from "react"
 import {
   AlertDialog,
@@ -18,8 +18,8 @@ import { Input } from "@/components/ui/base-ui/input"
 import { Label } from "@/components/ui/base-ui/label"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { useExportConfig } from "@/hooks/use-export-config"
-import { configAtom, writeConfigAtom } from "@/utils/atoms/config"
-import { addBackup } from "@/utils/backup/storage"
+import { configAtom } from "@/utils/atoms/config"
+import { replaceStoredConfig } from "@/utils/backup/current-config"
 import { migrateConfig } from "@/utils/config/migration"
 import { EXTENSION_VERSION } from "@/utils/constants/app"
 import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
@@ -59,8 +59,6 @@ export function ManualConfigSyncConfigItems() {
 }
 
 function ImportConfig() {
-  const currentConfig = useAtomValue(configAtom)
-  const setConfig = useSetAtom(writeConfigAtom)
   const invalidateGlossary = useGlossaryInvalidation()
 
   const { mutate: importConfig, isPending: isImporting } = useMutation({
@@ -126,8 +124,12 @@ function ImportConfig() {
         )
       }
 
-      await addBackup(currentConfig, EXTENSION_VERSION)
-      await setConfig(newConfig)
+      // Backs up the config as it is STORED (or keeps an exact copy of it when it cannot be
+      // used), not the settings screen's view of it, then replaces it with the file's config.
+      await replaceStoredConfig(newConfig, {
+        backupCurrent: true,
+        extensionVersion: EXTENSION_VERSION,
+      })
 
       if (!glossary?.ok) return { glossaryTerms: null }
 

@@ -1,5 +1,5 @@
 import { IconAlertCircle } from "@tabler/icons-react"
-import { useAtomValue, useSetAtom } from "jotai"
+import { useAtomValue } from "jotai"
 import { useState } from "react"
 import {
   AlertDialog,
@@ -15,7 +15,9 @@ import {
 import { Button } from "@/components/ui/base-ui/button"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { useExportConfig } from "@/hooks/use-export-config"
-import { configAtom, writeConfigAtom } from "@/utils/atoms/config"
+import { configAtom } from "@/utils/atoms/config"
+import { replaceStoredConfig } from "@/utils/backup/current-config"
+import { EXTENSION_VERSION } from "@/utils/constants/app"
 import { buildFreshDefaultConfig, CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
 import { i18n } from "@/utils/i18n"
 import { Alert, AlertDescription, AlertTitle } from "../ui/base-ui/alert"
@@ -27,7 +29,6 @@ interface RecoveryFallbackProps {
 
 export function RecoveryFallback({ error, onRecovered }: RecoveryFallbackProps) {
   const config = useAtomValue(configAtom)
-  const setConfig = useSetAtom(writeConfigAtom)
   const [isResetting, setIsResetting] = useState(false)
 
   const { mutate: exportConfig, isPending: isExporting } = useExportConfig({
@@ -38,7 +39,10 @@ export function RecoveryFallback({ error, onRecovered }: RecoveryFallbackProps) 
   const handleResetConfig = async () => {
     setIsResetting(true)
     try {
-      await setConfig(buildFreshDefaultConfig())
+      await replaceStoredConfig(buildFreshDefaultConfig(), {
+        backupCurrent: false,
+        extensionVersion: EXTENSION_VERSION,
+      })
       toastManager.add({ type: "success", title: i18n.t("errorRecovery.resetSuccess") })
       onRecovered()
     } catch {

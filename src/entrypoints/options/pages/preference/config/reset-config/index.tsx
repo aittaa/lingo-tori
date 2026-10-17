@@ -1,5 +1,4 @@
 import { IconRefresh } from "@tabler/icons-react"
-import { useSetAtom } from "jotai"
 import { useState } from "react"
 import {
   AlertDialog,
@@ -13,16 +12,21 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/base-ui/alert-dialog"
 import { Button } from "@/components/ui/base-ui/button"
-import { writeConfigAtom } from "@/utils/atoms/config"
+import { replaceStoredConfig } from "@/utils/backup/current-config"
+import { EXTENSION_VERSION } from "@/utils/constants/app"
 import { buildFreshDefaultConfig } from "@/utils/constants/config"
 import { i18n } from "@/utils/i18n"
 import { ConfigItem } from "../../../../components/config-item"
 
 export function ResetConfigItem() {
   const [open, setOpen] = useState(false)
-  const setConfig = useSetAtom(writeConfigAtom)
   async function resetToDefaultConfig() {
-    await setConfig(buildFreshDefaultConfig())
+    // The stored config is kept as a copy first when it cannot be used; the defaults are only
+    // written once that copy is confirmed.
+    await replaceStoredConfig(buildFreshDefaultConfig(), {
+      backupCurrent: false,
+      extensionVersion: EXTENSION_VERSION,
+    })
     setOpen(false)
   }
 

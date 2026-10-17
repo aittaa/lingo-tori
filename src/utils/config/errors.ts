@@ -46,3 +46,17 @@ export class PreservationError extends Error {
     this.code = code
   }
 }
+
+/** "Back up now" was refused because the stored config is not usable; see {@link ConfigExportBlockedError}. */
+export class ConfigBackupBlockedError extends Error {
+  readonly reason: string
+
+  constructor(reason: string) {
+    super(
+      "The stored settings cannot be read, so no backup was made. Your original settings are kept " +
+        "as they are; a backup of the defaults would not be a backup of your settings.",
+    )
+    this.name = "ConfigBackupBlockedError"
+    this.reason = reason
+  }
+}

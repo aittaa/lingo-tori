@@ -1,6 +1,5 @@
 import { Icon } from "@iconify/react/dist/iconify.js"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { useAtomValue } from "jotai"
 import { Button } from "@/components/ui/base-ui/button"
 import {
   Empty,
@@ -13,8 +12,8 @@ import {
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { ConfigDetailSection } from "@/entrypoints/options/components/config-detail-section"
 import { PageLayout } from "@/entrypoints/options/components/page-layout"
-import { configAtom } from "@/utils/atoms/config"
-import { addBackup, getAllBackupsWithMetadata } from "@/utils/backup/storage"
+import { backUpCurrentConfig } from "@/utils/backup/current-config"
+import { getAllBackupsWithMetadata } from "@/utils/backup/storage"
 import { EXTENSION_VERSION } from "@/utils/constants/app"
 import { i18n } from "@/utils/i18n"
 import { queryClient } from "@/utils/tanstack-query"
@@ -66,10 +65,9 @@ export function ConfigBackupPage() {
 }
 
 function Toolbar() {
-  const currentConfig = useAtomValue(configAtom)
   const { mutate: backupConfig, isPending: isBackingUp } = useMutation({
     mutationFn: async () => {
-      await addBackup(currentConfig, EXTENSION_VERSION)
+      await backUpCurrentConfig(EXTENSION_VERSION)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["config-backups"] })
@@ -90,10 +88,9 @@ function Toolbar() {
 }
 
 function EmptyState() {
-  const currentConfig = useAtomValue(configAtom)
   const { mutate: backupConfig, isPending: isBackingUp } = useMutation({
     mutationFn: async () => {
-      await addBackup(currentConfig, EXTENSION_VERSION)
+      await backUpCurrentConfig(EXTENSION_VERSION)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["config-backups"] })
