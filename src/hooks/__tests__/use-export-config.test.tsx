@@ -205,13 +205,34 @@ async function exportJson(config: Config, includeApiKeys: boolean): Promise<stri
   return readBlob(blob as Blob)
 }
 
+/**
+ * Runs `make` the first time it is asked for and hands every later caller the same result; a failed
+ * run is forgotten, so the next caller tries again. It carries one round's export: the exported
+ * JSON text, a string no check can change, so the sentinel checks of a round cannot affect each
+ * other and each still fails on its own.
+ */
+function once<T>(make: () => Promise<T>): () => Promise<T> {
+  let pending: Promise<T> | undefined
+  return () => {
+    pending ??= make().catch((error: unknown) => {
+      pending = undefined
+      throw error
+    })
+    return pending
+  }
+}
+
 describe("useExportConfig credential-free export", () => {
   beforeEach(() => {
     vi.mocked(saveAs).mockClear()
   })
 
+  // One export of the full fixture for the whole sentinel round: the aggregate check and one check
+  // per sentinel below read the same JSON text instead of exporting it again for each.
+  const exportedJson = once(() => exportJson(buildConfig(), false))
+
   it("leaves every fake secret out of the file, wherever it was placed", async () => {
-    const json = await exportJson(buildConfig(), false)
+    const json = await exportedJson()
 
     const leaked = Object.entries(SECRETS)
       .filter(([, secret]) => json.includes(secret))
@@ -219,10 +240,10 @@ describe("useExportConfig credential-free export", () => {
     expect(leaked).toEqual([])
   })
 
-  it.each(Object.entries(SECRETS))("does not write the %s value", async (_name, secret) => {
-    const json = await exportJson(buildConfig(), false)
+  it.each(Object.entries(SECRETS))("does not write the %s value", async (name, secret) => {
+    const json = await exportedJson()
 
-    expect(json).not.toContain(secret)
+    expect(json, `the ${name} sentinel (${secret}) was written to the export`).not.toContain(secret)
   })
 
   it("drops the apiKey and headers properties of every provider", async () => {
@@ -437,10 +458,13 @@ describe("useExportConfig credential-free export, URL and name forms", () => {
     }
   })
 
-  it.each(Object.entries(SECRETS_ROUND_2))("does not write the %s value", async (_name, secret) => {
-    const json = await exportJson(buildRound2Config(), false)
+  // One export of the round 2 fixture for all of its sentinel checks, as in the first round.
+  const exportedJson = once(() => exportJson(buildRound2Config(), false))
 
-    expect(json).not.toContain(secret)
+  it.each(Object.entries(SECRETS_ROUND_2))("does not write the %s value", async (name, secret) => {
+    const json = await exportedJson()
+
+    expect(json, `the ${name} sentinel (${secret}) was written to the export`).not.toContain(secret)
   })
 
   it("leaves nothing the URL parser reads as a credential in any exported URL", async () => {
