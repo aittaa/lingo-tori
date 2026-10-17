@@ -99,7 +99,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 60))
 const sentUrl = () =>
   transport.requests.some((request) => JSON.stringify(request.body).includes(PAGE_URL))
 
-async function run(template: "url" | "no-url") {
+async function run(template: "url" | "no-url", pageText?: string) {
   const store = createStore()
   const { configAtom } = await import("@/utils/atoms/config")
   store.set(configAtom, configUsing(template))
@@ -111,10 +111,10 @@ async function run(template: "url" | "no-url") {
   await act(async () => {
     result.current.maybeFire({
       sessionKey: `session-${template}`,
-      selectionText: "selected words",
-      paragraphsText: "selected words in a sentence",
+      selectionText: pageText ?? "selected words",
+      paragraphsText: pageText ?? "selected words in a sentence",
       targetLangName: "Korean",
-      webTitle: "A page",
+      webTitle: pageText ?? "A page",
       provider,
     })
   })
@@ -145,6 +145,19 @@ describe("a note suggestion whose action uses {{webUrl}}", () => {
     await run("url")
 
     expect(sentUrl()).toBe(true)
+    expect(permissions.browserCalls()).toBe(0)
+  })
+})
+
+describe("page text that looks like the URL token, in a note suggestion whose action sends no URL", () => {
+  it("stays text: the page URL is not put into the request, and no consent is needed", async () => {
+    const permissions = installFirefox(NOTHING_GRANTED)
+
+    await run("no-url", "{{webUrl}}")
+
+    expect(transport.requests).toHaveLength(1)
+    expect(sentUrl()).toBe(false)
+    expect(JSON.stringify(transport.requests[0]!.body)).toContain("{{webUrl}}")
     expect(permissions.browserCalls()).toBe(0)
   })
 })

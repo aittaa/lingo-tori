@@ -14,6 +14,7 @@
 // These tests do not import the consent module: on the base commit the URL is sent.
 
 import type { LLMProviderConfig } from "@/types/config/provider"
+import type { CachedWebPageContext } from "@/utils/host/translate/webpage-context"
 import { cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
@@ -45,7 +46,9 @@ import {
 const PAGE_URL = window.location.href
 const TOKEN = "{{webUrl}}"
 
-type Template = "prompt" | "systemPrompt" | "outputFieldDescription" | "none"
+// "values" puts the page's own text into the request (selection, paragraphs, title, content) in
+// the prompt, the system prompt and a field description, and never uses the URL token itself.
+type Template = "prompt" | "systemPrompt" | "outputFieldDescription" | "none" | "values"
 
 function actionUsing(template: Template) {
   const action = getBuiltInDictionaryAction(DEFAULT_CONFIG.selectionToolbar)
@@ -53,15 +56,28 @@ function actionUsing(template: Template) {
     ...action,
     id: "synthetic-custom-action",
     prompt:
-      template === "prompt" ? `Explain {{selection}} (from ${TOKEN})` : "Explain {{selection}}",
+      template === "prompt"
+        ? `Explain {{selection}} (from ${TOKEN})`
+        : template === "values"
+          ? "Explain {{selection}} in {{paragraphs}} on {{webTitle}}: {{webContent}}"
+          : "Explain {{selection}}",
     systemPrompt:
-      template === "systemPrompt" ? `You read pages. Page: ${TOKEN}` : "You explain words.",
+      template === "systemPrompt"
+        ? `You read pages. Page: ${TOKEN}`
+        : template === "values"
+          ? "You read {{webTitle}} and explain {{selection}}."
+          : "You explain words.",
     outputSchema: [
       {
         id: "f1",
         name: "result",
         type: "string" as const,
-        description: template === "outputFieldDescription" ? `The meaning on ${TOKEN}` : "",
+        description:
+          template === "outputFieldDescription"
+            ? `The meaning on ${TOKEN}`
+            : template === "values"
+              ? "The meaning of {{selection}} in {{paragraphs}}"
+              : "",
       },
     ],
   }
@@ -76,19 +92,25 @@ interface HookProps {
   open: boolean
 }
 
-function propsFor(row: LLMProviderConfig, template: Template): HookProps {
+interface PageInputs {
+  selection?: string
+  paragraphs?: string
+  page?: CachedWebPageContext | null
+}
+
+function propsFor(row: LLMProviderConfig, template: Template, inputs: PageInputs = {}): HookProps {
   const provider = resolveProviderRefForCapability("customAction", [row], PROVIDER_ID)
   if (!provider) throw new Error("The test provider must resolve")
   const plan = buildCustomActionExecutionPlan(
     { language: DEFAULT_CONFIG.language, action: actionUsing(template), provider },
-    "selected words",
-    "selected words in a sentence",
-    null,
+    inputs.selection ?? "selected words",
+    inputs.paragraphs ?? "selected words in a sentence",
+    inputs.page ?? null,
   )
   return { executionContext: plan.executionContext, open: true }
 }
 
-function mountRun(row: LLMProviderConfig, template: Template) {
+function mountRun(row: LLMProviderConfig, template: Template, inputs: PageInputs = {}) {
   return renderHook(
     (props: HookProps) =>
       useCustomActionExecution({
@@ -98,7 +120,7 @@ function mountRun(row: LLMProviderConfig, template: Template) {
         rerunNonce: 0,
         ...props,
       }),
-    { initialProps: propsFor(row, template) },
+    { initialProps: propsFor(row, template, inputs) },
   )
 }
 
@@ -195,6 +217,42 @@ describe("a run that sends no page URL", () => {
     expect(sentUrl()).toBe(false)
     expect(transport.requests).toHaveLength(1)
     expect(permissions.browserCalls()).toBe(0)
+  })
+})
+
+describe("page text that looks like the URL token, in a run whose templates never use it", () => {
+  const looksLikeToken = {
+    selection: TOKEN,
+    paragraphs: TOKEN,
+    page: { webTitle: TOKEN, url: PAGE_URL, webContent: TOKEN } as CachedWebPageContext,
+  }
+
+  it("stays text: the page URL is not put into the request, and no consent is needed", async () => {
+    const permissions = installFirefox(NOTHING_GRANTED)
+    await storeProvider(keylessRow)
+    const { result } = mountRun(keylessRow, "values", looksLikeToken)
+
+    await waitFor(() => expect(result.current.result).toEqual({ result: "done" }))
+
+    expect(sentUrl()).toBe(false)
+    expect(transport.requests).toHaveLength(1)
+    expect(permissions.browserCalls()).toBe(0)
+  })
+
+  it.each<[string, PageInputs]>([
+    ["the selection", { selection: TOKEN }],
+    ["the surrounding paragraphs", { paragraphs: TOKEN }],
+    ["the page title", { page: { webTitle: TOKEN, url: PAGE_URL, webContent: "" } }],
+    ["the page content", { page: { webTitle: "A page", url: PAGE_URL, webContent: TOKEN } }],
+  ])("in %s, it reaches the provider as the text it is", async (_name, inputs) => {
+    installFirefox(NOTHING_GRANTED)
+    await storeProvider(keylessRow)
+    const { result } = mountRun(keylessRow, "values", inputs)
+
+    await waitFor(() => expect(result.current.result).toEqual({ result: "done" }))
+
+    expect(sentUrl()).toBe(false)
+    expect(JSON.stringify(transport.requests[0]!.body)).toContain(TOKEN)
   })
 })
 
