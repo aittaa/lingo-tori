@@ -1,12 +1,12 @@
 import type { LangCodeISO6393 } from "@/lib/languages"
 import type { FeatureUsageContext } from "@/types/analytics"
-import type { Config } from "@/types/config/config"
 import type { PageTranslationStartOutcome } from "@/utils/message"
 import { browser, storage } from "#imports"
 import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
 import { createFeatureUsageContext } from "@/utils/analytics"
 import { normalizeDetectedCode } from "@/utils/config/languages"
-import { CONFIG_STORAGE_KEY, DEFAULT_DETECTED_CODE } from "@/utils/constants/config"
+import { getConfigView } from "@/utils/config/status"
+import { DEFAULT_DETECTED_CODE } from "@/utils/constants/config"
 import { getDetectedCodeStateKey, getTranslationStateKey } from "@/utils/constants/storage-keys"
 import { shouldEnableAutoTranslation } from "@/utils/host/translate/auto-translation"
 import { logger } from "@/utils/logger"
@@ -151,7 +151,8 @@ export function translationMessage() {
         notifyDetectedCodeChanged(detectedCode)
       }
 
-      const config = await storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`)
+      // The session's view of the stored config: the defaults when the stored value is unusable.
+      const { config } = await getConfigView()
       if (!config) return
 
       const shouldEnable = await shouldEnableAutoTranslation(url, detectedCodeOrUnd, config)

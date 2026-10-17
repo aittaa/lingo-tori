@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser, storage } from "#imports"
-import { CONFIG_STORAGE_KEY, DEFAULT_DETECTED_CODE } from "@/utils/constants/config"
+import { DEFAULT_DETECTED_CODE } from "@/utils/constants/config"
 import { getDetectedCodeStateKey, getTranslationStateKey } from "@/utils/constants/storage-keys"
 
 const sendMessageMock = vi.fn<(...args: any[]) => any>()
@@ -19,12 +19,18 @@ const injectHostContentIntoCurrentTabIframesAfterNodeTranslationMock =
 const loggerErrorMock = vi.fn<(...args: any[]) => any>()
 const loggerWarnMock = vi.fn<(...args: any[]) => any>()
 const shouldEnableAutoTranslationMock = vi.fn<(...args: any[]) => any>()
+// The handler reads the session's view of the config; this stands in for the config in that view.
+const getLocalConfigMock = vi.fn<(...args: any[]) => any>()
 
 const messageHandlers = new Map<string, (msg: any) => any>()
 
 vi.mock("@/utils/message", () => ({
   onMessage: onMessageMock,
   sendMessage: sendMessageMock,
+}))
+
+vi.mock("@/utils/config/status", () => ({
+  getConfigView: async () => ({ config: await getLocalConfigMock() }),
 }))
 
 vi.mock("@/utils/host/translate/auto-translation", () => ({
@@ -107,6 +113,8 @@ describe("translationMessage", () => {
     storageSetItemMock.mockResolvedValue(undefined)
     storageRemoveItemMock.mockResolvedValue(undefined)
     shouldEnableAutoTranslationMock.mockResolvedValue(false)
+    getLocalConfigMock.mockReset()
+    getLocalConfigMock.mockResolvedValue(undefined)
   })
 
   it("persists manager-enabled state and injects current iframes from the top frame", async () => {
@@ -496,8 +504,8 @@ describe("translationMessage", () => {
     }
 
     function mockConfigAndState(state: unknown) {
+      getLocalConfigMock.mockResolvedValue({})
       storageGetItemMock.mockImplementation(async (key: string) => {
-        if (key === `local:${CONFIG_STORAGE_KEY}`) return {}
         if (key === getTranslationStateKey(42)) return state
         return undefined
       })

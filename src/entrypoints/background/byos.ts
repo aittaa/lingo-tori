@@ -1,6 +1,4 @@
-import type { Config } from "@/types/config/config"
 import { browser } from "wxt/browser"
-import { storage } from "#imports"
 import { apiUsageFeatureSchema } from "@/utils/api-usage"
 import { createApiUsageIdentity } from "@/utils/api-usage-identity"
 import { recordApiUsageAttempt } from "@/utils/api-usage-tracking"
@@ -16,7 +14,7 @@ import {
 } from "@/utils/byos/service"
 import { createAuthTransport, AUTH_ALARM, CALLBACK_PATH } from "@/utils/byos/transport"
 import { createAuthVault } from "@/utils/byos/vault"
-import { CONFIG_STORAGE_KEY } from "@/utils/constants/config"
+import { getLocalConfig } from "@/utils/config/storage"
 import { resolveModelId } from "@/utils/providers/model-id"
 export function setupByos() {
   const service = createByosService(
@@ -48,7 +46,7 @@ export function setupByos() {
     usageFeature,
   ) => {
     const request = invokeSchema.parse(payload)
-    const config = await storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`)
+    const config = await getLocalConfig()
     if (
       !config?.providersConfig.some(
         (provider) =>
