@@ -302,7 +302,7 @@ describe("escape closes the selection translation popover", () => {
       expect(popoverIsOpen()).toBe(false)
     })
 
-    it("closes with focus on the popover itself while streaming (nothing inside is focused)", async () => {
+    it("closes when Escape is dispatched on the Close button without focusing it, while streaming", async () => {
       mountInShadowRoot()
       openTranslation()
       await waitFor(() => expect(runs).toHaveLength(1))
@@ -343,7 +343,7 @@ describe("escape closes the selection translation popover", () => {
   })
 
   describe("while an icon button's hint tooltip is open", () => {
-    it("Escape closes the popover and cancels the run Regenerate started", async () => {
+    it("one Escape closes the popover, cancels the run Regenerate started and takes the hint with it", async () => {
       await openAndAnswer()
       const regenerate = inShadow().getByRole("button", { name: "action.regenerate" })
       clickAndFocus(regenerate)
@@ -354,20 +354,9 @@ describe("escape closes the selection translation popover", () => {
       pressEscape(regenerate)
 
       expect(popoverIsOpen()).toBe(false)
+      expect(wrapper.querySelectorAll('[data-slot="tooltip-content"]')).toHaveLength(0)
       expect(runs[1]!.signal.aborted).toBe(true)
       expect(mocks.streamBackgroundText).toHaveBeenCalledTimes(2)
-    })
-
-    it("one Escape is enough: the hint goes with the popover", async () => {
-      await openAndAnswer()
-      const regenerate = inShadow().getByRole("button", { name: "action.regenerate" })
-      clickAndFocus(regenerate)
-      await waitFor(() => expect(runs).toHaveLength(2))
-
-      pressEscape(regenerate)
-
-      expect(popoverIsOpen()).toBe(false)
-      expect(wrapper.querySelectorAll('[data-slot="tooltip-content"]')).toHaveLength(0)
     })
 
     it("a finished regenerated answer closes the same way", async () => {
@@ -383,11 +372,12 @@ describe("escape closes the selection translation popover", () => {
       expect(popoverIsOpen()).toBe(false)
     })
 
-    it("keyboard only: a button focused with Tab shows its hint, and Escape closes the popover", async () => {
+    it("a button given focus programmatically (no Tab key is sent) shows its hint, and Escape closes the popover", async () => {
       await openAndAnswer()
       const regenerate = inShadow().getByRole("button", { name: "action.regenerate" })
 
       focus(regenerate)
+      expect(focused()).toBe(regenerate)
       expect(wrapper.querySelectorAll('[data-slot="tooltip-content"]')).toHaveLength(1)
       pressEscape(regenerate)
 
