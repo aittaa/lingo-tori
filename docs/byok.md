@@ -16,4 +16,15 @@ As of 2026-10-12, main `d1bba610634c7000dd930743f39948274e743271` includes exper
 
 Config exports can contain credentials. Exporting without API keys removes only fields named exactly `apiKey`; credentials in custom headers such as `Authorization` or `x-api-key`, provider options or other fields may remain. Before sharing any export, inspect it and manually remove all credentials, including custom headers and options. Do not assume that this export option makes a file safe to share. Builds must not embed credentials in `WXT_` environment variables.
 
+## Firefox data consent
+
+Firefox 140 and later asks for consent before an add-on sends data away, and LingoTori declares what it sends. The page, selected and subtitle text that every translation sends to your provider is declared as required (`websiteContent`), so Firefox shows it when you install. Two more categories are optional and stay off until you allow them, in the buttons on the settings pages or later in `about:addons`:
+
+- **Authentication info** (`authenticationInfo`) is needed when a request carries a credential: a non-empty API key, a header such as `Authorization` or `x-api-key`, credentials in the endpoint URL, a credential-named provider option, or the ChatGPT sign-in. A provider with none of these, such as a local server you reach without a key, works without the permission.
+- **Browsing activity** (`browsingActivity`) is needed when a custom action, or the note suggestion built from one, uses the page-URL token in its prompt, system prompt or an output-field description, because that puts the address of the current page into the request.
+
+Without the permission LingoTori does not start the request and says what to allow. The permission is read for every new request, so turning it off in `about:addons` stops the next request, including a retry. A request that has already started may finish. Signing out of ChatGPT always clears the local tokens; without the permission the remote revocation is skipped and reported as unconfirmed.
+
+LingoTori recognises a credential by its name. It cannot see a secret placed in an opaque part of the endpoint URL, in an option or header with a name it does not recognise, so it cannot ask first for those. If an endpoint URL or its options contain a secret, tick **This endpoint URL or its options contain a secret** in that provider's settings; Firefox then asks first, as it does for an API key. The setting only adds to what is detected. Chrome builds do not use this mechanism, and Firefox for Android and Firefox older than 140 are not supported.
+
 See the [experimental BYOS flow and limitations](byos.md) and the [validation evidence and merge gate](validation.md) for the revisions and scenarios actually checked.

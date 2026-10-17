@@ -18,6 +18,10 @@ This remains the experimental browser-only architecture. OpenAI's documented dir
 
 Firefox's native `identity.launchWebAuthFlow()` is not a drop-in replacement: its allowed redirect forms differ from the required `/auth/callback` loopback. A documented listener/runtime implementation would be a separate architecture decision.
 
+## Firefox data consent
+
+Every request the sign-in makes carries or establishes a credential: the authorization request, the code exchange, token refresh, the model list, each inference call and the remote revocation. On Firefox 140 and later none of them starts unless the `authenticationInfo` permission is allowed; the sign-in button asks for it in the same click that asks for the callback permission. The permission is read for every request, so a switch in `about:addons` stops the next one, and a refusal never marks the stored session as failed: it recovers as soon as the permission is allowed again. Signing out always clears the local tokens; without the permission the remote revocation is skipped and reported as unconfirmed. Chrome builds are not affected. See [BYOK setup](byok.md#firefox-data-consent) for the other categories and for what the extension cannot detect.
+
 ## Validation and acceptance boundary
 
 Synthetic checks cover signed Firefox callbacks with a UUID origin distinct from the add-on ID; foreign origins, IDs, tabs and frames; duplicate/wrong states; expiry and generation; cancel/retry with fresh PKCE/state/nonce; signed nonce/audience rejection; background restart; and refused-navigation replay/retirement. Existing Chromium authentication and routing checks also run with mocked upstream responses. Tests do not contact OpenAI or create real registrations or persistent grants.
