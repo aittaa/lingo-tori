@@ -1278,13 +1278,13 @@ dataConsent:
     unsupported: この Firefox では利用できません (バージョン 140 以降が必要です)
   authenticationInfo:
     title: プロバイダーに認証情報を送信
-    description: このプロバイダーには API キー、認証ヘッダー、またはその他の認証情報があります。LingoTori が送信する前に Firefox が許可を求めます。
+    description: このプロバイダーには API キー、認証ヘッダー、またはその他の認証情報があります。ここで許可した後にのみ LingoTori は送信し、許可すると Firefox が確認を求めます。
   browsingActivity:
     title: ページのアドレスを送信
-    description: この操作は現在のページのアドレス (URL) をプロバイダーに送信します。LingoTori が送信する前に Firefox が許可を求めます。
+    description: この操作は現在のページのアドレス (URL) をプロバイダーに送信します。ここで許可した後にのみ LingoTori は送信し、許可すると Firefox が確認を求めます。
   endpointNeedsConsent:
     label: このエンドポイント URL またはオプションに秘密の値が含まれています
-    hint: たとえば URL のパスに含まれるキーです。LingoTori はこれを自分では検出できないため、オンにすると、このエンドポイントへのリクエストを送る前に Firefox が許可を求めます。
+    hint: たとえば URL のパスに含まれるキーです。LingoTori はこれを自分では検出できないため、オンにすると、認証情報の送信を許可した後にのみ、このエンドポイントへのリクエストを送ります。
 onboarding:
   title: どの言語に翻訳しますか？
   description: LingoToriはこの言語を既定の翻訳先として使います。設定からいつでも変更できます。
