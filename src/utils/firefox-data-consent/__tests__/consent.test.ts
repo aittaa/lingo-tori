@@ -14,6 +14,7 @@
 // wholesale on the base commit. The behaviour of the real call sites is covered separately.
 
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { defaultRequestRetryPolicy, getRequestErrorMeta } from "@/utils/request/retry-policy"
 import {
   assertDataConsent,
   createConsentGatedFetch,
@@ -309,5 +310,25 @@ describe("createConsentGatedFetch", () => {
     })
 
     expect(send).not.toHaveBeenCalled()
+  })
+})
+
+describe("DataConsentRequiredError and the request queue", () => {
+  const context = {
+    retryCount: 0,
+    maxRetries: 3,
+    baseRetryDelayMs: 1000,
+    now: Date.now(),
+    rateLimitRetryCount: 0,
+    consecutiveRateLimits: 0,
+  }
+  const refusal = () => new DataConsentRequiredError("authenticationInfo", "denied")
+
+  it("is not retried: a refusal is not a transient failure, and each retry would only ask again", () => {
+    expect(defaultRequestRetryPolicy.decide(refusal(), context).action).toBe("fail")
+  })
+
+  it("is not taken for a network failure, a timeout or a rate limit by its message", () => {
+    expect(["network", "timeout", "rate-limit"]).not.toContain(getRequestErrorMeta(refusal()).kind)
   })
 })
