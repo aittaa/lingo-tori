@@ -8,7 +8,8 @@ import {
   ConfigRecoveryRequiredError,
   ConfigUpgradePendingError,
 } from "./errors"
-import { findKeptReason, PRESERVED_ORIGINAL_PREFIX } from "./preservation"
+import { findFailedUpgradeReason, INIT_FAILURE_KEY } from "./init-failure"
+import { PRESERVED_ORIGINAL_PREFIX } from "./preservation"
 
 /** Where the meta of the config lives (WXT keeps a value's meta next to it under `<key>$`). */
 export const CONFIG_META_STORAGE_KEY = `${CONFIG_STORAGE_KEY}$`
@@ -161,7 +162,7 @@ export async function getConfigStatus(): Promise<ConfigStatus> {
   const raw = await readRawConfigPair()
   const status = classifyConfigPair(raw)
   if (status.kind !== "upgrading") return status
-  const reason = await findKeptReason(raw)
+  const reason = await findFailedUpgradeReason(raw)
   return reason ? { kind: "suspect", raw, reason } : status
 }
 
@@ -241,6 +242,7 @@ export function watchConfigStatus(callback: (view: ConfigView) => void): () => v
     const relevant =
       CONFIG_STORAGE_KEY in changes ||
       CONFIG_META_STORAGE_KEY in changes ||
+      INIT_FAILURE_KEY in changes ||
       Object.keys(changes).some((key) => key.startsWith(PRESERVED_ORIGINAL_PREFIX))
     if (!relevant) return
     const mine = ++generation

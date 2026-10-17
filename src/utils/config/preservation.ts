@@ -176,6 +176,17 @@ export function preservedOriginalKey(encodedValue: string, encodedMeta?: string)
   return `${PRESERVED_ORIGINAL_PREFIX}${Sha256Hex(JSON.stringify([encodedValue, encodedMeta ?? null]))}`
 }
 
+/**
+ * The digest that names a stored pair: the hash its kept copy's key ends with. Two reads of the
+ * same pair give the same digest, whatever the order of its keys. Throws when the pair holds
+ * something storage could not have produced.
+ */
+export function pairDigestOf(raw: RawConfigPair): string {
+  const encodedValue = encodeLossless(raw.value)
+  const encodedMeta = raw.hasMeta ? encodeLossless(raw.meta) : undefined
+  return preservedOriginalKey(encodedValue, encodedMeta).slice(PRESERVED_ORIGINAL_PREFIX.length)
+}
+
 function isPreservedOriginal(entry: unknown): entry is PreservedOriginal {
   if (!isPlainObject(entry)) return false
   return (
