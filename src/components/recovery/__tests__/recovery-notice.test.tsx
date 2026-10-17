@@ -117,8 +117,8 @@ describe("what is offered", () => {
     renderExport()
 
     await waitFor(() => expect(screen.getAllByText(EXPORT_COPY)).toHaveLength(2))
-    expect(screen.getByText("recoveryExport.reason.invalid-schema", { exact: false })).toBeVisible()
-    expect(screen.getByText("recoveryExport.reason.newer-version", { exact: false })).toBeVisible()
+    expect(screen.getByText("recoveryExport.reason.invalidSchema", { exact: false })).toBeVisible()
+    expect(screen.getByText("recoveryExport.reason.newerVersion", { exact: false })).toBeVisible()
     expect(screen.getByText(EXPORT_STORED)).toBeVisible()
   })
 
