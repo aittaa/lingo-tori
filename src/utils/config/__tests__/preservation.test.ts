@@ -118,33 +118,50 @@ describe("the lossless encoding", () => {
 })
 
 describe("the key", () => {
-  it("is the same for the same pair and different for a different pair", async () => {
-    const a = await preservedOriginalKey(encodeLossless({ a: 1 }), encodeLossless({ v: 1 }))
+  it("is the same for the same pair and different for a different pair", () => {
+    const a = preservedOriginalKey(encodeLossless({ a: 1 }), encodeLossless({ v: 1 }))
 
     expect(a).toMatch(new RegExp(`^${PRESERVED_ORIGINAL_PREFIX}[0-9a-f]{64}$`))
-    expect(await preservedOriginalKey(encodeLossless({ a: 1 }), encodeLossless({ v: 1 }))).toBe(a)
-    expect(await preservedOriginalKey(encodeLossless({ a: 2 }), encodeLossless({ v: 1 }))).not.toBe(
-      a,
-    )
+    expect(preservedOriginalKey(encodeLossless({ a: 1 }), encodeLossless({ v: 1 }))).toBe(a)
+    expect(preservedOriginalKey(encodeLossless({ a: 2 }), encodeLossless({ v: 1 }))).not.toBe(a)
   })
 
-  it("tells a missing meta from a null, an empty and a text meta", async () => {
+  it("tells a missing meta from a null, an empty and a text meta", () => {
     const value = encodeLossless({ a: 1 })
-    const keys = await Promise.all([
+    const keys = [
       preservedOriginalKey(value, undefined),
       preservedOriginalKey(value, encodeLossless(null)),
       preservedOriginalKey(value, encodeLossless({})),
       preservedOriginalKey(value, encodeLossless("null")),
-    ])
+    ]
 
     expect(new Set(keys).size).toBe(4)
   })
 
-  it("is not the same for a value and for the same text taken as a meta", async () => {
+  it("is the standard SHA-256 of the encoded pair, computed without crypto.subtle", async () => {
+    const { createHash } = await import("node:crypto")
+    const encodedValue = encodeLossless({ a: 1 })
+    const encodedMeta = encodeLossless({ v: 1 })
+    // Content scripts on insecure pages have no crypto.subtle; the key must not depend on it.
+    vi.stubGlobal("crypto", { getRandomValues: globalThis.crypto.getRandomValues.bind(crypto) })
+    try {
+      const key = preservedOriginalKey(encodedValue, encodedMeta)
+
+      expect(key).toBe(
+        `${PRESERVED_ORIGINAL_PREFIX}${createHash("sha256")
+          .update(JSON.stringify([encodedValue, encodedMeta]))
+          .digest("hex")}`,
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it("is not the same for a value and for the same text taken as a meta", () => {
     const text = encodeLossless({ a: 1 })
 
-    expect(await preservedOriginalKey(text, undefined)).not.toBe(
-      await preservedOriginalKey(encodeLossless(null), text),
+    expect(preservedOriginalKey(text, undefined)).not.toBe(
+      preservedOriginalKey(encodeLossless(null), text),
     )
   })
 })
@@ -164,6 +181,19 @@ describe("preserveOriginal", () => {
     expect(kept[0]!.entry).toMatchObject({ v: 1, reason: "invalid-schema" })
     expect(typeof kept[0]!.entry.capturedAt).toBe("number")
     expect(typeof kept[0]!.entry.extensionVersion).toBe("string")
+  })
+
+  it("keeps a copy in a context that has no crypto.subtle", async () => {
+    vi.stubGlobal("crypto", { getRandomValues: globalThis.crypto.getRandomValues.bind(crypto) })
+    try {
+      await expect(
+        preserveOriginal(rawPair(corruptConfig(), CURRENT_META), "invalid-schema"),
+      ).resolves.toMatchObject({ outcome: "preserved" })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+
+    expect(await readPreserved()).toHaveLength(1)
   })
 
   it("stores no meta field when no meta was stored", async () => {

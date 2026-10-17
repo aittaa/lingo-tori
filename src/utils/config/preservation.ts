@@ -1,7 +1,7 @@
 import type { RawConfigPair, SuspectReason } from "./status"
 import { browser } from "#imports"
 import { EXTENSION_VERSION } from "@/utils/constants/app"
-import { sha256Hex } from "./digest"
+import { Sha256Hex } from "@/utils/hash"
 import { PreservationError } from "./errors"
 
 /**
@@ -123,10 +123,13 @@ export function decodeLossless(text: string): unknown {
   return decodeNode(JSON.parse(text))
 }
 
-/** The key a pair is kept under: the hash covers whether a meta was stored as well as its content. */
-export async function preservedOriginalKey(encodedValue: string, encodedMeta?: string) {
-  const digest = await sha256Hex(JSON.stringify([encodedValue, encodedMeta ?? null]))
-  return `${PRESERVED_ORIGINAL_PREFIX}${digest}`
+/**
+ * The key a pair is kept under: the hash covers whether a meta was stored as well as its content.
+ * It is the pure-JS SHA-256 the extension already uses, which is the same in every context; the
+ * browser's `crypto.subtle` is missing on insecure pages and is not used.
+ */
+export function preservedOriginalKey(encodedValue: string, encodedMeta?: string) {
+  return `${PRESERVED_ORIGINAL_PREFIX}${Sha256Hex(JSON.stringify([encodedValue, encodedMeta ?? null]))}`
 }
 
 function isPreservedOriginal(entry: unknown): entry is PreservedOriginal {
@@ -180,7 +183,7 @@ export async function preserveOriginal(
   try {
     encodedValue = encodeLossless(raw.value)
     encodedMeta = raw.hasMeta ? encodeLossless(raw.meta) : undefined
-    key = await preservedOriginalKey(encodedValue, encodedMeta)
+    key = preservedOriginalKey(encodedValue, encodedMeta)
   } catch (error) {
     if (error instanceof UnrepresentableValueError) {
       throw new PreservationError("unrepresentable", { cause: error })

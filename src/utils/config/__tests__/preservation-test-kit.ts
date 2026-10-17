@@ -163,7 +163,7 @@ export async function seedPreserved(
 ) {
   const encodedValue = encodeLossless(original.value)
   const encodedMeta = original.meta === ABSENT ? undefined : encodeLossless(original.meta)
-  const key = await preservedOriginalKey(encodedValue, encodedMeta)
+  const key = preservedOriginalKey(encodedValue, encodedMeta)
   const entry: PreservedEntry = {
     v: 1,
     encodedValue,
