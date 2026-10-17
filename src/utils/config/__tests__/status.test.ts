@@ -18,7 +18,7 @@ import {
   corruptConfig,
   CURRENT_META,
   FIXED_MODIFIED_AT,
-  holdFirstCall,
+  holdFirstResult,
   previousVersionConfig,
   PREVIOUS_META,
   resetStorage,
@@ -293,8 +293,8 @@ describe("watchConfigStatus", () => {
     expect(views).toEqual([])
   })
 
-  it("delivers the latest read when several are in flight", async () => {
-    const gate = holdFirstCall("get", (keys) => keys.includes("config"))
+  it("delivers the latest read, and drops an older read that answers late", async () => {
+    const gate = holdFirstResult((keys) => keys.includes("config"))
     const first = { ...validConfig(), contextMenu: { enabled: false } }
     const second = {
       ...validConfig(),
@@ -308,7 +308,7 @@ describe("watchConfigStatus", () => {
     gate.release()
     await settle()
 
-    expect(views.at(-1)!.config).toEqual(second)
+    expect(views.map((view) => view.config)).toEqual([second])
   })
 
   it("stops delivering after it is stopped", async () => {

@@ -261,6 +261,36 @@ export function holdFirstCall(method: Method, matches: (keys: string[], args: an
 }
 
 /**
+ * Lets the first call to `get` that `matches` selects run at once, but delays its RESULT until
+ * `release()`: a read that started early and answers late, after the stored data has changed.
+ * `reached` resolves when that call has been made.
+ */
+export function holdFirstResult(matches: (keys: string[], args: any[]) => boolean) {
+  const real = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local) as (
+    ...args: any[]
+  ) => Promise<unknown>
+  let release!: () => void
+  const released = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let arrive!: () => void
+  const reached = new Promise<void>((resolve) => {
+    arrive = resolve
+  })
+  let held = false
+  vi.spyOn(fakeBrowser.storage.local, "get").mockImplementation(((...args: any[]) => {
+    const result = real(...args)
+    if (!held && matches(keysOf("get", args), args)) {
+      held = true
+      arrive()
+      return result.then((value) => released.then(() => value))
+    }
+    return result
+  }) as any)
+  return { reached, release }
+}
+
+/**
  * Simulates the process dying: from the `crashAt`-th write (1-based, counting `set` and `remove`)
  * onwards every write throws and changes nothing. `writeCalls()` says how many were attempted.
  */

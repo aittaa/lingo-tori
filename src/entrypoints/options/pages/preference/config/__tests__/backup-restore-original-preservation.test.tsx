@@ -27,6 +27,7 @@ import {
   failWrites,
   holdFirstCall,
   originalIsSafe,
+  preservedCopiesOf,
   PRESERVED_PREFIX,
   readPreserved,
   readRawPrimary,
@@ -165,6 +166,29 @@ describe("Restore over a primary config that is not valid", () => {
     await untilToasted()
 
     expect(await originalIsSafe(SUSPECT)).toBe(true)
+  })
+})
+
+describe("Restore over a config written by a newer version", () => {
+  const NEWER: RawPrimary = {
+    value: { ...validConfig(), keyFromANewerVersion: { setting: "kept" } },
+    meta: { schemaVersion: CONFIG_SCHEMA_VERSION + 1, lastModifiedAt: 1 },
+  }
+
+  it("keeps that config as a copy, and leaves the restored one with the current label", async () => {
+    await seedPrimary(NEWER.value, NEWER.meta)
+    await seedBackup(validConfig(), 1_000)
+    renderBackupPage()
+
+    await restoreNewestBackup()
+    await untilToasted()
+
+    const primary = await readRawPrimary()
+    expect((primary.meta as any).schemaVersion).toBe(CONFIG_SCHEMA_VERSION)
+    expect(configSchema.safeParse(primary.value).success).toBe(true)
+    const copies = preservedCopiesOf(await snapshot(), NEWER)
+    expect(copies).toHaveLength(1)
+    expect(copies[0]!.entry.reason).toBe("newer-version")
   })
 })
 
