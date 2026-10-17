@@ -67,6 +67,27 @@ errorRecovery:
     description: 현재 설정이 기본값으로 덮어써집니다.
     confirm: 초기화
     cancel: 취소
+recoveryExport:
+  title: 이 버전에서 읽을 수 없는 설정
+  description: 저장된 설정은 변경되거나 삭제되지 않았습니다. 설정의 정확한 사본을 파일로 저장할 수 있습니다.
+  keptCopy: $1에 보관한 사본
+  keptBy: 버전 $1에서 보관했습니다.
+  reason:
+    invalidSchema: 설정이 이 버전에서 기대하는 형식과 맞지 않았습니다.
+    migrationFailed: 설정을 이 버전으로 업그레이드하지 못했습니다.
+    newerVersion: 더 새로운 버전에서 저장한 설정입니다.
+    incoherent: 설정을 설명하는 기록을 읽을 수 없었습니다.
+  exportCopy: 정확한 사본 내보내기
+  storedTitle: 저장된 설정 그대로
+  storedDescription: 지금 저장되어 있는 내용을 바꾸지 않고 그대로 저장합니다. 위에 보관된 사본이 없을 때 사용하세요.
+  exportStored: 그대로 내보내기
+  warning:
+    title: 이 파일에는 설정이 일반 텍스트로 들어 있습니다
+    description: API 키와 기타 인증 정보가 저장된 그대로 포함됩니다. 파일을 비공개로 보관하고 공유하거나 업로드하지 마세요.
+    confirm: 다운로드
+    cancel: 취소
+  saved: 정확한 사본을 저장했습니다
+  failed: 정확한 사본을 저장하지 못했습니다
 options:
   autosave:
     invalid: 이동하기 전에 표시된 필드를 수정해 주세요.

@@ -2,8 +2,8 @@
 
 import type { ContentScriptContext } from "#imports"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { storage } from "#imports"
-import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
+import { fakeBrowser } from "wxt/testing/fake-browser"
+import { CONFIG_SCHEMA_VERSION, CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "@/utils/constants/config"
 import { bootstrapHostContent } from "../runtime"
 
 const {
@@ -186,36 +186,36 @@ describe("bootstrapHostContent URL changes", () => {
   })
 
   it("applies the tab title switch to the live session and stops watching on invalidation", async () => {
-    const unwatch = vi.fn<() => void>()
-    const watch = vi.spyOn(storage, "watch").mockReturnValue(unwatch)
+    fakeBrowser.reset()
     const { ctx, invalidate } = createContentScriptContext()
-    try {
-      await bootstrapHostContent(ctx, null)
-      const manager = managerInstances[0]!
-      const onConfigChange = watch.mock.calls.find(
-        ([key]) => key === `local:${CONFIG_STORAGE_KEY}`,
-      )?.[1]
-      expect(onConfigChange).toBeDefined()
-
-      const switchedOff = structuredClone(DEFAULT_CONFIG)
-      switchedOff.pageTranslation.page.translateTitle = false
-      onConfigChange!(switchedOff, DEFAULT_CONFIG)
-
-      expect(manager.setTitleTranslationEnabled).toHaveBeenLastCalledWith(false)
-      expect(manager.stop).not.toHaveBeenCalled()
-
-      // Written before v109: the schema default keeps the title translated.
-      const preMigration: any = structuredClone(DEFAULT_CONFIG)
-      delete preMigration.pageTranslation.page.translateTitle
-      onConfigChange!(preMigration, switchedOff)
-
-      expect(manager.setTitleTranslationEnabled).toHaveBeenLastCalledWith(true)
-
-      invalidate()
-      expect(unwatch).toHaveBeenCalledOnce()
-    } finally {
-      watch.mockRestore()
+    await bootstrapHostContent(ctx, null)
+    const manager = managerInstances[0]!
+    const storeConfig = async (config: unknown) => {
+      await fakeBrowser.storage.local.set({
+        [CONFIG_STORAGE_KEY]: structuredClone(config),
+        [`${CONFIG_STORAGE_KEY}$`]: { schemaVersion: CONFIG_SCHEMA_VERSION, lastModifiedAt: 1 },
+      })
+      await flushAsyncWork()
     }
+
+    const switchedOff = structuredClone(DEFAULT_CONFIG)
+    switchedOff.pageTranslation.page.translateTitle = false
+    await storeConfig(switchedOff)
+
+    expect(manager.setTitleTranslationEnabled).toHaveBeenLastCalledWith(false)
+    expect(manager.stop).not.toHaveBeenCalled()
+
+    // Written before v109: the schema default keeps the title translated.
+    const preMigration: any = structuredClone(DEFAULT_CONFIG)
+    delete preMigration.pageTranslation.page.translateTitle
+    await storeConfig(preMigration)
+
+    expect(manager.setTitleTranslationEnabled).toHaveBeenLastCalledWith(true)
+
+    invalidate()
+    const callsBefore = manager.setTitleTranslationEnabled.mock.calls.length
+    await storeConfig(switchedOff)
+    expect(manager.setTitleTranslationEnabled).toHaveBeenCalledTimes(callsBefore)
   })
 
   it("keeps inactive page translation inactive and only asks auto-translation on SPA navigation", async () => {

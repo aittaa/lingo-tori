@@ -1,8 +1,6 @@
-import type { Config } from "@/types/config/config"
 import type { InitializeConfigResult } from "@/utils/config/init"
-import { storage } from "#imports"
 import { initializeConfig } from "@/utils/config/init"
-import { CONFIG_STORAGE_KEY } from "@/utils/constants/config"
+import { getLocalConfig } from "@/utils/config/storage"
 
 let configPromise: Promise<InitializeConfigResult> | null = null
 
@@ -14,9 +12,14 @@ function initializeConfigOnce() {
   return configPromise
 }
 
+/**
+ * Waits for startup, then returns the session's view of the config: the stored value when it is
+ * usable, the defaults when the stored value cannot be used (it stays stored, untouched), and
+ * `null` only if nothing could be stored.
+ */
 export async function ensureInitializedConfig() {
   await initializeConfigOnce()
-  return storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`)
+  return getLocalConfig()
 }
 
 /**

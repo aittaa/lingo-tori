@@ -3,7 +3,7 @@ import type { Config } from "@/types/config/config"
 import { browser, storage } from "#imports"
 import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
 import { createFeatureUsageContext } from "@/utils/analytics"
-import { CONFIG_STORAGE_KEY } from "@/utils/constants/config"
+import { watchConfigStatus } from "@/utils/config/status"
 import {
   getTranslationStateKey,
   parseTabIdFromStorageKey,
@@ -59,7 +59,7 @@ async function isFrontTab(tabId: number): Promise<boolean> {
  */
 export function registerContextMenuListeners() {
   // Listen for config changes to update context menu
-  storage.watch<Config>(`local:${CONFIG_STORAGE_KEY}`, async (newConfig) => {
+  watchConfigStatus(async ({ config: newConfig }) => {
     if (newConfig) {
       await updateContextMenuItems(newConfig)
     }

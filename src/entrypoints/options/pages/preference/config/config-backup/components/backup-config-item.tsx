@@ -1,7 +1,6 @@
 import type { ConfigBackup, ConfigBackupMetadata } from "@/types/backup"
 import { Icon } from "@iconify/react/dist/iconify.js"
 import { useMutation } from "@tanstack/react-query"
-import { useAtomValue, useSetAtom } from "jotai"
 import { useState } from "react"
 import {
   AlertDialog,
@@ -34,11 +33,10 @@ import { Spinner } from "@/components/ui/base-ui/spinner"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { ViewConfig } from "@/entrypoints/options/components/view-config"
 import { useExportConfig } from "@/hooks/use-export-config"
-import { configAtom, writeConfigAtom } from "@/utils/atoms/config"
-import { addBackup, isSameAsLatestBackup, removeBackup } from "@/utils/backup/storage"
+import { replaceStoredConfig } from "@/utils/backup/current-config"
+import { removeBackup } from "@/utils/backup/storage"
 import { migrateConfig } from "@/utils/config/migration"
 import { EXTENSION_VERSION } from "@/utils/constants/app"
-import { CONFIG_SCHEMA_VERSION } from "@/utils/constants/config"
 import { i18n } from "@/utils/i18n"
 import { queryClient } from "@/utils/tanstack-query"
 
@@ -82,22 +80,21 @@ export function BackupConfigItem({ backupId, backupMetadata, backup }: BackupCon
 
 function RestoreButton({ backup }: { backup: ConfigBackup }) {
   const [open, setOpen] = useState(false)
-  const currentConfig = useAtomValue(configAtom)
-  const setConfig = useSetAtom(writeConfigAtom)
 
   const { mutate: restoreBackup, isPending: isRestoring } = useMutation({
     mutationFn: async (backupToRestore: ConfigBackup) => {
+      // Migrating and validating write nothing: a backup that cannot be restored changes nothing.
       const migratedBackup = await migrateConfig(
         backupToRestore.config,
         backupToRestore.schemaVersion,
       )
 
-      const isSame = await isSameAsLatestBackup(currentConfig, CONFIG_SCHEMA_VERSION)
-
-      if (!isSame) {
-        await addBackup(currentConfig, EXTENSION_VERSION)
-      }
-      await setConfig(migratedBackup)
+      // Backs up the config as it is STORED, not the settings screen's view of it, then replaces
+      // it. A stored config that cannot be used is not replaced: the restore is refused.
+      await replaceStoredConfig(migratedBackup, {
+        backupCurrent: true,
+        extensionVersion: EXTENSION_VERSION,
+      })
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["config-backups"] })
@@ -159,6 +156,7 @@ function MoreOptions({ backupId, backup }: { backupId: string; backup: ConfigBac
     // were not part of that moment, and attaching them would make the file claim
     // a state that never existed.
     includeGlossary: false,
+    source: "backup",
   })
 
   return (

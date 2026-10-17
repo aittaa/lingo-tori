@@ -4,6 +4,7 @@ import { dequal } from "dequal"
 import { atom } from "jotai"
 import { selectAtom } from "jotai/utils"
 import { configSchema } from "@/types/config/config"
+import { assertConfigWritable } from "../config/status"
 import { CONFIG_STORAGE_KEY, DEFAULT_CONFIG } from "../constants/config"
 import { storageAdapter } from "./storage-adapter"
 
@@ -35,8 +36,18 @@ function applyUpdate(current: Config, update: ConfigUpdate): Config {
     : mergeWithArrayOverwrite(current, update)
 }
 
-export const writeConfigAtom = atom(null, async (get, set, update: ConfigUpdate) => {
-  const optimistic = applyUpdate(get(configAtom), update)
+// Not `async`: the caller gets `task` itself, which `writeQueue` below already observes. An `async`
+// function would return a second promise that adopts `task`, and a screen that starts a write and
+// does not wait for it (`void setField(...)`) would leave that one rejected with nobody to observe
+// it: an uncaught error whenever the write is refused. A caller that waits still gets the
+// rejection, and an updater that cannot apply still rejects instead of throwing out of the setter.
+export const writeConfigAtom = atom(null, (get, set, update: ConfigUpdate) => {
+  let optimistic: Config
+  try {
+    optimistic = applyUpdate(get(configAtom), update)
+  } catch (error) {
+    return Promise.reject(error)
+  }
   set(configAtom, optimistic)
   const version = ++writeVersion
   pendingWrites++
@@ -44,6 +55,9 @@ export const writeConfigAtom = atom(null, async (get, set, update: ConfigUpdate)
   const task = writeQueue.then(async () => {
     let stored: Config | undefined
     try {
+      // Until every writer shares one queue this is a fail-closed check before the read: the edit
+      // is never applied to the defaults that stand in for a config that cannot be used.
+      await assertConfigWritable()
       stored = await storageAdapter.get(CONFIG_STORAGE_KEY, DEFAULT_CONFIG, configSchema)
       const next = applyUpdate(stored, update)
       await storageAdapter.set(CONFIG_STORAGE_KEY, next, configSchema)

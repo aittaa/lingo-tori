@@ -38,14 +38,15 @@ describe("background config initialization", () => {
     expect(initializeConfigMock).toHaveBeenCalledOnce()
   })
 
-  it("keeps a rebuilt invalid config counted as stored", async () => {
-    initializeConfigMock.mockResolvedValue({ isFreshInstall: true, hadStoredConfig: true })
+  it("keeps an unusable stored config counted as stored, and not as a fresh install", async () => {
+    initializeConfigMock.mockResolvedValue({ isFreshInstall: false, hadStoredConfig: true })
     const config = await import("../config")
 
     await config.ensureInitializedConfig()
 
-    // Fresh for the provider probe, but an existing user as far as onboarding is concerned.
-    expect(await config.isFreshInstalledConfig()).toBe(true)
+    // An unusable config is kept as it is, so the provider probe for fresh installs does not run,
+    // and as far as onboarding is concerned this is an existing user.
+    expect(await config.isFreshInstalledConfig()).toBe(false)
     expect((await config.getInitializeConfigResult()).hadStoredConfig).toBe(true)
   })
 

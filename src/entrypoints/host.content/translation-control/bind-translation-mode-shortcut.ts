@@ -4,6 +4,7 @@ import { HotkeyManager } from "@tanstack/hotkeys"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { getLocalConfig, setLocalConfig } from "@/utils/config/storage"
 import { i18n } from "@/utils/i18n"
+import { logger } from "@/utils/logger"
 import { getTranslationOnlyBlockedReason } from "@/utils/providers/translation-only-gate"
 import { isShortcutEmpty, isValidShortcut } from "@/utils/shortcut"
 
@@ -42,13 +43,25 @@ export async function bindTranslationModeShortcutKey() {
         return
       }
 
-      await setLocalConfig({
-        ...currentConfig,
-        pageTranslation: {
-          ...currentConfig.pageTranslation,
-          mode: nextMode,
-        },
-      })
+      try {
+        await setLocalConfig({
+          ...currentConfig,
+          pageTranslation: {
+            ...currentConfig.pageTranslation,
+            mode: nextMode,
+          },
+        })
+      } catch (error) {
+        // The change was refused or could not be stored (for example the saved settings cannot be
+        // read). Say so on the page instead of letting the key press do nothing, and do not throw
+        // out of the page's key handler.
+        logger.error("Could not change the translation mode", error)
+        toastManager.add({
+          type: "error",
+          title: error instanceof Error ? error.message : "Could not change the translation mode",
+        })
+        return
+      }
 
       const modeName = i18n.t(`options.translation.preference.translationMode.mode.${nextMode}`)
       toastManager.add({

@@ -1,6 +1,5 @@
 import type { ProvidersConfig } from "@/types/config/provider"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { storage } from "#imports"
 import { RequestQueue } from "@/utils/request/request-queue"
 import { aiTranslate } from "../ai"
 
@@ -12,6 +11,8 @@ interface ModelFactorySettings {
 }
 
 const mocks = vi.hoisted(() => ({
+  // The stored provider rows, as the validated config reader returns them.
+  getLocalConfig: vi.fn<() => Promise<unknown>>(),
   generateText: vi
     .fn<
       (options: {
@@ -31,6 +32,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock("ai", () => ({ generateText: mocks.generateText }))
+vi.mock("@/utils/config/storage", () => ({ getLocalConfig: mocks.getLocalConfig }))
 vi.mock("@ai-sdk/openai-compatible", () => ({
   createOpenAICompatible: mocks.createOpenAICompatible,
 }))
@@ -88,8 +90,7 @@ describe("queued AI provider snapshot", () => {
     async (change) => {
       const captured = createProvider("a")
       const current = createProvider("b")
-      const getItem = vi.spyOn(storage, "getItem")
-      getItem.mockResolvedValue({ providersConfig: [captured] })
+      mocks.getLocalConfig.mockResolvedValue({ providersConfig: [captured] })
       const queue = new RequestQueue({
         rate: 1,
         capacity: 1,
@@ -109,7 +110,9 @@ describe("queued AI provider snapshot", () => {
         (error: unknown) => ({ error }),
       )
       expect(mocks.generateText).not.toHaveBeenCalled()
-      getItem.mockResolvedValue({ providersConfig: change === "edited" ? [current] : [] })
+      mocks.getLocalConfig.mockResolvedValue({
+        providersConfig: change === "edited" ? [current] : [],
+      })
 
       await vi.advanceTimersByTimeAsync(100)
       expect(await result).toEqual({ text: "translated" })

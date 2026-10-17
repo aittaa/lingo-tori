@@ -4,6 +4,7 @@ import { kebabCase } from "case-anything"
 import { saveAs } from "file-saver"
 import { toastManager } from "@/components/ui/base-ui/toast"
 import { getConfigWithoutCredentials } from "@/utils/config/api"
+import { assertCurrentConfigExportable } from "@/utils/config/status"
 import { APP_NAME } from "@/utils/constants/app"
 import { buildGlossaryDocument } from "@/utils/glossary/sync/document"
 import { readLocalGlossary } from "@/utils/glossary/sync/local-store"
@@ -23,15 +24,24 @@ interface UseExportConfigOptions {
    * never existed.
    */
   includeGlossary?: boolean
+  /**
+   * What `config` is. `"current"` (the default) is the user's settings as they are now, which come
+   * from a settings screen that shows the DEFAULTS when the stored config cannot be used; the export
+   * is refused then, so a file of defaults is never handed over as the user's settings. `"backup"`
+   * is a config that was stored on its own, as a past backup, and is always exportable.
+   */
+  source?: "current" | "backup"
 }
 
 export function useExportConfig({
   config,
   schemaVersion,
   includeGlossary = true,
+  source = "current",
 }: UseExportConfigOptions) {
   return useMutation({
     mutationFn: async (includeApiKeys: boolean) => {
+      if (source === "current") await assertCurrentConfigExportable()
       let exportConfig = config
 
       if (!includeApiKeys) {

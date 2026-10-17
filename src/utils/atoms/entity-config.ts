@@ -6,18 +6,20 @@ import { findSelectionToolbarAction, replaceSelectionToolbarAction } from "@/uti
 import { syncLayoutSampleData } from "@/utils/layout-host/sample"
 import { writeConfigAtom } from "./config"
 
+// Not `async`, for the reason `writeConfigAtom` is not: the provider list's switch does not wait for
+// this patch, and a wrapper that awaits the write and rethrows would hold the refusal in a promise
+// of its own that nothing observes.
 export const patchProviderConfigAtom = atom(
   null,
-  async (_get, set, { id, changes }: { id: string; changes: Partial<APIProviderConfig> }) => {
-    await set(writeConfigAtom, (current) => {
+  (_get, set, { id, changes }: { id: string; changes: Partial<APIProviderConfig> }) =>
+    set(writeConfigAtom, (current) => {
       const provider = current.providersConfig.find((item) => item.id === id)
       if (!provider || !isAPIProviderConfig(provider)) throw new Error("Provider no longer exists")
       const next = { ...provider, ...changes, id } as APIProviderConfig
       return {
         providersConfig: current.providersConfig.map((item) => (item.id === id ? next : item)),
       }
-    })
-  },
+    }),
 )
 
 export const patchActionConfigAtom = atom(

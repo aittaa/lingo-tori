@@ -63,13 +63,18 @@ export async function isSameAsLatestBackup(
  * Automatically removes oldest backup if limit is exceeded
  * Skips backup if config is identical to the latest backup
  */
-export async function addBackup(config: Config, extensionVersion: string): Promise<void> {
+export async function addBackup(
+  config: Config,
+  extensionVersion: string,
+  schemaVersion: number = CONFIG_SCHEMA_VERSION,
+): Promise<void> {
   try {
     const timestamp = Date.now()
     const backupId = generateBackupId(timestamp)
 
+    // A backup carries the version its config is written for, so a restore migrates it correctly.
     const backup: ConfigBackup = {
-      schemaVersion: CONFIG_SCHEMA_VERSION,
+      schemaVersion,
       config,
     }
 

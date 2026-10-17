@@ -1,4 +1,3 @@
-import type { Config } from "@/types/config/config"
 import type {
   AzureApiMode,
   DedicatedLLMProviderTypes,
@@ -28,7 +27,6 @@ import { createTogetherAI } from "@ai-sdk/togetherai"
 import { createXai } from "@ai-sdk/xai"
 import { createOllama } from "ai-sdk-ollama"
 import { match } from "ts-pattern"
-import { storage } from "#imports"
 import {
   DEFAULT_AZURE_API_MODE,
   isDedicatedLLMProviderConfig,
@@ -40,7 +38,7 @@ import { createApiUsageIdentity, registerApiUsageModel } from "@/utils/api-usage
 import { withApiUsage } from "@/utils/api-usage-tracking"
 import { createByosModel } from "@/utils/byos/model"
 import { getLLMProvidersConfig, getProviderConfigById } from "../config/helpers"
-import { CONFIG_STORAGE_KEY } from "../constants/config"
+import { getLocalConfig } from "../config/storage"
 import { getProviderHeadersWithOverride } from "./headers"
 import { resolveModelId } from "./model-id"
 import { noStoreFetch } from "./no-store-fetch"
@@ -94,7 +92,7 @@ function getAzureApiMode(providerConfig: LLMProviderConfig): AzureApiMode {
 }
 
 async function getLanguageModelById(providerId: string, usageFeature?: ApiUsageFeature) {
-  const config = await storage.getItem<Config>(`local:${CONFIG_STORAGE_KEY}`)
+  const config = await getLocalConfig()
   if (!config) {
     throw new ProviderSetupError("Config not found")
   }
