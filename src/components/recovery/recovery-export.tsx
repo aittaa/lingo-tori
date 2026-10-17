@@ -36,9 +36,9 @@ interface RecoveryExportState {
 }
 
 const REASON_KEYS = {
-  "invalid-schema": "recoveryExport.reason.invalid-schema",
-  "migration-failed": "recoveryExport.reason.migration-failed",
-  "newer-version": "recoveryExport.reason.newer-version",
+  "invalid-schema": "recoveryExport.reason.invalidSchema",
+  "migration-failed": "recoveryExport.reason.migrationFailed",
+  "newer-version": "recoveryExport.reason.newerVersion",
   incoherent: "recoveryExport.reason.incoherent",
 } as const satisfies Record<SuspectReason, string>
 

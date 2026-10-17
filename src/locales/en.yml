@@ -73,9 +73,9 @@ recoveryExport:
   keptCopy: Copy kept on $1
   keptBy: Kept by version $1.
   reason:
-    invalid-schema: The settings did not match the format this version expects.
-    migration-failed: Upgrading the settings to this version failed.
-    newer-version: The settings were saved by a newer version.
+    invalidSchema: The settings did not match the format this version expects.
+    migrationFailed: Upgrading the settings to this version failed.
+    newerVersion: The settings were saved by a newer version.
     incoherent: The record that describes the settings could not be read.
   exportCopy: Export exact copy
   storedTitle: Stored settings as found

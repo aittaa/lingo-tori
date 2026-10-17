@@ -73,9 +73,9 @@ recoveryExport:
   keptCopy: $1 に保管したコピー
   keptBy: バージョン $1 が保管しました。
   reason:
-    invalid-schema: 設定がこのバージョンの想定する形式と一致しませんでした。
-    migration-failed: 設定をこのバージョンにアップグレードできませんでした。
-    newer-version: より新しいバージョンで保存された設定です。
+    invalidSchema: 設定がこのバージョンの想定する形式と一致しませんでした。
+    migrationFailed: 設定をこのバージョンにアップグレードできませんでした。
+    newerVersion: より新しいバージョンで保存された設定です。
     incoherent: 設定を説明する記録を読み取れませんでした。
   exportCopy: 正確なコピーを書き出す
   storedTitle: 保存されている設定をそのまま
