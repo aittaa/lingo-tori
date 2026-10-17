@@ -36,8 +36,18 @@ function applyUpdate(current: Config, update: ConfigUpdate): Config {
     : mergeWithArrayOverwrite(current, update)
 }
 
-export const writeConfigAtom = atom(null, async (get, set, update: ConfigUpdate) => {
-  const optimistic = applyUpdate(get(configAtom), update)
+// Not `async`: the caller gets `task` itself, which `writeQueue` below already observes. An `async`
+// function would return a second promise that adopts `task`, and a screen that starts a write and
+// does not wait for it (`void setField(...)`) would leave that one rejected with nobody to observe
+// it: an uncaught error whenever the write is refused. A caller that waits still gets the
+// rejection, and an updater that cannot apply still rejects instead of throwing out of the setter.
+export const writeConfigAtom = atom(null, (get, set, update: ConfigUpdate) => {
+  let optimistic: Config
+  try {
+    optimistic = applyUpdate(get(configAtom), update)
+  } catch (error) {
+    return Promise.reject(error)
+  }
   set(configAtom, optimistic)
   const version = ++writeVersion
   pendingWrites++
