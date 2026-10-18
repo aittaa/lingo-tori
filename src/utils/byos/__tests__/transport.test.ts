@@ -56,6 +56,23 @@ beforeEach(() => {
   mocks.remove.mockResolvedValue(undefined)
 })
 afterEach(() => vi.useRealTimers())
+function deferred<T = void>() {
+  let resolve!: (value: T) => void, reject!: (reason: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+const pendingAuth = {
+  state: "state",
+  nonce: "nonce",
+  verifier: "verifier",
+  redirectUri: "http://127.0.0.1:51000/auth/callback",
+  tabId: 42,
+  expires: Date.now() + 300000,
+  generation: 1,
+}
 it.each(["startup", "first permission grant"])(
   "stops fresh sign-in before opening a tab when removal hangs after %s",
   async (phase) => {
@@ -113,6 +130,7 @@ it("compensates a timed-out rule installation that settles after cleanup", async
   await vi.advanceTimersByTimeAsync(5000)
   expect(await outcome).toMatchObject({ code: "callback_rule_timeout_install" })
   expect(await transport.available()).toBe(false)
+  expect(await transport.availability()).toBe("routing-pending")
   await transport.cleanup()
   release()
   await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(3))
@@ -149,6 +167,7 @@ it("blocks a new sign-in until timed-out cleanup can no longer delete its rule",
   await vi.advanceTimersByTimeAsync(5000)
   expect(await cleanup).toMatchObject({ code: "callback_rule_timeout_remove" })
   expect(await transport.available()).toBe(false)
+  expect(await transport.availability()).toBe("routing-pending")
   await expect(
     transport.install({
       state: "new-state",
@@ -159,7 +178,7 @@ it("blocks a new sign-in until timed-out cleanup can no longer delete its rule",
       expires: Date.now() + 300000,
       generation: 2,
     }),
-  ).rejects.toThrow("callback_permission_required")
+  ).rejects.toThrow("callback_routing_pending")
   expect(mocks.update).toHaveBeenCalledOnce()
 
   release()
@@ -181,6 +200,7 @@ it.each(["alarm", "permission"] as const)(
     await vi.advanceTimersByTimeAsync(6500)
 
     expect(await transport.available()).toBe(false)
+    expect(await transport.availability()).toBe("busy")
     await expect(
       transport.install({
         state: "new-state",
@@ -191,7 +211,7 @@ it.each(["alarm", "permission"] as const)(
         expires: Date.now() + 300000,
         generation: 2,
       }),
-    ).rejects.toThrow("callback_permission_required")
+    ).rejects.toThrow("auth_in_progress")
     expect(mocks.update).not.toHaveBeenCalled()
 
     release(true)
@@ -461,4 +481,94 @@ it("fails closed on missing Firefox capability or foreign runtime protocols", as
       "http://127.0.0.1:51000/auth/callback",
     ),
   ).toThrow("invalid_callback_route")
+})
+
+it("reports routing recovery only after the bounded timeout and clears it once every guard releases", async () => {
+  vi.useFakeTimers()
+  const hung = deferred(),
+    delayedAlarm = deferred<boolean>()
+  mocks.update.mockReturnValueOnce(hung.promise)
+  const transport = createAuthTransport()
+  expect(await transport.availability()).toBe("ready")
+
+  const cleanup = transport.cleanup().catch((error: unknown) => error)
+  await vi.advanceTimersByTimeAsync(4999)
+  // A slow removal is ordinary busy until its own deadline fires.
+  expect(await transport.availability()).toBe("busy")
+  await vi.advanceTimersByTimeAsync(1)
+  expect(await cleanup).toMatchObject({ code: "callback_rule_timeout_remove" })
+  expect(await transport.availability()).toBe("routing-pending")
+
+  // A later removal that succeeds cannot clear it while the first still hangs.
+  await transport.cleanup()
+  expect(mocks.update).toHaveBeenCalledTimes(2)
+  expect(await transport.availability()).toBe("routing-pending")
+  expect(await transport.available()).toBe(false)
+
+  hung.resolve()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(await transport.availability()).toBe("ready")
+
+  // The released marker cannot leak into a later, ordinary busy period.
+  mocks.alarms.clear.mockReturnValueOnce(delayedAlarm.promise)
+  const brief = transport.cleanup()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(await transport.availability()).toBe("busy")
+  delayedAlarm.resolve(true)
+  await brief
+  expect(await transport.availability()).toBe("ready")
+})
+
+it.each(["resolves", "rejects"] as const)(
+  "keeps routing recovery through a late timed-out install that %s until it is safe",
+  async (outcome) => {
+    vi.useFakeTimers()
+    const late = deferred(),
+      compensation = deferred()
+    mocks.update.mockReturnValueOnce(late.promise)
+    // Only a late success is compensated by a second removal.
+    if (outcome === "resolves") mocks.update.mockReturnValueOnce(compensation.promise)
+    const transport = createAuthTransport()
+    const install = transport.install(pendingAuth).catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(await install).toMatchObject({ code: "callback_rule_timeout_install" })
+    expect(await transport.availability()).toBe("routing-pending")
+
+    if (outcome === "resolves") late.resolve()
+    else late.reject(new Error("late failure"))
+    await vi.advanceTimersByTimeAsync(0)
+    // A late success still has its compensating removal to finish; a late failure
+    // means the rule never applied and nothing remains to compensate.
+    expect(mocks.update).toHaveBeenCalledTimes(outcome === "resolves" ? 2 : 1)
+    expect(await transport.availability()).toBe(
+      outcome === "resolves" ? "routing-pending" : "ready",
+    )
+
+    compensation.resolve()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(await transport.availability()).toBe("ready")
+  },
+)
+
+it("separates missing permission and unsupported capability from busy and routing recovery", async () => {
+  const transport = createAuthTransport()
+  expect(await transport.availability()).toBe("ready")
+
+  // Before the optional grant Chromium has no routing API either; the missing permission wins.
+  mocks.contains.mockResolvedValue(false)
+  mocks.dnrAvailable = false
+  expect(await transport.availability()).toBe("permission-required")
+  await expect(transport.install(pendingAuth)).rejects.toThrow("callback_permission_required")
+
+  mocks.contains.mockResolvedValue(true)
+  expect(await transport.availability()).toBe("unsupported")
+  await expect(transport.install(pendingAuth)).rejects.toThrow("browser_only_signin_unavailable")
+  mocks.dnrAvailable = true
+
+  mocks.protocol = "https:"
+  expect(await transport.availability()).toBe("unsupported")
+  mocks.protocol = "moz-extension:"
+  mocks.installedPermission = false
+  expect(await transport.availability()).toBe("permission-required")
+  expect(mocks.update).not.toHaveBeenCalled()
 })

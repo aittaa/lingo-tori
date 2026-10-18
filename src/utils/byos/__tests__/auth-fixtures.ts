@@ -21,8 +21,13 @@ export function memoryVault(initial?: VaultRecord): AuthVault {
   }
 }
 export function mockTransport(): AuthTransport {
+  const available = vi.fn<AuthTransport["available"]>(async () => true)
   return {
-    available: vi.fn<AuthTransport["available"]>(async () => true),
+    available,
+    // Tests that close the transport through `available` keep the generic unavailable outcome.
+    availability: vi.fn<AuthTransport["availability"]>(async () =>
+      (await available()) ? "ready" : "unsupported",
+    ),
     createTab: vi.fn<AuthTransport["createTab"]>(async () => 42),
     install: vi.fn<AuthTransport["install"]>(async () => {}),
     navigate: vi.fn<AuthTransport["navigate"]>(async () => {}),
