@@ -216,6 +216,31 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     pendingRef.current = attempt
     setPending(attempt)
   }, [])
+  // Shared by the first and the fallback session so recovery and pending state cannot diverge.
+  // Returns true while a sign-in is pending, which owns the card instead of Restart.
+  const applySession = useCallback(
+    (live: ByosSession) => {
+      setSession(live)
+      if (live.authRecovery) {
+        setRouting(true)
+        // A failed restart stays visible for as long as the same recovery does.
+        setNotice((current) => (current === t.restartFailed ? current : t.routing))
+      } else {
+        setRouting(false)
+        // Only routing-owned notices leave with it.
+        setNotice((current) =>
+          current === t.routing || current === t.restartFailed ? "" : current,
+        )
+      }
+      authAttemptRef.current = live.authPending ? live.authAttemptId : undefined
+      if (!live.authPending) return false
+      setAttempt("tab")
+      setModels([])
+      setModel("")
+      return true
+    },
+    [setAttempt, setRouting, t],
+  )
   const refresh = useCallback(
     async (owner: number) => {
       let next: ByosSession
@@ -229,22 +254,8 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         return
       }
       if (epoch(generation) !== owner) return
-      setSession(next)
       // Apply before any early return below, so every account state restores or clears it.
-      if (next.authRecovery) {
-        setRouting(true)
-        setNotice(t.routing)
-      } else {
-        setRouting(false)
-        setNotice((current) => (current === t.routing ? "" : current))
-      }
-      authAttemptRef.current = next.authPending ? next.authAttemptId : undefined
-      if (next.authPending) {
-        setAttempt("tab")
-        setModels([])
-        setModel("")
-        return
-      }
+      if (applySession(next)) return
       if (next.state === "disconnected") {
         if (next.authPending === false) initialRegistrationAttempt.current = false
         setModels([])
@@ -280,21 +291,25 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       } catch {
         const recovered = await boundedMessage(
           sendByosMessage("lingotoriByosSession", undefined),
-        ).catch(() => ({
-          state: "temporarily-unavailable" as const,
-        }))
+        ).catch(() => undefined)
         if (epoch(generation) !== owner) return
+        // Only a live answer says anything about recovery; a failed one keeps the first answer.
+        const live = recovered && {
+          ...recovered,
+          state:
+            recovered.state === "plan-enabled"
+              ? ("temporarily-unavailable" as const)
+              : recovered.state,
+        }
+        if (live && applySession(live)) return
         setModels([])
         setModel("")
-        setSession(
-          recovered.state === "plan-enabled"
-            ? { ...recovered, state: "temporarily-unavailable" }
-            : recovered,
-        )
-        setNotice(t.failed)
+        if (!live) setSession({ state: "temporarily-unavailable" })
+        // Recovery guidance is the actionable message; the generic one would contradict Restart.
+        if (!live?.authRecovery) setNotice(t.failed)
       }
     },
-    [savedModel, setAttempt, setRouting, t, writeConfig],
+    [applySession, savedModel, setAttempt, t, writeConfig],
   )
   useEffect(() => {
     const owner = invalidate(generation)

@@ -672,6 +672,73 @@ it("keeps the explicit restart when a stale safe refresh settles after it", asyn
   expect(mocks.reload).toHaveBeenCalledOnce()
 })
 
+const restartFailedNotice = "Could not restart the extension. Try again."
+const recoverable = { ...connected, authRecovery: "callback_routing_pending" }
+const fallbackButtons = {
+  restart: "Restart extension",
+  retry: "Try again",
+  cancel: "Cancel",
+} as const
+
+it.each([
+  ["recovery appears", connected, recoverable, "restart"],
+  ["recovery clears", recoverable, connected, "retry"],
+  [
+    "a pending sign-in replaces Restart",
+    recoverable,
+    { ...recoverable, authPending: true, authAttemptId: pendingAttemptId },
+    "cancel",
+  ],
+  ["its own failure keeps the first answer", recoverable, new Error("synthetic"), "restart"],
+] as const)(
+  "applies the live fallback session after a model-discovery failure: %s",
+  async (_name, first, second, outcome) => {
+    const sessions: unknown[] = [first, second]
+    mocks.send.mockImplementation(async (type) => {
+      if (type === "lingotoriByosModels") throw new Error("synthetic discovery failure")
+      if (type !== "lingotoriByosSession") return undefined
+      const next = sessions.shift()
+      if (next instanceof Error) throw next
+      return next
+    })
+    renderSettings()
+
+    await screen.findByRole("button", { name: fallbackButtons[outcome] })
+    await act(async () => {})
+    for (const [kind, name] of Object.entries(fallbackButtons))
+      expect(!!screen.queryByRole("button", { name })).toBe(kind === outcome)
+    expect(mocks.reload).not.toHaveBeenCalled()
+    expectAuthCount(0)
+  },
+)
+
+it("keeps the restart failure message while the same recovery remains and drops it once recovery clears", async () => {
+  mockSession(routingRecovery)
+  renderSettings()
+  const restart = await screen.findByRole("button", { name: "Restart extension" })
+  await act(async () => {})
+  mocks.reload.mockImplementationOnce(() => {
+    throw new Error("synthetic restart failure")
+  })
+  fireEvent.click(restart)
+  expect(screen.getByText(restartFailedNotice)).toBeInTheDocument()
+
+  const refreshes = () =>
+    mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosSession").length
+  fireEvent(window, new Event("focus"))
+  await waitFor(() => expect(refreshes()).toBe(2))
+  await act(async () => {})
+  expect(screen.getByText(restartFailedNotice)).toBeInTheDocument()
+  expect(screen.queryByText(routingNotice)).not.toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Restart extension" })).toBeEnabled()
+
+  mockSession({ state: "disconnected", authPending: false })
+  fireEvent(window, new Event("focus"))
+  await waitForSignedOut()
+  expect(screen.queryByText(restartFailedNotice)).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Restart extension" })).not.toBeInTheDocument()
+})
+
 it.each([
   ["callback_permission_required", "Allow callback access to start sign-in.", true],
   [
