@@ -162,11 +162,11 @@ async function boundedMessage<T>(operation: Promise<T>): Promise<T> {
 }
 const failureKind = (error: unknown) => {
   const message = error instanceof Error ? error.message : ""
-  if (/callback_rule_timeout/i.test(message)) return "routing" as const
+  if (/callback_rule_timeout|callback_routing_pending/i.test(message)) return "routing" as const
   if (/receiving end|establish connection|background_timeout/i.test(message))
     return "background" as const
-  if (/callback_permission|browser_only_signin_unavailable/i.test(message))
-    return "callback" as const
+  if (/callback_permission/i.test(message)) return "callback" as const
+  if (/browser_only_signin_unavailable/i.test(message)) return "browser" as const
   return "failed" as const
 }
 const epoch = (generation: { current: number }) => generation.current
@@ -199,6 +199,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     restartRequested = useRef(false),
     authAttemptRef = useRef<string | undefined>(undefined),
     busyRef = useRef(true),
+    routingRef = useRef(false),
     pendingRef = useRef<"permission" | "starting" | "tab" | null>(null)
   const supportedBrowser =
     isByosExtensionUrl(browser.runtime.getURL("/")) &&
@@ -206,6 +207,10 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
   const setWorking = useCallback((working: boolean) => {
     busyRef.current = working
     setBusy(working)
+  }, [])
+  const setRouting = useCallback((failed: boolean) => {
+    routingRef.current = failed
+    setRoutingFailed(failed)
   }, [])
   const setAttempt = useCallback((attempt: "permission" | "starting" | "tab" | null) => {
     pendingRef.current = attempt
@@ -225,6 +230,14 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       }
       if (epoch(generation) !== owner) return
       setSession(next)
+      // Apply before any early return below, so every account state restores or clears it.
+      if (next.authRecovery) {
+        setRouting(true)
+        setNotice(t.routing)
+      } else {
+        setRouting(false)
+        setNotice((current) => (current === t.routing ? "" : current))
+      }
       authAttemptRef.current = next.authPending ? next.authAttemptId : undefined
       if (next.authPending) {
         setAttempt("tab")
@@ -249,7 +262,6 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         setModel("")
         return
       }
-      setRoutingFailed(false)
       try {
         const available = await boundedMessage(sendByosMessage("lingotoriByosModels", undefined))
         if (epoch(generation) !== owner) return
@@ -282,7 +294,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         setNotice(t.failed)
       }
     },
-    [savedModel, setAttempt, t, writeConfig],
+    [savedModel, setAttempt, setRouting, t, writeConfig],
   )
   useEffect(() => {
     const owner = invalidate(generation)
@@ -350,7 +362,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
         setAttempt("starting")
         await boundedMessage(sendByosMessage("lingotoriByosAuth", attemptId))
         if (epoch(generation) === owner) {
-          setRoutingFailed(false)
+          setRouting(false)
           setAttempt("tab")
         }
       } catch (error) {
@@ -360,7 +372,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
           setAttempt(null)
           setWorking(false)
           const failure = failureKind(error)
-          if (failure === "routing") setRoutingFailed(true)
+          if (failure === "routing") setRouting(true)
           setNotice(t[failure])
           void boundedMessage(sendByosMessage("lingotoriByosCancelAuth", attemptId)).catch(() => {})
         }
@@ -370,7 +382,7 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
     })()
   }
   function restartExtension() {
-    if (!routingFailed || restartRequested.current) return
+    if (!routingRef.current || restartRequested.current) return
     restartRequested.current = true
     invalidate(generation)
     setRestarting(true)
@@ -467,7 +479,8 @@ export function ByosSettings({ ref }: { ref?: Ref<ByosSettingsHandle> }) {
       focusCard()
       return
     }
-    if (pendingRef.current || busyRef.current) {
+    // The visible Restart action is the only way forward; selecting must not ask again.
+    if (pendingRef.current || busyRef.current || routingRef.current) {
       focusCard()
       return
     }

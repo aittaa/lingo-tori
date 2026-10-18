@@ -2,7 +2,7 @@ import type { PendingAuth } from "./vault"
 import { browser } from "wxt/browser"
 import { isByosExtensionProtocol, isByosExtensionUrl } from "./browser"
 import { hasByosCallbackPermission } from "./permissions"
-import { ByosBridgeError } from "./service"
+import { BYOS_ROUTING_PENDING_CODE, BYOS_UNAVAILABLE_CODE, ByosBridgeError } from "./service"
 
 export const AUTH_RULE_ID = 1749225500
 export const AUTH_ALARM = "lingotori-browser-byos-auth-expiry"
@@ -26,7 +26,26 @@ export function callbackRegex(redirectUri: string) {
     throw new ByosBridgeError("invalid_redirect_uri")
   return `^http://127\\.0\\.0\\.1:${url.port}/auth/callback\\?[^#]*$`
 }
+export type AuthAvailability =
+  | "ready"
+  | "permission-required"
+  | "unsupported"
+  | "busy"
+  | "routing-pending"
+export function availabilityCode(availability: AuthAvailability) {
+  switch (availability) {
+    case "permission-required":
+      return "callback_permission_required"
+    case "busy":
+      return "auth_in_progress"
+    case "routing-pending":
+      return BYOS_ROUTING_PENDING_CODE
+    default:
+      return BYOS_UNAVAILABLE_CODE
+  }
+}
 export interface AuthTransport {
+  availability: () => Promise<AuthAvailability>
   available: () => Promise<boolean>
   createTab: () => Promise<number>
   install: (pending: PendingAuth) => Promise<void>
@@ -74,16 +93,20 @@ export function buildCallbackRule(tabId: number, callbackUrl: string, redirectUr
     },
   }
 }
-async function bounded<T>(operation: Promise<T>, phase: "install" | "remove"): Promise<T> {
+async function bounded<T>(
+  operation: Promise<T>,
+  phase: "install" | "remove",
+  onTimeout: () => void,
+): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined
   try {
     return await Promise.race([
       operation,
       new Promise<never>((_, reject) => {
-        timeout = setTimeout(
-          () => reject(new ByosBridgeError(`callback_rule_timeout_${phase}`)),
-          5000,
-        )
+        timeout = setTimeout(() => {
+          onTimeout()
+          reject(new ByosBridgeError(`callback_rule_timeout_${phase}`))
+        }, 5000)
       }),
     ])
   } finally {
@@ -106,15 +129,33 @@ export function createAuthTransport(): AuthTransport {
   const api = () => browser.declarativeNetRequest
   let uncertainInstall = false
   let pendingRuleChanges = 0
+  // Set only when a bounded rule change reaches its deadline, which separates an
+  // unanswered browser from an ordinary short mutation. In memory only: reported
+  // while the guards above stay closed, dropped once all of them have released.
+  let routingTimeout = false
+  const settle = () => {
+    if (!uncertainInstall && pendingRuleChanges === 0) routingTimeout = false
+  }
+  const releaseRuleChange = () => {
+    pendingRuleChanges--
+    settle()
+  }
+  const settleInstall = () => {
+    uncertainInstall = false
+    settle()
+  }
+  const timedOut = () => {
+    routingTimeout = true
+  }
   const updateRules = (
     dnr: typeof browser.declarativeNetRequest,
     options: Parameters<typeof browser.declarativeNetRequest.updateSessionRules>[0],
   ) => {
     pendingRuleChanges++
     try {
-      return dnr.updateSessionRules(options).finally(() => pendingRuleChanges--)
+      return dnr.updateSessionRules(options).finally(releaseRuleChange)
     } catch (error) {
-      pendingRuleChanges--
+      releaseRuleChange()
       return Promise.reject(error)
     }
   }
@@ -123,22 +164,29 @@ export function createAuthTransport(): AuthTransport {
     try {
       const dnr = api()
       if (dnr && (await hasByosCallbackPermission()))
-        await bounded(updateRules(dnr, { removeRuleIds: [AUTH_RULE_ID] }), "remove")
+        await bounded(updateRules(dnr, { removeRuleIds: [AUTH_RULE_ID] }), "remove", timedOut)
     } finally {
-      pendingRuleChanges--
+      releaseRuleChange()
     }
   }
   return {
-    async available() {
+    async availability() {
+      if (!isByosExtensionUrl(browser.runtime.getURL("/"))) return "unsupported"
+      // Missing permission also hides the routing API on Chromium, so judge it first,
+      // and read the routing API and the local guards only after this await.
+      if (!(await hasByosCallbackPermission())) return "permission-required"
       const dnr = api()
-      return (
-        isByosExtensionUrl(browser.runtime.getURL("/")) &&
-        typeof dnr?.updateSessionRules === "function" &&
-        typeof dnr?.getSessionRules === "function" &&
-        (await hasByosCallbackPermission()) &&
-        !uncertainInstall &&
-        pendingRuleChanges === 0
+      if (
+        typeof dnr?.updateSessionRules !== "function" ||
+        typeof dnr?.getSessionRules !== "function"
       )
+        return "unsupported"
+      if (uncertainInstall || pendingRuleChanges > 0)
+        return routingTimeout ? "routing-pending" : "busy"
+      return "ready"
+    },
+    async available() {
+      return (await this.availability()) === "ready"
     },
     async createTab() {
       const tab = await browser.tabs.create({ url: "about:blank" })
@@ -147,9 +195,10 @@ export function createAuthTransport(): AuthTransport {
       return tab.id
     },
     async install(pending) {
+      const availability = await this.availability()
       const dnr = api()
-      if (!dnr || !(await this.available()))
-        throw new ByosBridgeError("callback_permission_required")
+      if (!dnr || availability !== "ready")
+        throw new ByosBridgeError(availabilityCode(availability))
       uncertainInstall = true
       const install = updateRules(dnr, {
         removeRuleIds: [AUTH_RULE_ID],
@@ -162,23 +211,18 @@ export function createAuthTransport(): AuthTransport {
         ],
       })
       try {
-        await bounded(install, "install")
+        await bounded(install, "install", timedOut)
       } catch (error) {
         // A timed-out installation can still settle later; remove it again then.
         void install
-          .then(
-            async () => {
-              await removeRule()
-              uncertainInstall = false
-            },
-            () => {
-              uncertainInstall = false
-            },
-          )
+          .then(async () => {
+            await removeRule()
+            settleInstall()
+          }, settleInstall)
           .catch(() => {})
         throw error
       }
-      uncertainInstall = false
+      settleInstall()
       await browser.alarms.create(AUTH_ALARM, { when: pending.expires })
     },
     async navigate(tabId, authorizationUrl) {
@@ -193,7 +237,7 @@ export function createAuthTransport(): AuthTransport {
         await removeRule()
         if (tabId !== undefined) await browser.tabs.remove(tabId).catch(() => {})
       } finally {
-        pendingRuleChanges--
+        releaseRuleChange()
       }
     },
     async reconcile(pending) {

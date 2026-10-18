@@ -1,4 +1,4 @@
-import type { AuthTransport } from "./transport"
+import type { AuthAvailability, AuthTransport } from "./transport"
 import type { AuthVault, Credentials, PendingAuth, VaultRecord } from "./vault"
 import type { ReportedTokens } from "@/utils/api-usage-tokens"
 import { z } from "zod"
@@ -21,7 +21,7 @@ import {
   TOKEN_URL,
   validateIdToken,
 } from "./oidc"
-import { createRedirectUri } from "./transport"
+import { availabilityCode, createRedirectUri } from "./transport"
 
 export const invokeSchema = z.strictObject({
   model: z.string().min(1).max(256),
@@ -34,6 +34,7 @@ export interface ByosInvocationResult {
 }
 export type ByosInvocation = z.infer<typeof invokeSchema>
 export const authAttemptIdSchema = z.uuid()
+export const BYOS_ROUTING_PENDING_CODE = "callback_routing_pending"
 export const sessionSchema = z.object({
   state: z.enum([
     "disconnected",
@@ -47,6 +48,8 @@ export const sessionSchema = z.object({
   account: z.object({ subject: z.string(), email: z.string() }).optional(),
   authPending: z.boolean().optional(),
   authAttemptId: authAttemptIdSchema.optional(),
+  // Derived live from the transport, never stored: a timed-out callback routing change is unsettled.
+  authRecovery: z.literal(BYOS_ROUTING_PENDING_CODE).optional(),
 })
 export type ByosSession = z.infer<typeof sessionSchema>
 export const modelsSchema = z.object({
@@ -81,6 +84,9 @@ const tokensSchema = z.object({
 function fail(code: string, status = 0): never {
   throw new ByosBridgeError(code, status)
 }
+const isRoutingFailure = (error: unknown) =>
+  error instanceof ByosBridgeError &&
+  (error.code === BYOS_ROUTING_PENDING_CODE || error.code.startsWith("callback_rule_timeout"))
 function rejectsAccessToken(error: ByosBridgeError) {
   return (
     error.status === 401 &&
@@ -120,6 +126,8 @@ export function createByosService(
   let failureCleanup: Promise<void> | undefined
   let refreshing: Promise<void> | undefined
   let initialization: Promise<void> | undefined
+  // The last initialization failed on a routing timeout, which may still be unsettled.
+  let routingRecovery = false
   let signingOut: Promise<ByosSession & { remoteRevocationConfirmed: boolean }> | undefined
   const controllers = new Set<AbortController>()
   const abortAll = () => {
@@ -176,6 +184,9 @@ export function createByosService(
   }
   async function initialize() {
     const attempt = (initialization ??= (async () => {
+      // Another removal would only queue behind the unsettled one and time out again.
+      if (routingRecovery && (await transport.availability()) === "routing-pending")
+        fail(BYOS_ROUTING_PENDING_CODE)
       let record = await vault.read()
       if (
         record.refreshing ||
@@ -232,10 +243,29 @@ export function createByosService(
     })())
     try {
       await attempt
+      routingRecovery = false
     } catch (error) {
-      if (initialization === attempt) initialization = undefined
+      if (initialization === attempt) {
+        initialization = undefined
+        routingRecovery = isRoutingFailure(error)
+      }
       throw error
     }
+  }
+  // Settings must still learn about a routing timeout, so it is reported rather than thrown.
+  // Initialization stays incomplete then, and no sign-in is allowed through.
+  async function initializeForDiagnostics() {
+    try {
+      await initialize()
+    } catch (error) {
+      if (!isRoutingFailure(error)) throw error
+      return { initialized: false, availability: "routing-pending" as const }
+    }
+    // Diagnostics never fail on the capability probe itself.
+    const availability: AuthAvailability = await transport
+      .availability()
+      .catch(() => "unsupported" as const)
+    return { initialized: true, availability }
   }
   async function request(
     url: string,
@@ -604,11 +634,15 @@ export function createByosService(
   return {
     initialize,
     async status() {
-      await initialize()
-      return { available: await transport.available(), reason: BYOS_UNAVAILABLE_CODE }
+      const { availability } = await initializeForDiagnostics()
+      return { available: availability === "ready", reason: availabilityCode(availability) }
     },
     async session(): Promise<ByosSession> {
-      await initialize()
+      const { initialized, availability } = await initializeForDiagnostics()
+      const recovery: Pick<ByosSession, "authRecovery"> =
+        availability === "routing-pending" ? { authRecovery: BYOS_ROUTING_PENDING_CODE } : {}
+      // No account state is known before initialization completes.
+      if (!initialized) return { state: "temporarily-unavailable", ...recovery }
       const record = await vault.read()
       const expired = !!record.credentials && record.credentials.expires <= now()
       const state: ByosSession["state"] =
@@ -633,6 +667,7 @@ export function createByosService(
         ...(record.credentials
           ? { account: { subject: record.credentials.subject, email: record.credentials.email } }
           : {}),
+        ...recovery,
       }
     },
     async authStart(attemptId: string = crypto.randomUUID()) {
@@ -644,7 +679,8 @@ export function createByosService(
       const ownIntent = ++intent
       try {
         await initialize()
-        if (!(await transport.available())) fail(BYOS_UNAVAILABLE_CODE)
+        const availability = await transport.availability()
+        if (availability !== "ready") fail(availabilityCode(availability))
         if (ownIntent !== intent) fail("session_changed")
         await clearPending(true, ownIntent)
         abortAll()

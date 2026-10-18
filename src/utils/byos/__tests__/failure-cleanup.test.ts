@@ -193,11 +193,12 @@ it("delivers the install timeout at its own deadline and keeps rule changes gate
   expect(await transport.available()).toBe(false)
   await expect(service.authStart()).rejects.toMatchObject({ code: "auth_in_progress" })
   expect(mocks.create).toHaveBeenCalledOnce()
+  expect(await service.session()).toMatchObject({ authRecovery: "callback_routing_pending" })
 
   // The cleanup removal reaches its own bound: the service gate lifts, but both
   // unsettled browser mutations still keep the transport closed.
   await vi.advanceTimersByTimeAsync(5000)
-  await expect(service.authStart()).rejects.toMatchObject({ code: BYOS_UNAVAILABLE_CODE })
+  await expect(service.authStart()).rejects.toMatchObject({ code: "callback_routing_pending" })
   expect(mocks.create).toHaveBeenCalledOnce()
 
   releases[0]!()
@@ -209,6 +210,7 @@ it("delivers the install timeout at its own deadline and keeps rule changes gate
   releases[1]!()
   await vi.advanceTimersByTimeAsync(0)
   expect(await transport.available()).toBe(true)
+  expect((await service.session()).authRecovery).toBeUndefined()
   await service.authStart()
   expect(mocks.create).toHaveBeenCalledTimes(2)
 })
@@ -240,7 +242,7 @@ it("reopens the transport without compensation when a timed-out install later re
   await vi.advanceTimersByTimeAsync(5000)
   expect(start).toMatchObject({ settled: true, error: { code: "callback_rule_timeout_install" } })
   // The service gate has lifted (cleanup settled), but the pending install still holds the transport.
-  await expect(service.authStart()).rejects.toMatchObject({ code: BYOS_UNAVAILABLE_CODE })
+  await expect(service.authStart()).rejects.toMatchObject({ code: "callback_routing_pending" })
   expect(await transport.available()).toBe(false)
   expect(mocks.create).toHaveBeenCalledOnce()
 
@@ -272,4 +274,103 @@ it("reports the original failure when cleanup throws synchronously, then admits 
   } finally {
     process.off("unhandledRejection", unhandled)
   }
+})
+
+it.each(["startup", "first permission grant"] as const)(
+  "keeps reporting routing recovery after a %s removal timeout without another mutation",
+  async (phase) => {
+    vi.useFakeTimers()
+    const fetcher = vi.fn<typeof fetch>(),
+      transport = createAuthTransport(),
+      service = createByosService(memoryVault(), transport, "extension", callbackUrl, fetcher),
+      hung = deferred(),
+      recovery = { authRecovery: "callback_routing_pending" }
+    if (phase === "first permission grant") {
+      mocks.contains.mockResolvedValue(false)
+      await service.initialize()
+      mocks.contains.mockResolvedValue(true)
+    }
+    mocks.update.mockReturnValueOnce(hung.promise)
+
+    // Startup times out inside initialization, which cannot be marked complete; the
+    // first grant times out in sign-in after initialization already succeeded.
+    const first = phase === "startup" ? service.session() : service.authStart().catch((e) => e)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(await first).toMatchObject(
+      phase === "startup" ? recovery : { code: "callback_rule_timeout_remove" },
+    )
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      expect(await service.session()).toMatchObject(recovery)
+      expect(await service.status()).toEqual({
+        available: false,
+        reason: "callback_routing_pending",
+      })
+      await expect(service.authStart()).rejects.toMatchObject({ code: "callback_routing_pending" })
+    }
+    expect(mocks.update).toHaveBeenCalledOnce()
+    expect(mocks.create).not.toHaveBeenCalled()
+    expect(mocks.navigate).not.toHaveBeenCalled()
+    expect(fetcher).not.toHaveBeenCalled()
+
+    // The late settlement is the only thing that restores normal sign-in.
+    hung.resolve()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(await service.session()).toEqual({ state: "disconnected", authPending: false })
+    await service.authStart()
+    expect(mocks.create).toHaveBeenCalledOnce()
+  },
+)
+
+it.each([
+  ["permission-required", "callback_permission_required"],
+  ["unsupported", BYOS_UNAVAILABLE_CODE],
+  ["busy", "auth_in_progress"],
+  ["routing-pending", "callback_routing_pending"],
+] as const)(
+  "maps %s transport availability to its own stable sign-in code",
+  async (availability, code) => {
+    const transport = mockTransport(),
+      service = createByosService(
+        memoryVault(),
+        transport,
+        "extension",
+        callbackUrl,
+        vi.fn<typeof fetch>(),
+      )
+    vi.mocked(transport.availability).mockResolvedValue(availability)
+
+    await expect(service.authStart()).rejects.toMatchObject({ code })
+    expect(transport.createTab).not.toHaveBeenCalled()
+    expect(await service.status()).toEqual({ available: false, reason: code })
+    expect((await service.session()).authRecovery).toBe(
+      availability === "routing-pending" ? "callback_routing_pending" : undefined,
+    )
+  },
+)
+
+it("treats a brief cleanup as ordinary busy without routing recovery", async () => {
+  const transport = createAuthTransport(),
+    service = createByosService(
+      memoryVault(),
+      transport,
+      "extension",
+      callbackUrl,
+      vi.fn<typeof fetch>(),
+    ),
+    gate = deferred()
+  await service.initialize()
+  mocks.alarms.clear.mockReturnValueOnce(gate.promise.then(() => true))
+  const brief = transport.cleanup()
+  await flush()
+
+  await expect(service.authStart()).rejects.toMatchObject({ code: "auth_in_progress" })
+  expect((await service.session()).authRecovery).toBeUndefined()
+  expect(await service.status()).toEqual({ available: false, reason: "auth_in_progress" })
+  expect(mocks.create).not.toHaveBeenCalled()
+
+  gate.resolve()
+  await brief
+  await service.authStart()
+  expect(mocks.create).toHaveBeenCalledOnce()
 })

@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { createStore, Provider } from "jotai"
+import { createRef } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Dialog } from "@/components/ui/base-ui/dialog"
 import { configAtom } from "@/utils/atoms/config"
 import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { DEFAULT_PROVIDER_CONFIG } from "@/utils/constants/providers"
 import { ApiProvidersPage } from ".."
+import { ByosSettings, type ByosSettingsHandle } from "../../byos"
 import AddProviderDialog from "../providers-config/add-provider-dialog"
 
 const mocks = vi.hoisted(() => ({
@@ -542,7 +544,158 @@ it("removes restart recovery when a later session refresh confirms a connected a
   expect(mocks.reload).not.toHaveBeenCalled()
 })
 
-it.each(["callback_permission_missing", "synthetic sign-in failure"])(
+const routingNotice = "If sign-in fails, restart the extension and try again."
+const routingRecovery = {
+  state: "disconnected",
+  authPending: false,
+  authRecovery: "callback_routing_pending",
+}
+function mockSession(session: unknown) {
+  mocks.send.mockImplementation(async (type) =>
+    type === "lingotoriByosSession" ? session : undefined,
+  )
+}
+
+it("restores routing copy and the explicit Restart action after an actual unmount and remount", async () => {
+  const store = renderSettings()
+  const saved = store.get(configAtom)
+  await waitForSignedOut()
+  await failRouting()
+  cleanup()
+
+  mockSession(routingRecovery)
+  render(
+    <Provider store={store}>
+      <ApiProvidersPage />
+    </Provider>,
+  )
+  const restart = await screen.findByRole("button", { name: "Restart extension" })
+  expect(restart).toBeEnabled()
+  expect(screen.getByText(routingNotice)).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Sign in with ChatGPT" })).not.toBeInTheDocument()
+  expect(mocks.reload).not.toHaveBeenCalled()
+  expect(mocks.permission).toHaveBeenCalledOnce()
+  expectAuthCount(1)
+  fireEvent.click(restart)
+  expect(mocks.reload).toHaveBeenCalledOnce()
+  expect(store.get(configAtom)).toBe(saved)
+})
+
+it("treats the stable routing-pending sign-in error as restart recovery", async () => {
+  renderSettings()
+  await waitForSignedOut()
+  mocks.send.mockImplementation(async (type) => {
+    if (type === "lingotoriByosAuth") throw new Error("BYOS: callback_routing_pending")
+    return undefined
+  })
+  fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
+  expect(await screen.findByRole("button", { name: "Restart extension" })).toBeEnabled()
+  expect(screen.getByText(routingNotice)).toBeInTheDocument()
+  expect(mocks.reload).not.toHaveBeenCalled()
+})
+
+it.each(["restored after a remount", "observed on this page"] as const)(
+  "does not let imperative ChatGPT selection bypass routing recovery %s",
+  async (origin) => {
+    const ref = createRef<ByosSettingsHandle>()
+    mockSession(origin === "observed on this page" ? { state: "disconnected" } : routingRecovery)
+    render(
+      <Provider store={createStore()}>
+        <ByosSettings ref={ref} />
+      </Provider>,
+    )
+    if (origin === "observed on this page") {
+      await waitForSignedOut()
+      await failRouting()
+    } else await screen.findByRole("button", { name: "Restart extension" })
+    const requested = origin === "observed on this page" ? 1 : 0
+
+    act(() => ref.current!.selectChatGPT())
+    await act(async () => {})
+    expect(mocks.permission).toHaveBeenCalledTimes(requested)
+    expectAuthCount(requested)
+    expect(screen.getByRole("button", { name: "Restart extension" })).toBeEnabled()
+    expect(mocks.reload).not.toHaveBeenCalled()
+  },
+)
+
+it("clears recovery when a later safe disconnected refresh arrives", async () => {
+  mockSession(routingRecovery)
+  renderSettings()
+  await screen.findByRole("button", { name: "Restart extension" })
+  await act(async () => {})
+  mockSession({ state: "disconnected", authPending: false })
+  fireEvent(window, new Event("focus"))
+
+  await waitForSignedOut()
+  expect(screen.queryByRole("button", { name: "Restart extension" })).not.toBeInTheDocument()
+  expect(screen.queryByText(routingNotice)).not.toBeInTheDocument()
+  expect(mocks.reload).not.toHaveBeenCalled()
+  expectAuthCount(0)
+})
+
+it("keeps an unrelated notice when a refresh carries no routing recovery", async () => {
+  mocks.permission.mockResolvedValueOnce(false)
+  renderSettings()
+  await waitForSignedOut()
+  fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
+  await screen.findByText("Sign-in permission was not granted.")
+  fireEvent(window, new Event("focus"))
+
+  await waitFor(() =>
+    expect(mocks.send.mock.calls.filter(([type]) => type === "lingotoriByosSession")).toHaveLength(
+      2,
+    ),
+  )
+  expect(screen.getByText("Sign-in permission was not granted.")).toBeInTheDocument()
+})
+
+it("keeps the explicit restart when a stale safe refresh settles after it", async () => {
+  mockSession(routingRecovery)
+  renderSettings()
+  const restart = await screen.findByRole("button", { name: "Restart extension" })
+  await act(async () => {})
+  let release!: (value: unknown) => void
+  mocks.send.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  fireEvent(window, new Event("focus"))
+  fireEvent.click(restart)
+  await act(async () => release({ state: "disconnected", authPending: false }))
+
+  expect(restart).toBeDisabled()
+  expect(screen.getByText(routingNotice)).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Sign in with ChatGPT" })).not.toBeInTheDocument()
+  expect(mocks.reload).toHaveBeenCalledOnce()
+})
+
+it.each([
+  ["callback_permission_required", "Allow callback access to start sign-in.", true],
+  [
+    "browser_only_signin_unavailable",
+    "ChatGPT sign-in is available in Firefox and Chromium browsers.",
+    false,
+  ],
+] as const)(
+  "shows %s as its own guidance and never offers Restart",
+  async (code, guidance, callback) => {
+    renderSettings()
+    await waitForSignedOut()
+    mocks.send.mockImplementation(async (type) => {
+      if (type === "lingotoriByosAuth") throw new Error(`BYOS: ${code}`)
+      return undefined
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Sign in with ChatGPT" }))
+    await screen.findByText(guidance)
+    expect(!!screen.queryByText("Allow callback access to start sign-in.")).toBe(callback)
+    expect(screen.queryByRole("button", { name: "Restart extension" })).not.toBeInTheDocument()
+  },
+)
+
+it.each(["callback_permission_missing", "auth_in_progress", "synthetic sign-in failure"])(
   "does not offer extension restart for unrelated failure %s",
   async (code) => {
     renderSettings()
